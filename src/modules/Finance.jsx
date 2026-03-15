@@ -3,12 +3,14 @@ import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus }
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
 import { Card, Badge, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 export default function Finance({ payments, setPayments, patients }) {
   const [showAdd,  setShowAdd]  = useState(false);
   const [filterPt, setFilterPt] = useState("");
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+  const isMobile = useIsMobile();
 
   const filtered = useMemo(() =>
     payments.filter(p => !filterPt || p.patientId === filterPt).sort((a,b) => b.date.localeCompare(a.date)),
@@ -66,25 +68,50 @@ export default function Finance({ payments, setPayments, patients }) {
       </div>
 
       <Card>
-        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${T.bdrL}`, display:"grid", gridTemplateColumns:"1fr 110px 100px 140px 110px 90px", gap:12 }}>
-          {["Paciente","Fecha","Monto","Concepto","Método","Estado"].map(h => (
-            <span key={h} style={{ fontSize:11, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</span>
-          ))}
-        </div>
-        {filtered.length === 0 ? <EmptyState icon={DollarSign} title="Sin registros" desc="Registra el primer pago con el botón de arriba" />
-          : filtered.map(p => (
-            <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 110px 100px 140px 110px 90px", gap:12, padding:"14px 20px", borderBottom:`1px solid ${T.bdrL}`, alignItems:"center" }}>
-              <span style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{p.patientName.split(" ").slice(0,2).join(" ")}</span>
-              <span style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(p.date)}</span>
-              <span style={{ fontFamily:T.fH, fontSize:16, color:T.t, fontWeight:500 }}>{fmtCur(p.amount)}</span>
-              <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.concept}</span>
-              <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.method}</span>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
-                <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}><Trash2 size={13}/></button>
+        {isMobile ? (
+          filtered.length === 0
+            ? <EmptyState icon={DollarSign} title="Sin registros" desc="Registra el primer pago con el botón de arriba" />
+            : filtered.map(p => (
+              <div key={p.id} style={{ padding:"16px 18px", borderBottom:`1px solid ${T.bdrL}` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                  <div>
+                    <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t }}>{p.patientName.split(" ").slice(0,2).join(" ")}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>{fmtDate(p.date)} · {p.concept}</div>
+                  </div>
+                  <div style={{ fontFamily:T.fH, fontSize:20, fontWeight:500, color:T.t, flexShrink:0, marginLeft:8 }}>{fmtCur(p.amount)}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{p.method}</span>
+                  <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
+                  <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", marginLeft:"auto" }}><Trash2 size={13}/></button>
+                </div>
               </div>
+            ))
+        ) : (
+          <>
+            <div style={{ padding:"14px 20px", borderBottom:`1px solid ${T.bdrL}`, display:"grid", gridTemplateColumns:"1fr 110px 100px 140px 110px 90px", gap:12 }}>
+              {["Paciente","Fecha","Monto","Concepto","Método","Estado"].map(h => (
+                <span key={h} style={{ fontSize:11, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</span>
+              ))}
             </div>
-          ))}
+            {filtered.length === 0
+              ? <EmptyState icon={DollarSign} title="Sin registros" desc="Registra el primer pago con el botón de arriba" />
+              : filtered.map(p => (
+                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 110px 100px 140px 110px 90px", gap:12, padding:"14px 20px", borderBottom:`1px solid ${T.bdrL}`, alignItems:"center" }}>
+                  <span style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{p.patientName.split(" ").slice(0,2).join(" ")}</span>
+                  <span style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(p.date)}</span>
+                  <span style={{ fontFamily:T.fH, fontSize:16, color:T.t, fontWeight:500 }}>{fmtCur(p.amount)}</span>
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.concept}</span>
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.method}</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
+                    <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}><Trash2 size={13}/></button>
+                  </div>
+                </div>
+              ))
+            }
+          </>
+        )}
       </Card>
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Registrar pago">

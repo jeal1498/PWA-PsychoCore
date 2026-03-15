@@ -3,6 +3,7 @@ import { Users, Search, Trash2, Phone, Mail, ChevronLeft, Tag, Check, Plus } fro
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 export default function Patients({ patients, setPatients, sessions, payments }) {
   const [search,   setSearch]   = useState("");
@@ -10,6 +11,7 @@ export default function Patients({ patients, setPatients, sessions, payments }) 
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", reason:"", notes:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+  const isMobile = useIsMobile();
 
   const filtered = useMemo(() =>
     patients.filter(p =>
@@ -35,7 +37,7 @@ export default function Patients({ patients, setPatients, sessions, payments }) 
         <button onClick={() => setSelected(null)} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:"none", color:T.p, fontFamily:T.fB, fontSize:13, cursor:"pointer", marginBottom:20, padding:0 }}>
           <ChevronLeft size={16} /> Volver a pacientes
         </button>
-        <div style={{ display:"grid", gridTemplateColumns:"minmax(0,300px) 1fr", gap:20, alignItems:"start" }}>
+        <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,300px) 1fr", gap:20, alignItems:"start" }}>
           <Card style={{ padding:24 }}>
             <div style={{ width:64, height:64, borderRadius:"50%", background:T.pA, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16 }}>
               <span style={{ fontFamily:T.fH, fontSize:26, color:T.p }}>{selected.name[0]}</span>

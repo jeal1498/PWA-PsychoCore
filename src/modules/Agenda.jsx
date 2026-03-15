@@ -3,6 +3,7 @@ import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus } from "lucide
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, PageHeader } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 export default function Agenda({ appointments, setAppointments, patients }) {
   const [current,     setCurrent]     = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
@@ -10,6 +11,7 @@ export default function Agenda({ appointments, setAppointments, patients }) {
   const [selectedDay, setSelectedDay] = useState(null);
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), time:"09:00", type:"Seguimiento", status:"pendiente" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+  const isMobile = useIsMobile();
 
   const year = current.getFullYear(), month = current.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
@@ -51,7 +53,7 @@ export default function Agenda({ appointments, setAppointments, patients }) {
       <PageHeader title="Agenda" subtitle="Gestión de citas y disponibilidad"
         action={<Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Nueva cita</Btn>} />
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr minmax(0,320px)", gap:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr minmax(0,320px)", gap:20 }}>
         <Card style={{ padding:24 }}>
           {/* Month nav */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
