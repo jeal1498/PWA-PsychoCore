@@ -3,7 +3,7 @@ import {
   Users, Calendar, FileText, DollarSign, BookOpen, Home, Plus, X,
   ChevronLeft, ChevronRight, Search, Trash2, Clock, Phone, Mail,
   Lock, TrendingUp, Tag, Brain, Heart, AlertCircle, CheckCircle,
-  Check, Smile, Meh, Frown, Star, Shield, Printer, Edit2
+  Check, Smile, Meh, Frown, Star, Shield, Printer, Edit2, Menu
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -401,55 +401,116 @@ const NAV_ITEMS = [
   { id: "resources",  icon: BookOpen,  label: "Recursos"  },
 ];
 
-function Sidebar({ active, setActive, onLock }) {
+// Hook: detect mobile breakpoint reactively
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return mobile;
+}
+
+function Sidebar({ active, setActive, onLock, open, onClose }) {
+  const isMobile = useIsMobile();
+
+  // Close sidebar when pressing Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape" && open) onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
+  const handleNav = (id) => {
+    setActive(id);
+    if (isMobile) onClose();
+  };
+
+  const sidebarStyle = isMobile
+    ? {
+        position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200,
+        width: 260, background: T.t,
+        display: "flex", flexDirection: "column",
+        transform: open ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform .28s cubic-bezier(.4,0,.2,1)",
+        boxShadow: open ? "4px 0 32px rgba(0,0,0,0.25)" : "none",
+      }
+    : {
+        width: 220, background: T.t,
+        display: "flex", flexDirection: "column", flexShrink: 0,
+        minHeight: "100vh", position: "sticky", top: 0,
+      };
+
   return (
-    <aside style={{ width: 220, background: T.t, display: "flex", flexDirection: "column", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0 }}>
-      {/* Logo */}
-      <div style={{ padding: "28px 20px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: T.p, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Brain size={18} color="#fff" strokeWidth={1.5} />
-          </div>
-          <div>
-            <div style={{ fontFamily: T.fH, fontSize: 18, fontWeight: 600, color: "#fff", letterSpacing: "0.01em" }}>PsychoCore</div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: T.fB, letterSpacing: "0.08em" }}>GESTIÓN CLÍNICA</div>
-          </div>
-        </div>
-      </div>
+    <>
+      {/* Backdrop — only on mobile when open */}
+      {isMobile && (
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 199,
+            background: "rgba(0,0,0,0.45)",
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? "auto" : "none",
+            transition: "opacity .28s ease",
+          }}
+        />
+      )}
 
-      {/* Nav items */}
-      <nav style={{ flex: 1, padding: "0 12px" }}>
-        {NAV_ITEMS.map(({ id, icon: Icon, label }) => {
-          const isActive = active === id;
-          return (
-            <button
-              key={id}
-              onClick={() => setActive(id)}
-              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 13.5, fontWeight: isActive ? 600 : 400, marginBottom: 2, transition: "all .15s", background: isActive ? T.p : "transparent", color: isActive ? "#fff" : "rgba(255,255,255,0.50)" }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#fff"; }}
-              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.50)"; } }}
-            >
-              <Icon size={16} strokeWidth={1.8} />
-              {label}
+      <aside style={sidebarStyle}>
+        {/* Logo + mobile close button */}
+        <div style={{ padding: "28px 20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: T.p, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Brain size={18} color="#fff" strokeWidth={1.5} />
+            </div>
+            <div>
+              <div style={{ fontFamily: T.fH, fontSize: 18, fontWeight: 600, color: "#fff", letterSpacing: "0.01em" }}>PsychoCore</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: T.fB, letterSpacing: "0.08em" }}>GESTIÓN CLÍNICA</div>
+            </div>
+          </div>
+          {isMobile && (
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.7)", flexShrink: 0 }}>
+              <X size={16} />
             </button>
-          );
-        })}
-      </nav>
+          )}
+        </div>
 
-      {/* Lock */}
-      <div style={{ padding: "16px 12px 28px" }}>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 12 }} />
-        <button
-          onClick={onLock}
-          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 13, background: "transparent", color: "rgba(255,255,255,0.35)", transition: "all .15s" }}
-          onMouseEnter={e => { e.currentTarget.style.color = "rgba(255,255,255,0.75)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}
-        >
-          <Lock size={15} strokeWidth={1.8} />
-          Bloquear pantalla
-        </button>
-      </div>
-    </aside>
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: "0 12px" }}>
+          {NAV_ITEMS.map(({ id, icon: Icon, label }) => {
+            const isActive = active === id;
+            return (
+              <button
+                key={id}
+                onClick={() => handleNav(id)}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 14, fontWeight: isActive ? 600 : 400, marginBottom: 2, transition: "all .15s", background: isActive ? T.p : "transparent", color: isActive ? "#fff" : "rgba(255,255,255,0.50)" }}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#fff"; } }}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.50)"; } }}
+              >
+                <Icon size={17} strokeWidth={1.8} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Lock */}
+        <div style={{ padding: "16px 12px 28px" }}>
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 12 }} />
+          <button
+            onClick={onLock}
+            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 13, background: "transparent", color: "rgba(255,255,255,0.35)", transition: "all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "rgba(255,255,255,0.75)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}
+          >
+            <Lock size={15} strokeWidth={1.8} />
+            Bloquear pantalla
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -479,7 +540,7 @@ function Dashboard({ patients, appointments, sessions, payments }) {
       />
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
         {stats.map(s => (
           <Card key={s.label} style={{ padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -495,7 +556,7 @@ function Dashboard({ patients, appointments, sessions, payments }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
         {/* Today appointments */}
         <Card style={{ padding: 24 }}>
           <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.t, margin: "0 0 16px" }}>Citas de hoy</h3>
@@ -1083,7 +1144,7 @@ function Finance({ payments, setPayments, patients }) {
         action={<Btn onClick={() => setShowAdd(true)}><Plus size={15} /> Registrar pago</Btn>}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16, marginBottom: 28 }}>
         {stats.map(s => (
           <Card key={s.label} style={{ padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1268,6 +1329,8 @@ const MODULES = { dashboard: Dashboard, patients: Patients, agenda: Agenda, sess
 export default function App() {
   const [locked, setLocked] = useState(true);
   const [activeModule, setActiveModule] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Persistent state
   const [patients,     setPatients]     = useLocalStorage("pc_patients",     SAMPLE_PATIENTS);
@@ -1282,16 +1345,56 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: T.bg, fontFamily: T.fB }}>
-      <Sidebar active={activeModule} setActive={setActiveModule} onLock={() => setLocked(true)} />
-      <main style={{ flex: 1, padding: "36px 40px", overflowY: "auto", minWidth: 0 }}>
-        <ActiveModule
-          patients={patients}         setPatients={setPatients}
-          appointments={appointments} setAppointments={setAppointments}
-          sessions={sessions}         setSessions={setSessions}
-          payments={payments}         setPayments={setPayments}
-          resources={resources}       setResources={setResources}
+      {/* Desktop: sidebar in flow. Mobile: sidebar is fixed overlay, not in flow */}
+      {!isMobile && (
+        <Sidebar
+          active={activeModule} setActive={setActiveModule}
+          onLock={() => setLocked(true)}
+          open={true} onClose={() => {}}
         />
-      </main>
+      )}
+      {isMobile && (
+        <Sidebar
+          active={activeModule} setActive={setActiveModule}
+          onLock={() => setLocked(true)}
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main content — always full width on mobile */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+        {/* Mobile top bar */}
+        {isMobile && (
+          <div style={{ background: T.t, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0, position: "sticky", top: 0, zIndex: 100 }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 9, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", flexShrink: 0 }}
+            >
+              <Menu size={20} />
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: T.p, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Brain size={14} color="#fff" strokeWidth={1.5} />
+              </div>
+              <span style={{ fontFamily: T.fH, fontSize: 17, fontWeight: 600, color: "#fff" }}>PsychoCore</span>
+            </div>
+          </div>
+        )}
+
+        <main style={{
+          flex: 1,
+          padding: isMobile ? "20px 18px 32px" : "36px 40px",
+          overflowY: "auto",
+        }}>
+          <ActiveModule
+            patients={patients}         setPatients={setPatients}
+            appointments={appointments} setAppointments={setAppointments}
+            sessions={sessions}         setSessions={setSessions}
+            payments={payments}         setPayments={setPayments}
+            resources={resources}       setResources={setResources}
+          />
+        </main>
+      </div>
     </div>
   );
 }
