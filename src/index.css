@@ -1,0 +1,75 @@
+/* ── RESET & BASE ─────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #F4F2EE;
+  color: #1A2B28;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ── SCROLLBAR ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D8E2E0;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9BAFAD;
+}
+
+/* ── INPUT FOCUS STYLES ───────────────────────────────────────────────────── */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3A6B6E !important;
+  box-shadow: 0 0 0 3px rgba(58, 107, 110, 0.12);
+}
+
+/* ── SELECTION ────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(58, 107, 110, 0.2);
+  color: #1A2B28;
+}
+
+/* ── PRINT STYLES ─────────────────────────────────────────────────────────── */
+@media print {
+  body {
+    background: #fff;
+  }
+}
+
+/* ── PWA SAFE AREAS (iOS) ─────────────────────────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
