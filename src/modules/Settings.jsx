@@ -339,25 +339,172 @@ function SecurityTab() {
   );
 }
 
+
+// ── Tab: Apariencia ───────────────────────────────────────────────────────────
+function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
+  const [csvMsg, setCsvMsg] = useState(null);
+
+  const flashCsv = (text, ok = true) => {
+    setCsvMsg({ text, ok });
+    setTimeout(() => setCsvMsg(null), 4000);
+  };
+
+  // Toggle row
+  const Toggle = ({ label, sub, value, onChange }) => (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 0", borderBottom:`1px solid ${T.bdrL}` }}>
+      <div>
+        <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:500, color:T.t }}>{label}</div>
+        {sub && <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>{sub}</div>}
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        style={{ width:44, height:24, borderRadius:99, border:"none", cursor:"pointer", padding:2,
+          background: value ? T.p : T.bdrL, transition:"background .2s", position:"relative", flexShrink:0 }}>
+        <div style={{ width:20, height:20, borderRadius:"50%", background:"#fff", position:"absolute",
+          top:2, left: value ? 22 : 2, transition:"left .2s", boxShadow:"0 1px 4px rgba(0,0,0,0.2)" }}/>
+      </button>
+    </div>
+  );
+
+  // CSV import handler
+  const handleCSV = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) { flashCsv("El archivo no tiene datos", false); return; }
+
+        const header = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-záéíóúñ_]/gi, ""));
+        const nameIdx  = header.findIndex(h => h.includes("nombre") || h === "name");
+        const emailIdx = header.findIndex(h => h.includes("email") || h.includes("correo"));
+        const phoneIdx = header.findIndex(h => h.includes("tel") || h.includes("phone") || h.includes("celular"));
+        const bdIdx    = header.findIndex(h => h.includes("nacimiento") || h.includes("birthday") || h.includes("birth"));
+        const dxIdx    = header.findIndex(h => h.includes("diagn"));
+        const noteIdx  = header.findIndex(h => h.includes("nota") || h.includes("note") || h.includes("obs"));
+
+        if (nameIdx === -1) { flashCsv("No se encontró columna 'nombre' en el CSV", false); return; }
+
+        const parseRow = (line) => {
+          const cols = [];
+          let cur = "", inQ = false;
+          for (const ch of line) {
+            if (ch === '"') { inQ = !inQ; }
+            else if (ch === "," && !inQ) { cols.push(cur.trim()); cur = ""; }
+            else cur += ch;
+          }
+          cols.push(cur.trim());
+          return cols;
+        };
+
+        const today = new Date().toISOString().split("T")[0];
+        const newPats = lines.slice(1).filter(l => l.trim()).map(line => {
+          const cols = parseRow(line);
+          const get = i => (i >= 0 ? (cols[i] || "").replace(/^"|"$/g, "").trim() : "");
+          return {
+            id:          Math.random().toString(36).slice(2, 10),
+            name:        get(nameIdx),
+            email:       get(emailIdx),
+            phone:       get(phoneIdx),
+            birthdate:   get(bdIdx),
+            diagnosis:   get(dxIdx),
+            notes:       get(noteIdx),
+            status:      "activo",
+            type:        "individual",
+            createdAt:   today,
+            sessions:    [],
+          };
+        }).filter(p => p.name);
+
+        if (newPats.length === 0) { flashCsv("No se encontraron pacientes válidos", false); return; }
+        setPatients(prev => [...prev, ...newPats]);
+        flashCsv(`${newPats.length} paciente${newPats.length !== 1 ? "s" : ""} importado${newPats.length !== 1 ? "s" : ""} correctamente`);
+      } catch (err) {
+        flashCsv("Error al leer el archivo CSV", false);
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      {/* Dark mode */}
+      <Card style={{ padding:"4px 24px 4px", marginBottom:20 }}>
+        <Toggle
+          label="Modo oscuro"
+          sub="Reduce la fatiga visual en entornos con poca luz"
+          value={darkMode}
+          onChange={setDarkMode}
+        />
+      </Card>
+
+      {/* CSV import */}
+      <Card style={{ padding:24 }}>
+        <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 8px" }}>Importar pacientes desde CSV</h3>
+        <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:20, lineHeight:1.65 }}>
+          Migra pacientes desde otra herramienta. El archivo debe tener una fila de encabezados. Columnas reconocidas automáticamente: <strong>nombre</strong>, email, teléfono, fechanacimiento, diagnóstico, notas.
+        </p>
+
+        {/* Example table */}
+        <div style={{ background:T.cardAlt, borderRadius:10, padding:14, marginBottom:20, overflowX:"auto" }}>
+          <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Ejemplo de CSV</div>
+          <table style={{ borderCollapse:"collapse", fontFamily:T.fB, fontSize:12, width:"100%" }}>
+            <thead>
+              <tr>{["nombre","email","telefono","fechanacimiento","diagnostico"].map(h => (
+                <td key={h} style={{ padding:"4px 10px", background:T.p, color:"#fff", fontWeight:600, borderRadius:0 }}>{h}</td>
+              ))}</tr>
+            </thead>
+            <tbody>
+              <tr>{["Ana López","ana@mail.com","998-000-0001","1990-05-12","TAG"].map((v,i) => (
+                <td key={i} style={{ padding:"4px 10px", color:T.tm, borderBottom:`1px solid ${T.bdrL}` }}>{v}</td>
+              ))}</tr>
+            </tbody>
+          </table>
+        </div>
+
+        {csvMsg && (
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", borderRadius:10,
+            background: csvMsg.ok ? T.sucA : T.errA, marginBottom:16,
+            fontFamily:T.fB, fontSize:13, color: csvMsg.ok ? T.suc : T.err }}>
+            {csvMsg.ok ? "✓" : "✕"} {csvMsg.text}
+          </div>
+        )}
+
+        <Btn onClick={handleCSV}>Seleccionar archivo CSV</Btn>
+        <p style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:10 }}>
+          Los pacientes importados se agregan sin reemplazar los existentes. Puedes editar cada uno después de la importación.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Settings component ───────────────────────────────────────────────────
-export default function Settings({ profile, setProfile, allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore }) {
+export default function Settings({ profile, setProfile, allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore, darkMode, setDarkMode, patients, setPatients }) {
   const [tab, setTab] = useState("profile");
 
   const tabs = [
-    { id: "profile",  label: "Perfil"     },
-    { id: "backups",  label: "Backups"    },
-    { id: "security", label: "Seguridad"  },
+    { id: "profile",    label: "Perfil"      },
+    { id: "appearance", label: "Apariencia"  },
+    { id: "backups",    label: "Backups"     },
+    { id: "security",   label: "Seguridad"   },
   ];
 
   return (
     <div>
-      <PageHeader title="Ajustes" subtitle="Perfil, backups y seguridad de la app" />
+      <PageHeader title="Ajustes" subtitle="Perfil, apariencia, backups y seguridad" />
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {tab === "profile"  && <ProfileTab  profile={profile} setProfile={setProfile} />}
-      {tab === "backups"  && <BackupsTab  allData={allData} lastBackup={lastBackup} doBackup={doBackup} fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS} onRestore={onRestore} />}
-      {tab === "security" && <SecurityTab />}
+      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} />}
+      {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
+      {tab === "backups"    && <BackupsTab    allData={allData} lastBackup={lastBackup} doBackup={doBackup} fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS} onRestore={onRestore} />}
+      {tab === "security"   && <SecurityTab />}
     </div>
   );
 }
+

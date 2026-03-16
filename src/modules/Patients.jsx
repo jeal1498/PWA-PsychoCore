@@ -17,7 +17,92 @@ const STATUS_CONFIG = {
   alta:   { label:"Alta",     color:T.tl,  bg:T.bdrL },
 };
 
-// ── CIE-11 CODES (diagnósticos más frecuentes en psicología clínica privada) ──
+// ── PATIENT TYPE ──────────────────────────────────────────────────────────────
+const TYPE_CONFIG = {
+  individual: { label:"Individual",      color:T.p,   bg:T.pA   },
+  pareja:     { label:"Pareja",          color:"#6B5B9E", bg:"rgba(107,91,158,0.10)" },
+  grupo:      { label:"Grupal",          color:T.acc, bg:T.accA },
+};
+
+// ── MOOD TIMELINE ─────────────────────────────────────────────────────────────
+function MoodTimeline({ sessions }) {
+  const sorted = [...sessions]
+    .filter(s => s.mood && s.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-20); // last 20 sessions
+
+  if (sorted.length < 2) return (
+    <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"20px 0", textAlign:"center" }}>
+      Se necesitan al menos 2 sesiones para mostrar la línea de estado de ánimo
+    </div>
+  );
+
+  const moodVal = { bueno: 2, moderado: 1, bajo: 0 };
+  const moodLbl = { 2:"Bueno", 1:"Moderado", 0:"Bajo" };
+  const moodClr = { 2: "var(--success)", 1: "var(--warn)", 0: "var(--error)" };
+  const W = 480, H = 110, PAD = 28;
+  const xs = sorted.map((_, i) => PAD + (i / (sorted.length - 1)) * (W - PAD * 2));
+  const ys = sorted.map(s => {
+    const v = moodVal[s.mood] ?? 1;
+    return H - PAD - ((v / 2) * (H - PAD * 2));
+  });
+
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
+
+  // Gradient area path
+  const area = `${d} L${xs[xs.length-1]},${H-PAD} L${xs[0]},${H-PAD} Z`;
+
+  return (
+    <div>
+      <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>
+        Estado de ánimo — últimas {sorted.length} sesiones
+      </div>
+      <div style={{ overflowX:"auto" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", minWidth:260, height:H, display:"block" }}>
+          <defs>
+            <linearGradient id="moodGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.18"/>
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.01"/>
+            </linearGradient>
+          </defs>
+          {/* Grid lines */}
+          {[0,1,2].map(v => {
+            const y = H - PAD - ((v/2) * (H - PAD*2));
+            return (
+              <g key={v}>
+                <line x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="var(--border-l)" strokeWidth={1}/>
+                <text x={PAD-6} y={y+4} textAnchor="end" style={{ fontFamily:"DM Sans, sans-serif", fontSize:9, fill:"var(--text-light)" }}>{moodLbl[v]}</text>
+              </g>
+            );
+          })}
+          {/* Shaded area */}
+          <path d={area} fill="url(#moodGrad)"/>
+          {/* Line */}
+          <path d={d} fill="none" stroke="var(--primary)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Dots */}
+          {sorted.map((s, i) => (
+            <g key={i}>
+              <circle cx={xs[i]} cy={ys[i]} r={5} fill={moodClr[moodVal[s.mood] ?? 1]} stroke="var(--card)" strokeWidth={2}/>
+              <text x={xs[i]} y={H-4} textAnchor="middle" style={{ fontFamily:"DM Sans, sans-serif", fontSize:8.5, fill:"var(--text-light)" }}>
+                {s.date.slice(5).replace("-","/")}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+      {/* Legend */}
+      <div style={{ display:"flex", gap:16, marginTop:8, flexWrap:"wrap" }}>
+        {Object.entries(moodClr).reverse().map(([v, c]) => (
+          <div key={v} style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:9, height:9, borderRadius:"50%", background:c }}/>
+            <span style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>{moodLbl[Number(v)]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const CIE11_CODES = [
   // Neurodesarrollo
   { code: "6A00", label: "TDAH, presentación combinada" },
@@ -552,7 +637,7 @@ export default function Patients({ patients, setPatients, sessions, payments, se
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);
   const [newDx,        setNewDx]        = useState({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
-  const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+  const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
@@ -591,7 +676,7 @@ export default function Patients({ patients, setPatients, sessions, payments, se
   const save = () => {
     if (!form.name.trim()) return;
     setPatients(prev => [...prev, { ...form, id:"p"+uid(), createdAt:fmt(todayDate) }]);
-    setForm({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setForm({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
     setShowAdd(false);
   };
 
@@ -828,6 +913,11 @@ export default function Patients({ patients, setPatients, sessions, payments, se
                   : <ProgressSparkline sessions={ptSessions}/>
                 }
 
+                {/* Mood timeline */}
+                <div style={{ marginTop:24, paddingTop:20, borderTop:`1px solid ${T.bdrL}` }}>
+                  <MoodTimeline sessions={ptSessions}/>
+                </div>
+
                 {/* Session stats */}
                 {ptSessions.length > 0 && (
                   <div style={{ marginTop:20, display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px,1fr))", gap:10 }}>
@@ -997,12 +1087,34 @@ export default function Patients({ patients, setPatients, sessions, payments, se
       }
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nuevo paciente">
-        <Input label="Nombre completo *" value={form.name} onChange={fld("name")} placeholder="Ej. María González López"/>
+        {/* Tipo de expediente */}
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Tipo de expediente</div>
+          <div style={{ display:"flex", gap:8 }}>
+            {Object.entries(TYPE_CONFIG).map(([k, v]) => (
+              <button key={k} onClick={() => fld("type")(k)}
+                style={{ flex:1, padding:"9px 4px", borderRadius:10, border:`1.5px solid ${form.type===k ? v.color : T.bdrL}`,
+                  background: form.type===k ? v.bg : "transparent",
+                  color: form.type===k ? v.color : T.tm,
+                  fontFamily:T.fB, fontSize:12.5, fontWeight:form.type===k?700:400, cursor:"pointer", transition:"all .15s" }}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. García-López (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad — Cohorte 1":"Ej. María González López"}/>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Edad" value={form.age} onChange={fld("age")} type="number"/>
           <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-123-4567"/>
         </div>
         <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
+        {(form.type === "pareja" || form.type === "grupo") && (
+          <Textarea
+            label={form.type === "pareja" ? "Nombre de los participantes (pareja)" : "Integrantes del grupo"}
+            value={form.coParticipants} onChange={fld("coParticipants")} rows={2}
+            placeholder={form.type === "pareja" ? "Ej. Carlos Méndez y Ana Ríos" : "Ej. Carlos M., Ana R., Luis P. (4 integrantes)"}
+          />
+        )}
         <CieDiagnosisField
           value={form.diagnosis}
           cie11Code={form.cie11Code}
