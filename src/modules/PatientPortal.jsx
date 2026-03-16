@@ -282,7 +282,7 @@ function LoginScreen({ onLogin }) {
   const handleAccess = async () => {
     const clean = input.replace(/\D/g, "");
     if (clean.length < 10) { setError("Ingresa un número válido (10 dígitos mínimo)"); return; }
-    const normalized = clean.length === 10 ? `52${clean}` : clean;
+    const normalized = clean;
     setLoading(true); setError("");
     try {
       const data = await getAssignmentsByPhone(normalized);
