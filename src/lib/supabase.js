@@ -1,14 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/lib/supabase.js
-// Cliente Supabase + todas las funciones de tareas
+// Cliente Supabase + Auth + funciones de tareas
 // ─────────────────────────────────────────────────────────────────────────────
+import { createClient } from "@supabase/supabase-js";
 
-// ⚠️  REEMPLAZA estos valores con los tuyos:
-// Supabase Dashboard → Settings → API
 const SUPABASE_URL  = "https://zzujedxzgntvbqrieflu.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dWplZHh6Z250dmJxcmllZmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDQxMDIsImV4cCI6MjA4OTIyMDEwMn0.44IoYvJpk0SUmip1jgrGwyDrAHaT1PXbKrsi1voO9cY";
 
-// ── Fetch helper ─────────────────────────────────────────────────────────────
+// ── Cliente oficial (usado para Auth) ─────────────────────────────────────────
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+export const signInWithGoogle = () =>
+  supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
+  });
+
+export const signOut = () => supabase.auth.signOut();
+
+// ── Fetch helper (para REST directo — tareas) ─────────────────────────────────
 const sb = (path, opts = {}) =>
   fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     headers: {
@@ -23,7 +34,6 @@ const sb = (path, opts = {}) =>
 
 // ── TASK ASSIGNMENTS ─────────────────────────────────────────────────────────
 
-/** Crea una asignación de tarea para un paciente */
 export async function createAssignment({ patientId, patientName, patientPhone, templateId, title, notes }) {
   const res = await sb("/task_assignments", {
     method: "POST",
@@ -34,21 +44,18 @@ export async function createAssignment({ patientId, patientName, patientPhone, t
   return data[0];
 }
 
-/** Trae todas las tareas de un paciente (por patient_id) */
 export async function getAssignmentsByPatient(patientId) {
   const res = await sb(`/task_assignments?patient_id=eq.${encodeURIComponent(patientId)}&order=assigned_at.desc`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-/** Trae todas las tareas activas de un número de teléfono (portal del paciente) */
 export async function getAssignmentsByPhone(phone) {
   const res = await sb(`/task_assignments?patient_phone=eq.${encodeURIComponent(phone)}&order=assigned_at.desc`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-/** Marca una asignación como completada */
 export async function completeAssignment(assignmentId) {
   const res = await sb(`/task_assignments?id=eq.${assignmentId}`, {
     method: "PATCH",
@@ -57,7 +64,6 @@ export async function completeAssignment(assignmentId) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-/** Elimina una asignación */
 export async function deleteAssignment(assignmentId) {
   const res = await sb(`/task_assignments?id=eq.${assignmentId}`, {
     method: "DELETE",
@@ -68,27 +74,23 @@ export async function deleteAssignment(assignmentId) {
 
 // ── TASK RESPONSES ────────────────────────────────────────────────────────────
 
-/** Guarda las respuestas del paciente */
 export async function submitResponse({ assignmentId, patientPhone, responses }) {
   const res = await sb("/task_responses", {
     method: "POST",
     body: JSON.stringify({ assignment_id: assignmentId, patient_phone: patientPhone, responses }),
   });
   if (!res.ok) throw new Error(await res.text());
-  // Marcar asignación como completada
   await completeAssignment(assignmentId);
   const data = await res.json();
   return data[0];
 }
 
-/** Trae todas las respuestas de una asignación */
 export async function getResponsesByAssignment(assignmentId) {
   const res = await sb(`/task_responses?assignment_id=eq.${assignmentId}&order=submitted_at.desc`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-/** Trae TODAS las respuestas de un paciente (todos sus assignmentIds) */
 export async function getAllResponsesByPhone(phone) {
   const res = await sb(`/task_responses?patient_phone=eq.${encodeURIComponent(phone)}&order=submitted_at.desc`);
   if (!res.ok) throw new Error(await res.text());
