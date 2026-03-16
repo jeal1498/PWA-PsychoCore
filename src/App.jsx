@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Menu, Brain } from "lucide-react";
 import { T } from "./theme.js";
 import { useIsMobile }         from "./hooks/useIsMobile.js";
@@ -36,8 +36,14 @@ export default function App() {
   const [activeModule,  setActiveModule]  = useState("dashboard");
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
+  const [darkMode,      setDarkMode]      = useState(() => localStorage.getItem("pc_dark") === "1");
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
+    localStorage.setItem("pc_dark", darkMode ? "1" : "0");
+  }, [darkMode]);
 
   const [patients,     setPatients,     pLoaded]  = useEncryptedStorage("pc_patients",     SAMPLE_PATIENTS);
   const [appointments, setAppointments, aLoaded]  = useEncryptedStorage("pc_appointments", SAMPLE_APPOINTMENTS);
@@ -135,7 +141,9 @@ export default function App() {
         <Settings profile={profile} setProfile={setProfile} allData={allData}
           lastBackup={lastBackup} doBackup={doBackup}
           fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS}
-          onRestore={onRestore}/>
+          onRestore={onRestore}
+          darkMode={darkMode} setDarkMode={setDarkMode}
+          setPatients={setPatients} patients={patients}/>
       );
       default: return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
     }
@@ -147,7 +155,7 @@ export default function App() {
       {isMobile  && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} riskAlert={riskAlert}/>}
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden" }}>
-        <div style={{ background:T.t, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, position:"sticky", top:0, zIndex:100 }}>
+        <div style={{ background:T.nav, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, position:"sticky", top:0, zIndex:100 }}>
           {isMobile && (
             <button onClick={() => setSidebarOpen(true)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:9, width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#fff", flexShrink:0 }}>
               <Menu size={20}/>
