@@ -61,7 +61,7 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
           )}
         </div>
 
-        <nav style={{ flex:1, padding:"0 12px" }}>
+        <nav style={{ flex:1, padding:"0 12px", overflowY:"auto", minHeight:0 }}>
           {NAV_ITEMS.map(({ id, icon:Icon, label, alert }) => {
             const isActive = active === id;
             const showDot  = alert && riskAlert;
@@ -82,7 +82,7 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
           })}
         </nav>
 
-        <div style={{ padding:"12px 12px 24px" }}>
+        <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
           <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:12 }}/>
           <button onClick={() => handleNav("settings")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:4 }}
