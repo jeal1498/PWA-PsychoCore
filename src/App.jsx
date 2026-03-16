@@ -45,24 +45,21 @@ export default function App() {
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
-    // Check existing session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await initCrypto(session.user.id);
-        setUser(session.user);
-      }
-      setAuthLoading(false);
-    });
-
-    // Listen for auth changes (login / logout / token refresh)
+    // onAuthStateChange handles EVERYTHING including OAuth redirects:
+    // INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await initCrypto(session.user.id);
         setUser(session.user);
+        // Limpiar params de error/token de la URL sin recargar
+        if (window.location.search || window.location.hash) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
       } else {
         clearCryptoKey();
         setUser(null);
       }
+      setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
