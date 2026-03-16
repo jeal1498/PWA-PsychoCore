@@ -8,6 +8,7 @@ import { useNotifications }    from "./hooks/useNotifications.js";
 import { clearCryptoKey }      from "./crypto/encryption.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
+import SelfLogPage     from "./modules/SelfLog.jsx";
 import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
@@ -23,6 +24,7 @@ import Stats           from "./modules/Stats.jsx";
 import RiskAssessment  from "./modules/RiskAssessment.jsx";
 import Scales          from "./modules/Scales.jsx";
 import TreatmentPlan   from "./modules/TreatmentPlan.jsx";
+import Reports         from "./modules/Reports.jsx";
 
 import {
   SAMPLE_PATIENTS, SAMPLE_APPOINTMENTS, SAMPLE_SESSIONS,
@@ -46,11 +48,13 @@ export default function App() {
   const [riskAssessments,  setRiskAssessments,  raLoaded]  = useEncryptedStorage("pc_risk_assessments",  []);
   const [scaleResults,     setScaleResults,     scLoaded]  = useEncryptedStorage("pc_scale_results",     []);
   const [treatmentPlans,   setTreatmentPlans,   tpLoaded]  = useEncryptedStorage("pc_treatment_plans",   []);
+  const [interSessions,    setInterSessions,    isLoaded]  = useEncryptedStorage("pc_inter_sessions",    []);
+  const [medications,      setMedications,      medLoaded] = useEncryptedStorage("pc_medications",       []);
 
-  const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && rLoaded && prLoaded && raLoaded && scLoaded && tpLoaded;
+  const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && rLoaded && prLoaded && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
 
-  const allData = useMemo(() => ({ patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans }),
-    [patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans]);
+  const allData = useMemo(() => ({ patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications }),
+    [patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
 
   const { lastBackup, doBackup, fsSupported, fsHandle, requestFS } = useAutoBackup(locked ? null : allData);
   const { notifications, dismiss, dismissAll } = useNotifications(locked ? [] : appointments);
@@ -65,6 +69,8 @@ export default function App() {
     if (data.riskAssessments)  setRiskAssessments(data.riskAssessments);
     if (data.scaleResults)     setScaleResults(data.scaleResults);
     if (data.treatmentPlans)   setTreatmentPlans(data.treatmentPlans);
+    if (data.interSessions)    setInterSessions(data.interSessions);
+    if (data.medications)      setMedications(data.medications);
   };
 
   const handleGlobalNav = (module, data) => {
@@ -90,6 +96,14 @@ export default function App() {
     if (mod !== "sessions") setSessionPrefill(null);
   };
 
+  // ── Self-log mode: render patient page without PIN ────────────────────────
+  const selfLogToken = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("selflog");
+  }, []);
+
+  if (selfLogToken) return <SelfLogPage token={selfLogToken}/>;
+
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
 
   if (!dataLoaded) return (
@@ -102,7 +116,7 @@ export default function App() {
     </div>
   );
 
-  const mp = { patients, setPatients, appointments, setAppointments, sessions, setSessions, payments, setPayments, resources, setResources, riskAssessments, setRiskAssessments, scaleResults, setScaleResults, treatmentPlans, setTreatmentPlans };
+  const mp = { patients, setPatients, appointments, setAppointments, sessions, setSessions, payments, setPayments, resources, setResources, riskAssessments, setRiskAssessments, scaleResults, setScaleResults, treatmentPlans, setTreatmentPlans, interSessions, setInterSessions, medications, setMedications };
 
   const renderModule = () => {
     switch (activeModule) {
@@ -110,12 +124,13 @@ export default function App() {
       case "patients":    return <Patients  {...mp} onQuickNav={patientsNavRef} profile={profile} resources={resources}/>;
       case "agenda":      return <Agenda    {...mp}/>;
       case "sessions":    return <Sessions  {...mp} profile={profile} prefill={sessionPrefill} key={JSON.stringify(sessionPrefill)}/>;
-      case "finance":     return <Finance   {...mp}/>;
+      case "finance":     return <Finance   {...mp} profile={profile}/>;
       case "resources":   return <Resources resources={resources} setResources={setResources} patients={patients}/>;
       case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
-      case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile}/>;
+      case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
+      case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
       case "settings":    return (
         <Settings profile={profile} setProfile={setProfile} allData={allData}
           lastBackup={lastBackup} doBackup={doBackup}
