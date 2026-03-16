@@ -632,7 +632,11 @@ function SelfLogTab({ patient, onUpdatePatient }) {
 export default function Patients({ patients, setPatients, sessions, payments, setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], resources = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
-  const [showAdd,      setShowAdd]      = useState(autoOpen === "add");
+  const [showAdd,      setShowAdd]      = useState(false);
+
+  useEffect(() => {
+    if (autoOpen === "add") setShowAdd(true);
+  }, [autoOpen]);
   const [selected,     setSelected]     = useState(null);
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);

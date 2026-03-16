@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Download, FileText } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
@@ -174,7 +174,11 @@ function exportCSV(payments, year, profile) {
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Finance({ payments, setPayments, patients, profile, autoOpen }) {
-  const [showAdd,  setShowAdd]  = useState(autoOpen === "add");
+  const [showAdd,  setShowAdd]  = useState(false);
+
+  useEffect(() => {
+    if (autoOpen === "add") setShowAdd(true);
+  }, [autoOpen]);
   const [filterPt, setFilterPt] = useState("");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });

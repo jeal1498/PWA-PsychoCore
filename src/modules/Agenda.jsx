@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
@@ -176,7 +176,11 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
-  const [showAdd,       setShowAdd]       = useState(autoOpen === "add");
+  const [showAdd,       setShowAdd]       = useState(false);
+
+  useEffect(() => {
+    if (autoOpen === "add") setShowAdd(true);
+  }, [autoOpen]);
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
