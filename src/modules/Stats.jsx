@@ -3,6 +3,7 @@ import { TrendingUp, Users, FileText, DollarSign, Activity, Award } from "lucide
 import { T, MONTHS_ES } from "../theme.js";
 import { fmtCur, fmt, todayDate } from "../utils.js";
 import { Card, PageHeader, Badge } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 // ── Mini bar chart ────────────────────────────────────────────────────────────
 function BarChart({ data, color, height = 80, showLabels = true }) {
@@ -71,6 +72,7 @@ function StatCard({ label, value, sub, icon:Icon, color, bg }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Stats({ patients, appointments, sessions, payments }) {
+  const isMobile = useIsMobile();
   const now = new Date();
 
   // ── Last 6 months labels ──
@@ -169,10 +171,10 @@ export default function Stats({ patients, appointments, sessions, payments }) {
         <StatCard label="Total sesiones"       value={sessions.length}          icon={Award}      color={T.acc} bg={T.accA} sub="histórico" />
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px,1fr))", gap:20, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px,1fr))", gap:20, marginBottom:20 }}>
 
         {/* Income chart */}
-        <Card style={{ padding:24, gridColumn:"span 2" }}>
+        <Card style={{ padding:24, gridColumn: isMobile ? "span 1" : "span 2" }}>
           <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 4px" }}>Ingresos últimos 6 meses</h3>
           <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 20px" }}>Solo pagos confirmados</p>
           <BarChart data={incomeByMonth} color={T.p} height={120}/>
