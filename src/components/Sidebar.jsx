@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Home, Users, Calendar, FileText, DollarSign, BookOpen, Lock, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText } from "lucide-react";
+import { Home, Users, Calendar, FileText, DollarSign, BookOpen, Lock, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
@@ -8,6 +8,7 @@ export const NAV_ITEMS = [
   { id:"patients",   icon:Users,          label:"Pacientes"         },
   { id:"agenda",     icon:Calendar,       label:"Agenda"            },
   { id:"sessions",   icon:FileText,       label:"Sesiones"          },
+  { id:"tasks",      icon:CheckSquare,    label:"Tareas"            },
   { id:"treatment",  icon:Target,         label:"Tratamiento"       },
   { id:"scales",     icon:ClipboardList,  label:"Escalas"           },
   { id:"risk",       icon:ShieldAlert,    label:"Riesgo", alert:true },
