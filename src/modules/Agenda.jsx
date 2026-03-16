@@ -172,11 +172,11 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments, setAppointments, sessions, setSessions, patients }) {
+export default function Agenda({ appointments, setAppointments, sessions, setSessions, patients, autoOpen }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
-  const [showAdd,       setShowAdd]       = useState(false);
+  const [showAdd,       setShowAdd]       = useState(autoOpen === "add");
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete

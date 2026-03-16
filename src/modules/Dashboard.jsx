@@ -4,7 +4,7 @@ import { Card, Badge } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import {
   Users, Calendar, TrendingUp, AlertCircle, Clock,
-  FileText, ChevronRight, ShieldAlert, DollarSign, Plus,
+  FileText, ChevronRight, ShieldAlert, DollarSign,
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus } from "./Consent.jsx";
@@ -103,19 +103,19 @@ function ApptCard({ appt, onStart }) {
   );
 }
 
-function QuickBar({ onNavigate, isMobile }) {
+function QuickBar({ onQuickNav, isMobile }) {
   const actions = [
-    { label:"Nuevo paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients" },
-    { label:"Agendar cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda"   },
-    { label:"Nueva nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions" },
-    { label:"Registrar pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance"  },
+    { label:"Nuevo paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add" },
+    { label:"Agendar cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add" },
+    { label:"Nueva nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add" },
+    { label:"Registrar pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add" },
   ];
   return (
     <div style={{ display:"grid",
       gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
       gap:10, marginBottom:24 }}>
       {actions.map(a => (
-        <button key={a.label} onClick={() => onNavigate(a.module)}
+        <button key={a.label} onClick={() => onQuickNav(a.module, a.action)}
           style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
             borderRadius:12, border:`1.5px solid ${T.bdrL}`, background:T.card,
             cursor:"pointer", textAlign:"left", transition:"all .15s", fontFamily:T.fB }}
@@ -135,7 +135,7 @@ function QuickBar({ onNavigate, isMobile }) {
 export default function Dashboard({
   patients, appointments, sessions, payments,
   riskAssessments = [], treatmentPlans = [],
-  onNavigate, onStartSession,
+  onNavigate, onQuickNav, onStartSession,
 }) {
   const isMobile  = useIsMobile();
   const todayStr  = fmt(todayDate);
@@ -330,7 +330,7 @@ export default function Dashboard({
       </div>
 
       {/* 5. ACCIONES RÁPIDAS */}
-      <QuickBar onNavigate={onNavigate} isMobile={isMobile}/>
+      <QuickBar onQuickNav={onQuickNav} isMobile={isMobile}/>
 
       {/* 6. GRID SECUNDARIO */}
       <div style={{ display:"grid",
@@ -494,20 +494,6 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* FAB móvil */}
-      {isMobile && (
-        <button onClick={() => onNavigate("sessions")}
-          style={{ position:"fixed", bottom:24, right:20, zIndex:150,
-            width:54, height:54, borderRadius:"50%",
-            background:T.p, border:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            boxShadow:"0 4px 20px rgba(58,107,110,0.40)",
-            transition:"transform .15s" }}
-          onMouseEnter={e => e.currentTarget.style.transform="scale(1.08)"}
-          onMouseLeave={e => e.currentTarget.style.transform="scale(1)"}>
-          <Plus size={24} color="#fff" strokeWidth={2}/>
-        </button>
-      )}
     </div>
   );
 }

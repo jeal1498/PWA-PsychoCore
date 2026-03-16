@@ -477,9 +477,9 @@ function TemplatePanel({ patient, noteFormat, onApply, onClose }) {
 
 const BLANK_RISK = { suicidalIdeation:"ninguna", selfHarm:"ninguna", harmToOthers:false };
 
-export default function Sessions({ sessions, setSessions, patients, profile, prefill, riskAssessments = [], setRiskAssessments }) {
+export default function Sessions({ sessions, setSessions, patients, profile, prefill, riskAssessments = [], setRiskAssessments, autoOpen }) {
   const [filterPt,  setFilterPt]  = useState("");
-  const [showAdd,   setShowAdd]   = useState(!!prefill);
+  const [showAdd,   setShowAdd]   = useState(!!prefill || autoOpen === "add");
   const [referral,  setReferral]  = useState(null);
   const [refForm,   setRefForm]   = useState({ reason:"", specialist:"", notes:"" });
   const [riskOpen,  setRiskOpen]  = useState(false);
