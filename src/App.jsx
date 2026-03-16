@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Menu, Brain } from "lucide-react";
 import { T } from "./theme.js";
 import { useIsMobile }         from "./hooks/useIsMobile.js";
-import { useEncryptedStorage } from "./hooks/useEncryptedStorage.js";
+import { useSupabaseStorage }  from "./hooks/useSupabaseStorage.js";
 import { useAutoBackup }       from "./hooks/useAutoBackup.js";
 import { useNotifications }    from "./hooks/useNotifications.js";
 import { initCrypto, clearCryptoKey } from "./crypto/encryption.js";
@@ -85,17 +85,17 @@ export default function App() {
     return () => mq.removeEventListener("change", handler);
   }, [darkPref]);
 
-  const [patients,     setPatients,     pLoaded]  = useEncryptedStorage("pc_patients",     SAMPLE_PATIENTS);
-  const [appointments, setAppointments, aLoaded]  = useEncryptedStorage("pc_appointments", SAMPLE_APPOINTMENTS);
-  const [sessions,     setSessions,     sLoaded]  = useEncryptedStorage("pc_sessions",     SAMPLE_SESSIONS);
-  const [payments,     setPayments,     pyLoaded] = useEncryptedStorage("pc_payments",     SAMPLE_PAYMENTS);
-  const [resources,        setResources,        rLoaded]   = useEncryptedStorage("pc_resources",         SAMPLE_RESOURCES);
-  const [profile,          setProfile,          prLoaded]  = useEncryptedStorage("pc_profile",           DEFAULT_PROFILE);
-  const [riskAssessments,  setRiskAssessments,  raLoaded]  = useEncryptedStorage("pc_risk_assessments",  []);
-  const [scaleResults,     setScaleResults,     scLoaded]  = useEncryptedStorage("pc_scale_results",     []);
-  const [treatmentPlans,   setTreatmentPlans,   tpLoaded]  = useEncryptedStorage("pc_treatment_plans",   []);
-  const [interSessions,    setInterSessions,    isLoaded]  = useEncryptedStorage("pc_inter_sessions",    []);
-  const [medications,      setMedications,      medLoaded] = useEncryptedStorage("pc_medications",       []);
+  const [patients,     setPatients,     pLoaded]  = useSupabaseStorage("pc_patients",         SAMPLE_PATIENTS);
+  const [appointments, setAppointments, aLoaded]  = useSupabaseStorage("pc_appointments",     SAMPLE_APPOINTMENTS);
+  const [sessions,     setSessions,     sLoaded]  = useSupabaseStorage("pc_sessions",         SAMPLE_SESSIONS);
+  const [payments,     setPayments,     pyLoaded] = useSupabaseStorage("pc_payments",         SAMPLE_PAYMENTS);
+  const [resources,        setResources,        rLoaded]   = useSupabaseStorage("pc_resources",         SAMPLE_RESOURCES);
+  const [profile,          setProfile,          prLoaded]  = useSupabaseStorage("pc_profile",           DEFAULT_PROFILE);
+  const [riskAssessments,  setRiskAssessments,  raLoaded]  = useSupabaseStorage("pc_risk_assessments",  []);
+  const [scaleResults,     setScaleResults,     scLoaded]  = useSupabaseStorage("pc_scale_results",     []);
+  const [treatmentPlans,   setTreatmentPlans,   tpLoaded]  = useSupabaseStorage("pc_treatment_plans",   []);
+  const [interSessions,    setInterSessions,    isLoaded]  = useSupabaseStorage("pc_inter_sessions",    []);
+  const [medications,      setMedications,      medLoaded] = useSupabaseStorage("pc_medications",       []);
 
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && rLoaded && prLoaded && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
 
@@ -140,6 +140,53 @@ export default function App() {
   };
 
   const handleLock = async () => { await signOut(); setSidebarOpen(false); };
+
+  // ── Migración de datos locales (una sola vez) ────────────────────────────
+  const [migrationPending, setMigrationPending] = useState(false);
+  const [migrating,        setMigrating]        = useState(false);
+
+  useEffect(() => {
+    if (!user || !dataLoaded) return;
+    // Detectar si hay datos en localStorage que no están en Supabase aún
+    const hasMigrationFlag = localStorage.getItem("pc_migrated_to_supabase");
+    if (hasMigrationFlag) return;
+    // Si hay pacientes reales (no sample) en localStorage
+    try {
+      const { decryptData: _ } = {}; // solo checar si hay datos crudos
+      const rawPatients = localStorage.getItem("pc_patients_enc");
+      if (rawPatients) setMigrationPending(true);
+    } catch {}
+  }, [user, dataLoaded]);
+
+  const handleMigrate = async () => {
+    setMigrating(true);
+    try {
+      const { decryptData } = await import("./crypto/encryption.js");
+      const keys = ["pc_patients","pc_appointments","pc_sessions","pc_payments",
+                    "pc_resources","pc_profile","pc_risk_assessments",
+                    "pc_scale_results","pc_treatment_plans","pc_inter_sessions","pc_medications"];
+      const setters = { pc_patients:setPatients, pc_appointments:setAppointments,
+        pc_sessions:setSessions, pc_payments:setPayments, pc_resources:setResources,
+        pc_profile:setProfile, pc_risk_assessments:setRiskAssessments,
+        pc_scale_results:setScaleResults, pc_treatment_plans:setTreatmentPlans,
+        pc_inter_sessions:setInterSessions, pc_medications:setMedications };
+      for (const k of keys) {
+        const raw = localStorage.getItem(k + "_enc");
+        if (raw) {
+          try {
+            const data = await decryptData(raw);
+            if (data) setters[k]?.(data);
+          } catch {}
+        }
+      }
+      localStorage.setItem("pc_migrated_to_supabase", "1");
+      setMigrationPending(false);
+    } catch (e) {
+      console.error("Migration error", e);
+    } finally {
+      setMigrating(false);
+    }
+  };
 
   const riskAlert = riskAssessments.some(a => {
     const latest = riskAssessments.filter(r => r.patientId === a.patientId).sort((x,y) => y.date.localeCompare(x.date))[0];
@@ -235,6 +282,25 @@ export default function App() {
       {isMobile  && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} riskAlert={riskAlert}/>}
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
+
+        {/* ── Banner de migración ───────────────────────────────────────── */}
+        {migrationPending && (
+          <div style={{ background:"#B8900A", padding:"10px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexShrink:0 }}>
+            <span style={{ fontFamily:T.fB, fontSize:13, color:"#fff", lineHeight:1.4 }}>
+              📦 Se encontraron datos locales anteriores. ¿Migrarlos a la nube para acceder desde cualquier dispositivo?
+            </span>
+            <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+              <button onClick={handleMigrate} disabled={migrating}
+                style={{ padding:"6px 14px", borderRadius:8, border:"none", background:"#fff", color:"#B8900A", fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                {migrating ? "Migrando…" : "Migrar ahora"}
+              </button>
+              <button onClick={() => { setMigrationPending(false); localStorage.setItem("pc_migrated_to_supabase","1"); }}
+                style={{ padding:"6px 10px", borderRadius:8, border:"1.5px solid rgba(255,255,255,0.5)", background:"transparent", color:"#fff", fontFamily:T.fB, fontSize:12, cursor:"pointer" }}>
+                Ignorar
+              </button>
+            </div>
+          </div>
+        )}
         <div style={{ background:T.nav, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, zIndex:100 }}>
           {isMobile && (
             <button onClick={() => setSidebarOpen(true)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:9, width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#fff", flexShrink:0 }}>
