@@ -111,11 +111,8 @@ export default function App() {
   const navTo = (mod) => {
     setActiveModule(mod);
     setOpenAction(null);
-    if (mod !== "sessions") setSessionPrefill(null);
-    // Push a history entry so Android back button navigates within the app
-    if (mod !== "dashboard") {
-      window.history.pushState({ module: mod }, "", window.location.pathname);
-    }
+    setSessionPrefill(null); // always clear so Sessions shows the list
+    window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
   const quickNav = (mod, action) => {
@@ -184,12 +181,12 @@ export default function App() {
   };
 
   return (
-    <div style={{ display:"flex", minHeight:"100vh", background:T.bg, fontFamily:T.fB }}>
+    <div style={{ display:"flex", height:"100vh", background:T.bg, fontFamily:T.fB }}>
       {!isMobile && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open profile={profile} onClose={() => {}} riskAlert={riskAlert}/>}
       {isMobile  && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} riskAlert={riskAlert}/>}
 
-      <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden" }}>
-        <div style={{ background:T.nav, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, position:"sticky", top:0, zIndex:100 }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
+        <div style={{ background:T.nav, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, zIndex:100 }}>
           {isMobile && (
             <button onClick={() => setSidebarOpen(true)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:9, width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#fff", flexShrink:0 }}>
               <Menu size={20}/>
@@ -208,7 +205,7 @@ export default function App() {
           <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
         </div>
 
-        <main style={{ flex:1, padding:isMobile?"20px 18px 32px":"36px 40px", overflowY:"auto" }}>
+        <main style={{ flex:1, padding:isMobile?"20px 18px 32px":"36px 40px", overflowY:"auto", minHeight:0 }}>
           {renderModule()}
         </main>
       </div>
