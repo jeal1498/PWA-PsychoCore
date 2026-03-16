@@ -5,7 +5,8 @@ import { useIsMobile }         from "./hooks/useIsMobile.js";
 import { useEncryptedStorage } from "./hooks/useEncryptedStorage.js";
 import { useAutoBackup }       from "./hooks/useAutoBackup.js";
 import { useNotifications }    from "./hooks/useNotifications.js";
-import { clearCryptoKey }      from "./crypto/encryption.js";
+import { initCrypto, clearCryptoKey } from "./crypto/encryption.js";
+import { supabase, signOut }   from "./lib/supabase.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
 import SelfLogPage     from "./modules/SelfLog.jsx";
@@ -33,13 +34,39 @@ import {
 } from "./sampleData.js";
 
 export default function App() {
-  const [locked,        setLocked]        = useState(true);
+  const [user,          setUser]          = useState(null);
+  const [authLoading,   setAuthLoading]   = useState(true);
   const [activeModule,  setActiveModule]  = useState("dashboard");
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [darkMode,      setDarkMode]      = useState(() => localStorage.getItem("pc_dark") === "1");
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
+
+  // ── Supabase Auth ────────────────────────────────────────────────────────
+  useEffect(() => {
+    // Check existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await initCrypto(session.user.id);
+        setUser(session.user);
+      }
+      setAuthLoading(false);
+    });
+
+    // Listen for auth changes (login / logout / token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await initCrypto(session.user.id);
+        setUser(session.user);
+      } else {
+        clearCryptoKey();
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
@@ -63,8 +90,8 @@ export default function App() {
   const allData = useMemo(() => ({ patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications }),
     [patients, appointments, sessions, payments, resources, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
 
-  const { lastBackup, doBackup, fsSupported, fsHandle, requestFS } = useAutoBackup(locked ? null : allData);
-  const { notifications, dismiss, dismissAll } = useNotifications(locked ? [] : appointments);
+  const { lastBackup, doBackup, fsSupported, fsHandle, requestFS } = useAutoBackup(user ? allData : null);
+  const { notifications, dismiss, dismissAll } = useNotifications(user ? appointments : []);
 
   const onRestore = (data) => {
     if (data.patients)         setPatients(data.patients);
@@ -100,7 +127,7 @@ export default function App() {
     setOpenAction(null);
   };
 
-  const handleLock = () => { clearCryptoKey(); setLocked(true); setSidebarOpen(false); };
+  const handleLock = async () => { await signOut(); setSidebarOpen(false); };
 
   const riskAlert = riskAssessments.some(a => {
     const latest = riskAssessments.filter(r => r.patientId === a.patientId).sort((x,y) => y.date.localeCompare(x.date))[0];
@@ -142,7 +169,14 @@ export default function App() {
 
   if (selfLogToken) return <SelfLogPage token={selfLogToken}/>;
 
-  if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
+  if (authLoading) return (
+    <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.2)", borderTopColor:"#fff", animation:"spin .8s linear infinite" }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (!user) return <LockScreen />;
 
   if (!dataLoaded) return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
