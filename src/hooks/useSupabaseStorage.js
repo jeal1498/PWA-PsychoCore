@@ -12,7 +12,6 @@ const TABLE_MAP = {
   pc_appointments:     "pc_appointments",
   pc_sessions:         "pc_sessions",
   pc_payments:         "pc_payments",
-  pc_resources:        "pc_resources",
   pc_profile:          "pc_profile",
   pc_risk_assessments: "pc_risk_assessments",
   pc_scale_results:    "pc_scale_results",
@@ -91,7 +90,7 @@ export function useSupabaseStorage(key, initialValue) {
   }, []);
 
   const setValue = useCallback((newVal) => {
-    setValue_(typeof newVal === "function" ? newVal : newVal);
+    setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
   }, []);
 
   return [value, setValue, loaded];
