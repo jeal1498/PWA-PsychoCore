@@ -5,8 +5,8 @@
 
 // ⚠️  REEMPLAZA estos valores con los tuyos:
 // Supabase Dashboard → Settings → API
-const SUPABASE_URL  = "https://TU_PROYECTO.supabase.co";
-const SUPABASE_ANON = "TU_ANON_KEY";
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON;
 
 // ── Fetch helper ─────────────────────────────────────────────────────────────
 const sb = (path, opts = {}) =>
