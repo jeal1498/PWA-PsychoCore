@@ -7,6 +7,8 @@ import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment } from "../lib/supabase.js";
 
+const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE FORMAT DEFINITIONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -539,18 +541,36 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
     // Crear asignaciones en Supabase para cada plantilla seleccionada
     if (pt?.phone && form.tasksAssigned?.length > 0) {
       const cleanPhone = pt.phone.replace(/\D/g, "");
+      const assignPromises = form.tasksAssigned.map(tplId => {
+        const tpl = TASK_TEMPLATES[tplId];
+        if (!tpl) return Promise.resolve();
+        return createAssignment({
+          patientId: form.patientId,
+          patientName: pt.name || "",
+          patientPhone: cleanPhone,
+          templateId: tplId,
+          title: tpl.title,
+          notes: "",
+        }).catch(() => {});
+      });
+      // Abrir WhatsApp después de crear las asignaciones
+      Promise.allSettled(assignPromises).then(() => {
+        const nombre = pt.name?.split(" ")[0] || "";
+        const listaTareas = form.tasksAssigned
+          .map(id => TASK_TEMPLATES[id])
+          .filter(Boolean)
+          .map((tpl, i) => `${i + 1}. ${tpl.icon} *${tpl.title}*`)
+          .join("\n");
+        const msg = encodeURIComponent(
+          `Hola ${nombre}! 👋\n\nTe asigné ${form.tasksAssigned.length === 1 ? "una tarea" : "estas tareas"} para trabajar antes de nuestra próxima sesión:\n\n${listaTareas}\n\nPuedes verlas y completarlas aquí:\n${PORTAL_URL}\n\n_Ingresa con tu número de celular._`
+        );
+        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+      });
+    } else if (form.tasksAssigned?.length > 0) {
+      // Sin teléfono, igual crear las asignaciones
       form.tasksAssigned.forEach(tplId => {
         const tpl = TASK_TEMPLATES[tplId];
-        if (tpl) {
-          createAssignment({
-            patientId: form.patientId,
-            patientName: pt.name || "",
-            patientPhone: cleanPhone,
-            templateId: tplId,
-            title: tpl.title,
-            notes: "",
-          }).catch(() => {});
-        }
+        if (tpl) createAssignment({ patientId: form.patientId, patientName: pt?.name || "", patientPhone: "", templateId: tplId, title: tpl.title, notes: "" }).catch(() => {});
       });
     }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
