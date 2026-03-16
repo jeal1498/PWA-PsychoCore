@@ -868,6 +868,8 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
             </div>
           );
         })()}
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Fecha"          value={form.date}     onChange={fld("date")}     type="date"/>
           <Input label="Duración (min)" value={form.duration} onChange={fld("duration")} type="number"/>
         </div>
@@ -921,43 +923,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           </button>
         )}
 
-        {/* ── Modal resumen IA ─────────────────────────────────────── */}
-        <Modal open={showAiModal} onClose={() => { setShowAiModal(false); setAiSummary(null); setAiError(""); }} title="Resumen clínico con IA" width={540}>
-          {aiLoading && (
-            <div style={{ textAlign:"center", padding:"32px 0" }}>
-              <div style={{ width:36, height:36, borderRadius:"50%", border:`3px solid rgba(107,91,158,0.2)`, borderTopColor:"#6B5B9E", animation:"spin .8s linear infinite", margin:"0 auto 16px" }}/>
-              <p style={{ fontFamily:T.fB, fontSize:14, color:T.tm }}>Analizando notas clínicas…</p>
-            </div>
-          )}
-          {aiError && (
-            <div style={{ padding:"14px 16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err }}>{aiError}</div>
-          )}
-          {aiSummary && !aiLoading && (
-            <div>
-              <div style={{ background:T.alt, borderRadius:12, padding:"18px 20px", marginBottom:16,
-                border:`1.5px solid rgba(107,91,158,0.15)`, fontFamily:T.fB, fontSize:13.5,
-                color:T.t, lineHeight:1.75, whiteSpace:"pre-wrap" }}>
-                {aiSummary}
-              </div>
-              <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-                <button onClick={() => { navigator.clipboard.writeText(aiSummary); }}
-                  style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
-                    border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB,
-                    fontSize:13, color:T.tm, cursor:"pointer" }}>
-                  <Copy size={13}/> Copiar
-                </button>
-                <button onClick={() => { fld("privateNotes")(aiSummary); setShowAiModal(false); setAiSummary(null); }}
-                  style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
-                    border:"none", background:"rgba(107,91,158,0.12)", fontFamily:T.fB,
-                    fontSize:13, color:"#6B5B9E", fontWeight:600, cursor:"pointer" }}>
-                  <FileText size={13}/> Agregar a notas privadas
-                </button>
-              </div>
-            </div>
-          )}
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        </Modal>
-
         <Input label="Etiquetas (separadas por coma)" value={form.tags} onChange={fld("tags")} placeholder="TCC, ansiedad, respiración"/>
 
         {/* ── Tareas terapéuticas ───────────────────────────────────── */}
@@ -999,7 +964,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
                 </div>
               )}
               {/* Template grid */}
-              <div style={{ maxHeight:200, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.alt, display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
+              <div style={{ maxHeight:200, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.cardAlt, display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
                 {Object.values(TASK_TEMPLATES).map(tpl => {
                   const selected = form.tasksAssigned?.includes(tpl.id);
                   return (
@@ -1084,6 +1049,43 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
           <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
         </div>
+      </Modal>
+
+      {/* ── Modal resumen IA ─────────────────────────────────────────────── */}
+      <Modal open={showAiModal} onClose={() => { setShowAiModal(false); setAiSummary(null); setAiError(""); }} title="Resumen clínico con IA" width={540}>
+        {aiLoading && (
+          <div style={{ textAlign:"center", padding:"32px 0" }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", border:`3px solid rgba(107,91,158,0.2)`, borderTopColor:"#6B5B9E", animation:"spin .8s linear infinite", margin:"0 auto 16px" }}/>
+            <p style={{ fontFamily:T.fB, fontSize:14, color:T.tm }}>Analizando notas clínicas…</p>
+          </div>
+        )}
+        {aiError && (
+          <div style={{ padding:"14px 16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err }}>{aiError}</div>
+        )}
+        {aiSummary && !aiLoading && (
+          <div>
+            <div style={{ background:T.cardAlt, borderRadius:12, padding:"18px 20px", marginBottom:16,
+              border:`1.5px solid rgba(107,91,158,0.15)`, fontFamily:T.fB, fontSize:13.5,
+              color:T.t, lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+              {aiSummary}
+            </div>
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+              <button onClick={() => navigator.clipboard.writeText(aiSummary)}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
+                  border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB,
+                  fontSize:13, color:T.tm, cursor:"pointer" }}>
+                <Copy size={13}/> Copiar
+              </button>
+              <button onClick={() => { fld("privateNotes")(aiSummary); setShowAiModal(false); setAiSummary(null); }}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
+                  border:"none", background:"rgba(107,91,158,0.12)", fontFamily:T.fB,
+                  fontSize:13, color:"#6B5B9E", fontWeight:600, cursor:"pointer" }}>
+                <FileText size={13}/> Agregar a notas privadas
+              </button>
+            </div>
+          </div>
+        )}
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </Modal>
 
       {/* ── Task response viewer ─────────────────────────────────────────── */}
