@@ -103,13 +103,29 @@ export default function App() {
     setActiveModule(mod);
     setOpenAction(null);
     if (mod !== "sessions") setSessionPrefill(null);
+    // Push a history entry so Android back button navigates within the app
+    if (mod !== "dashboard") {
+      window.history.pushState({ module: mod }, "", window.location.pathname);
+    }
   };
 
   const quickNav = (mod, action) => {
     setActiveModule(mod);
     setOpenAction({ module: mod, action, ts: Date.now() });
     if (mod !== "sessions") setSessionPrefill(null);
+    window.history.pushState({ module: mod }, "", window.location.pathname);
   };
+
+  // Handle Android/browser back button — navigate to dashboard instead of leaving
+  useEffect(() => {
+    const handlePop = () => {
+      setActiveModule("dashboard");
+      setOpenAction(null);
+      setSessionPrefill(null);
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
 
   // ── Self-log mode: render patient page without PIN ────────────────────────
   const selfLogToken = useMemo(() => {
