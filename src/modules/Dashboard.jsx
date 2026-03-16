@@ -3,8 +3,10 @@ import { todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } f
 import { Card, Badge, PageHeader } from "../components/ui/index.jsx";
 import { Users, Calendar, TrendingUp, AlertCircle, Clock, FileText, ArrowRight, ChevronRight, ShieldAlert } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
+import { consentStatus } from "./Consent.jsx";
+import { readPendingLogs } from "./SelfLog.jsx";
 
-export default function Dashboard({ patients, appointments, sessions, payments, riskAssessments = [], onNavigate, onStartSession }) {
+export default function Dashboard({ patients, appointments, sessions, payments, riskAssessments = [], treatmentPlans = [], onNavigate, onStartSession }) {
   const todayStr    = fmt(todayDate);
   const monthStr    = fmt(todayDate).slice(0, 7);
   const todayAppts  = appointments.filter(a => a.date === todayStr);
@@ -130,6 +132,54 @@ export default function Dashboard({ patients, appointments, sessions, payments, 
           }
         </Card>
 
+        {/* Consent alerts */}
+        {(() => {
+          const activePatients = patients.filter(p => (p.status || "activo") === "activo");
+          const consentIssues  = activePatients.filter(p => {
+            const cs = consentStatus(p);
+            return cs === "pending" || cs === "expired" || cs === "expiring";
+          });
+          if (consentIssues.length === 0) return null;
+          return (
+            <Card style={{ padding: 24, border: `1.5px solid rgba(184,144,10,0.25)`, gridColumn: "1 / -1" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: T.warA, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <FileText size={16} color={T.war} strokeWidth={1.8}/>
+                  </div>
+                  <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.war, margin: 0 }}>Consentimientos pendientes</h3>
+                </div>
+                <button onClick={() => onNavigate("patients")} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, display: "flex", alignItems: "center", gap: 4, fontFamily: T.fB, fontSize: 12 }}>
+                  Ver pacientes <ChevronRight size={13}/>
+                </button>
+              </div>
+              {consentIssues.slice(0, 4).map(p => {
+                const cs    = consentStatus(p);
+                const color = cs === "expired" ? T.err : cs === "expiring" ? T.acc : T.war;
+                const bg    = cs === "expired" ? T.errA : cs === "expiring" ? T.accA : T.warA;
+                const label = cs === "expired" ? "Vencido" : cs === "expiring" ? "Por vencer" : "Sin firmar";
+                return (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", background: bg, borderRadius: 10, marginBottom: 6 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1.5px solid ${color}40` }}>
+                      <span style={{ fontFamily: T.fH, fontSize: 14, color }}>{p.name[0]}</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>{p.name.split(" ").slice(0, 2).join(" ")}</div>
+                      {p.consent?.signedAt && cs === "expired" && (
+                        <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>Último CI: {fmtDate(p.consent.signedAt.split("T")[0])}</div>
+                      )}
+                    </div>
+                    <span style={{ padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 700, fontFamily: T.fB, color, background: `${color}15`, border: `1px solid ${color}40` }}>{label}</span>
+                  </div>
+                );
+              })}
+              {consentIssues.length > 4 && (
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 6, textAlign: "center" }}>+{consentIssues.length - 4} más</div>
+              )}
+            </Card>
+          );
+        })()}
+
         {/* Clinical alerts */}
         {(() => {
           const latestByPt = {};
@@ -167,6 +217,118 @@ export default function Dashboard({ patients, appointments, sessions, payments, 
                   </div>
                 );
               })}
+            </Card>
+          );
+        })()}
+
+        {/* Self-log pending alerts */}
+        {(() => {
+          const pending = readPendingLogs();
+          if (pending.length === 0) return null;
+          // Group by patient token
+          const byToken = {};
+          pending.forEach(log => {
+            if (!byToken[log.patientToken]) byToken[log.patientToken] = 0;
+            byToken[log.patientToken]++;
+          });
+          const patientsWithLogs = patients.filter(p =>
+            p.selfLogToken && byToken[p.selfLogToken] > 0
+          );
+          if (patientsWithLogs.length === 0) return null;
+          return (
+            <Card style={{ padding: 24, border: `1.5px solid rgba(78,139,95,0.25)`, gridColumn: "1 / -1" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: T.sucA, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 16 }}>📋</span>
+                  </div>
+                  <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.suc, margin: 0 }}>Autorregistros pendientes</h3>
+                </div>
+                <button onClick={() => onNavigate("patients")} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, display: "flex", alignItems: "center", gap: 4, fontFamily: T.fB, fontSize: 12 }}>
+                  Ver pacientes <ChevronRight size={13}/>
+                </button>
+              </div>
+              {patientsWithLogs.slice(0, 3).map(p => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", background: T.sucA, borderRadius: 10, marginBottom: 6 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(78,139,95,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1.5px solid ${T.suc}40` }}>
+                    <span style={{ fontFamily: T.fH, fontSize: 14, color: T.suc }}>{p.name[0]}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>{p.name.split(" ").slice(0,2).join(" ")}</div>
+                    <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{byToken[p.selfLogToken]} registro{byToken[p.selfLogToken] > 1 ? "s" : ""} esperando revisión</div>
+                  </div>
+                  <span style={{ padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 700, fontFamily: T.fB, color: T.suc, background: "rgba(78,139,95,0.15)", border: `1px solid ${T.suc}40` }}>
+                    Nuevo
+                  </span>
+                </div>
+              ))}
+              {patientsWithLogs.length > 3 && (
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 6, textAlign: "center" }}>
+                  +{patientsWithLogs.length - 3} más
+                </div>
+              )}
+            </Card>
+          );
+        })()}
+
+        {/* Follow-up post-alta alerts */}
+        {(() => {
+          const today = fmt(todayDate);
+          // Citas de seguimiento post-alta pendientes (pasadas sin completar)
+          const overdueFollowUps = appointments.filter(a =>
+            a.type === "Seguimiento post-alta" &&
+            a.status === "pendiente" &&
+            a.date < today
+          );
+          // Citas de seguimiento post-alta próximas (próximos 14 días)
+          const upcoming14 = new Date(todayDate);
+          upcoming14.setDate(upcoming14.getDate() + 14);
+          const upcomingFollowUps = appointments.filter(a =>
+            a.type === "Seguimiento post-alta" &&
+            a.status === "pendiente" &&
+            a.date >= today &&
+            a.date <= fmt(upcoming14)
+          );
+          if (overdueFollowUps.length === 0 && upcomingFollowUps.length === 0) return null;
+          const allFollowUps = [
+            ...overdueFollowUps.map(a => ({ ...a, overdue: true })),
+            ...upcomingFollowUps.map(a => ({ ...a, overdue: false })),
+          ].sort((a,b) => a.date.localeCompare(b.date)).slice(0, 4);
+          return (
+            <Card style={{ padding: 24, border: `1.5px solid rgba(91,141,184,0.3)`, gridColumn: "1 / -1" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(91,141,184,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Calendar size={16} color="#5B8DB8" strokeWidth={1.8}/>
+                  </div>
+                  <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: "#5B8DB8", margin: 0 }}>Seguimientos post-alta</h3>
+                </div>
+                <button onClick={() => onNavigate("agenda")} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, display: "flex", alignItems: "center", gap: 4, fontFamily: T.fB, fontSize: 12 }}>
+                  Ver agenda <ChevronRight size={13}/>
+                </button>
+              </div>
+              {allFollowUps.map(a => {
+                const pt = patients.find(p => p.id === a.patientId);
+                return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 12px", background: a.overdue ? T.warA : "rgba(91,141,184,0.08)", borderRadius: 10, marginBottom: 6 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: a.overdue ? T.warA : "rgba(91,141,184,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1.5px solid ${a.overdue ? T.war : "#5B8DB8"}40` }}>
+                      <span style={{ fontFamily: T.fH, fontSize: 14, color: a.overdue ? T.war : "#5B8DB8" }}>{(pt?.name?.[0] || "?")}</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>{pt?.name?.split(" ").slice(0,2).join(" ") || "Paciente"}</div>
+                      <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{fmtDate(a.date)}{a.followUpMonth ? ` · ${a.followUpMonth} mes${a.followUpMonth > 1 ? "es" : ""} post-alta` : ""}</div>
+                    </div>
+                    <span style={{ padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 700, fontFamily: T.fB, color: a.overdue ? T.war : "#5B8DB8", background: a.overdue ? T.warA : "rgba(91,141,184,0.12)", border: `1px solid ${a.overdue ? T.war : "#5B8DB8"}40` }}>
+                      {a.overdue ? "Vencido" : "Próximo"}
+                    </span>
+                  </div>
+                );
+              })}
+              {(overdueFollowUps.length + upcomingFollowUps.length) > 4 && (
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 6, textAlign: "center" }}>
+                  +{overdueFollowUps.length + upcomingFollowUps.length - 4} más
+                </div>
+              )}
             </Card>
           );
         })()}

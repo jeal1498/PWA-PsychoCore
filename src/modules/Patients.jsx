@@ -1,11 +1,14 @@
-import { useState, useMemo } from "react";
-import { Users, Search, Trash2, Phone, Mail, ChevronLeft, Tag, Check, Plus, DollarSign, TrendingUp, Download } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { RiskBadge } from "./RiskAssessment.jsx";
 import { getSeverity, SCALES } from "./Scales.jsx";
+import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
+import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "./InterSessions.jsx";
+import { countPendingForToken, getLogsForToken, deleteLogsByToken, deleteLogById } from "./SelfLog.jsx";
 
 // ── STATUS ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -13,6 +16,153 @@ const STATUS_CONFIG = {
   pausa:  { label:"En pausa", color:T.war, bg:T.warA },
   alta:   { label:"Alta",     color:T.tl,  bg:T.bdrL },
 };
+
+// ── CIE-11 CODES (diagnósticos más frecuentes en psicología clínica privada) ──
+export const CIE11_CODES = [
+  // Neurodesarrollo
+  { code: "6A00", label: "TDAH, presentación combinada" },
+  { code: "6A01", label: "TDAH, predominio inatento" },
+  { code: "6A02", label: "TDAH, predominio hiperactivo-impulsivo" },
+  { code: "6A06", label: "Trastorno del espectro autista" },
+  // Esquizofrenia y psicosis
+  { code: "6A20", label: "Esquizofrenia" },
+  { code: "6A23", label: "Trastorno esquizoafectivo" },
+  { code: "6A24", label: "Trastorno delirante" },
+  // Episodios del estado de ánimo
+  { code: "6A60", label: "Episodio depresivo mayor, leve" },
+  { code: "6A61", label: "Episodio depresivo mayor, moderado" },
+  { code: "6A62", label: "Episodio depresivo mayor, grave" },
+  { code: "6A70", label: "Trastorno depresivo recurrente" },
+  { code: "6A71", label: "Trastorno distímico (distimia)" },
+  { code: "6A80", label: "Trastorno bipolar tipo I" },
+  { code: "6A81", label: "Trastorno bipolar tipo II" },
+  { code: "6A82", label: "Trastorno ciclotímico" },
+  // Ansiedad y miedo
+  { code: "6B00", label: "Trastorno de ansiedad generalizada (TAG)" },
+  { code: "6B01", label: "Trastorno de pánico" },
+  { code: "6B02", label: "Agorafobia" },
+  { code: "6B03", label: "Fobia específica" },
+  { code: "6B04", label: "Fobia social (trastorno de ansiedad social)" },
+  { code: "6B05", label: "Trastorno de ansiedad por separación" },
+  // TOC y relacionados
+  { code: "6B20", label: "Trastorno obsesivo-compulsivo (TOC)" },
+  { code: "6B21", label: "Dismorfofobia (trastorno dismórfico corporal)" },
+  { code: "6B22", label: "Hipocondría" },
+  { code: "6B25", label: "Tricotilomanía" },
+  // Estrés y trauma
+  { code: "6B40", label: "Trastorno de estrés postraumático (TEPT)" },
+  { code: "6B41", label: "Trastorno de estrés agudo" },
+  { code: "6B43", label: "Trastorno de adaptación" },
+  { code: "6B44", label: "TEPT complejo" },
+  // Disociativos
+  { code: "6B60", label: "Trastorno disociativo de identidad" },
+  { code: "6B61", label: "Amnesia disociativa" },
+  { code: "6B65", label: "Despersonalización/desrealización" },
+  // Alimentación
+  { code: "6B80", label: "Anorexia nerviosa" },
+  { code: "6B81", label: "Bulimia nerviosa" },
+  { code: "6B82", label: "Trastorno de atracones" },
+  // Control de impulsos
+  { code: "6C70", label: "Trastorno explosivo intermitente" },
+  { code: "6C72", label: "Cleptomanía" },
+  { code: "6C73", label: "Piromanía" },
+  // Adicciones / sustancias
+  { code: "6C40", label: "Trastorno por consumo de alcohol" },
+  { code: "6C43", label: "Trastorno por consumo de cannabis" },
+  { code: "6C45", label: "Trastorno por consumo de estimulantes" },
+  { code: "6C46", label: "Trastorno por consumo de sedantes/hipnóticos" },
+  // Personalidad
+  { code: "6D10", label: "Trastorno de personalidad, leve" },
+  { code: "6D11", label: "Trastorno de personalidad, moderado" },
+  { code: "6D12", label: "Trastorno de personalidad, grave" },
+  { code: "6D10.0", label: "Trastorno límite de la personalidad" },
+  { code: "6D10.1", label: "Trastorno de personalidad obsesivo-compulsivo" },
+  { code: "6D10.2", label: "Trastorno de personalidad ansioso-evitativo" },
+  { code: "6D10.3", label: "Trastorno de personalidad dependiente" },
+  // Síntomas somáticos
+  { code: "6C20", label: "Trastorno de síntomas somáticos" },
+  { code: "6C21", label: "Trastorno de conversión / síntomas neurológicos funcionales" },
+  // Sueño
+  { code: "7A00", label: "Insomnio crónico" },
+  { code: "7A01", label: "Hipersomnia idiopática" },
+  // Otros frecuentes
+  { code: "QE50", label: "Duelo complicado" },
+  { code: "QE84", label: "Problema relacionado con el trabajo o empleo" },
+  { code: "PF20", label: "Problema de relación de pareja" },
+];
+
+// ── CieDiagnosisField ─────────────────────────────────────────────────────────
+function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label = "Diagnóstico", showSearch = true }) {
+  const [query, setQuery] = useState("");
+  const [open,  setOpen]  = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return CIE11_CODES.filter(c =>
+      c.label.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [query]);
+
+  const select = (item) => {
+    onChangeDx(item.label);
+    onChangeCode(item.code);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const currentCode = CIE11_CODES.find(c => c.code === cie11Code);
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</label>
+
+      {/* Search bar */}
+      {showSearch && (
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 180)}
+            placeholder="Buscar en CIE-11 (ej: ansiedad, depresión, 6B00)..."
+            style={{ width: "100%", padding: "9px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
+          />
+          {open && filtered.length > 0 && (
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: T.card, border: `1.5px solid ${T.bdr}`, borderRadius: 10, boxShadow: T.shM, marginTop: 4, overflow: "hidden" }}>
+              {filtered.map(item => (
+                <button key={item.code} onMouseDown={() => select(item)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${T.bdrL}`, fontFamily: T.fB }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.pA}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                  <span style={{ padding: "2px 8px", borderRadius: 6, background: T.pA, color: T.p, fontSize: 10, fontWeight: 700, flexShrink: 0, fontFamily: "monospace" }}>{item.code}</span>
+                  <span style={{ fontSize: 13, color: T.t }}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Selected code badge */}
+      {cie11Code && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ padding: "3px 10px", borderRadius: 6, background: T.pA, color: T.p, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{cie11Code}</span>
+          {currentCode && <span style={{ fontSize: 12, color: T.tm }}>{currentCode.label}</span>}
+          <button onClick={() => { onChangeCode(""); onChangeDx(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+        </div>
+      )}
+
+      {/* Manual text field */}
+      <input
+        value={value}
+        onChange={e => onChangeDx(e.target.value)}
+        placeholder="Diagnóstico libre o ajustar texto del CIE-11..."
+        style={{ width: "100%", padding: "9px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
+      />
+    </div>
+  );
+}
 
 // ── Progress chart (mini sparkline) ──────────────────────────────────────────
 function ProgressSparkline({ sessions }) {
@@ -147,7 +297,7 @@ td{padding:8px 10px;border-bottom:1px solid #EDF1F0;font-size:13px}
   <div class="info-item"><label>Estado actual</label><p style="text-transform:capitalize">${patient.status || "activo"}</p></div>
 </div>
 
-${patient.diagnosis ? `<div class="diag-box"><label>Diagnóstico</label><p>${patient.diagnosis}</p></div>` : ""}
+${patient.diagnosis ? `<div class="diag-box"><label>Diagnóstico${patient.cie11Code ? ` <span style="font-family:monospace;font-weight:700;background:rgba(58,107,110,0.12);padding:1px 7px;border-radius:4px;letter-spacing:.03em">${patient.cie11Code}</span> · CIE-11` : ""}</label><p>${patient.diagnosis}</p></div>` : ""}
 ${patient.reason ? `<div class="diag-box" style="border-color:#C4895A;background:rgba(196,137,90,0.06)"><label style="color:#C4895A">Motivo de consulta</label><p>${patient.reason}</p></div>` : ""}
 ${patient.notes ? `<div style="padding:12px 18px;background:#F9F8F5;border-radius:10px;margin-bottom:12px"><label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9BAFAD;display:block;margin-bottom:4px">Notas generales</label><p>${patient.notes}</p></div>` : ""}
 
@@ -178,25 +328,237 @@ ${ptPayments.length === 0 ? '<p style="color:#9BAFAD">Sin pagos registrados</p>'
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function Patients({ patients, setPatients, sessions, payments, setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], resources = [], onQuickNav, profile }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// SELFLOG TAB — Autorregistro del paciente (visor del terapeuta)
+// ─────────────────────────────────────────────────────────────────────────────
+function SelfLogTab({ patient, onUpdatePatient }) {
+  const [pendingLogs, setPendingLogs] = useState([]);
+  const [showLog,     setShowLog]     = useState(null);
+  const [copied,      setCopied]      = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(0);
+
+  // Generar token si no existe
+  const token = patient.selfLogToken;
+
+  const generateToken = () => {
+    const newToken = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
+    onUpdatePatient({ selfLogToken: newToken });
+  };
+
+  const selfLogURL = token
+    ? `${window.location.origin}${window.location.pathname}?selflog=${token}`
+    : null;
+
+  const copyURL = () => {
+    if (!selfLogURL) return;
+    navigator.clipboard.writeText(selfLogURL).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // Leer logs pendientes
+  useEffect(() => {
+    if (token) setPendingLogs(getLogsForToken(token));
+  }, [token, forceRefresh]);
+
+  const importAll = () => {
+    deleteLogsByToken(token);
+    setForceRefresh(n => n + 1);
+    // Los logs ya están en pc_pending_logs como "importados" al ser eliminados de pending
+    // En una app con sync, aquí se moverían al store cifrado
+    // Por ahora: los eliminamos de pending (terapeuta ya los revisó)
+  };
+
+  const deleteLog = (id) => {
+    deleteLogById(id);
+    setForceRefresh(n => n + 1);
+  };
+
+  const MOOD_EMOJIS = ["😔","😟","😕","😐","🙂","😊","😄","😁","🥰","🤩"];
+
+  return (
+    <div>
+      {/* Instrucción */}
+      <div style={{ padding:"14px 16px", background:T.pA, borderRadius:12, border:`1px solid ${T.p}20`, marginBottom:18 }}>
+        <div style={{ fontFamily:T.fB, fontSize:12, color:T.p, lineHeight:1.65 }}>
+          <strong>¿Cómo funciona?</strong> El paciente accede a un enlace privado donde puede registrar su estado emocional y pensamientos ABC entre sesiones — sin necesidad de instalar nada ni crear cuenta. Los registros aparecen aquí para que los revises antes de la siguiente sesión.
+        </div>
+      </div>
+
+      {/* Generar / mostrar enlace */}
+      {!token ? (
+        <div style={{ textAlign:"center", padding:"24px 0 16px" }}>
+          <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:14 }}>
+            Genera el enlace de autorregistro para este paciente
+          </div>
+          <Btn onClick={generateToken}>🔗 Generar enlace de autorregistro</Btn>
+        </div>
+      ) : (
+        <div style={{ background:T.cardAlt, borderRadius:12, padding:"14px 16px", marginBottom:16,
+          border:`1px solid ${T.bdrL}` }}>
+          <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+            letterSpacing:"0.07em", marginBottom:8 }}>Enlace del paciente</div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <div style={{ flex:1, padding:"8px 12px", background:T.card, borderRadius:9,
+              border:`1px solid ${T.bdr}`, fontFamily:"monospace", fontSize:11, color:T.tm,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {selfLogURL}
+            </div>
+            <button onClick={copyURL}
+              style={{ padding:"8px 14px", background:copied ? T.sucA : T.pA,
+                border:`1.5px solid ${copied ? T.suc : T.p}30`, borderRadius:9,
+                fontFamily:T.fB, fontSize:12, fontWeight:600,
+                color:copied ? T.suc : T.p, cursor:"pointer", flexShrink:0 }}>
+              {copied ? "✓ Copiado" : "Copiar"}
+            </button>
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:8, lineHeight:1.5 }}>
+            Comparte este enlace por WhatsApp o correo. El paciente puede acceder sin instalar la app.
+          </div>
+        </div>
+      )}
+
+      {/* Registros pendientes */}
+      {token && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>
+              {pendingLogs.length > 0 ? (
+                <span style={{ padding:"3px 10px", borderRadius:9999, background:T.warA,
+                  color:T.war, fontWeight:700, fontSize:12 }}>
+                  🔔 {pendingLogs.length} registro{pendingLogs.length !== 1 ? "s" : ""} pendiente{pendingLogs.length !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span style={{ color:T.tl }}>Sin registros pendientes</span>
+              )}
+            </div>
+            {pendingLogs.length > 0 && (
+              <button onClick={importAll}
+                style={{ padding:"6px 12px", background:T.sucA, border:`1px solid ${T.suc}30`,
+                  borderRadius:9, fontFamily:T.fB, fontSize:12, fontWeight:600,
+                  color:T.suc, cursor:"pointer" }}>
+                ✓ Marcar todos como revisados
+              </button>
+            )}
+          </div>
+
+          {pendingLogs.map(log => (
+            <div key={log.id} style={{ background:T.card, borderRadius:12, border:`1px solid ${T.bdrL}`,
+              marginBottom:10, overflow:"hidden" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                padding:"12px 14px", background:T.cardAlt, cursor:"pointer" }}
+                onClick={() => setShowLog(showLog === log.id ? null : log.id)}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:22 }}>{log.mood ? MOOD_EMOJIS[log.mood - 1] : "📋"}</span>
+                  <div>
+                    <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>
+                      {fmtDate(log.date)}
+                      {log.mood && <span style={{ marginLeft:8, fontFamily:T.fB, fontSize:12,
+                        color:T.tm, fontWeight:400 }}>Estado: {log.mood}/10</span>}
+                    </div>
+                    <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>
+                      {[
+                        log.sleep    && `Sueño: ${log.sleep}/10`,
+                        log.stress   && `Estrés: ${log.stress}/10`,
+                        log.abcRecords?.length > 0 && `${log.abcRecords.length} registro${log.abcRecords.length !== 1 ? "s" : ""} ABC`,
+                      ].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {showLog === log.id ? <ChevronUp size={14} color={T.tm}/> : <ChevronDown size={14} color={T.tl}/>}
+                  <button onClick={e => { e.stopPropagation(); deleteLog(log.id); }}
+                    style={{ background:"none", border:"none", cursor:"pointer", color:T.tl, padding:"2px 4px" }}>
+                    <Trash2 size={13}/>
+                  </button>
+                </div>
+              </div>
+
+              {showLog === log.id && (
+                <div style={{ padding:"14px 16px" }}>
+                  {/* Escalas */}
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",
+                    gap:8, marginBottom:14 }}>
+                    {[
+                      { label:"Estado", value:log.mood,   color:T.p   },
+                      { label:"Sueño",  value:log.sleep,  color:"#7B68A8" },
+                      { label:"Estrés", value:log.stress, color:T.war },
+                      { label:"Energía",value:log.energy, color:T.suc },
+                    ].map(item => item.value && (
+                      <div key={item.label} style={{ padding:"8px 10px", background:T.cardAlt,
+                        borderRadius:9, textAlign:"center" }}>
+                        <div style={{ fontFamily:T.fH, fontSize:20, color:item.color }}>{item.value}</div>
+                        <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {log.activities && (
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                        letterSpacing:"0.07em", marginBottom:4 }}>Actividades</div>
+                      <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.6 }}>{log.activities}</div>
+                    </div>
+                  )}
+
+                  {log.notes && (
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                        letterSpacing:"0.07em", marginBottom:4 }}>Notas para el terapeuta</div>
+                      <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.65,
+                        padding:"8px 12px", background:T.pA, borderRadius:8 }}>{log.notes}</div>
+                    </div>
+                  )}
+
+                  {log.abcRecords?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                        letterSpacing:"0.07em", marginBottom:8 }}>Registros ABC</div>
+                      {log.abcRecords.map((abc, i) => (
+                        <div key={abc.id || i} style={{ padding:"10px 12px", background:T.cardAlt,
+                          borderRadius:10, marginBottom:8, border:`1px solid ${T.bdrL}` }}>
+                          {[
+                            { label:"A — Situación",              value:abc.situation,          color:"#5B8DB8" },
+                            { label:"B — Pensamientos",            value:abc.thoughts,            color:T.war   },
+                            { label:`C — Emociones (${abc.emotionIntensity}/10)`, value:abc.emotions, color:T.err },
+                            { label:"D — Pensamiento alternativo", value:abc.alternativeThought, color:T.suc   },
+                          ].filter(f => f.value).map(f => (
+                            <div key={f.label} style={{ marginBottom:6 }}>
+                              <div style={{ fontSize:10, fontWeight:700, color:f.color,
+                                textTransform:"uppercase", letterSpacing:"0.05em" }}>{f.label}</div>
+                              <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.6 }}>{f.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Patients({ patients, setPatients, sessions, payments, setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], resources = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [showAdd,      setShowAdd]      = useState(false);
   const [selected,     setSelected]     = useState(null);
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);
-  const [newDx,        setNewDx]        = useState({ diagnosis:"", date:fmt(todayDate), notes:"" });
-  const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+  const [newDx,        setNewDx]        = useState({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
+  const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
-  const toggleConsent = (id) => {
-    setPatients(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const signed = !(p.consentSigned);
-      return { ...p, consentSigned: signed, consentDate: signed ? fmt(todayDate) : null };
-    }));
-    setSelected(prev => prev ? { ...prev, consentSigned: !(prev.consentSigned), consentDate: !(prev.consentSigned) ? fmt(todayDate) : null } : prev);
+  const updateConsent = (id, consentData) => {
+    setPatients(prev => prev.map(p => p.id === id ? { ...p, consent: consentData } : p));
+    setSelected(prev => prev?.id === id ? { ...prev, consent: consentData } : prev);
   };
 
   const addDiagnosis = (id) => {
@@ -204,14 +566,14 @@ export default function Patients({ patients, setPatients, sessions, payments, se
     setPatients(prev => prev.map(p => {
       if (p.id !== id) return p;
       const history = [...(p.diagnosisHistory || []), { ...newDx, id:"dx"+uid() }];
-      return { ...p, diagnosisHistory: history, diagnosis: newDx.diagnosis };
+      return { ...p, diagnosisHistory: history, diagnosis: newDx.diagnosis, cie11Code: newDx.cie11Code || p.cie11Code };
     }));
     setSelected(prev => {
       if (!prev) return prev;
       const history = [...(prev.diagnosisHistory || []), { ...newDx, id:"dx"+uid() }];
-      return { ...prev, diagnosisHistory: history, diagnosis: newDx.diagnosis };
+      return { ...prev, diagnosisHistory: history, diagnosis: newDx.diagnosis, cie11Code: newDx.cie11Code || prev.cie11Code };
     });
-    setNewDx({ diagnosis:"", date:fmt(todayDate), notes:"" });
+    setNewDx({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
     setShowAddDx(false);
   };
 
@@ -229,7 +591,7 @@ export default function Patients({ patients, setPatients, sessions, payments, se
   const save = () => {
     if (!form.name.trim()) return;
     setPatients(prev => [...prev, { ...form, id:"p"+uid(), createdAt:fmt(todayDate) }]);
-    setForm({ name:"", age:"", phone:"", email:"", diagnosis:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setForm({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
     setShowAdd(false);
   };
 
@@ -321,14 +683,26 @@ export default function Patients({ patients, setPatients, sessions, payments, se
               {selected.rate && <div style={{ fontFamily:T.fB, fontSize:11, color:T.acc, marginTop:4 }}>Tarifa personalizada activa</div>}
             </div>
 
-            {selected.diagnosis && <div style={{ padding:12, background:T.pA, borderRadius:10, marginBottom:10 }}><div style={{ fontSize:10, fontWeight:700, color:T.p, letterSpacing:"0.08em", marginBottom:5, textTransform:"uppercase" }}>Diagnóstico actual</div><div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{selected.diagnosis}</div></div>}
+            {selected.diagnosis && <div style={{ padding:12, background:T.pA, borderRadius:10, marginBottom:10 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:T.p, letterSpacing:"0.08em", marginBottom:5, textTransform:"uppercase" }}>Diagnóstico actual</div>
+              {selected.cie11Code && (
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                  <span style={{ padding:"2px 8px", borderRadius:6, background:"rgba(58,107,110,0.15)", color:T.p, fontSize:10, fontWeight:700, fontFamily:"monospace" }}>{selected.cie11Code}</span>
+                  <span style={{ fontSize:10, color:T.tm }}>CIE-11</span>
+                </div>
+              )}
+              <div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{selected.diagnosis}</div>
+            </div>}
             {/* Diagnosis history */}
             {(selected.diagnosisHistory||[]).length > 1 && (
               <div style={{ padding:"10px 12px", background:T.cardAlt, borderRadius:10, marginBottom:10 }}>
                 <div style={{ fontSize:10, fontWeight:700, color:T.tm, letterSpacing:"0.08em", marginBottom:8, textTransform:"uppercase" }}>Historial diagnóstico</div>
                 {[...(selected.diagnosisHistory||[])].reverse().slice(1).map(dx => (
-                  <div key={dx.id} style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4, display:"flex", justifyContent:"space-between", gap:8 }}>
-                    <span>{dx.diagnosis}</span>
+                  <div key={dx.id} style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:6, display:"flex", justifyContent:"space-between", gap:8, alignItems:"flex-start" }}>
+                    <div>
+                      {dx.cie11Code && <span style={{ fontFamily:"monospace", fontSize:10, fontWeight:700, color:T.p, background:T.pA, padding:"1px 5px", borderRadius:4, marginRight:5 }}>{dx.cie11Code}</span>}
+                      <span>{dx.diagnosis}</span>
+                    </div>
                     <span style={{ color:T.tl, flexShrink:0 }}>{fmtDate(dx.date)}</span>
                   </div>
                 ))}
@@ -337,7 +711,13 @@ export default function Patients({ patients, setPatients, sessions, payments, se
             {/* Add diagnosis button */}
             {showAddDx ? (
               <div style={{ padding:12, background:T.cardAlt, borderRadius:10, marginBottom:10 }}>
-                <input value={newDx.diagnosis} onChange={e => setNewDx(n=>({...n,diagnosis:e.target.value}))} placeholder="Nuevo diagnóstico..." style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:8, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box", marginBottom:8 }}/>
+                <CieDiagnosisField
+                  value={newDx.diagnosis}
+                  cie11Code={newDx.cie11Code}
+                  onChangeDx={v => setNewDx(n=>({...n, diagnosis:v}))}
+                  onChangeCode={v => setNewDx(n=>({...n, cie11Code:v}))}
+                  label="Nuevo diagnóstico"
+                />
                 <input type="date" value={newDx.date} onChange={e => setNewDx(n=>({...n,date:e.target.value}))} style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:8, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box", marginBottom:8 }}/>
                 <div style={{ display:"flex", gap:6 }}>
                   <button onClick={() => addDiagnosis(selected.id)} disabled={!newDx.diagnosis.trim()} style={{ flex:1, padding:"7px 0", background:T.p, color:"#fff", border:"none", borderRadius:8, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:newDx.diagnosis.trim()?"pointer":"not-allowed", opacity:newDx.diagnosis.trim()?1:0.5 }}>Guardar</button>
@@ -350,17 +730,17 @@ export default function Patients({ patients, setPatients, sessions, payments, se
               </button>
             )}
             {selected.reason    && <div style={{ padding:12, background:T.cardAlt, borderRadius:10, marginBottom:10 }}><div style={{ fontSize:10, fontWeight:700, color:T.tm, letterSpacing:"0.08em", marginBottom:5, textTransform:"uppercase" }}>Motivo de consulta</div><div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{selected.reason}</div></div>}
-            {/* Consent */}
-            <div onClick={() => toggleConsent(selected.id)}
-              style={{ padding:"10px 14px", background:selected.consentSigned?T.sucA:T.warA, borderRadius:10, marginBottom:10, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", border:`1.5px solid ${selected.consentSigned?"rgba(78,139,95,0.3)":"rgba(184,144,10,0.3)"}`, transition:"all .15s" }}>
-              <div>
-                <div style={{ fontSize:10, fontWeight:700, color:selected.consentSigned?T.suc:T.war, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:2 }}>Consentimiento informado</div>
-                <div style={{ fontFamily:T.fB, fontSize:12, color:selected.consentSigned?T.suc:T.war }}>{selected.consentSigned ? `Firmado el ${fmtDate(selected.consentDate)}` : "Pendiente de firma"}</div>
-              </div>
-              <div style={{ width:22, height:22, borderRadius:6, background:selected.consentSigned?T.suc:T.bdr, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all .15s" }}>
-                {selected.consentSigned && <Check size={13} color="#fff" strokeWidth={2.5}/>}
-              </div>
-            </div>
+            {/* Consentimiento informado */}
+            <ConsentBlock
+              key={selected.id}
+              patient={selected}
+              onUpdate={(consentData) => updateConsent(selected.id, consentData)}
+              profile={profile}
+            />
+
+            {/* Medicación activa y seguimiento inter-sesional */}
+            <MedSummaryWidget patientId={selected.id} medications={medications}/>
+            <ContactFollowUpWidget patientId={selected.id} interSessions={interSessions}/>
 
             <div style={{ marginTop:16, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, paddingTop:16, borderTop:`1px solid ${T.bdrL}` }}>
               <div style={{ textAlign:"center", padding:"10px 8px", background:T.pA, borderRadius:10 }}>
@@ -378,14 +758,17 @@ export default function Patients({ patients, setPatients, sessions, payments, se
             </div>
           </Card>
 
-          {/* Tabs: Sesiones | Pagos | Progreso | Recursos */}
+          {/* Tabs: Sesiones | Pagos | Progreso | Recursos | Contactos | Medicación */}
           <Card style={{ padding:24 }}>
             <Tabs
               tabs={[
-                { id:"sessions",  label:`Sesiones (${ptSessions.length})`  },
-                { id:"payments",  label:`Pagos (${ptPayments.length})`     },
-                { id:"progress",  label:"Progreso"                         },
-                { id:"resources", label:`Recursos (${(resources||[]).filter(r=>(r.assignments||[]).some(a=>a.patientId===selected.id)).length})` },
+                { id:"sessions",    label:`Sesiones (${ptSessions.length})`  },
+                { id:"payments",    label:`Pagos (${ptPayments.length})`     },
+                { id:"progress",    label:"Progreso"                         },
+                { id:"resources",   label:`Recursos (${(resources||[]).filter(r=>(r.assignments||[]).some(a=>a.patientId===selected.id)).length})` },
+                { id:"contacts",    label:`Contactos (${(interSessions||[]).filter(c=>c.patientId===selected.id).length})` },
+                { id:"medications", label:`Medicación (${(medications||[]).filter(m=>m.patientId===selected.id&&m.status==="activo").length})` },
+                { id:"selflog",     label:`Autorregistro${selected.selfLogToken ? ` (${countPendingForToken(selected.selfLogToken)})` : ""}` },
               ]}
               active={detailTab} onChange={setDetailTab}
             />
@@ -487,6 +870,35 @@ export default function Patients({ patients, setPatients, sessions, payments, se
                 );
               });
             })()}
+
+            {/* Contactos inter-sesionales */}
+            {detailTab === "contacts" && (
+              <ContactsTab
+                patientId={selected.id}
+                interSessions={interSessions}
+                setInterSessions={setInterSessions}
+              />
+            )}
+
+            {/* Medicación */}
+            {detailTab === "medications" && (
+              <MedicationTab
+                patientId={selected.id}
+                medications={medications}
+                setMedications={setMedications}
+              />
+            )}
+
+            {/* Autorregistro */}
+            {detailTab === "selflog" && (
+              <SelfLogTab
+                patient={selected}
+                onUpdatePatient={(updates) => {
+                  setPatients(prev => prev.map(p => p.id === selected.id ? { ...p, ...updates } : p));
+                  setSelected(prev => prev ? { ...prev, ...updates } : prev);
+                }}
+              />
+            )}
           </Card>
         </div>
       </div>
@@ -526,6 +938,8 @@ export default function Patients({ patients, setPatients, sessions, payments, se
         : <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px,1fr))", gap:14 }}>
           {filtered.map(p => {
             const sc = STATUS_CONFIG[p.status||"activo"];
+            const cs = consentStatus(p);
+            const csCfg = CONSENT_STATUS_CONFIG[cs];
             const hasPend = payments.some(py => py.patientId === p.id && py.status === "pendiente");
             const ptSess  = sessions.filter(s => s.patientId === p.id);
             const lastMood = ptSess.length > 0 ? ptSess.sort((a,b)=>b.date.localeCompare(a.date))[0].mood : null;
@@ -545,6 +959,11 @@ export default function Patients({ patients, setPatients, sessions, payments, se
                   </div>
                   <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
                     {hasPend && <Badge color={T.war} bg={T.warA}>💰</Badge>}
+                    {(cs === "pending" || cs === "expired") && (
+                      <span title={csCfg.label} style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 7px", borderRadius:9999, fontSize:10, fontWeight:700, fontFamily:T.fB, color:csCfg.color, background:csCfg.bg, whiteSpace:"nowrap" }}>
+                        {cs === "pending" ? "📋 Sin firmar" : "🔴 CI vencido"}
+                      </span>
+                    )}
                     {MI && <MI size={14} color={moodColor(lastMood)}/>}
                     {latestRisk && <RiskBadge level={latestRisk.riskLevel} size="small"/>}
                     {latestScale && scaleSev && (
@@ -584,7 +1003,13 @@ export default function Patients({ patients, setPatients, sessions, payments, se
           <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-123-4567"/>
         </div>
         <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
-        <Input label="Diagnóstico" value={form.diagnosis} onChange={fld("diagnosis")} placeholder="Ej. Trastorno de Ansiedad Generalizada"/>
+        <CieDiagnosisField
+          value={form.diagnosis}
+          cie11Code={form.cie11Code}
+          onChangeDx={fld("diagnosis")}
+          onChangeCode={fld("cie11Code")}
+          label="Diagnóstico"
+        />
         <Textarea label="Motivo de consulta" value={form.reason} onChange={fld("reason")} rows={2}/>
         <Textarea label="Notas adicionales" value={form.notes} onChange={fld("notes")} rows={2}/>
 

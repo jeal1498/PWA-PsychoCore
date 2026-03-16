@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Target, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, CheckCircle, Circle, Clock, TrendingUp, AlertTriangle, FileText } from "lucide-react";
+import { Target, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, CheckCircle, Circle, Clock, TrendingUp, AlertTriangle, FileText, LogOut, Award, CalendarPlus } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, fmt, todayDate, fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
@@ -7,12 +7,69 @@ import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeade
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-const OBJECTIVE_STATUS = {
+export const OBJECTIVE_STATUS = {
   pendiente:   { label: "Pendiente",   color: T.tl,  bg: T.bdrL  },
   en_proceso:  { label: "En proceso",  color: T.war, bg: T.warA  },
   logrado:     { label: "Logrado",     color: T.suc, bg: T.sucA  },
   abandonado:  { label: "Abandonado",  color: T.err, bg: T.errA  },
 };
+
+export const BLANK_FORMULATION = {
+  historiaPrima:          "",
+  evolucion:              "",
+  tratamientosPrevios:    "",
+  predisponentesBio:      "",
+  predisponentesPsi:      "",
+  predisponentesSoc:      "",
+  precipitantes:          "",
+  mantenedores:           "",
+  recursos:               "",
+  hipotesis:              "",
+  diagnosticoDiferencial: "",
+};
+
+// Secciones de la formulación estructurada
+const FORMULATION_SECTIONS = [
+  {
+    group: "Historia del problema",
+    color: T.p,
+    bg: T.pA,
+    fields: [
+      { key: "historiaPrima",       label: "Historia del problema",         placeholder: "Inicio y descripción del problema principal. ¿Cuándo comenzó? ¿Cómo se presentó?", rows: 3 },
+      { key: "evolucion",           label: "Evolución y cronología",        placeholder: "Cómo ha progresado el problema. Períodos de mejoría o agravamiento, eventos importantes...", rows: 3 },
+      { key: "tratamientosPrevios", label: "Tratamientos previos",          placeholder: "Atenciones psicológicas o psiquiátricas anteriores. Resultados, adherencia, fármacos previos...", rows: 2 },
+    ],
+  },
+  {
+    group: "Modelo biopsicosocial — Factores predisponentes",
+    color: "#5B8DB8",
+    bg: "rgba(91,141,184,0.08)",
+    fields: [
+      { key: "predisponentesBio",   label: "Biológicos",                    placeholder: "Antecedentes médicos, genéticos, familiares psiquiátricos, temperamento...", rows: 2 },
+      { key: "predisponentesPsi",   label: "Psicológicos",                  placeholder: "Estilos de afrontamiento, creencias nucleares, historia de apegos, traumas previos...", rows: 2 },
+      { key: "predisponentesSoc",   label: "Sociales / contextuales",       placeholder: "Entorno familiar, red de apoyo, nivel socioeconómico, factores culturales...", rows: 2 },
+    ],
+  },
+  {
+    group: "Factores precipitantes y mantenedores",
+    color: T.war,
+    bg: T.warA,
+    fields: [
+      { key: "precipitantes",       label: "Factores precipitantes",        placeholder: "¿Qué detonó el episodio actual? Eventos vitales estresantes, pérdidas, cambios...", rows: 2 },
+      { key: "mantenedores",        label: "Factores mantenedores",         placeholder: "¿Qué perpetúa el problema? Conductas de evitación, refuerzos, cogniciones, contexto...", rows: 3 },
+    ],
+  },
+  {
+    group: "Hipótesis clínica",
+    color: T.acc,
+    bg: T.accA,
+    fields: [
+      { key: "recursos",            label: "Recursos y fortalezas del paciente", placeholder: "Habilidades, red de apoyo, motivación, insight, experiencias de éxito previas...", rows: 2 },
+      { key: "hipotesis",           label: "Hipótesis clínica integradora", placeholder: "Síntesis explicativa del caso: cómo se relacionan los factores predisponentes, precipitantes y mantenedores...", rows: 4 },
+      { key: "diagnosticoDiferencial", label: "Diagnóstico diferencial",   placeholder: "Diagnósticos a considerar y descartar con sus argumentos clínicos...", rows: 3 },
+    ],
+  },
+];
 
 const OBJECTIVE_HORIZON = {
   corto:   { label: "Corto plazo",   color: T.acc,        bg: T.accA                   },
@@ -72,6 +129,8 @@ h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:#
 h2{font-family:'Cormorant Garamond',serif;font-size:19px;color:#3A6B6E;margin:24px 0 14px;padding-bottom:6px;border-bottom:1px solid #EDF1F0}
 .box{background:#F9F8F5;padding:16px;border-radius:10px;border-left:4px solid #3A6B6E;margin-bottom:16px;font-size:13px;line-height:1.7;white-space:pre-wrap}
 .box.accent{border-left-color:#C4895A}
+.form-section{margin-bottom:10px}
+.form-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
 .obj{background:#F9F8F5;padding:14px;border-radius:10px;margin-bottom:10px}
 .obj-header{display:flex;gap:8px;margin-bottom:8px}
 .obj-text{font-size:13px;line-height:1.6;margin-bottom:6px}
@@ -101,7 +160,30 @@ footer{margin-top:40px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
 </div>
 
 ${plan.chiefComplaint ? `<h2>Motivo de consulta</h2><div class="box">${plan.chiefComplaint}</div>` : ""}
-${plan.clinicalFormulation ? `<h2>Formulación clínica</h2><div class="box">${plan.clinicalFormulation}</div>` : ""}
+
+${(() => {
+  const fm = plan.formulation;
+  if (!fm || !Object.values(fm).some(Boolean)) {
+    return plan.clinicalFormulation ? `<h2>Formulación clínica</h2><div class="box">${plan.clinicalFormulation}</div>` : "";
+  }
+  const section = (title, content, borderColor = "#3A6B6E") =>
+    content ? `<div class="form-section"><div class="form-label" style="color:${borderColor}">${title}</div><div class="box" style="border-left-color:${borderColor}">${content}</div></div>` : "";
+  return `
+<h2>Formulación clínica — Modelo biopsicosocial</h2>
+<div style="margin-bottom:8px">
+${section("Historia del problema", fm.historiaPrima)}
+${section("Evolución y cronología", fm.evolucion)}
+${section("Tratamientos previos", fm.tratamientosPrevios)}
+${section("Factores predisponentes biológicos", fm.predisponentesBio, "#5B8DB8")}
+${section("Factores predisponentes psicológicos", fm.predisponentesPsi, "#5B8DB8")}
+${section("Factores predisponentes sociales", fm.predisponentesSoc, "#5B8DB8")}
+${section("Factores precipitantes", fm.precipitantes, "#B8900A")}
+${section("Factores mantenedores", fm.mantenedores, "#B8900A")}
+${section("Recursos y fortalezas", fm.recursos, "#C4895A")}
+${section("Hipótesis clínica integradora", fm.hipotesis, "#C4895A")}
+${section("Diagnóstico diferencial", fm.diagnosticoDiferencial, "#C4895A")}
+</div>`;
+})()}
 
 <h2>Objetivos terapéuticos</h2>
 ${objectiveRows || "<p style='color:#9BAFAD;font-size:13px'>Sin objetivos registrados.</p>"}
@@ -117,6 +199,58 @@ ${plan.reviewNotes ? `<h2>Notas de revisión</h2><div class="box">${plan.reviewN
 </body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 500);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULACIÓN CLÍNICA ESTRUCTURADA
+// ─────────────────────────────────────────────────────────────────────────────
+function FormulacionEstructurada({ formulation = {}, onChange }) {
+  const f = { ...BLANK_FORMULATION, ...formulation };
+  const set = key => e => onChange({ ...f, [key]: e.target.value });
+  const filled = Object.values(f).filter(Boolean).length;
+  const total  = Object.keys(BLANK_FORMULATION).length;
+
+  return (
+    <div>
+      {/* Progress indicator */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "12px 16px", background: T.cardAlt, borderRadius: 12, border: `1px solid ${T.bdrL}` }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm }}>Formulación completada</span>
+            <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: filled === total ? T.suc : T.p }}>{filled}/{total} secciones</span>
+          </div>
+          <div style={{ height: 6, background: T.bdrL, borderRadius: 9999, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(filled / total) * 100}%`, background: filled === total ? T.suc : T.p, borderRadius: 9999, transition: "width .3s" }}/>
+          </div>
+        </div>
+      </div>
+
+      {FORMULATION_SECTIONS.map(({ group, color, bg, fields }) => (
+        <div key={group} style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color, marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }}/>
+            {group}
+          </div>
+          <div style={{ border: `1.5px solid ${color}30`, borderRadius: 12, overflow: "hidden" }}>
+            {fields.map((field, idx) => (
+              <div key={field.key} style={{ borderBottom: idx < fields.length - 1 ? `1px solid ${T.bdrL}` : "none" }}>
+                <div style={{ padding: "9px 14px 6px", background: bg }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.07em" }}>{field.label}</label>
+                </div>
+                <textarea
+                  value={f[field.key]}
+                  onChange={set(field.key)}
+                  placeholder={field.placeholder}
+                  rows={field.rows}
+                  style={{ width: "100%", padding: "11px 14px", border: "none", outline: "none", fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, resize: "vertical", boxSizing: "border-box", lineHeight: 1.65 }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,7 +338,7 @@ function ObjectiveItem({ obj, onUpdate, onDelete }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PLAN DETAIL VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-function PlanDetail({ plan, onUpdate, onDelete, onBack, patient, sessions, profile }) {
+function PlanDetail({ plan, onUpdate, onDelete, onBack, patient, sessions, profile, setAppointments, scaleResults = [] }) {
   const [tab, setTab]           = useState("objectives");
   const [showAddObj, setShowAddObj] = useState(false);
   const [newObj, setNewObj]     = useState({ description: "", horizon: "corto", status: "pendiente", interventions: "", criteria: "" });
@@ -272,6 +406,7 @@ function PlanDetail({ plan, onUpdate, onDelete, onBack, patient, sessions, profi
           { id: "objectives", label: `Objetivos (${objectives.length})` },
           { id: "clinical",   label: "Datos clínicos"                   },
           { id: "review",     label: "Revisiones"                       },
+          { id: "alta",       label: plan.status === "completado" ? "✓ Alta registrada" : "Alta terapéutica" },
         ]}
         active={tab} onChange={setTab}
       />
@@ -362,11 +497,29 @@ function PlanDetail({ plan, onUpdate, onDelete, onBack, patient, sessions, profi
             </div>
           </div>
 
+          {/* Motivo de consulta */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Motivo de consulta</label>
+            <textarea value={plan.chiefComplaint || ""} onChange={e => set("chiefComplaint")(e.target.value)}
+              placeholder="Descripción del problema presentado por el paciente al inicio del tratamiento..." rows={3}
+              style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.65 }}/>
+          </div>
+
+          {/* Formulación estructurada */}
+          <div style={{ marginBottom: 16, padding: "14px 16px 6px", background: T.pA, borderRadius: 12, border: `1.5px solid ${T.p}20` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+              <FileText size={13}/> Formulación clínica — Modelo biopsicosocial
+            </div>
+            <FormulacionEstructurada
+              formulation={plan.formulation}
+              onChange={f => set("formulation")(f)}
+            />
+          </div>
+
+          {/* Enfoque, criterios de alta */}
           {[
-            { key: "chiefComplaint",      label: "Motivo de consulta",       placeholder: "Descripción del problema presentado por el paciente al inicio del tratamiento...", rows: 3 },
-            { key: "clinicalFormulation", label: "Formulación clínica",      placeholder: "Hipótesis sobre los factores predisponentes, precipitantes y mantenedores del problema...", rows: 4 },
-            { key: "therapeuticApproach", label: "Enfoque y técnicas",       placeholder: "Marco teórico aplicado, técnicas principales (TCC, ACT, EMDR, etc.)...", rows: 3 },
-            { key: "dischargeCriteria",   label: "Criterios de alta",        placeholder: "Indicadores que señalarán que el tratamiento ha concluido exitosamente...", rows: 3 },
+            { key: "therapeuticApproach", label: "Enfoque y técnicas",  placeholder: "Marco teórico aplicado, técnicas principales (TCC, ACT, EMDR, etc.)...", rows: 3 },
+            { key: "dischargeCriteria",   label: "Criterios de alta",   placeholder: "Indicadores que señalarán que el tratamiento ha concluido exitosamente...", rows: 3 },
           ].map(({ key, label, placeholder, rows }) => (
             <div key={key} style={{ marginBottom: 16 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</label>
@@ -418,6 +571,329 @@ function PlanDetail({ plan, onUpdate, onDelete, onBack, patient, sessions, profi
           )}
         </div>
       )}
+
+      {/* ── ALTA TERAPÉUTICA TAB ─────────────────────────────────────────── */}
+      {tab === "alta" && (
+        <AltaTab
+          plan={plan}
+          patient={patient}
+          sessions={ptSessions}
+          scaleResults={scaleResults}
+          profile={profile}
+          onUpdate={onUpdate}
+          setAppointments={setAppointments}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALTA TAB — Flujo guiado de cierre terapéutico
+// ─────────────────────────────────────────────────────────────────────────────
+function AltaTab({ plan, patient, sessions, scaleResults, profile, onUpdate, setAppointments }) {
+  const discharge  = plan.discharge || {};
+  const objectives = plan.objectives || [];
+  const achieved   = objectives.filter(o => o.status === "logrado").length;
+  const pct        = objectives.length > 0 ? Math.round((achieved / objectives.length) * 100) : null;
+  const isComplete = plan.status === "completado";
+
+  // Scale comparisons
+  const ptScales = scaleResults.filter(r => r.patientId === plan.patientId).sort((a,b) => a.date.localeCompare(b.date));
+  const byScale  = {};
+  ptScales.forEach(r => { if (!byScale[r.scaleId]) byScale[r.scaleId] = []; byScale[r.scaleId].push(r); });
+  const scaleComps = Object.entries(byScale).map(([id, rs]) => ({
+    id, first: rs[0], last: rs[rs.length - 1], count: rs.length,
+  }));
+
+  const set = k => v => onUpdate({ ...plan, discharge: { ...discharge, [k]: v } });
+
+  // Create follow-up appointments
+  const createFollowUps = (months) => {
+    if (!setAppointments || !patient) return;
+    const today = new Date();
+    months.forEach(m => {
+      const d = new Date(today);
+      d.setMonth(d.getMonth() + m);
+      const dateStr = d.toISOString().split("T")[0];
+      setAppointments(prev => [...prev, {
+        id: "appt" + uid(),
+        patientId: patient.id,
+        patientName: patient.name,
+        date: dateStr,
+        time: "09:00",
+        type: "Seguimiento post-alta",
+        status: "pendiente",
+        planId: plan.id,
+        followUpMonth: m,
+      }]);
+    });
+  };
+
+  // Confirm discharge
+  const confirmAlta = () => {
+    onUpdate({
+      ...plan,
+      status: "completado",
+      discharge: {
+        ...discharge,
+        completedAt: fmt(todayDate),
+      },
+    });
+  };
+
+  // PDF using inline template (quick version)
+  const printAltaPDF = () => {
+    const w = window.open("", "_blank");
+    const today = new Date().toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+    const firstS = sessions.length > 0 ? sessions[0] : null;
+    const lastS  = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+
+    const objRows = objectives.map(obj => {
+      const st = OBJECTIVE_STATUS[obj.status] || { label: obj.status, color: "#5A7270" };
+      const dot = obj.status === "logrado" ? "#4E8B5F" : obj.status === "en_proceso" ? "#B8900A" : "#9BAFAD";
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:#F9F8F5;border-radius:8px;margin-bottom:6px">
+        <div style="width:9px;height:9px;border-radius:50%;background:${dot};margin-top:4px;flex-shrink:0"></div>
+        <div><div style="font-size:13px;color:#1A2B28">${obj.description}</div>
+        <span style="font-size:10px;font-weight:700;color:${st.color};text-transform:uppercase;letter-spacing:.05em">${st.label}</span></div></div>`;
+    }).join("");
+
+    const scaleRows = scaleComps.map(sc => {
+      const delta = sc.count > 1 ? sc.last.score - sc.first.score : null;
+      const arrow = delta === null ? "" : delta < 0 ? "▼" : delta > 0 ? "▲" : "=";
+      const color = delta === null ? "#9BAFAD" : delta < 0 ? "#4E8B5F" : delta > 0 ? "#B85050" : "#5A7270";
+      return `<tr style="border-bottom:1px solid #EDF1F0">
+        <td style="padding:8px 12px;font-size:12px;font-weight:600">${sc.id}</td>
+        <td style="padding:8px 12px;font-size:12px;text-align:center">${sc.first.score}</td>
+        <td style="padding:8px 12px;font-size:12px;text-align:center">${sc.last.score}</td>
+        <td style="padding:8px 12px;font-size:14px;font-weight:700;color:${color};text-align:center">${arrow} ${delta !== null ? Math.abs(delta) : "—"}</td>
+      </tr>`;
+    }).join("");
+
+    w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Alta Terapéutica — ${patient?.name}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;max-width:740px;margin:40px auto;color:#1A2B28;font-size:13px;line-height:1.65}
+.letterhead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #3A6B6E}
+.org h1{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:#3A6B6E;margin-bottom:3px}
+.org p{font-size:11px;color:#5A7270;margin-top:2px}
+.doc-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:#3A6B6E;margin-bottom:20px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+.info-box{background:#F9F8F5;padding:12px 14px;border-radius:9px}
+.info-box label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9BAFAD;margin-bottom:2px}
+.info-box p{font-size:13px;font-weight:500}
+h2{font-family:'Cormorant Garamond',serif;font-size:18px;color:#3A6B6E;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #EDF1F0}
+.text-block{background:#F9F8F5;padding:14px 16px;border-radius:9px;border-left:4px solid #3A6B6E;font-size:13px;line-height:1.75;white-space:pre-wrap;margin-bottom:14px}
+.text-block.accent{border-left-color:#C4895A}
+.pct-bar{height:8px;background:#EDF1F0;border-radius:9999px;overflow:hidden;margin-bottom:6px}
+.pct-fill{height:100%;background:#4E8B5F;border-radius:9999px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px;border:1px solid #D8E2E0;border-radius:8px;overflow:hidden}
+thead tr{background:#3A6B6E}
+thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.9)}
+.sig-area{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px}
+.sig-line{border-top:1px solid #1A2B28;padding-top:7px;margin-top:52px}
+.sig-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:500}
+.sig-meta{font-size:11px;color:#5A7270;margin-top:2px}
+footer{margin-top:40px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:11px;color:#9BAFAD;display:flex;justify-content:space-between}
+@media print{body{margin:0;max-width:none}@page{margin:16mm}}
+</style></head><body>
+
+<div class="letterhead">
+  <div class="org">
+    <h1>${profile?.clinic || "Consultorio Psicológico"}</h1>
+    <p>${profile?.name || ""}${profile?.specialty ? " · " + profile.specialty : ""}</p>
+    ${profile?.cedula ? `<p>Cédula: ${profile.cedula}</p>` : ""}
+  </div>
+  <div style="text-align:right;font-size:12px;color:#5A7270">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9BAFAD;margin-bottom:3px">Fecha de alta</div>
+    <div style="font-size:13px;color:#1A2B28;font-weight:500">${today}</div>
+  </div>
+</div>
+
+<div class="doc-title">Informe de Alta Terapéutica</div>
+
+<div class="info-grid">
+  <div class="info-box"><label>Paciente</label><p>${patient?.name || "—"}</p></div>
+  ${firstS ? `<div class="info-box"><label>Inicio tratamiento</label><p>${fmtDate(firstS.date)}</p></div>` : ""}
+  <div class="info-box"><label>Total sesiones</label><p>${sessions.length}</p></div>
+  ${plan.therapeuticApproach ? `<div class="info-box"><label>Enfoque</label><p>${plan.therapeuticApproach}</p></div>` : ""}
+  ${pct !== null ? `<div class="info-box"><label>Objetivos logrados</label><p style="color:#4E8B5F;font-weight:700">${pct}%</p></div>` : ""}
+</div>
+
+${objectives.length > 0 ? `<h2>Objetivos terapéuticos</h2>
+${pct !== null ? `<div class="pct-bar"><div class="pct-fill" style="width:${pct}%"></div></div>
+<p style="font-size:12px;color:#4E8B5F;font-weight:700;margin-bottom:12px">${achieved}/${objectives.length} objetivos logrados (${pct}%)</p>` : ""}
+${objRows}` : ""}
+
+${scaleComps.length > 0 ? `<h2>Evolución en escalas psicométricas</h2>
+<table><thead><tr><th>Escala</th><th>Inicio</th><th>Alta</th><th>Cambio</th></tr></thead>
+<tbody>${scaleRows}</tbody></table>` : ""}
+
+${plan.dischargeCriteria ? `<h2>Criterios de alta alcanzados</h2><div class="text-block">${plan.dischargeCriteria}</div>` : ""}
+
+${discharge.estadoAlta ? `<h2>Estado al alta</h2><div class="text-block">${discharge.estadoAlta}</div>` : ""}
+
+${discharge.prevencionRecaidas ? `<h2>Plan de prevención de recaídas</h2><div class="text-block">${discharge.prevencionRecaidas}</div>` : ""}
+
+${discharge.recomendaciones ? `<h2>Recomendaciones post-alta</h2><div class="text-block accent">${discharge.recomendaciones}</div>` : ""}
+
+<div class="sig-area">
+  <div><div class="sig-line">
+    <div class="sig-name">${patient?.name || "Paciente"}</div>
+    <div class="sig-meta">Recibió alta terapéutica · ${today}</div>
+  </div></div>
+  <div><div class="sig-line">
+    <div class="sig-name">${profile?.name || "Terapeuta"}</div>
+    <div class="sig-meta">${profile?.specialty || "Psicólogo/a"}${profile?.cedula ? " · Céd. " + profile.cedula : ""}</div>
+  </div></div>
+</div>
+
+<footer><span>PsychoCore · Alta Terapéutica</span><span>Documento confidencial · ${today}</span></footer>
+</body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 600);
+  };
+
+  return (
+    <div>
+      {/* Estado actual */}
+      {isComplete ? (
+        <div style={{ padding: "14px 18px", background: T.sucA, borderRadius: 12, border: `1.5px solid rgba(78,139,95,0.3)`, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.suc, marginBottom: 2 }}>
+              ✓ Alta registrada el {fmtDate(discharge.completedAt || plan.startDate)}
+            </div>
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
+              El plan está marcado como completado. Puedes imprimir el informe o editar los campos abajo.
+            </div>
+          </div>
+          <Btn small onClick={printAltaPDF}><Printer size={13}/> Informe PDF</Btn>
+        </div>
+      ) : (
+        <div style={{ padding: "14px 18px", background: T.pA, borderRadius: 12, border: `1px solid ${T.p}20`, marginBottom: 20 }}>
+          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.p, lineHeight: 1.65 }}>
+            <strong>Flujo de alta terapéutica</strong> — Completa los campos, luego confirma el alta para marcar el plan como completado y generar el informe.
+          </div>
+        </div>
+      )}
+
+      {/* 1. Resumen automático */}
+      <div style={{ background: T.cardAlt, borderRadius: 12, padding: "16px 18px", marginBottom: 16, border: `1px solid ${T.bdrL}` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+          Resumen del proceso (auto-generado)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))", gap: 10, marginBottom: pct !== null ? 14 : 0 }}>
+          {sessions.length > 0 && (
+            <div style={{ background: T.card, padding: "10px 12px", borderRadius: 9, textAlign: "center" }}>
+              <div style={{ fontFamily: T.fH, fontSize: 24, color: T.p }}>{sessions.length}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>sesiones</div>
+            </div>
+          )}
+          {pct !== null && (
+            <div style={{ background: T.card, padding: "10px 12px", borderRadius: 9, textAlign: "center" }}>
+              <div style={{ fontFamily: T.fH, fontSize: 24, color: T.suc }}>{pct}%</div>
+              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>objetivos</div>
+            </div>
+          )}
+          {scaleComps.length > 0 && (
+            <div style={{ background: T.card, padding: "10px 12px", borderRadius: 9, textAlign: "center" }}>
+              <div style={{ fontFamily: T.fH, fontSize: 24, color: T.acc }}>{scaleComps.length}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>escalas</div>
+            </div>
+          )}
+        </div>
+        {pct !== null && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{achieved}/{objectives.length} objetivos logrados</span>
+              <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: pct === 100 ? T.suc : T.p }}>{pct}%</span>
+            </div>
+            <div style={{ height: 6, background: T.bdrL, borderRadius: 9999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? T.suc : T.p, borderRadius: 9999 }}/>
+            </div>
+          </div>
+        )}
+        {scaleComps.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.tl, marginBottom: 6 }}>Evolución en escalas</div>
+            {scaleComps.map(sc => {
+              const delta = sc.count > 1 ? sc.last.score - sc.first.score : null;
+              const color = delta === null ? T.tm : delta < 0 ? T.suc : delta > 0 ? T.err : T.tm;
+              const arrow = delta === null ? "→" : delta < 0 ? "▼" : delta > 0 ? "▲" : "=";
+              return (
+                <div key={sc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: `1px solid ${T.bdrL}` }}>
+                  <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm, minWidth: 60 }}>{sc.id}</span>
+                  <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>{sc.first.score}</span>
+                  <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>→</span>
+                  <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.t }}>{sc.last.score}</span>
+                  {delta !== null && (
+                    <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color, marginLeft: "auto" }}>
+                      {arrow} {Math.abs(delta)} pts
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 2. Campos narrativos */}
+      {[
+        { key: "estadoAlta",         label: "Estado al alta *",                    hint: "Condición del paciente al cierre: funcionamiento, síntomas residuales, capacidades adquiridas.",     rows: 4 },
+        { key: "prevencionRecaidas", label: "Plan de prevención de recaídas *",    hint: "Estrategias acordadas para mantener los logros y actuar ante señales de recaída.",                 rows: 4 },
+        { key: "recomendaciones",    label: "Recomendaciones post-alta",           hint: "Seguimiento sugerido, grupos de apoyo, recursos, indicaciones de retorno a consulta.",              rows: 3 },
+      ].map(field => (
+        <div key={field.key} style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.t, marginBottom: 4 }}>{field.label}</label>
+          <div style={{ fontSize: 11, color: T.tl, marginBottom: 6 }}>{field.hint}</div>
+          <textarea
+            value={discharge[field.key] || ""}
+            onChange={e => set(field.key)(e.target.value)}
+            rows={field.rows}
+            style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.65 }}
+          />
+        </div>
+      ))}
+
+      {/* 3. Seguimiento post-alta */}
+      <div style={{ padding: "16px 18px", background: T.cardAlt, borderRadius: 12, border: `1px solid ${T.bdrL}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+          <CalendarPlus size={13} color={T.p}/> Programar citas de seguimiento post-alta
+        </div>
+        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 12, lineHeight: 1.6 }}>
+          Se crearán citas tipo <strong>Seguimiento post-alta</strong> en la agenda del paciente.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[
+            { label: "1 mes",   months: [1]     },
+            { label: "1 + 3",   months: [1,3]   },
+            { label: "1 + 3 + 6", months: [1,3,6] },
+          ].map(opt => (
+            <button key={opt.label} onClick={() => createFollowUps(opt.months)}
+              disabled={!setAppointments}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: T.pA, border: `1.5px solid ${T.p}30`, borderRadius: 9999, fontFamily: T.fB, fontSize: 12.5, fontWeight: 600, color: T.p, cursor: "pointer", transition: "all .13s" }}
+              onMouseEnter={e => e.currentTarget.style.background = T.p + "20"}
+              onMouseLeave={e => e.currentTarget.style.background = T.pA}>
+              <CalendarPlus size={12}/> {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Confirmar alta + PDF */}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 16, borderTop: `1px solid ${T.bdrL}` }}>
+        <Btn variant="ghost" onClick={printAltaPDF}><Printer size={14}/> Solo PDF</Btn>
+        {!isComplete && (
+          <Btn
+            onClick={() => { confirmAlta(); printAltaPDF(); }}
+            disabled={!discharge.estadoAlta?.trim()}>
+            <Award size={14}/> Confirmar alta y generar informe
+          </Btn>
+        )}
+      </div>
     </div>
   );
 }
@@ -478,10 +954,11 @@ const BLANK_PLAN = {
   patientId: "", startDate: fmt(todayDate), status: "activo", modality: "",
   chiefComplaint: "", clinicalFormulation: "", therapeuticApproach: "",
   dischargeCriteria: "", reviewNotes: "", lastReviewDate: null,
+  formulation: { ...BLANK_FORMULATION },
   objectives: [],
 };
 
-export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patients, sessions, profile }) {
+export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patients, sessions, profile, scaleResults = [], setAppointments }) {
   const [selected,  setSelected]  = useState(null);
   const [showNew,   setShowNew]   = useState(false);
   const [newForm,   setNewForm]   = useState(BLANK_PLAN);
@@ -524,6 +1001,8 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
         patient={patient}
         sessions={sessions}
         profile={profile}
+        scaleResults={scaleResults}
+        setAppointments={setAppointments}
         onUpdate={updatePlan}
         onDelete={(id) => { deletePlan(id); setSelected(null); }}
         onBack={() => setSelected(null)}

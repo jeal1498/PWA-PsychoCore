@@ -366,7 +366,14 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
                               </span>
                             )}
                           </div>
-                          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{a.time} · {a.type}</div>
+                          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                            {a.time} · {a.type}
+                            {a.type === "Seguimiento post-alta" && (
+                              <span style={{ padding:"1px 6px", borderRadius:9999, background:"rgba(91,141,184,0.12)", color:"#5B8DB8", fontSize:10, fontWeight:700 }}>
+                                {a.followUpMonth ? `${a.followUpMonth}m` : "Post-alta"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <button onClick={() => toggle(a.id)} style={{ background:a.status==="completada"?T.sucA:T.warA, border:"none", borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:a.status==="completada"?T.suc:T.war, fontWeight:600 }}>{a.status}</button>
                         <button onClick={() => confirmDelete(a)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}><Trash2 size={13}/></button>
@@ -401,7 +408,14 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
                       {a.patientName.split(" ").slice(0,2).join(" ")}
                       {a.isRecurring && <Repeat size={10} color={T.p} style={{ opacity:0.6 }}/>}
                     </div>
-                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{a.time} · {a.type}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, display:"flex", alignItems:"center", gap:4 }}>
+                      {a.time} · {a.type}
+                      {a.type === "Seguimiento post-alta" && (
+                        <span style={{ padding:"1px 6px", borderRadius:9999, background:"rgba(91,141,184,0.12)", color:"#5B8DB8", fontSize:10, fontWeight:700 }}>
+                          {a.followUpMonth ? `${a.followUpMonth}m` : "Post-alta"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {a.date === todayStr && (
                     <button onClick={() => openQuickSession(a)} title="Registrar sesión"
@@ -425,7 +439,7 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
           <Input label="Hora"    value={form.time} onChange={fld("time")} type="time"/>
         </div>
         <Select label="Tipo" value={form.type} onChange={fld("type")}
-          options={["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre"].map(t => ({value:t,label:t}))}/>
+          options={["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"].map(t => ({value:t,label:t}))}/>
 
         {/* ── Recurrence section ─────────────────────────────────────── */}
         <div style={{ border:`1.5px solid ${recurring ? T.p : T.bdr}`, borderRadius:12, overflow:"hidden", marginBottom:16, transition:"border .15s" }}>
