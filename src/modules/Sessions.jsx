@@ -620,14 +620,16 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota de sesión" width={620}>
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Fecha"          value={form.date}     onChange={fld("date")}     type="date"/>
           <Input label="Duración (min)" value={form.duration} onChange={fld("duration")} type="number"/>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Select label="Progreso"      value={form.progress} onChange={fld("progress")}
             options={["excelente","bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
+          <Select label="Estado de ánimo" value={form.mood} onChange={fld("mood")}
+            options={["bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
         </div>
-        <Select label="Estado de ánimo" value={form.mood} onChange={fld("mood")}
-          options={["bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
 
         <FormatSelector value={form.noteFormat} onChange={(f) => { handleFormatChange(f); setShowTpl(false); }}/>
 
