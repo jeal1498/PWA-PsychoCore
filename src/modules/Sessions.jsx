@@ -511,6 +511,8 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
       return { ...f, structured: merged, notes: compileNotes(f.noteFormat, merged) };
     });
   };
+  const isStructured = form.noteFormat !== "libre";
+
   const canSave = form.patientId && (
     isStructured
       ? NOTE_FORMATS[form.noteFormat]?.fields?.some(f => form.structured?.[f.key]?.trim())
