@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Home, Users, Calendar, FileText, DollarSign, BookOpen, Lock, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
+import { Home, Users, Calendar, FileText, DollarSign, Lock, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
@@ -14,7 +14,6 @@ export const NAV_ITEMS = [
   { id:"risk",       icon:ShieldAlert,    label:"Riesgo", alert:true },
   { id:"reports",    icon:ScrollText,     label:"Informes"          },
   { id:"finance",    icon:DollarSign,     label:"Finanzas"          },
-  { id:"resources",  icon:BookOpen,       label:"Recursos"          },
   { id:"stats",      icon:BarChart2,      label:"Estadísticas"      },
 ];
 
