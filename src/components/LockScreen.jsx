@@ -9,7 +9,13 @@ import { signInWithGoogle } from "../lib/supabase.js";
 
 export default function LockScreen() {
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [error,   setError]   = useState(() => {
+    // Detectar error en URL (ej. ?error=server_error&error_description=...)
+    const params = new URLSearchParams(window.location.search);
+    const desc = params.get("error_description");
+    if (desc) return decodeURIComponent(desc.replace(/\+/g, " "));
+    return "";
+  });
 
   const handleGoogle = async () => {
     setLoading(true);
