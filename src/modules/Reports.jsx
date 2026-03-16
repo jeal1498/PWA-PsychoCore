@@ -532,7 +532,7 @@ const REPORT_FIELDS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Reports({ patients, sessions, scaleResults, treatmentPlans, riskAssessments, profile }) {
+export default function Reports({ patients = [], sessions = [], scaleResults = [], treatmentPlans = [], riskAssessments = [], profile }) {
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [reportType, setReportType]               = useState("evaluacion");
   const [customFields, setCustomFields]            = useState({});

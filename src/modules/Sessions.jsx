@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
-import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
-import { createAssignment } from "../lib/supabase.js";
+import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
 
@@ -481,7 +481,105 @@ function TemplatePanel({ patient, noteFormat, onApply, onClose }) {
 
 const BLANK_RISK = { suicidalIdeation:"ninguna", selfHarm:"ninguna", harmToOthers:false };
 
-export default function Sessions({ sessions, setSessions, patients, profile, prefill, riskAssessments = [], setRiskAssessments }) {
+// ── AI Summary ────────────────────────────────────────────────────────────────
+async function generateAISummary({ notes, structured, noteFormat, patientName, diagnosis, duration, mood, progress }) {
+  const notesText = noteFormat !== "libre" && structured
+    ? Object.entries(structured).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join("\n")
+    : notes;
+
+  if (!notesText?.trim()) return null;
+
+  const prompt = `Eres un asistente clínico especializado en psicología. El psicólogo ha escrito las siguientes notas de una sesión${patientName ? ` con ${patientName}` : ""}${diagnosis ? ` (${diagnosis})` : ""}.
+
+Duración: ${duration} min | Estado de ánimo: ${mood} | Progreso: ${progress}
+
+NOTAS:
+${notesText}
+
+Genera un resumen clínico estructurado y conciso con estas secciones:
+1. **Puntos clave de la sesión** (2-3 oraciones)
+2. **Intervenciones utilizadas** (lista breve)
+3. **Respuesta del paciente**
+4. **Seguimiento recomendado** (qué trabajar en la próxima sesión)
+
+Responde en español, tono profesional clínico. Máximo 200 palabras.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || null;
+}
+
+// ── Task response viewer modal ────────────────────────────────────────────────
+function TaskResponseModal({ assignment, template, onClose }) {
+  const [responses, setResponses] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+
+  useEffect(() => {
+    getResponsesByAssignment(assignment.id)
+      .then(setResponses)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [assignment.id]);
+
+  return (
+    <Modal open onClose={onClose} title={`Respuestas — ${assignment.patient_name?.split(" ")[0]}`} width={520}>
+      <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+        <span style={{ fontSize:20 }}>{template?.icon}</span>
+        <div>
+          <div style={{ fontWeight:600, color:T.t }}>{template?.title}</div>
+          <div style={{ fontSize:11, color:T.tl }}>
+            Completada {new Date(assignment.completed_at).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})}
+          </div>
+        </div>
+      </div>
+      {loading && (
+        <div style={{ textAlign:"center", padding:32 }}>
+          <div style={{ width:28, height:28, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto", animation:"spin .8s linear infinite" }}/>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      )}
+      {!loading && responses.length === 0 && (
+        <div style={{ textAlign:"center", padding:"24px 0", color:T.tl, fontFamily:T.fB, fontSize:13 }}>
+          Sin respuestas registradas.
+        </div>
+      )}
+      {!loading && responses.map((resp, ri) => (
+        <div key={resp.id} style={{ marginBottom: ri < responses.length - 1 ? 20 : 0 }}>
+          {template?.fields.map(field => {
+            const val = resp.responses?.[field.key];
+            if (!val) return null;
+            return (
+              <div key={field.key} style={{ marginBottom:12 }}>
+                <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
+                  {field.label}
+                </div>
+                <div style={{ padding:"10px 14px", background:T.cardAlt, borderRadius:10, border:`1px solid ${T.bdrL}`, fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.65 }}>
+                  {field.type === "scale10"
+                    ? <span style={{ fontWeight:700, fontSize:20, color: Number(val)<=3?T.suc:Number(val)<=6?"#B8900A":"#B85050" }}>{val}/10</span>
+                    : val
+                  }
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+        <Btn variant="ghost" onClick={onClose}>Cerrar</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments }) {
   const [filterPt,  setFilterPt]  = useState("");
   const [showAdd,   setShowAdd]   = useState(!!prefill);
   const [referral,  setReferral]  = useState(null);
@@ -490,6 +588,18 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
   const [quickRisk, setQuickRisk] = useState(BLANK_RISK);
   const [showTpl,   setShowTpl]   = useState(false);
 
+  // ── Tareas del paciente seleccionado ─────────────────────────────────────
+  const [patientTasks,     setPatientTasks]     = useState([]);
+  const [viewTaskResponse, setViewTaskResponse] = useState(null);
+
+  useEffect(() => {
+    if (!form?.patientId) { setPatientTasks([]); return; }
+    getAssignmentsByPatient(form.patientId)
+      .then(setPatientTasks)
+      .catch(() => setPatientTasks([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form?.patientId]);
+
   const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
   const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
@@ -497,7 +607,33 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
   const rld  = k => v => setQuickRisk(r => ({ ...r, [k]:v }));
 
-  const handleFormatChange = (newFormat) => {
+  const [aiSummary,    setAiSummary]    = useState(null);
+  const [aiLoading,    setAiLoading]    = useState(false);
+  const [aiError,      setAiError]      = useState("");
+  const [showAiModal,  setShowAiModal]  = useState(false);
+  const [taskError,    setTaskError]    = useState("");
+
+  const handleAISummary = async () => {
+    setAiLoading(true); setAiError(""); setShowAiModal(true);
+    const pt = patients.find(p => p.id === form.patientId);
+    try {
+      const result = await generateAISummary({
+        notes: form.notes,
+        structured: form.structured,
+        noteFormat: form.noteFormat,
+        patientName: pt?.name || "",
+        diagnosis: pt?.diagnosis || "",
+        duration: form.duration,
+        mood: form.mood,
+        progress: form.progress,
+      });
+      setAiSummary(result);
+    } catch {
+      setAiError("No se pudo generar el resumen. Verifica tu conexión.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
     setForm(f => ({ ...f, noteFormat:newFormat, structured:blankStructured(newFormat), notes:"" }));
   };
 
@@ -543,7 +679,7 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
       const cleanPhone = pt.phone.replace(/\D/g, "");
       const assignPromises = form.tasksAssigned.map(tplId => {
         const tpl = TASK_TEMPLATES[tplId];
-        if (!tpl) return Promise.resolve();
+        if (!tpl) return Promise.resolve({ ok: true });
         return createAssignment({
           patientId: form.patientId,
           patientName: pt.name || "",
@@ -551,10 +687,15 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
           templateId: tplId,
           title: tpl.title,
           notes: "",
-        }).catch(() => {});
+          sessionId,
+        }).then(() => ({ ok: true })).catch(e => ({ ok: false, error: e }));
       });
-      // Abrir WhatsApp después de crear las asignaciones
-      Promise.allSettled(assignPromises).then(() => {
+      Promise.allSettled(assignPromises).then((results) => {
+        const failed = results.filter(r => r.value?.ok === false).length;
+        if (failed > 0) {
+          setTaskError(`⚠️ ${failed} tarea(s) no se pudieron guardar en Supabase. Verifica la conexión.`);
+          setTimeout(() => setTaskError(""), 6000);
+        }
         const nombre = pt.name?.split(" ")[0] || "";
         const listaTareas = form.tasksAssigned
           .map(id => TASK_TEMPLATES[id])
@@ -567,11 +708,16 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
         window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
       });
     } else if (form.tasksAssigned?.length > 0) {
-      // Sin teléfono, igual crear las asignaciones
-      form.tasksAssigned.forEach(tplId => {
+      const assignPromises = form.tasksAssigned.map(tplId => {
         const tpl = TASK_TEMPLATES[tplId];
-        if (tpl) createAssignment({ patientId: form.patientId, patientName: pt?.name || "", patientPhone: "", templateId: tplId, title: tpl.title, notes: "" }).catch(() => {});
+        if (!tpl) return Promise.resolve();
+        return createAssignment({ patientId: form.patientId, patientName: pt?.name || "", patientPhone: "", templateId: tplId, title: tpl.title, notes: "", sessionId })
+          .catch(() => {
+            setTaskError("⚠️ Algunas tareas no se pudieron guardar. Verifica la conexión.");
+            setTimeout(() => setTaskError(""), 6000);
+          });
       });
+      Promise.allSettled(assignPromises);
     }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
   };
@@ -594,12 +740,20 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
         subtitle={`${sessions.length} nota${sessions.length!==1?"s":""} registrada${sessions.length!==1?"s":""}`}
         action={<Btn onClick={() => { setForm(blankForm); setShowAdd(true); }}><Plus size={15}/> Nueva nota</Btn>}
       />
+      {/* Toast de error de tareas */}
+      {taskError && (
+        <div style={{ position:"fixed", bottom:28, left:"50%", transform:"translateX(-50%)", zIndex:500,
+          background:"#B85050", color:"#fff", padding:"12px 20px", borderRadius:12,
+          fontFamily:T.fB, fontSize:13, boxShadow:"0 8px 24px rgba(0,0,0,0.2)", whiteSpace:"nowrap" }}>
+          {taskError}
+        </div>
+      )}
 
       <div style={{ marginBottom:20 }}>
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
           style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
           <option value="">Todos los pacientes</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
+          {patients.map(p => <option key={p.id} value={p.id}>{(p.name || "").split(" ").slice(0,2).join(" ")}</option>)}
         </select>
       </div>
 
@@ -660,7 +814,60 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota de sesión" width={620}>
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+
+        {/* ── Widget de tareas del paciente ─────────────────────── */}
+        {form.patientId && patientTasks.length > 0 && (() => {
+          const completadas = patientTasks.filter(t => t.status === "completed");
+          const pendientes  = patientTasks.filter(t => t.status === "pending");
+          const sinRevision = completadas.filter(t => {
+            if (!t.completed_at) return false;
+            return Date.now() - new Date(t.completed_at).getTime() < 7 * 24 * 3600 * 1000;
+          });
+          return (
+            <div style={{ marginBottom:16, borderRadius:12, border:`1.5px solid ${sinRevision.length > 0 ? T.suc+"60" : T.bdr}`, overflow:"hidden" }}>
+              <div style={{ padding:"10px 14px", background: sinRevision.length > 0 ? T.sucA : T.bdrL, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <ClipboardCheck size={14} color={sinRevision.length > 0 ? T.suc : T.tm}/>
+                  <span style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color: sinRevision.length > 0 ? T.suc : T.tm, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                    Tareas del paciente
+                  </span>
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  {sinRevision.length > 0 && <span style={{ padding:"2px 8px", borderRadius:9999, background:T.sucA, border:`1px solid ${T.suc}40`, fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.suc }}>{sinRevision.length} completada{sinRevision.length>1?"s":""}</span>}
+                  {pendientes.length > 0  && <span style={{ padding:"2px 8px", borderRadius:9999, background:"rgba(184,144,10,0.1)", border:"1px solid rgba(184,144,10,0.3)", fontFamily:T.fB, fontSize:10, fontWeight:700, color:"#B8900A" }}>{pendientes.length} pendiente{pendientes.length>1?"s":""}</span>}
+                </div>
+              </div>
+              <div style={{ padding:"10px 14px", background:T.card, display:"flex", flexDirection:"column", gap:8 }}>
+                {patientTasks.slice(0,4).map(t => {
+                  const tpl  = TASK_TEMPLATES[t.template_id];
+                  const done = t.status === "completed";
+                  const fromThisSession = sessions.some(s => s.id === t.session_id);
+                  return (
+                    <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:9, background: done ? T.sucA : "rgba(184,144,10,0.06)", border:`1px solid ${done ? T.suc+"30" : "rgba(184,144,10,0.2)"}` }}>
+                      <span style={{ fontSize:16 }}>{tpl?.icon || "📋"}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:T.fB, fontSize:12.5, fontWeight:600, color:T.t, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.title}</div>
+                        <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>
+                          {done ? `Completada ${new Date(t.completed_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"})}` : `Asignada ${new Date(t.assigned_at).toLocaleDateString("es-MX",{day:"numeric",month:"short"})}`}
+                          {fromThisSession ? " · esta sesión" : ""}
+                        </div>
+                      </div>
+                      {done && (
+                        <button onClick={() => setViewTaskResponse(t)}
+                          style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer", flexShrink:0 }}>
+                          <Eye size={11}/> Ver
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {patientTasks.length > 4 && (
+                  <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, textAlign:"center" }}>+{patientTasks.length - 4} más en el módulo Tareas</div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
           <Input label="Fecha"          value={form.date}     onChange={fld("date")}     type="date"/>
           <Input label="Duración (min)" value={form.duration} onChange={fld("duration")} type="number"/>
         </div>
@@ -700,6 +907,56 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
           : <Textarea label="Notas clínicas *" value={form.notes} onChange={fld("notes")}
               placeholder="Describe la sesión, intervenciones y respuesta del paciente..." rows={5}/>
         }
+
+        {/* ── Botón resumen IA ──────────────────────────────────────── */}
+        {(form.notes?.trim() || form.structured) && (
+          <button onClick={handleAISummary} disabled={aiLoading}
+            style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 16px",
+              borderRadius:10, border:`1.5px solid rgba(107,91,158,0.4)`,
+              background:"rgba(107,91,158,0.06)", color:"#6B5B9E",
+              fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer",
+              marginBottom:16, transition:"all .15s" }}>
+            <Sparkles size={14}/>
+            {aiLoading ? "Generando resumen…" : "✨ Resumen con IA"}
+          </button>
+        )}
+
+        {/* ── Modal resumen IA ─────────────────────────────────────── */}
+        <Modal open={showAiModal} onClose={() => { setShowAiModal(false); setAiSummary(null); setAiError(""); }} title="Resumen clínico con IA" width={540}>
+          {aiLoading && (
+            <div style={{ textAlign:"center", padding:"32px 0" }}>
+              <div style={{ width:36, height:36, borderRadius:"50%", border:`3px solid rgba(107,91,158,0.2)`, borderTopColor:"#6B5B9E", animation:"spin .8s linear infinite", margin:"0 auto 16px" }}/>
+              <p style={{ fontFamily:T.fB, fontSize:14, color:T.tm }}>Analizando notas clínicas…</p>
+            </div>
+          )}
+          {aiError && (
+            <div style={{ padding:"14px 16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err }}>{aiError}</div>
+          )}
+          {aiSummary && !aiLoading && (
+            <div>
+              <div style={{ background:T.alt, borderRadius:12, padding:"18px 20px", marginBottom:16,
+                border:`1.5px solid rgba(107,91,158,0.15)`, fontFamily:T.fB, fontSize:13.5,
+                color:T.t, lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+                {aiSummary}
+              </div>
+              <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                <button onClick={() => { navigator.clipboard.writeText(aiSummary); }}
+                  style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
+                    border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB,
+                    fontSize:13, color:T.tm, cursor:"pointer" }}>
+                  <Copy size={13}/> Copiar
+                </button>
+                <button onClick={() => { fld("privateNotes")(aiSummary); setShowAiModal(false); setAiSummary(null); }}
+                  style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:9,
+                    border:"none", background:"rgba(107,91,158,0.12)", fontFamily:T.fB,
+                    fontSize:13, color:"#6B5B9E", fontWeight:600, cursor:"pointer" }}>
+                  <FileText size={13}/> Agregar a notas privadas
+                </button>
+              </div>
+            </div>
+          )}
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </Modal>
 
         <Input label="Etiquetas (separadas por coma)" value={form.tags} onChange={fld("tags")} placeholder="TCC, ansiedad, respiración"/>
 
@@ -828,6 +1085,18 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
           <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
         </div>
       </Modal>
+
+      {/* ── Task response viewer ─────────────────────────────────────────── */}
+      {viewTaskResponse && (() => {
+        const tpl = TASK_TEMPLATES[viewTaskResponse.template_id];
+        return (
+          <TaskResponseModal
+            assignment={viewTaskResponse}
+            template={tpl}
+            onClose={() => setViewTaskResponse(null)}
+          />
+        );
+      })()}
 
       {/* ── Referral modal ───────────────────────────────────────────── */}
       <Modal open={!!referral} onClose={() => setReferral(null)} title="Carta de Derivación" width={520}>

@@ -173,7 +173,7 @@ function exportCSV(payments, year, profile) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Finance({ payments, setPayments, patients, profile, autoOpen }) {
+export default function Finance({ payments = [], setPayments, patients = [], profile, autoOpen }) {
   const [showAdd,  setShowAdd]  = useState(false);
 
   useEffect(() => {

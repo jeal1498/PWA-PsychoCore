@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download } from "lucide-react";
+import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
@@ -8,7 +8,8 @@ import { RiskBadge } from "./RiskAssessment.jsx";
 import { getSeverity, SCALES } from "./Scales.jsx";
 import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
 import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "./InterSessions.jsx";
-import { countPendingForToken, getLogsForToken, deleteLogsByToken, deleteLogById } from "./SelfLog.jsx";
+import { getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
+import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 
 // ── STATUS ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -412,224 +413,149 @@ ${ptPayments.length === 0 ? '<p style="color:#9BAFAD">Sin pagos registrados</p>'
   setTimeout(() => w.print(), 600);
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// SELFLOG TAB — Autorregistro del paciente (visor del terapeuta)
-// ─────────────────────────────────────────────────────────────────────────────
-function SelfLogTab({ patient, onUpdatePatient }) {
-  const [pendingLogs, setPendingLogs] = useState([]);
-  const [showLog,     setShowLog]     = useState(null);
-  const [copied,      setCopied]      = useState(false);
-  const [forceRefresh, setForceRefresh] = useState(0);
+// ── Tab de tareas del paciente ────────────────────────────────────────────────
+function PatientTasksTab({ patient, sessions }) {
+  const [tasks,         setTasks]         = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [loadErr,       setLoadErr]       = useState(false);
+  const [viewResponse,  setViewResponse]  = useState(null);
+  const [responses,     setResponses]     = useState([]);
+  const [loadingResp,   setLoadingResp]   = useState(false);
 
-  // Generar token si no existe
-  const token = patient.selfLogToken;
-
-  const generateToken = () => {
-    const newToken = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
-    onUpdatePatient({ selfLogToken: newToken });
-  };
-
-  const selfLogURL = token
-    ? `${window.location.origin}${window.location.pathname}?selflog=${token}`
-    : null;
-
-  const copyURL = () => {
-    if (!selfLogURL) return;
-    navigator.clipboard.writeText(selfLogURL).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  // Leer logs pendientes
   useEffect(() => {
-    if (token) setPendingLogs(getLogsForToken(token));
-  }, [token, forceRefresh]);
+    getAssignmentsByPatient(patient.id)
+      .then(setTasks)
+      .catch(() => setLoadErr(true))
+      .finally(() => setLoading(false));
+  }, [patient.id]);
 
-  const importAll = () => {
-    deleteLogsByToken(token);
-    setForceRefresh(n => n + 1);
-    // Los logs ya están en pc_pending_logs como "importados" al ser eliminados de pending
-    // En una app con sync, aquí se moverían al store cifrado
-    // Por ahora: los eliminamos de pending (terapeuta ya los revisó)
+  const openResponse = async (task) => {
+    setViewResponse(task);
+    setLoadingResp(true);
+    try {
+      const data = await getResponsesByAssignment(task.id);
+      setResponses(data);
+    } catch {}
+    finally { setLoadingResp(false); }
   };
 
-  const deleteLog = (id) => {
-    deleteLogById(id);
-    setForceRefresh(n => n + 1);
-  };
+  // Agrupa tareas por sesión
+  const grouped = tasks.reduce((acc, t) => {
+    const key = t.session_id || "__sin_sesion__";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(t);
+    return acc;
+  }, {});
 
-  const MOOD_EMOJIS = ["😔","😟","😕","😐","🙂","😊","😄","😁","🥰","🤩"];
+  if (loading) return (
+    <div style={{ display:"flex", justifyContent:"center", padding:40 }}>
+      <div style={{ width:28, height:28, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin .8s linear infinite" }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (loadErr) return (
+    <div style={{ padding:"16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err, textAlign:"center" }}>
+      No se pudieron cargar las tareas. Verifica tu conexión.
+    </div>
+  );
+
+  if (tasks.length === 0) return (
+    <div style={{ textAlign:"center", padding:"40px 0", color:T.tl, fontFamily:T.fB }}>
+      <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
+      <div style={{ fontSize:14, color:T.tm }}>Sin tareas asignadas aún</div>
+      <div style={{ fontSize:12, marginTop:4 }}>Las tareas se asignan al registrar una sesión</div>
+    </div>
+  );
 
   return (
     <div>
-      {/* Instrucción */}
-      <div style={{ padding:"14px 16px", background:T.pA, borderRadius:12, border:`1px solid ${T.p}20`, marginBottom:18 }}>
-        <div style={{ fontFamily:T.fB, fontSize:12, color:T.p, lineHeight:1.65 }}>
-          <strong>¿Cómo funciona?</strong> El paciente accede a un enlace privado donde puede registrar su estado emocional y pensamientos ABC entre sesiones — sin necesidad de instalar nada ni crear cuenta. Los registros aparecen aquí para que los revises antes de la siguiente sesión.
-        </div>
-      </div>
+      {Object.entries(grouped).map(([sessionId, sessionTasks]) => {
+        const session = sessions?.find(s => s.id === sessionId);
+        const label = session
+          ? `Sesión del ${fmtDate(session.date)}`
+          : "Sin sesión asociada";
 
-      {/* Generar / mostrar enlace */}
-      {!token ? (
-        <div style={{ textAlign:"center", padding:"24px 0 16px" }}>
-          <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:14 }}>
-            Genera el enlace de autorregistro para este paciente
-          </div>
-          <Btn onClick={generateToken}>🔗 Generar enlace de autorregistro</Btn>
-        </div>
-      ) : (
-        <div style={{ background:T.cardAlt, borderRadius:12, padding:"14px 16px", marginBottom:16,
-          border:`1px solid ${T.bdrL}` }}>
-          <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
-            letterSpacing:"0.07em", marginBottom:8 }}>Enlace del paciente</div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <div style={{ flex:1, padding:"8px 12px", background:T.card, borderRadius:9,
-              border:`1px solid ${T.bdr}`, fontFamily:"monospace", fontSize:11, color:T.tm,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {selfLogURL}
+        return (
+          <div key={sessionId} style={{ marginBottom:20 }}>
+            {/* Encabezado de sesión */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+              <div style={{ height:1, flex:1, background:T.bdrL }}/>
+              <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", whiteSpace:"nowrap" }}>
+                📅 {label}
+              </span>
+              <div style={{ height:1, flex:1, background:T.bdrL }}/>
             </div>
-            <button onClick={copyURL}
-              style={{ padding:"8px 14px", background:copied ? T.sucA : T.pA,
-                border:`1.5px solid ${copied ? T.suc : T.p}30`, borderRadius:9,
-                fontFamily:T.fB, fontSize:12, fontWeight:600,
-                color:copied ? T.suc : T.p, cursor:"pointer", flexShrink:0 }}>
-              {copied ? "✓ Copiado" : "Copiar"}
-            </button>
-          </div>
-          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:8, lineHeight:1.5 }}>
-            Comparte este enlace por WhatsApp o correo. El paciente puede acceder sin instalar la app.
-          </div>
-        </div>
-      )}
 
-      {/* Registros pendientes */}
-      {token && (
-        <div>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-            <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>
-              {pendingLogs.length > 0 ? (
-                <span style={{ padding:"3px 10px", borderRadius:9999, background:T.warA,
-                  color:T.war, fontWeight:700, fontSize:12 }}>
-                  🔔 {pendingLogs.length} registro{pendingLogs.length !== 1 ? "s" : ""} pendiente{pendingLogs.length !== 1 ? "s" : ""}
-                </span>
-              ) : (
-                <span style={{ color:T.tl }}>Sin registros pendientes</span>
-              )}
-            </div>
-            {pendingLogs.length > 0 && (
-              <button onClick={importAll}
-                style={{ padding:"6px 12px", background:T.sucA, border:`1px solid ${T.suc}30`,
-                  borderRadius:9, fontFamily:T.fB, fontSize:12, fontWeight:600,
-                  color:T.suc, cursor:"pointer" }}>
-                ✓ Marcar todos como revisados
-              </button>
-            )}
-          </div>
-
-          {pendingLogs.map(log => (
-            <div key={log.id} style={{ background:T.card, borderRadius:12, border:`1px solid ${T.bdrL}`,
-              marginBottom:10, overflow:"hidden" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-                padding:"12px 14px", background:T.cardAlt, cursor:"pointer" }}
-                onClick={() => setShowLog(showLog === log.id ? null : log.id)}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:22 }}>{log.mood ? MOOD_EMOJIS[log.mood - 1] : "📋"}</span>
-                  <div>
-                    <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>
-                      {fmtDate(log.date)}
-                      {log.mood && <span style={{ marginLeft:8, fontFamily:T.fB, fontSize:12,
-                        color:T.tm, fontWeight:400 }}>Estado: {log.mood}/10</span>}
-                    </div>
-                    <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>
-                      {[
-                        log.sleep    && `Sueño: ${log.sleep}/10`,
-                        log.stress   && `Estrés: ${log.stress}/10`,
-                        log.abcRecords?.length > 0 && `${log.abcRecords.length} registro${log.abcRecords.length !== 1 ? "s" : ""} ABC`,
-                      ].filter(Boolean).join(" · ")}
+            {sessionTasks.map(t => {
+              const tpl  = TASK_TEMPLATES[t.template_id];
+              const done = t.status === "completed";
+              return (
+                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, marginBottom:8, background: done ? T.sucA : "rgba(184,144,10,0.06)", border:`1.5px solid ${done ? T.suc+"40" : "rgba(184,144,10,0.25)"}` }}>
+                  <span style={{ fontSize:22, lineHeight:1 }}>{tpl?.icon || "📋"}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{t.title}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>
+                      {done
+                        ? `✅ Completada ${fmtDate(t.completed_at?.split("T")[0])}`
+                        : `⏳ Pendiente · Asignada ${fmtDate(t.assigned_at?.split("T")[0])}`
+                      }
                     </div>
                   </div>
+                  {done && (
+                    <button onClick={() => openResponse(t)}
+                      style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", flexShrink:0 }}>
+                      <Eye size={12}/> Ver respuestas
+                    </button>
+                  )}
                 </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  {showLog === log.id ? <ChevronUp size={14} color={T.tm}/> : <ChevronDown size={14} color={T.tl}/>}
-                  <button onClick={e => { e.stopPropagation(); deleteLog(log.id); }}
-                    style={{ background:"none", border:"none", cursor:"pointer", color:T.tl, padding:"2px 4px" }}>
-                    <Trash2 size={13}/>
-                  </button>
-                </div>
-              </div>
+              );
+            })}
+          </div>
+        );
+      })}
 
-              {showLog === log.id && (
-                <div style={{ padding:"14px 16px" }}>
-                  {/* Escalas */}
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",
-                    gap:8, marginBottom:14 }}>
-                    {[
-                      { label:"Estado", value:log.mood,   color:T.p   },
-                      { label:"Sueño",  value:log.sleep,  color:"#7B68A8" },
-                      { label:"Estrés", value:log.stress, color:T.war },
-                      { label:"Energía",value:log.energy, color:T.suc },
-                    ].map(item => item.value && (
-                      <div key={item.label} style={{ padding:"8px 10px", background:T.cardAlt,
-                        borderRadius:9, textAlign:"center" }}>
-                        <div style={{ fontFamily:T.fH, fontSize:20, color:item.color }}>{item.value}</div>
-                        <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm }}>{item.label}</div>
+      {/* Modal de respuestas */}
+      {viewResponse && (
+        <Modal open onClose={() => setViewResponse(null)} title={`Respuestas — ${viewResponse.title}`} width={500}>
+          {loadingResp ? (
+            <div style={{ textAlign:"center", padding:32 }}>
+              <div style={{ width:28, height:28, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto", animation:"spin .8s linear infinite" }}/>
+            </div>
+          ) : responses.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"24px 0", color:T.tl, fontFamily:T.fB, fontSize:13 }}>Sin respuestas registradas.</div>
+          ) : responses.map(resp => {
+            const tpl = TASK_TEMPLATES[viewResponse.template_id];
+            return (
+              <div key={resp.id}>
+                {tpl?.fields.map(field => {
+                  const val = resp.responses?.[field.key];
+                  if (!val) return null;
+                  return (
+                    <div key={field.key} style={{ marginBottom:14 }}>
+                      <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>{field.label}</div>
+                      <div style={{ padding:"10px 14px", background:T.cardAlt, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.65 }}>
+                        {field.type === "scale10"
+                          ? <span style={{ fontWeight:700, fontSize:20, color:Number(val)<=3?T.suc:Number(val)<=6?"#B8900A":"#B85050" }}>{val}/10</span>
+                          : val}
                       </div>
-                    ))}
-                  </div>
-
-                  {log.activities && (
-                    <div style={{ marginBottom:10 }}>
-                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
-                        letterSpacing:"0.07em", marginBottom:4 }}>Actividades</div>
-                      <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.6 }}>{log.activities}</div>
                     </div>
-                  )}
-
-                  {log.notes && (
-                    <div style={{ marginBottom:10 }}>
-                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
-                        letterSpacing:"0.07em", marginBottom:4 }}>Notas para el terapeuta</div>
-                      <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.65,
-                        padding:"8px 12px", background:T.pA, borderRadius:8 }}>{log.notes}</div>
-                    </div>
-                  )}
-
-                  {log.abcRecords?.length > 0 && (
-                    <div>
-                      <div style={{ fontSize:10, fontWeight:700, color:T.tm, textTransform:"uppercase",
-                        letterSpacing:"0.07em", marginBottom:8 }}>Registros ABC</div>
-                      {log.abcRecords.map((abc, i) => (
-                        <div key={abc.id || i} style={{ padding:"10px 12px", background:T.cardAlt,
-                          borderRadius:10, marginBottom:8, border:`1px solid ${T.bdrL}` }}>
-                          {[
-                            { label:"A — Situación",              value:abc.situation,          color:"#5B8DB8" },
-                            { label:"B — Pensamientos",            value:abc.thoughts,            color:T.war   },
-                            { label:`C — Emociones (${abc.emotionIntensity}/10)`, value:abc.emotions, color:T.err },
-                            { label:"D — Pensamiento alternativo", value:abc.alternativeThought, color:T.suc   },
-                          ].filter(f => f.value).map(f => (
-                            <div key={f.label} style={{ marginBottom:6 }}>
-                              <div style={{ fontSize:10, fontWeight:700, color:f.color,
-                                textTransform:"uppercase", letterSpacing:"0.05em" }}>{f.label}</div>
-                              <div style={{ fontFamily:T.fB, fontSize:13, color:T.t, lineHeight:1.6 }}>{f.value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+            <Btn variant="ghost" onClick={() => setViewResponse(null)}>Cerrar</Btn>
+          </div>
+        </Modal>
       )}
     </div>
   );
 }
 
-export default function Patients({ patients, setPatients, sessions, payments, setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], resources = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen }) {
+
+export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [showAdd,      setShowAdd]      = useState(false);
@@ -847,17 +773,16 @@ export default function Patients({ patients, setPatients, sessions, payments, se
             </div>
           </Card>
 
-          {/* Tabs: Sesiones | Pagos | Progreso | Recursos | Contactos | Medicación */}
+          {/* Tabs: Sesiones | Pagos | Progreso | Contactos | Medicación */}
           <Card style={{ padding:24 }}>
             <Tabs
               tabs={[
                 { id:"sessions",    label:`Sesiones (${ptSessions.length})`  },
                 { id:"payments",    label:`Pagos (${ptPayments.length})`     },
                 { id:"progress",    label:"Progreso"                         },
-                { id:"resources",   label:`Recursos (${(resources||[]).filter(r=>(r.assignments||[]).some(a=>a.patientId===selected.id)).length})` },
                 { id:"contacts",    label:`Contactos (${(interSessions||[]).filter(c=>c.patientId===selected.id).length})` },
                 { id:"medications", label:`Medicación (${(medications||[]).filter(m=>m.patientId===selected.id&&m.status==="activo").length})` },
-                { id:"selflog",     label:`Autorregistro${selected.selfLogToken ? ` (${countPendingForToken(selected.selfLogToken)})` : ""}` },
+                { id:"tasks",       label:"Tareas" },
               ]}
               active={detailTab} onChange={setDetailTab}
             />
@@ -941,30 +866,6 @@ export default function Patients({ patients, setPatients, sessions, payments, se
               </div>
             )}
 
-            {/* Recursos asignados */}
-            {detailTab === "resources" && (() => {
-              const RTYPE = { Ejercicio:{c:T.p,bg:T.pA}, Técnica:{c:T.acc,bg:T.accA}, Lectura:{c:"#6B5B9E",bg:"rgba(107,91,158,0.10)"}, Evaluación:{c:T.suc,bg:T.sucA}, Psicoeducación:{c:"#5B8DB8",bg:"rgba(91,141,184,0.10)"}, Video:{c:T.err,bg:T.errA}, Otro:{c:T.tm,bg:T.bdrL} };
-              const ptResources = (resources||[]).filter(r => (r.assignments||[]).some(a => a.patientId === selected.id));
-              if (ptResources.length === 0) return <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"24px 0", textAlign:"center" }}>Sin recursos asignados. Asígnalos desde el módulo Recursos.</div>;
-              return ptResources.map(r => {
-                const tc = RTYPE[r.type] || RTYPE.Otro;
-                const asgn = (r.assignments||[]).find(a => a.patientId === selected.id);
-                return (
-                  <div key={r.id} style={{ padding:"12px 14px", borderRadius:12, background:T.cardAlt, marginBottom:8, border:`1px solid ${T.bdrL}` }}>
-                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10 }}>
-                      <div>
-                        <span style={{ padding:"2px 8px", borderRadius:9999, background:tc.bg, color:tc.c, fontSize:10, fontWeight:700, fontFamily:T.fB, marginRight:8 }}>{r.type}</span>
-                        <span style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{r.title}</span>
-                        {r.description && <p style={{ fontFamily:T.fB, fontSize:12, color:T.tm, margin:"6px 0 0", lineHeight:1.5 }}>{r.description}</p>}
-                      </div>
-                      <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl, flexShrink:0 }}>{fmtDate(asgn?.date)}</span>
-                    </div>
-                    {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:T.fB, fontSize:12, color:T.p, textDecoration:"none", display:"block", marginTop:6 }}>Abrir enlace →</a>}
-                  </div>
-                );
-              });
-            })()}
-
             {/* Contactos inter-sesionales */}
             {detailTab === "contacts" && (
               <ContactsTab
@@ -983,14 +884,11 @@ export default function Patients({ patients, setPatients, sessions, payments, se
               />
             )}
 
-            {/* Autorregistro */}
-            {detailTab === "selflog" && (
-              <SelfLogTab
+            {/* Tareas */}
+            {detailTab === "tasks" && (
+              <PatientTasksTab
                 patient={selected}
-                onUpdatePatient={(updates) => {
-                  setPatients(prev => prev.map(p => p.id === selected.id ? { ...p, ...updates } : p));
-                  setSelected(prev => prev ? { ...prev, ...updates } : prev);
-                }}
+                sessions={sessions}
               />
             )}
           </Card>

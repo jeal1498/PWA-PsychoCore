@@ -513,7 +513,7 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
 }
 
 // ── Main module ───────────────────────────────────────────────────────────────
-export default function RiskAssessment({ riskAssessments, setRiskAssessments, patients, profile }) {
+export default function RiskAssessment({ riskAssessments = [], setRiskAssessments, patients = [], profile }) {
   const [showForm, setShowForm] = useState(false);
   const [filterPt, setFilterPt] = useState("");
   const [filterLevel, setFilterLevel] = useState("todos");

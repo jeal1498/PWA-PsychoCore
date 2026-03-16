@@ -982,7 +982,7 @@ function PatientSummary({ patient, results, profile }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Scales({ scaleResults, setScaleResults, patients, profile }) {
+export default function Scales({ scaleResults = [], setScaleResults, patients = [], profile }) {
   const [tab,        setTab]       = useState("results");
   const [showForm,   setShowForm]  = useState(false);
   const [activeScale,setActiveScale] = useState("PHQ9");

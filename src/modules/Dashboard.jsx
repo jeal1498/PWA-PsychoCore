@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus } from "./Consent.jsx";
-import { readPendingLogs } from "./SelfLog.jsx";
 
 function greeting() {
   const h = new Date().getHours();
@@ -133,7 +132,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
 }
 
 export default function Dashboard({
-  patients, appointments, sessions, payments,
+  patients = [], appointments = [], sessions = [], payments = [],
   riskAssessments = [], treatmentPlans = [],
   onNavigate, onQuickNav, onStartSession, onNewSession,
 }) {
@@ -163,10 +162,15 @@ export default function Dashboard({
     .filter(p => (p.status || "activo") === "activo")
     .filter(p => { const cs = consentStatus(p); return cs === "pending" || cs === "expired" || cs === "expiring"; });
 
-  const pendingLogs = readPendingLogs();
-  const byToken = {};
-  pendingLogs.forEach(l => { byToken[l.patientToken] = (byToken[l.patientToken] || 0) + 1; });
-  const patientsWithLogs = patients.filter(p => p.selfLogToken && byToken[p.selfLogToken] > 0);
+  // Citas de mañana pendientes con teléfono registrado
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr  = fmt(tomorrowDate);
+  const tomorrowAppts = appointments
+    .filter(a => a.date === tomorrowStr && a.status === "pendiente")
+    .sort((a,b) => (a.time||"").localeCompare(b.time||""))
+    .map(a => ({ ...a, patient: patients.find(p => p.id === a.patientId) }))
+    .filter(a => a.patient?.phone);
 
   const upcoming14 = new Date(todayDate);
   upcoming14.setDate(upcoming14.getDate() + 14);
@@ -187,7 +191,7 @@ export default function Dashboard({
     summaryParts.push(`${consentIssues.length} CI pendiente${consentIssues.length > 1 ? "s" : ""}`);
 
   const hasSecondaryAlerts =
-    consentIssues.length > 0 || patientsWithLogs.length > 0 ||
+    consentIssues.length > 0 || tomorrowAppts.length > 0 ||
     followUps.length > 0 || overdueFollowUps.length > 0;
 
   return (

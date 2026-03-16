@@ -8,7 +8,7 @@ import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Select, Textarea, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { TEMPLATES_LIST, TASK_CATEGORIES, getTemplate } from "../lib/taskTemplates.js";
-import { createAssignment, getAssignmentsByPatient, deleteAssignment, getResponsesByAssignment } from "../lib/supabase.js";
+import { createAssignment, getAssignmentsByPatient, getAllAssignments, deleteAssignment, getResponsesByAssignment } from "../lib/supabase.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
@@ -60,17 +60,18 @@ function TemplateCard({ tpl, selected, onSelect }) {
 function ResponsesModal({ assignment, onClose }) {
   const [responses, setResponses] = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [loadErr, setLoadErr]     = useState(false);
   const template = getTemplate(assignment.template_id);
 
   useEffect(() => {
     getResponsesByAssignment(assignment.id)
       .then(setResponses)
-      .catch(() => {})
+      .catch(() => setLoadErr(true))
       .finally(() => setLoading(false));
   }, [assignment.id]);
 
   return (
-    <Modal open onClose={onClose} title={`Respuestas — ${assignment.patient_name.split(" ")[0]}`} width={560}>
+    <Modal open onClose={onClose} title={`Respuestas — ${(assignment.patient_name || "Paciente").split(" ")[0]}`} width={560}>
       <div style={{ padding:"4px 0 8px", fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16 }}>
         <strong>{template?.icon} {template?.title}</strong> · {fmtRelative(assignment.completed_at || assignment.assigned_at)}
       </div>
@@ -80,7 +81,12 @@ function ResponsesModal({ assignment, onClose }) {
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       )}
-      {!loading && responses.length === 0 && (
+      {!loading && loadErr && (
+        <div style={{ padding:"12px 16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err, textAlign:"center" }}>
+          No se pudieron cargar las respuestas. Verifica tu conexión e intenta de nuevo.
+        </div>
+      )}
+      {!loading && !loadErr && responses.length === 0 && (
         <div style={{ textAlign:"center", padding:"32px 0", color:T.tl, fontFamily:T.fB, fontSize:13 }}>
           Aún no hay respuestas registradas.
         </div>
@@ -132,7 +138,7 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
           <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:8, marginBottom:4 }}>
             <span style={{ fontFamily:T.fB, fontSize:14.5, fontWeight:600, color:T.t }}>{assignment.title}</span>
             <span style={{ fontSize:11, color:T.tl }}>·</span>
-            <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{assignment.patient_name.split(" ").slice(0,2).join(" ")}</span>
+            <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{(assignment.patient_name || "").split(" ").slice(0,2).join(" ")}</span>
           </div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:8 }}>
             Asignada {fmtRelative(assignment.assigned_at)}
@@ -174,8 +180,176 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
   );
 }
 
+// ── Dashboard de respuestas ───────────────────────────────────────────────────
+function ResponsesDashboard({ patients, onViewResponses }) {
+  const [assignments, setAssignments] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [filter,      setFilter]      = useState("nuevas"); // "nuevas" | "todas" | "pendientes"
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllAssignments();
+      setAssignments(data);
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const completed  = assignments.filter(a => a.status === "completed");
+  const pending    = assignments.filter(a => a.status === "pending");
+
+  // "Nuevas" = completadas en las últimas 72h
+  const isNew = (a) => {
+    if (!a.completed_at) return false;
+    return Date.now() - new Date(a.completed_at).getTime() < 72 * 3600 * 1000;
+  };
+  const newResponses = completed.filter(isNew);
+
+  const shown = filter === "nuevas"    ? newResponses
+              : filter === "pendientes" ? pending
+              : completed;
+
+  const getPatient = (a) => patients.find(p => p.id === a.patient_id);
+
+  if (loading) return (
+    <div style={{ display:"flex", justifyContent:"center", padding:60 }}>
+      <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Métricas resumen */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:24 }}>
+        {[
+          { label:"Nuevas respuestas", value:newResponses.length, color:T.suc, bg:T.sucA, emoji:"🆕" },
+          { label:"Pendientes",        value:pending.length,      color:"#B8900A", bg:"rgba(184,144,10,0.1)", emoji:"⏳" },
+          { label:"Completadas total", value:completed.length,    color:T.p,   bg:T.pA,   emoji:"✅" },
+        ].map(m => (
+          <div key={m.label} style={{ background:m.bg, border:`1.5px solid ${m.color}30`, borderRadius:14, padding:"14px 16px", textAlign:"center" }}>
+            <div style={{ fontSize:22 }}>{m.emoji}</div>
+            <div style={{ fontFamily:T.fB, fontSize:26, fontWeight:700, color:m.color, lineHeight:1.1 }}>{m.value}</div>
+            <div style={{ fontFamily:T.fB, fontSize:11, color:m.color, opacity:0.8, marginTop:2 }}>{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {[
+          { id:"nuevas",     label:`🆕 Nuevas (${newResponses.length})` },
+          { id:"pendientes", label:`⏳ Pendientes (${pending.length})` },
+          { id:"todas",      label:`✅ Completadas (${completed.length})` },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+            style={{ padding:"7px 14px", borderRadius:9999, border:`1.5px solid ${filter===f.id ? T.p : T.bdr}`,
+              background: filter===f.id ? T.pA : "transparent",
+              color: filter===f.id ? T.p : T.tm,
+              fontFamily:T.fB, fontSize:12.5, fontWeight: filter===f.id ? 700 : 400,
+              cursor:"pointer", transition:"all .12s" }}>
+            {f.label}
+          </button>
+        ))}
+        <button onClick={load} style={{ marginLeft:"auto", padding:"7px 10px", borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent", cursor:"pointer", color:T.tm }}>
+          <RefreshCw size={13}/>
+        </button>
+      </div>
+
+      {/* Lista */}
+      {shown.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"48px 20px", color:T.tl, fontFamily:T.fB }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>
+            {filter === "nuevas" ? "🎉" : filter === "pendientes" ? "✨" : "📋"}
+          </div>
+          <div style={{ fontSize:15, color:T.tm, fontWeight:600, marginBottom:6 }}>
+            {filter === "nuevas" ? "Sin respuestas nuevas" : filter === "pendientes" ? "Sin tareas pendientes" : "Sin tareas completadas"}
+          </div>
+          <div style={{ fontSize:13 }}>
+            {filter === "nuevas" ? "Cuando un paciente complete una tarea aparecerá aquí" : ""}
+          </div>
+        </div>
+      ) : shown.map(a => {
+        const tpl = getTemplate(a.template_id);
+        const pt  = getPatient(a);
+        const esNueva = isNew(a);
+        const done = a.status === "completed";
+
+        return (
+          <div key={a.id} style={{ background:T.card, borderRadius:14, padding:"14px 16px", marginBottom:10,
+            border:`1.5px solid ${esNueva && done ? T.suc+"40" : T.bdr}`,
+            boxShadow: esNueva && done ? `0 0 0 3px ${T.suc}15` : "none" }}>
+            <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+
+              {/* Avatar paciente */}
+              <div style={{ width:40, height:40, borderRadius:"50%", background:T.pA, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:T.fH, fontSize:15, fontWeight:700, color:T.p }}>
+                  {a.patient_name?.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}
+                </span>
+              </div>
+
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:3 }}>
+                  <span style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t }}>
+                    {a.patient_name?.split(" ").slice(0,2).join(" ")}
+                  </span>
+                  {esNueva && done && (
+                    <span style={{ padding:"2px 8px", borderRadius:9999, background:T.sucA, color:T.suc, fontSize:10, fontWeight:700, fontFamily:T.fB }}>
+                      NUEVA
+                    </span>
+                  )}
+                  {!done && (
+                    <span style={{ padding:"2px 8px", borderRadius:9999, background:"rgba(184,144,10,0.1)", color:"#B8900A", fontSize:10, fontWeight:700, fontFamily:T.fB }}>
+                      PENDIENTE
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:4 }}>
+                  {tpl?.icon} {a.title}
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl }}>
+                  {done
+                    ? `Completada ${fmtRelative(a.completed_at)}`
+                    : `Asignada ${fmtRelative(a.assigned_at)} · Sin completar`
+                  }
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                {done && (
+                  <button onClick={() => onViewResponses(a)}
+                    style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                    <Eye size={13}/> Ver
+                  </button>
+                )}
+                {pt?.phone && !done && (
+                  <a href={whatsappLink(pt.phone, a.patient_name, a.title)} target="_blank" rel="noreferrer"
+                    style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
+                    <MessageCircle size={13}/> Recordar
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Respuesta preview (solo si tiene responses y está completada) */}
+            {done && a.notes && (
+              <div style={{ marginTop:10, padding:"8px 12px", background:T.bdrL, borderRadius:8, fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5, borderLeft:`3px solid ${T.p}` }}>
+                📝 {a.notes}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Tasks({ patients }) {
+  const [view,          setView]          = useState("dashboard"); // "dashboard" | "manage"
   const [assignments,   setAssignments]   = useState([]);
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState("");
@@ -253,51 +427,73 @@ export default function Tasks({ patients }) {
     <div>
       <PageHeader
         title="Tareas Terapéuticas"
-        subtitle="Asigna tareas a tus pacientes y revisa sus respuestas"
+        subtitle="Respuestas de pacientes y gestión de tareas"
         action={<Btn onClick={() => { setShowAdd(true); setSelPatient(""); setSelTemplate(null); setNotes(""); setSaveError(""); }}><Plus size={15}/> Nueva tarea</Btn>}
       />
 
-      {/* Patient filter */}
-      <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
-        <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
-          style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none", flex:1, minWidth:200 }}>
-          <option value="">— Selecciona un paciente —</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
-        </select>
-        {filterPt && (
-          <button onClick={load} title="Actualizar" style={{ padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:10, background:T.card, cursor:"pointer", color:T.tm }}>
-            <RefreshCw size={15}/>
+      {/* Vista tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${T.bdr}`, paddingBottom:0 }}>
+        {[
+          { id:"dashboard", label:"📊 Respuestas" },
+          { id:"manage",    label:"📋 Gestionar por paciente" },
+        ].map(v => (
+          <button key={v.id} onClick={() => setView(v.id)}
+            style={{ padding:"10px 18px", border:"none", background:"none", cursor:"pointer",
+              fontFamily:T.fB, fontSize:13.5, fontWeight: view===v.id ? 700 : 400,
+              color: view===v.id ? T.p : T.tm,
+              borderBottom: view===v.id ? `2px solid ${T.p}` : "2px solid transparent",
+              marginBottom:-1, transition:"all .15s" }}>
+            {v.label}
           </button>
-        )}
+        ))}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div style={{ padding:"12px 16px", background:T.errA, borderRadius:10, border:`1.5px solid rgba(184,80,80,0.2)`, fontFamily:T.fB, fontSize:13, color:T.err, marginBottom:16 }}>
-          ⚠️ {error}
+      {/* Dashboard de respuestas */}
+      {view === "dashboard" && (
+        <ResponsesDashboard patients={patients} onViewResponses={setViewResponses}/>
+      )}
+
+      {/* Gestión por paciente */}
+      {view === "manage" && (
+        <div>
+          <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
+            <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
+              style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none", flex:1, minWidth:200 }}>
+              <option value="">— Selecciona un paciente —</option>
+              {patients.map(p => <option key={p.id} value={p.id}>{(p.name || "").split(" ").slice(0,2).join(" ")}</option>)}
+            </select>
+            {filterPt && (
+              <button onClick={load} title="Actualizar" style={{ padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:10, background:T.card, cursor:"pointer", color:T.tm }}>
+                <RefreshCw size={15}/>
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div style={{ padding:"12px 16px", background:T.errA, borderRadius:10, border:`1.5px solid rgba(184,80,80,0.2)`, fontFamily:T.fB, fontSize:13, color:T.err, marginBottom:16 }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {loading && (
+            <div style={{ display:"flex", justifyContent:"center", padding:40 }}>
+              <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          )}
+
+          {!loading && !filterPt && (
+            <EmptyState icon={ClipboardList} title="Selecciona un paciente" desc="Elige un paciente para ver y gestionar sus tareas asignadas"/>
+          )}
+          {!loading && filterPt && assignments.length === 0 && !error && (
+            <EmptyState icon={ClipboardList} title="Sin tareas asignadas" desc="Este paciente no tiene tareas activas. Asígnale una con el botón de arriba."/>
+          )}
+
+          {!loading && assignments.map(a => (
+            <AssignmentCard key={a.id} assignment={a} onDelete={handleDelete} onViewResponses={setViewResponses}/>
+          ))}
         </div>
       )}
-
-      {/* Loading */}
-      {loading && (
-        <div style={{ display:"flex", justifyContent:"center", padding:40 }}>
-          <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        </div>
-      )}
-
-      {/* Empty states */}
-      {!loading && !filterPt && (
-        <EmptyState icon={ClipboardList} title="Selecciona un paciente" desc="Elige un paciente para ver y gestionar sus tareas asignadas"/>
-      )}
-      {!loading && filterPt && assignments.length === 0 && !error && (
-        <EmptyState icon={ClipboardList} title="Sin tareas asignadas" desc="Este paciente no tiene tareas activas. Asígnale una con el botón de arriba."/>
-      )}
-
-      {/* Assignments list */}
-      {!loading && assignments.map(a => (
-        <AssignmentCard key={a.id} assignment={a} onDelete={handleDelete} onViewResponses={setViewResponses}/>
-      ))}
 
       {/* Responses modal */}
       {viewResponses && (
@@ -307,7 +503,6 @@ export default function Tasks({ patients }) {
       {/* ── New assignment modal ──────────────────────────────────────────── */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={580}>
 
-        {/* Patient selector */}
         <Select label="Paciente *" value={selPatient} onChange={setSelPatient}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
 
@@ -317,7 +512,6 @@ export default function Tasks({ patients }) {
           </div>
         )}
 
-        {/* Category filter */}
         <div style={{ marginBottom:12 }}>
           <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Plantilla de tarea *</label>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
@@ -340,13 +534,11 @@ export default function Tasks({ patients }) {
           </div>
         </div>
 
-        {/* Optional note */}
         <Textarea label="Instrucciones adicionales (opcional)"
           value={notes} onChange={setNotes}
           placeholder="Ej. Completa esto antes del jueves, enfócate especialmente en las situaciones del trabajo..."
           rows={2}/>
 
-        {/* Preview portal link */}
         {selPatient && patients.find(p => p.id === selPatient)?.phone && (
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, fontFamily:T.fB, fontSize:12, color:T.p, marginBottom:16, wordBreak:"break-all" }}>
             🔗 El paciente accederá en: <strong>{PORTAL_URL}</strong>

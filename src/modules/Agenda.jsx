@@ -1,9 +1,27 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+
+// ── WhatsApp reminder ────────────────────────────────────────────────────────
+const whatsappReminder = (appointment, patient, profile) => {
+  const nombre    = patient?.name?.split(" ")[0] || appointment.patientName?.split(" ")[0] || "";
+  const phone     = patient?.phone?.replace(/\D/g, "");
+  const fecha     = fmtDate(appointment.date);
+  const hora      = appointment.time;
+  const tipo      = appointment.type || "consulta";
+  const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+  const clinica   = profile?.clinic ? ` en ${profile.clinic}` : "";
+
+  if (!phone) return null;
+
+  const msg = encodeURIComponent(
+    `Hola ${nombre} 👋\n\nTe escribo para recordarte tu cita de *${tipo}* programada para:\n\n📅 *${fecha}* a las *${hora}*${clinica}\n\nSi necesitas reagendar o tienes alguna duda, no dudes en escribirme.\n\n¡Hasta pronto! 😊\n— ${psicologa}`
+  );
+  return `https://wa.me/52${phone}?text=${msg}`;
+};
 
 // ── Weekly availability helpers ───────────────────────────────────────────────
 const WORK_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
@@ -172,7 +190,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments, setAppointments, sessions, setSessions, patients, autoOpen }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
@@ -383,12 +401,24 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
                         <button onClick={() => confirmDelete(a)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}><Trash2 size={13}/></button>
                       </div>
                       {a.status !== "completada" && (
-                        <button onClick={() => openQuickSession(a)}
-                          style={{ display:"flex", alignItems:"center", gap:6, width:"100%", padding:"8px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
-                          onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-                          <FileText size={13}/> Registrar nota de sesión
-                        </button>
+                        <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                          <button onClick={() => openQuickSession(a)}
+                            style={{ flex:1, display:"flex", alignItems:"center", gap:6, padding:"8px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
+                            onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
+                            <FileText size={13}/> Registrar sesión
+                          </button>
+                          {(() => {
+                            const pt  = patients.find(p => p.id === a.patientId);
+                            const url = whatsappReminder(a, pt, profile);
+                            return url ? (
+                              <a href={url} target="_blank" rel="noreferrer"
+                                style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px", borderRadius:8, border:"1.5px solid #25D366", background:"#25D36620", color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none", transition:"all .15s" }}>
+                                <MessageCircle size={13}/> Recordatorio
+                              </a>
+                            ) : null;
+                          })()}
+                        </div>
                       )}
                     </div>
                   ))
@@ -427,6 +457,16 @@ export default function Agenda({ appointments, setAppointments, sessions, setSes
                       <FileText size={14}/>
                     </button>
                   )}
+                  {a.status !== "completada" && (() => {
+                    const pt  = patients.find(p => p.id === a.patientId);
+                    const url = whatsappReminder(a, pt, profile);
+                    return url ? (
+                      <a href={url} target="_blank" rel="noreferrer" title="Enviar recordatorio por WhatsApp"
+                        style={{ background:"#25D36620", border:"none", borderRadius:8, padding:"6px 8px", cursor:"pointer", color:"#25D366", display:"flex", alignItems:"center", textDecoration:"none" }}>
+                        <MessageCircle size={14}/>
+                      </a>
+                    ) : null;
+                  })()}
                 </div>
               ))
             }

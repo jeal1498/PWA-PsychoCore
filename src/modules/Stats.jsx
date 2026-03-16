@@ -146,7 +146,7 @@ function SectionTitle({ icon:Icon, title, sub }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function Stats({ patients, appointments, sessions, payments }) {
+export default function Stats({ patients = [], appointments = [], sessions = [], payments = [] }) {
   const isMobile = useIsMobile();
   const now = new Date();
 

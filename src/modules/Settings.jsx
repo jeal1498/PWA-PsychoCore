@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
-import { User, HardDrive, Shield, Check, Download, Upload, Trash2, FolderOpen, RefreshCw, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw } from "lucide-react";
 import { T } from "../theme.js";
-import { changePIN } from "../crypto/encryption.js";
-import { loadBackupsFromIDB, getBackupById, deleteBackupById } from "../hooks/useAutoBackup.js";
-import { Card, Tabs, Input, Btn, PageHeader } from "../components/ui/index.jsx";
+import { Card, Input, Btn, PageHeader } from "../components/ui/index.jsx";
+import { trialDaysLeft, hasActiveAccess } from "../lib/supabase.js";
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
-function ProfileTab({ profile, setProfile, googleUser }) {
+function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
   const googleName  = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
   const googleEmail = googleUser?.email || "";
 
@@ -72,160 +71,218 @@ function ProfileTab({ profile, setProfile, googleUser }) {
           <Btn onClick={save}><Check size={15} /> Guardar perfil</Btn>
         </div>
       </Card>
+
+      {/* ── Estado de suscripción ─────────────────────────────────────── */}
+      {psychologist && (
+        <Card style={{ padding: 24, marginTop: 16 }}>
+          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>
+            Estado de suscripción
+          </div>
+          {psychologist.subscription_status === "active" ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.sucA, borderRadius: 10, border: `1px solid ${T.suc}30` }}>
+              <CheckCircle size={18} color={T.suc}/>
+              <div>
+                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.suc }}>Suscripción activa</div>
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>Acceso completo a todas las funcionalidades</div>
+              </div>
+            </div>
+          ) : trialDaysLeft(psychologist) > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: trialDaysLeft(psychologist) <= 3 ? T.errA : T.warA || "rgba(184,144,10,0.08)", borderRadius: 10, border: `1px solid ${trialDaysLeft(psychologist) <= 3 ? T.err : "#B8900A"}30` }}>
+              <AlertCircle size={18} color={trialDaysLeft(psychologist) <= 3 ? T.err : "#B8900A"}/>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: trialDaysLeft(psychologist) <= 3 ? T.err : "#B8900A" }}>
+                  Período de prueba · {trialDaysLeft(psychologist)} día{trialDaysLeft(psychologist) !== 1 ? "s" : ""} restante{trialDaysLeft(psychologist) !== 1 ? "s" : ""}
+                </div>
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
+                  Vence el {new Date(psychologist.trial_ends_at).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+                </div>
+              </div>
+              <a href="mailto:soporte@psychocore.app?subject=Suscripción PsychoCore"
+                style={{ padding: "7px 14px", borderRadius: 100, background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
+                Suscribirme →
+              </a>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.errA, borderRadius: 10, border: `1px solid ${T.err}30` }}>
+              <AlertCircle size={18} color={T.err}/>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.err }}>Prueba gratuita expirada</div>
+                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>Suscríbete para recuperar el acceso completo</div>
+              </div>
+              <a href="mailto:soporte@psychocore.app?subject=Suscripción PsychoCore"
+                style={{ padding: "7px 14px", borderRadius: 100, background: T.err, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
+                Suscribirme →
+              </a>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ── Soporte ──────────────────────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginTop: 16, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, flexWrap:"wrap" }}>
+        <div>
+          <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t, marginBottom:3 }}>¿Necesitas ayuda?</div>
+          <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tm }}>Escríbenos por WhatsApp, respondemos en minutos.</div>
+        </div>
+        <a href="https://wa.me/529831348558?text=Hola%2C%20necesito%20ayuda%20con%20PsychoCore"
+          target="_blank" rel="noreferrer"
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 18px", borderRadius:100, background:"#25D366", color:"#fff", textDecoration:"none", fontFamily:T.fB, fontSize:13, fontWeight:700, flexShrink:0, transition:"all .15s" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+          Abrir WhatsApp
+        </a>
+      </Card>
     </div>
   );
 }
 
-// ── Tab: Backups ──────────────────────────────────────────────────────────────
-function BackupsTab({ allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore }) {
-  const [backups,   setBackups]   = useState([]);
-  const [loading,   setLoading]   = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [msg,       setMsg]       = useState(null);
 
-  const loadList = async () => {
-    try {
-      const list = await loadBackupsFromIDB();
-      setBackups(list);
-    } catch (e) {
-      console.warn("IDB list error:", e);
-    }
-  };
 
-  useEffect(() => { loadList(); }, [lastBackup]);
+// ── Tab: Datos ────────────────────────────────────────────────────────────────
+function DataTab({ allData, onRestore, patients }) {
+  const [msg,         setMsg]         = useState(null);
+  const [importing,   setImporting]   = useState(false);
 
   const flash = (text, ok = true) => {
     setMsg({ text, ok });
-    setTimeout(() => setMsg(null), 3000);
+    setTimeout(() => setMsg(null), 4000);
   };
 
-  const handleManualBackup = async () => {
-    setLoading(true);
-    await doBackup();
-    await loadList();
-    setLoading(false);
-    flash("Backup guardado correctamente");
-  };
-
-  const handleExportJSON = () => {
-    const blob = new Blob([JSON.stringify({ ...allData, _meta: { ts: Date.now(), version: "1.0" } }, null, 2)], { type: "application/json" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
+  // ── Exportar JSON completo ──────────────────────────────────────────────
+  const exportJSON = () => {
+    const blob = new Blob(
+      [JSON.stringify({ ...allData, _meta: { ts: Date.now(), version: "1.0", app: "PsychoCore" } }, null, 2)],
+      { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement("a");
     a.href     = url;
     a.download = `psychocore-backup-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    flash("Archivo descargado");
+    flash("Backup descargado correctamente");
   };
 
-  const handleImport = () => {
-    const input = document.createElement("input");
-    input.type  = "file";
-    input.accept = ".json";
+  // ── Exportar pacientes como CSV ────────────────────────────────────────
+  const exportCSV = () => {
+    if (!patients?.length) { flash("No hay pacientes para exportar", false); return; }
+    const headers = ["Nombre","Edad","Teléfono","Email","Diagnóstico","CIE-11","Motivo de consulta","Estatus","Tipo","Notas","Fecha de registro"];
+    const rows = patients.map(p => [
+      p.name || "",
+      p.age   || "",
+      p.phone || "",
+      p.email || "",
+      p.diagnosis || "",
+      p.cie11Code  || "",
+      (p.reason || "").replace(/,/g, ";"),
+      p.status || "activo",
+      p.type   || "individual",
+      (p.notes || "").replace(/,/g, ";"),
+      p.createdAt || "",
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `psychocore-pacientes-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    flash(`${patients.length} pacientes exportados como CSV`);
+  };
+
+  // ── Importar JSON ──────────────────────────────────────────────────────
+  const importJSON = () => {
+    const input    = document.createElement("input");
+    input.type     = "file";
+    input.accept   = ".json";
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      setImporting(true);
       try {
         const text = await file.text();
         const data = JSON.parse(text);
+        if (!data.patients && !data.sessions && !data.appointments) {
+          flash("El archivo no parece ser un backup válido de PsychoCore", false);
+          return;
+        }
         onRestore(data);
-        flash("Datos restaurados correctamente");
+        flash(`Datos restaurados correctamente${data.patients?.length ? ` · ${data.patients.length} pacientes` : ""}`);
       } catch {
-        flash("Error: archivo inválido", false);
+        flash("Error al leer el archivo. Verifica que sea un JSON válido.", false);
+      } finally {
+        setImporting(false);
       }
     };
     input.click();
   };
 
-  const handleRestoreIDB = async (id) => {
-    setRestoring(true);
-    const data = await getBackupById(id);
-    if (data) { onRestore(data); flash("Backup restaurado"); }
-    else flash("No se pudo restaurar", false);
-    setRestoring(false);
-  };
-
-  const handleDeleteIDB = async (id) => {
-    await deleteBackupById(id);
-    await loadList();
-  };
-
-  const fmtTs = (ts) => new Date(ts).toLocaleString("es-MX", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
-  const fmtSize = (b) => b > 1024 ? `${(b/1024).toFixed(1)} KB` : `${b} B`;
+  const statItems = [
+    { label: "Pacientes",       val: allData?.patients?.length        || 0, icon: "🧑‍⚕️" },
+    { label: "Sesiones",        val: allData?.sessions?.length        || 0, icon: "📝" },
+    { label: "Citas",           val: allData?.appointments?.length    || 0, icon: "📅" },
+    { label: "Pagos",           val: allData?.payments?.length        || 0, icon: "💰" },
+    { label: "Evaluaciones",    val: allData?.riskAssessments?.length || 0, icon: "⚠️" },
+    { label: "Planes",          val: allData?.treatmentPlans?.length  || 0, icon: "📋" },
+  ];
 
   return (
-    <div style={{ maxWidth: 640 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
-        Los backups se guardan automáticamente en IndexedDB cada vez que modificas datos. También puedes exportar/importar JSON manualmente.
-      </p>
+    <div style={{ maxWidth: 560 }}>
 
-      {/* Status bar */}
-      <Card style={{ padding: 20, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Último backup</div>
-            <div style={{ fontFamily: T.fB, fontSize: 14, color: T.t }}>
-              {lastBackup ? fmtTs(lastBackup) : "Aún no se ha guardado un backup"}
+      {/* Resumen de datos */}
+      <Card style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>
+          Resumen de tu información
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {statItems.map(s => (
+            <div key={s.label} style={{ background: T.pA, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+              <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 20, fontWeight: 700, color: T.p }}>{s.val}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{s.label}</div>
             </div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn variant="ghost" small onClick={handleManualBackup}>
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-              Guardar ahora
-            </Btn>
-            <Btn variant="accent" small onClick={handleExportJSON}><Download size={13} /> Exportar JSON</Btn>
-          </div>
+          ))}
         </div>
       </Card>
 
-      {/* File System */}
-      {fsSupported && (
-        <Card style={{ padding: 20, marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: T.t, marginBottom: 4 }}>Carpeta automática</div>
-              <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>
-                {fsHandle ? `📁 ${fsHandle.name} — backup automático activo` : "Selecciona una carpeta para backups automáticos en tu dispositivo"}
-              </div>
-            </div>
-            <Btn variant="ghost" small onClick={requestFS}><FolderOpen size={13} /> {fsHandle ? "Cambiar carpeta" : "Seleccionar carpeta"}</Btn>
-          </div>
-        </Card>
-      )}
-
-      {/* Import */}
-      <Card style={{ padding: 20, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: T.t, marginBottom: 4 }}>Restaurar desde archivo</div>
-            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>Importa un archivo .json exportado previamente</div>
-          </div>
-          <Btn variant="ghost" small onClick={handleImport}><Upload size={13} /> Importar JSON</Btn>
+      {/* Exportar */}
+      <Card style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t, marginBottom: 4 }}>Exportar datos</div>
+        <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 16 }}>
+          Descarga una copia completa de todos tus datos. Guárdala en un lugar seguro como respaldo adicional.
+        </p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={exportJSON}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: `1.5px solid ${T.p}`, background: T.pA, color: T.p, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>
+            <FileJson size={15}/> Backup completo (.json)
+          </button>
+          <button onClick={exportCSV}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>
+            <Users size={15}/> Solo pacientes (.csv)
+          </button>
         </div>
       </Card>
 
-      {/* IDB list */}
-      <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
-        Historial de backups ({backups.length})
-      </div>
-      {backups.length === 0
-        ? <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl, padding: "20px 0" }}>No hay backups en el historial aún</div>
-        : backups.map((b, i) => (
-          <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: i % 2 === 0 ? T.card : T.cardAlt, marginBottom: 4, border: `1px solid ${T.bdrL}` }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: T.fB, fontSize: 13.5, color: T.t, fontWeight: 500 }}>{fmtTs(b.timestamp)}</div>
-              <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>{fmtSize(b.size)}</div>
-            </div>
-            <Btn variant="ghost" small onClick={() => handleRestoreIDB(b.id)}>Restaurar</Btn>
-            <button onClick={() => handleDeleteIDB(b.id)} style={{ background: "none", border: "none", color: T.tl, cursor: "pointer" }}><Trash2 size={14} /></button>
-          </div>
-        ))
-      }
+      {/* Importar */}
+      <Card style={{ padding: 24, marginBottom: 16 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t, marginBottom: 4 }}>Importar backup</div>
+        <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 4 }}>
+          Restaura un backup previamente exportado desde PsychoCore.
+        </p>
+        <div style={{ padding: "10px 14px", background: T.errA, borderRadius: 8, fontFamily: T.fB, fontSize: 12, color: T.err, marginBottom: 16, lineHeight: 1.5 }}>
+          ⚠️ Esta acción reemplaza tus datos actuales. Haz un backup antes de importar.
+        </div>
+        <button onClick={importJSON} disabled={importing}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.6 : 1, transition: "all .15s" }}>
+          {importing ? <RefreshCw size={15} style={{ animation: "spin .8s linear infinite" }}/> : <Upload size={15}/>}
+          {importing ? "Importando…" : "Importar desde archivo .json"}
+        </button>
+      </Card>
 
       {/* Flash message */}
       {msg && (
-        <div style={{ position: "fixed", bottom: 28, right: 28, padding: "12px 20px", borderRadius: 12, background: msg.ok ? T.suc : T.err, color: "#fff", fontFamily: T.fB, fontSize: 14, boxShadow: T.shM, display: "flex", alignItems: "center", gap: 8, zIndex: 300 }}>
-          {msg.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, background: msg.ok ? T.sucA : T.errA, border: `1px solid ${msg.ok ? T.suc : T.err}30`, fontFamily: T.fB, fontSize: 13, color: msg.ok ? T.suc : T.err }}>
+          {msg.ok ? <CheckCircle size={15}/> : <AlertCircle size={15}/>}
           {msg.text}
         </div>
       )}
@@ -233,119 +290,6 @@ function BackupsTab({ allData, lastBackup, doBackup, fsSupported, fsHandle, requ
     </div>
   );
 }
-
-// ── Tab: Seguridad ─────────────────────────────────────────────────────────────
-function SecurityTab() {
-  const [oldPin,  setOldPin]  = useState("");
-  const [newPin,  setNewPin]  = useState("");
-  const [confPin, setConfPin] = useState("");
-  const [showOld, setShowOld] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [msg,     setMsg]     = useState(null);
-
-  const flash = (text, ok = true) => { setMsg({ text, ok }); setTimeout(() => setMsg(null), 3000); };
-
-  const validate = () => {
-    if (oldPin.length < 4) return "El PIN actual debe tener 4 dígitos";
-    if (newPin.length < 4) return "El PIN nuevo debe tener 4 dígitos";
-    if (!/^\d{4}$/.test(newPin)) return "El PIN debe ser solo números";
-    if (newPin !== confPin) return "Los PINs nuevos no coinciden";
-    if (oldPin === newPin) return "El PIN nuevo debe ser diferente al actual";
-    return null;
-  };
-
-  const handleChange = async () => {
-    const err = validate();
-    if (err) { flash(err, false); return; }
-    setLoading(true);
-    const ok = await changePIN(oldPin, newPin);
-    setLoading(false);
-    if (ok) {
-      flash("PIN cambiado correctamente");
-      setOldPin(""); setNewPin(""); setConfPin("");
-    } else {
-      flash("PIN actual incorrecto", false);
-    }
-  };
-
-  const PinInput = ({ label, value, onChange, show, onToggle }) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</label>
-      <div style={{ position: "relative" }}>
-        <input
-          type={show ? "text" : "password"}
-          value={value}
-          onChange={e => onChange(e.target.value.replace(/\D/g,"").slice(0,4))}
-          placeholder="••••"
-          maxLength={4}
-          style={{ width: "100%", padding: "10px 42px 10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 18, letterSpacing: "0.2em", color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
-        />
-        <button onClick={onToggle} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.tl }}>
-          {show ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ maxWidth: 440 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
-        El PIN protege el acceso a la app y cifra todos tus datos clínicos con AES-GCM 256.
-      </p>
-
-      <Card style={{ padding: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.pA, borderRadius: 10, marginBottom: 24 }}>
-          <Shield size={18} color={T.p} strokeWidth={1.6} />
-          <div>
-            <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.p }}>Cifrado activo</div>
-            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>AES-GCM 256 · PBKDF2 SHA-256 · 100,000 iteraciones</div>
-          </div>
-        </div>
-
-        <h3 style={{ fontFamily: T.fH, fontSize: 20, color: T.t, margin: "0 0 20px" }}>Cambiar PIN</h3>
-
-        <PinInput label="PIN actual" value={oldPin} onChange={setOldPin} show={showOld} onToggle={() => setShowOld(s => !s)} />
-        <PinInput label="PIN nuevo (4 dígitos)" value={newPin} onChange={setNewPin} show={showNew} onToggle={() => setShowNew(s => !s)} />
-        <PinInput label="Confirmar PIN nuevo" value={confPin} onChange={setConfPin} show={showNew} onToggle={() => setShowNew(s => !s)} />
-
-        {/* PIN strength */}
-        {newPin.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-              {[1,2,3,4].map(i => (
-                <div key={i} style={{ flex: 1, height: 3, borderRadius: 9999, background: i <= newPin.length ? T.p : T.bdrL, transition: "background .2s" }} />
-              ))}
-            </div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{newPin.length}/4 dígitos</div>
-          </div>
-        )}
-
-        {msg && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", borderRadius: 10, background: msg.ok ? T.sucA : T.errA, marginBottom: 16, fontFamily: T.fB, fontSize: 13, color: msg.ok ? T.suc : T.err }}>
-            {msg.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
-            {msg.text}
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Btn onClick={handleChange} disabled={loading || !oldPin || !newPin || !confPin}>
-            <Shield size={14} />
-            {loading ? "Procesando..." : "Cambiar PIN"}
-          </Btn>
-        </div>
-      </Card>
-
-      <Card style={{ padding: 20, marginTop: 16 }}>
-        <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.7 }}>
-          <strong style={{ color: T.t }}>¿Qué cifra el PIN?</strong><br />
-          Todos los expedientes, sesiones, pagos, citas y recursos se cifran con tu PIN antes de guardarse en el dispositivo. Nadie puede leerlos sin el PIN correcto — ni siquiera con acceso físico al dispositivo.
-        </div>
-      </Card>
-    </div>
-  );
-}
-
 
 // ── Tab: Apariencia ───────────────────────────────────────────────────────────
 function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
@@ -504,26 +448,34 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
 }
 
 // ── Main Settings component ───────────────────────────────────────────────────
-export default function Settings({ profile, setProfile, allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore, darkMode, setDarkMode, patients, setPatients, googleUser }) {
+export default function Settings({ profile, setProfile, darkMode, setDarkMode, patients, setPatients, googleUser, psychologist, allData, onRestore }) {
   const [tab, setTab] = useState("profile");
 
   const tabs = [
-    { id: "profile",    label: "Perfil"      },
-    { id: "appearance", label: "Apariencia"  },
-    { id: "backups",    label: "Backups"     },
-    { id: "security",   label: "Seguridad"   },
+    { id: "profile",    label: "Perfil"     },
+    { id: "appearance", label: "Apariencia" },
+    { id: "data",       label: "Datos"      },
   ];
 
   return (
     <div>
-      <PageHeader title="Ajustes" subtitle="Perfil, apariencia, backups y seguridad" />
+      <PageHeader title="Ajustes" subtitle="Perfil, apariencia y datos" />
+      <div style={{ display:"flex", borderBottom:`1px solid ${T.bdr}`, marginBottom:24, gap:4 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ padding:"10px 20px", border:"none", background:"none", cursor:"pointer",
+              fontFamily:T.fB, fontSize:14, fontWeight: tab===t.id ? 700 : 400,
+              color: tab===t.id ? T.p : T.tm,
+              borderBottom: tab===t.id ? `2px solid ${T.p}` : "2px solid transparent",
+              transition:"all .15s" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <Tabs tabs={tabs} active={tab} onChange={setTab} />
-
-      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} />}
+      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
-      {tab === "backups"    && <BackupsTab    allData={allData} lastBackup={lastBackup} doBackup={doBackup} fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS} onRestore={onRestore} />}
-      {tab === "security"   && <SecurityTab />}
+      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} />}
     </div>
   );
 }
