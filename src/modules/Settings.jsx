@@ -6,8 +6,15 @@ import { loadBackupsFromIDB, getBackupById, deleteBackupById } from "../hooks/us
 import { Card, Tabs, Input, Btn, PageHeader } from "../components/ui/index.jsx";
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
-function ProfileTab({ profile, setProfile }) {
-  const [form, setForm] = useState({ ...profile });
+function ProfileTab({ profile, setProfile, googleUser }) {
+  const googleName  = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
+  const googleEmail = googleUser?.email || "";
+
+  const [form, setForm] = useState(() => ({
+    ...profile,
+    name:  profile?.name  || googleName,
+    email: profile?.email || googleEmail,
+  }));
   const [saved, setSaved] = useState(false);
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
@@ -433,13 +440,26 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
   return (
     <div style={{ maxWidth: 560 }}>
       {/* Dark mode */}
-      <Card style={{ padding:"4px 24px 4px", marginBottom:20 }}>
-        <Toggle
-          label="Modo oscuro"
-          sub="Reduce la fatiga visual en entornos con poca luz"
-          value={darkMode}
-          onChange={setDarkMode}
-        />
+      <Card style={{ padding:"20px 24px", marginBottom:20 }}>
+        <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t, marginBottom:4 }}>Modo de apariencia</div>
+        <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:14 }}>Por defecto sigue el sistema de tu dispositivo</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {[
+            { v:"auto",  label:"⚙️ Automático", sub:"Según el sistema" },
+            { v:"light", label:"☀️ Claro",       sub:"Siempre claro"   },
+            { v:"dark",  label:"🌙 Oscuro",       sub:"Siempre oscuro"  },
+          ].map(({ v, label, sub }) => {
+            const on = darkMode === v;
+            return (
+              <button key={v} onClick={() => setDarkMode(v)}
+                style={{ flex:1, padding:"10px 8px", borderRadius:10, border:`2px solid ${on ? T.p : T.bdr}`,
+                  background: on ? T.pA : "transparent", cursor:"pointer", transition:"all .13s", textAlign:"center" }}>
+                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight: on ? 700 : 500, color: on ? T.p : T.t }}>{label}</div>
+                <div style={{ fontFamily:T.fB, fontSize:10, color:T.tl, marginTop:2 }}>{sub}</div>
+              </button>
+            );
+          })}
+        </div>
       </Card>
 
       {/* CSV import */}
@@ -484,7 +504,7 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
 }
 
 // ── Main Settings component ───────────────────────────────────────────────────
-export default function Settings({ profile, setProfile, allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore, darkMode, setDarkMode, patients, setPatients }) {
+export default function Settings({ profile, setProfile, allData, lastBackup, doBackup, fsSupported, fsHandle, requestFS, onRestore, darkMode, setDarkMode, patients, setPatients, googleUser }) {
   const [tab, setTab] = useState("profile");
 
   const tabs = [
@@ -500,7 +520,7 @@ export default function Settings({ profile, setProfile, allData, lastBackup, doB
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} />}
+      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
       {tab === "backups"    && <BackupsTab    allData={allData} lastBackup={lastBackup} doBackup={doBackup} fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS} onRestore={onRestore} />}
       {tab === "security"   && <SecurityTab />}
