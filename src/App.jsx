@@ -44,9 +44,28 @@ export default function App() {
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
-    // onAuthStateChange handles EVERYTHING including OAuth redirects:
-    // INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
+    // Verificar sesión existente al montar (necesario en móvil donde
+    // onAuthStateChange puede no dispararse si el token ya existe)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        try {
+          const psyData = await getOrCreatePsychologist(session.user.id);
+          setPsychologist(psyData);
+        } catch (e) {
+          console.error("Trial check error:", e);
+        }
+        setPsychologistLoaded(true);
+        if (window.location.search || window.location.hash) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }
+      setAuthLoading(false);
+    });
+
+    // Escuchar cambios posteriores (login, logout, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "INITIAL_SESSION") return; // ya manejado por getSession arriba
       if (session?.user) {
         setUser(session.user);
         try {
@@ -67,7 +86,10 @@ export default function App() {
       setAuthLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Timeout de seguridad — si en 8s no resuelve, salimos del loading
+    const timeout = setTimeout(() => setAuthLoading(false), 8000);
+
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   useEffect(() => {
