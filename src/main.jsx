@@ -2,14 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
+import PatientPortal from "./modules/PatientPortal.jsx";
 
 // PWA update handler — registers Service Worker via vite-plugin-pwa
 import { registerSW } from "virtual:pwa-register";
 
 registerSW({
   onNeedRefresh() {
-    // Silently update — no intrusive prompt
-    // Para mostrar un banner de actualización, implementarlo aquí
     console.info("[PsychoCore] Nueva versión disponible. Actualizando...");
   },
   onOfflineReady() {
@@ -17,8 +16,14 @@ registerSW({
   },
 });
 
+// ── Detect patient portal route: /p/{phone} ───────────────────────────────────
+const portalMatch = window.location.pathname.match(/^\/p\/(\d+)\/?$/);
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    {portalMatch
+      ? <PatientPortal phone={portalMatch[1]}/>
+      : <App />
+    }
   </StrictMode>
 );

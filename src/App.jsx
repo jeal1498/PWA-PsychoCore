@@ -25,6 +25,7 @@ import RiskAssessment  from "./modules/RiskAssessment.jsx";
 import Scales          from "./modules/Scales.jsx";
 import TreatmentPlan   from "./modules/TreatmentPlan.jsx";
 import Reports         from "./modules/Reports.jsx";
+import Tasks           from "./modules/Tasks.jsx";
 
 import {
   SAMPLE_PATIENTS, SAMPLE_APPOINTMENTS, SAMPLE_SESSIONS,
@@ -163,6 +164,7 @@ export default function App() {
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
       case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
       case "resources":   return <Resources resources={resources} setResources={setResources} patients={patients}/>;
+      case "tasks":       return <Tasks patients={patients}/>;
       case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
