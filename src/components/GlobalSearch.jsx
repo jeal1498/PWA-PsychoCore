@@ -2,11 +2,13 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, Users, Calendar, FileText, X, ArrowRight } from "lucide-react";
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
 
 export default function GlobalSearch({ patients, appointments, sessions, onNavigate }) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
+  const isMobile = useIsMobile();
 
   // Keyboard shortcut: Ctrl+K / Cmd+K
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function GlobalSearch({ patients, appointments, sessions, onNavig
         style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "rgba(255,255,255,0.08)", border: "none",
-          borderRadius: 9, padding: "0 14px", height: 40,
+          borderRadius: 9, padding: isMobile ? "0 10px" : "0 14px", height: 40,
           cursor: "pointer", color: "rgba(255,255,255,0.55)",
           fontFamily: T.fB, fontSize: 13, transition: "background .15s",
           flexShrink: 0,
@@ -81,8 +83,8 @@ export default function GlobalSearch({ patients, appointments, sessions, onNavig
         onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
       >
         <Search size={15} />
-        <span>Buscar</span>
-        <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>⌘K</span>
+        {!isMobile && <span>Buscar</span>}
+        {!isMobile && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>⌘K</span>}
       </button>
     );
   }
