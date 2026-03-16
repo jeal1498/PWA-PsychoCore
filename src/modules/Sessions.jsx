@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
@@ -477,14 +477,9 @@ function TemplatePanel({ patient, noteFormat, onApply, onClose }) {
 
 const BLANK_RISK = { suicidalIdeation:"ninguna", selfHarm:"ninguna", harmToOthers:false };
 
-export default function Sessions({ sessions, setSessions, patients, profile, prefill, riskAssessments = [], setRiskAssessments, autoOpen }) {
+export default function Sessions({ sessions, setSessions, patients, profile, prefill, riskAssessments = [], setRiskAssessments }) {
   const [filterPt,  setFilterPt]  = useState("");
   const [showAdd,   setShowAdd]   = useState(!!prefill);
-
-  // Defer autoOpen one tick so the module is fully mounted before showing modal
-  useEffect(() => {
-    if (autoOpen === "add") setShowAdd(true);
-  }, [autoOpen]);
   const [referral,  setReferral]  = useState(null);
   const [refForm,   setRefForm]   = useState({ reason:"", specialist:"", notes:"" });
   const [riskOpen,  setRiskOpen]  = useState(false);

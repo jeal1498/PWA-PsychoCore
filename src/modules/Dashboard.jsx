@@ -103,19 +103,19 @@ function ApptCard({ appt, onStart }) {
   );
 }
 
-function QuickBar({ onQuickNav, isMobile }) {
+function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label:"Nuevo paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add" },
-    { label:"Agendar cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add" },
-    { label:"Nueva nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add" },
-    { label:"Registrar pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add" },
+    { label:"Nuevo paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add", handler: null },
+    { label:"Agendar cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add", handler: null },
+    { label:"Nueva nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add", handler: onNewSession },
+    { label:"Registrar pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add", handler: null },
   ];
   return (
     <div style={{ display:"grid",
       gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
       gap:10, marginBottom:24 }}>
       {actions.map(a => (
-        <button key={a.label} onClick={() => onQuickNav(a.module, a.action)}
+        <button key={a.label} onClick={() => a.handler ? a.handler() : onQuickNav(a.module, a.action)}
           style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
             borderRadius:12, border:`1.5px solid ${T.bdrL}`, background:T.card,
             cursor:"pointer", textAlign:"left", transition:"all .15s", fontFamily:T.fB }}
@@ -135,7 +135,7 @@ function QuickBar({ onQuickNav, isMobile }) {
 export default function Dashboard({
   patients, appointments, sessions, payments,
   riskAssessments = [], treatmentPlans = [],
-  onNavigate, onQuickNav, onStartSession,
+  onNavigate, onQuickNav, onStartSession, onNewSession,
 }) {
   const isMobile  = useIsMobile();
   const todayStr  = fmt(todayDate);
@@ -330,7 +330,7 @@ export default function Dashboard({
       </div>
 
       {/* 5. ACCIONES RÁPIDAS */}
-      <QuickBar onQuickNav={onQuickNav} isMobile={isMobile}/>
+      <QuickBar onQuickNav={onQuickNav} onNewSession={onNewSession} isMobile={isMobile}/>
 
       {/* 6. GRID SECUNDARIO */}
       <div style={{ display:"grid",
