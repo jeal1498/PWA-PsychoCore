@@ -39,7 +39,10 @@ export default function App() {
   const [activeModule,  setActiveModule]  = useState("dashboard");
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
-  const [darkMode,      setDarkMode]      = useState(() => localStorage.getItem("pc_dark") === "1");
+  // "auto" | "dark" | "light"
+  const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const darkMode = darkPref === "auto" ? systemDark : darkPref === "dark";
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
 
@@ -67,8 +70,20 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
-    localStorage.setItem("pc_dark", darkMode ? "1" : "0");
-  }, [darkMode]);
+    localStorage.setItem("pc_dark_pref", darkPref);
+  }, [darkMode, darkPref]);
+
+  // Listen to system preference changes in real time
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => {
+      if (darkPref === "auto") {
+        document.documentElement.setAttribute("data-theme", mq.matches ? "dark" : "light");
+      }
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [darkPref]);
 
   const [patients,     setPatients,     pLoaded]  = useEncryptedStorage("pc_patients",     SAMPLE_PATIENTS);
   const [appointments, setAppointments, aLoaded]  = useEncryptedStorage("pc_appointments", SAMPLE_APPOINTMENTS);
@@ -206,8 +221,9 @@ export default function App() {
           lastBackup={lastBackup} doBackup={doBackup}
           fsSupported={fsSupported} fsHandle={fsHandle} requestFS={requestFS}
           onRestore={onRestore}
-          darkMode={darkMode} setDarkMode={setDarkMode}
-          setPatients={setPatients} patients={patients}/>
+          darkMode={darkPref} setDarkMode={setDarkPref}
+          setPatients={setPatients} patients={patients}
+          googleUser={user}/>
       );
       default: return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
     }
