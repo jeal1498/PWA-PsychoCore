@@ -16,14 +16,11 @@ registerSW({
   },
 });
 
-// ── Detect patient portal route: /p/{phone} ───────────────────────────────────
-const portalMatch = window.location.pathname.match(/^\/p\/(\d+)\/?$/);
+// ── Detect patient portal route: /p ──────────────────────────────────────────
+const isPortal = window.location.pathname.match(/^\/p\/?$/);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    {portalMatch
-      ? <PatientPortal phone={portalMatch[1]}/>
-      : <App />
-    }
+    {isPortal ? <PatientPortal /> : <App />}
   </StrictMode>
 );
