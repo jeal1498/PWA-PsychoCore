@@ -4,6 +4,8 @@ import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
+import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
+import { createAssignment } from "../lib/supabase.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTE FORMAT DEFINITIONS
@@ -486,7 +488,7 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
   const [quickRisk, setQuickRisk] = useState(BLANK_RISK);
   const [showTpl,   setShowTpl]   = useState(false);
 
-  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", taskCompleted:null, privateNotes:"" };
+  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
   const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
   const fld  = k => v => setForm(f => ({ ...f, [k]:v }));
@@ -534,11 +536,28 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
       const suggested = quickRisk.suicidalIdeation==="activa" ? "alto" : quickRisk.suicidalIdeation==="pasiva"||quickRisk.selfHarm==="activa" ? "moderado" : "bajo";
       setRiskAssessments(prev => [...prev, { id:"ra"+uid(), patientId:form.patientId, patientName:pt?.name||"", sessionId, date:form.date, evaluatedBy:"session", ...quickRisk, hasPlan:false, hasMeans:false, hasIntent:false, previousAttempts:0, protectiveFactors:[], riskLevel:suggested, clinicalNotes:"", safetyPlan:{warningSignals:"",copingStrategies:"",supportContacts:"",professionalContacts:"",environmentSafety:"",reasonsToLive:""} }]);
     }
+    // Crear asignaciones en Supabase para cada plantilla seleccionada
+    if (pt?.phone && form.tasksAssigned?.length > 0) {
+      const cleanPhone = pt.phone.replace(/\D/g, "");
+      form.tasksAssigned.forEach(tplId => {
+        const tpl = TASK_TEMPLATES[tplId];
+        if (tpl) {
+          createAssignment({
+            patientId: form.patientId,
+            patientName: pt.name || "",
+            patientPhone: cleanPhone,
+            templateId: tplId,
+            title: tpl.title,
+            notes: "",
+          }).catch(() => {});
+        }
+      });
+    }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
   };
 
   const duplicate = (s) => {
-    setForm({ patientId:s.patientId, date:fmt(todayDate), duration:s.duration, mood:s.mood, progress:s.progress, tags:(s.tags||[]).join(", "), noteFormat:s.noteFormat||"libre", notes:s.noteFormat==="libre"?s.notes:"", structured:s.structured?{...s.structured}:null, taskAssigned:"", taskCompleted:null, privateNotes:"" });
+    setForm({ patientId:s.patientId, date:fmt(todayDate), duration:s.duration, mood:s.mood, progress:s.progress, tags:(s.tags||[]).join(", "), noteFormat:s.noteFormat||"libre", notes:s.noteFormat==="libre"?s.notes:"", structured:s.structured?{...s.structured}:null, taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" });
     setShowAdd(true);
   };
 
@@ -599,6 +618,7 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
                       {s.taskCompleted === true  && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.sucA, color:T.suc, fontSize:11, fontWeight:700, fontFamily:T.fB }}><Check size={10}/>Tarea completada</span>}
                       {s.taskCompleted === false && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.warA, color:T.war, fontSize:11, fontWeight:700, fontFamily:T.fB }}>✗ Tarea no completada</span>}
                       {s.taskAssigned && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.pA, color:T.p, fontSize:11, fontWeight:600, fontFamily:T.fB }}><ClipboardCheck size={10}/>Tarea: {s.taskAssigned.slice(0,40)}{s.taskAssigned.length>40?"…":""}</span>}
+                      {s.tasksAssigned?.length > 0 && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.pA, color:T.p, fontSize:11, fontWeight:600, fontFamily:T.fB }}><ClipboardCheck size={10}/>{s.tasksAssigned.length} tarea{s.tasksAssigned.length>1?"s":""} asignada{s.tasksAssigned.length>1?"s":""}</span>}
                     </div>
                   )}
                 </div>
@@ -683,10 +703,49 @@ export default function Sessions({ sessions, setSessions, patients, profile, pre
               </div>
             </div>
             <div>
-              <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Tarea para la próxima sesión</label>
-              <input value={form.taskAssigned} onChange={e => fld("taskAssigned")(e.target.value)}
-                placeholder="Ej. Registrar pensamientos automáticos 3 veces esta semana..."
-                style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
+              <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Tareas para la próxima sesión</label>
+              {/* Selected chips */}
+              {form.tasksAssigned?.length > 0 && (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10 }}>
+                  {form.tasksAssigned.map(id => {
+                    const tpl = TASK_TEMPLATES[id];
+                    if (!tpl) return null;
+                    return (
+                      <div key={id} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px 4px 8px", borderRadius:9999, background:T.pA, border:`1.5px solid ${T.p}`, fontFamily:T.fB, fontSize:12, color:T.p, fontWeight:600 }}>
+                        <span>{tpl.icon}</span>
+                        <span>{tpl.title}</span>
+                        <button onClick={() => fld("tasksAssigned")(form.tasksAssigned.filter(x => x !== id))}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:T.p, padding:0, marginLeft:2, lineHeight:1, fontSize:14, opacity:0.7 }}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Template grid */}
+              <div style={{ maxHeight:200, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.alt, display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
+                {Object.values(TASK_TEMPLATES).map(tpl => {
+                  const selected = form.tasksAssigned?.includes(tpl.id);
+                  return (
+                    <button key={tpl.id}
+                      onClick={() => {
+                        const cur = form.tasksAssigned || [];
+                        fld("tasksAssigned")(selected ? cur.filter(x => x !== tpl.id) : [...cur, tpl.id]);
+                      }}
+                      style={{ display:"flex", alignItems:"center", gap:7, padding:"7px 9px", borderRadius:8, border:`1.5px solid ${selected ? T.p : T.bdr}`, background:selected ? T.pA : T.card, cursor:"pointer", textAlign:"left", transition:"all .12s" }}>
+                      <span style={{ fontSize:17, lineHeight:1, flexShrink:0 }}>{tpl.icon}</span>
+                      <div style={{ overflow:"hidden" }}>
+                        <div style={{ fontFamily:T.fB, fontSize:11.5, fontWeight:selected?700:500, color:selected?T.p:T.t, lineHeight:1.3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{tpl.title}</div>
+                        <div style={{ fontFamily:T.fB, fontSize:10, color:T.tl, lineHeight:1.2 }}>{tpl.category}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {form.tasksAssigned?.length > 0 && !patients.find(p => p.id === form.patientId)?.phone && (
+                <p style={{ fontFamily:T.fB, fontSize:11, color:T.war||"#B8900A", marginTop:6, lineHeight:1.4 }}>
+                  ⚠️ Este paciente no tiene teléfono registrado. Las tareas se guardarán en la sesión pero no se enviarán al portal.
+                </p>
+              )}
             </div>
           </div>
         </div>
