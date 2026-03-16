@@ -5,8 +5,8 @@
 
 // ⚠️  REEMPLAZA estos valores con los tuyos:
 // Supabase Dashboard → Settings → API
-const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON;
+const SUPABASE_URL  = "https://zzujedxzgntvbqrieflu.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dWplZHh6Z250dmJxcmllZmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDQxMDIsImV4cCI6MjA4OTIyMDEwMn0.44IoYvJpk0SUmip1jgrGwyDrAHaT1PXbKrsi1voO9cY";
 
 // ── Fetch helper ─────────────────────────────────────────────────────────────
 const sb = (path, opts = {}) =>
