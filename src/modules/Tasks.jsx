@@ -11,13 +11,11 @@ import { TEMPLATES_LIST, TASK_CATEGORIES, getTemplate } from "../lib/taskTemplat
 import { createAssignment, getAssignmentsByPatient, deleteAssignment, getResponsesByAssignment } from "../lib/supabase.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const PORTAL_BASE = typeof window !== "undefined"
-  ? `${window.location.origin}/p/`
-  : "/p/";
+const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
 
 const whatsappLink = (phone, patientName, taskTitle) => {
   const msg = encodeURIComponent(
-    `Hola ${patientName?.split(" ")[0] || ""}! 👋\n\nTe comparto tu tarea terapéutica: *${taskTitle}*\n\nAccede aquí:\n${PORTAL_BASE}${phone}\n\n_Ingresa con tu número de celular para ver todas tus tareas._`
+    `Hola ${patientName?.split(" ")[0] || ""}! 👋\n\nTe comparto tu tarea terapéutica: *${taskTitle}*\n\nAccede aquí:\n${PORTAL_URL}\n\n_Ingresa con tu número de celular para ver todas tus tareas._`
   );
   return `https://wa.me/${phone}?text=${msg}`;
 };
@@ -351,7 +349,7 @@ export default function Tasks({ patients }) {
         {/* Preview portal link */}
         {selPatient && patients.find(p => p.id === selPatient)?.phone && (
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, fontFamily:T.fB, fontSize:12, color:T.p, marginBottom:16, wordBreak:"break-all" }}>
-            🔗 El paciente accederá en: <strong>{PORTAL_BASE}{patients.find(p => p.id === selPatient)?.phone?.replace(/\D/g,"")}</strong>
+            🔗 El paciente accederá en: <strong>{PORTAL_URL}</strong>
           </div>
         )}
 
