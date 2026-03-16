@@ -33,8 +33,8 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
   const displaySpec = profile?.specialty || "Psicólogo Clínico";
 
   const sidebarStyle = isMobile
-    ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.t, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
-    : { width:220, background:T.t, display:"flex", flexDirection:"column", flexShrink:0, minHeight:"100vh", position:"sticky", top:0 };
+    ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
+    : { width:220, background:T.nav, display:"flex", flexDirection:"column", flexShrink:0, minHeight:"100vh", position:"sticky", top:0 };
 
   return (
     <>
