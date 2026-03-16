@@ -19,6 +19,47 @@ export const signInWithGoogle = () =>
 
 export const signOut = () => supabase.auth.signOut();
 
+// ── Trial / subscription management ──────────────────────────────────────────
+
+/** Obtiene o crea el registro del psicólogo. Retorna { trial_ends_at, subscription_status } */
+export async function getOrCreatePsychologist(userId) {
+  // Intentar obtener registro existente
+  const { data, error } = await supabase
+    .from("psychologists")
+    .select("trial_ends_at, subscription_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (data) return data;
+
+  // Primera vez — crear registro con trial de 30 días
+  const { data: created, error: createErr } = await supabase
+    .from("psychologists")
+    .insert({ id: userId })
+    .select("trial_ends_at, subscription_status")
+    .single();
+
+  if (createErr) throw createErr;
+  return created;
+}
+
+/** Retorna true si el psicólogo tiene acceso activo (trial vigente o suscripción activa) */
+export function hasActiveAccess(psychologist) {
+  if (!psychologist) return false;
+  if (psychologist.subscription_status === "active") return true;
+  if (psychologist.subscription_status === "trial") {
+    return new Date(psychologist.trial_ends_at) > new Date();
+  }
+  return false;
+}
+
+/** Cuántos días quedan en el trial (puede ser negativo si expiró) */
+export function trialDaysLeft(psychologist) {
+  if (!psychologist) return 0;
+  const diff = new Date(psychologist.trial_ends_at) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
 // ── Fetch helper (para REST directo — tareas) ─────────────────────────────────
 const sb = (path, opts = {}) =>
   fetch(`${SUPABASE_URL}/rest/v1${path}`, {
@@ -34,10 +75,10 @@ const sb = (path, opts = {}) =>
 
 // ── TASK ASSIGNMENTS ─────────────────────────────────────────────────────────
 
-export async function createAssignment({ patientId, patientName, patientPhone, templateId, title, notes }) {
+export async function createAssignment({ patientId, patientName, patientPhone, templateId, title, notes, sessionId }) {
   const res = await sb("/task_assignments", {
     method: "POST",
-    body: JSON.stringify({ patient_id: patientId, patient_name: patientName, patient_phone: patientPhone, template_id: templateId, title, notes: notes || null }),
+    body: JSON.stringify({ patient_id: patientId, patient_name: patientName, patient_phone: patientPhone, template_id: templateId, title, notes: notes || null, session_id: sessionId || null }),
   });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
@@ -46,6 +87,12 @@ export async function createAssignment({ patientId, patientName, patientPhone, t
 
 export async function getAssignmentsByPatient(patientId) {
   const res = await sb(`/task_assignments?patient_id=eq.${encodeURIComponent(patientId)}&order=assigned_at.desc`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getAllAssignments() {
+  const res = await sb(`/task_assignments?order=assigned_at.desc`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
