@@ -88,6 +88,15 @@ export default function App() {
   const handleStartSession = (appt) => {
     setSessionPrefill({ patientId: appt.patientId, date: appt.date });
     setActiveModule("sessions");
+    setOpenAction(null);
+  };
+
+  // "Nueva nota" desde accesos rápidos — prefill vacío abre el modal directamente
+  const handleNewSession = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setSessionPrefill({ patientId: "", date: today, _empty: true });
+    setActiveModule("sessions");
+    setOpenAction(null);
   };
 
   const handleLock = () => { clearCryptoKey(); setLocked(true); setSidebarOpen(false); };
@@ -151,10 +160,10 @@ export default function App() {
 
   const renderModule = () => {
     switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession}/>;
+      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile} resources={resources}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null}/>;
-      case "sessions":    return <Sessions  {...mp} key={openAction?.module==="sessions" ? openAction.ts : JSON.stringify(sessionPrefill)} autoOpen={openAction?.module==="sessions" ? openAction.action : null} profile={profile} prefill={sessionPrefill}/>;
+      case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
       case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
       case "resources":   return <Resources resources={resources} setResources={setResources} patients={patients}/>;
       case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments}/>;
