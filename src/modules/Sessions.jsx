@@ -634,7 +634,9 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       setAiLoading(false);
     }
   };
-    setForm(f => ({ ...f, noteFormat:newFormat, structured:blankStructured(newFormat), notes:"" }));
+
+  const handleFormatChange = (newFormat) => {
+    setForm(f => ({ ...f, noteFormat: newFormat, structured: blankStructured(newFormat), notes: "" }));
   };
 
   const handleStructuredChange = (key, val) => {
