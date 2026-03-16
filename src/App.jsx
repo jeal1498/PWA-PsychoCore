@@ -97,8 +97,17 @@ export default function App() {
     return latest?.id === a.id && (a.riskLevel === "alto" || a.riskLevel === "inminente");
   });
 
+  const [openAction, setOpenAction] = useState(null);
+
   const navTo = (mod) => {
     setActiveModule(mod);
+    setOpenAction(null);
+    if (mod !== "sessions") setSessionPrefill(null);
+  };
+
+  const quickNav = (mod, action) => {
+    setActiveModule(mod);
+    setOpenAction({ module: mod, action, ts: Date.now() });
     if (mod !== "sessions") setSessionPrefill(null);
   };
 
@@ -126,11 +135,11 @@ export default function App() {
 
   const renderModule = () => {
     switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
-      case "patients":    return <Patients  {...mp} onQuickNav={patientsNavRef} profile={profile} resources={resources}/>;
-      case "agenda":      return <Agenda    {...mp}/>;
-      case "sessions":    return <Sessions  {...mp} profile={profile} prefill={sessionPrefill} key={JSON.stringify(sessionPrefill)}/>;
-      case "finance":     return <Finance   {...mp} profile={profile}/>;
+      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession}/>;
+      case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile} resources={resources}/>;
+      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null}/>;
+      case "sessions":    return <Sessions  {...mp} key={openAction?.module==="sessions" ? openAction.ts : JSON.stringify(sessionPrefill)} autoOpen={openAction?.module==="sessions" ? openAction.action : null} profile={profile} prefill={sessionPrefill}/>;
+      case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
       case "resources":   return <Resources resources={resources} setResources={setResources} patients={patients}/>;
       case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
