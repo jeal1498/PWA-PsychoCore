@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Política de Privacidad — PsychoCore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --p: #3A6B6E; --pd: #1E3535; --pxl: #EDF5F5;
+    --ink: #1A2B28; --inm: #4A6260; --inl: #8AADAB;
+    --bg: #F6F4F0; --card: #FAFAF8; --bdr: rgba(58,107,110,0.15);
+    --fH: 'Cormorant Garamond', Georgia, serif;
+    --fB: 'Instrument Sans', system-ui, sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--fB); background: var(--bg); color: var(--ink); line-height: 1.7; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(246,244,240,0.92); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--bdr);
+    padding: 0 6vw; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 9px; text-decoration: none; }
+  .logo-ico { width: 28px; height: 28px; border-radius: 7px; background: var(--pd); display: flex; align-items: center; justify-content: center; }
+  .logo-ico svg { width: 14px; height: 14px; }
+  .logo-txt { font-family: var(--fH); font-size: 18px; font-weight: 600; color: var(--pd); }
+  nav a.back { font-size: 13px; color: var(--inm); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: color .2s; }
+  nav a.back:hover { color: var(--p); }
+
+  .hero {
+    background: var(--pd); padding: 60px 6vw 56px;
+    text-align: center;
+  }
+  .hero-tag {
+    display: inline-block; padding: 4px 14px; border-radius: 100px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.6);
+    letter-spacing: .08em; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .hero h1 { font-family: var(--fH); font-size: clamp(36px,5vw,58px); font-weight: 300; color: #fff; margin-bottom: 12px; }
+  .hero p { font-size: 14px; color: rgba(255,255,255,0.5); }
+
+  .layout { max-width: 780px; margin: 0 auto; padding: 60px 6vw 100px; }
+
+  .toc {
+    background: var(--pxl); border: 1.5px solid var(--bdr);
+    border-radius: 16px; padding: 24px 28px; margin-bottom: 48px;
+  }
+  .toc-title { font-size: 12px; font-weight: 700; color: var(--p); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px; }
+  .toc ol { padding-left: 18px; }
+  .toc li { margin-bottom: 6px; }
+  .toc a { font-size: 13.5px; color: var(--p); text-decoration: none; transition: opacity .2s; }
+  .toc a:hover { opacity: .7; }
+
+  .section { margin-bottom: 48px; }
+  .section-num {
+    font-size: 11px; font-weight: 700; color: var(--p);
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px;
+  }
+  h2 { font-family: var(--fH); font-size: 26px; font-weight: 600; color: var(--ink); margin-bottom: 16px; line-height: 1.3; }
+  p { font-size: 14.5px; color: var(--inm); margin-bottom: 14px; line-height: 1.75; }
+  ul, ol { padding-left: 20px; margin-bottom: 14px; }
+  li { font-size: 14.5px; color: var(--inm); margin-bottom: 8px; line-height: 1.7; }
+  strong { color: var(--ink); font-weight: 600; }
+
+  .highlight {
+    background: var(--pxl); border-left: 3px solid var(--p);
+    border-radius: 0 10px 10px 0; padding: 16px 20px; margin-bottom: 16px;
+  }
+  .highlight p { margin: 0; font-size: 14px; }
+
+  .warn {
+    background: rgba(184,80,80,0.06); border-left: 3px solid #B85050;
+    border-radius: 0 10px 10px 0; padding: 16px 20px; margin-bottom: 16px;
+  }
+  .warn p { margin: 0; font-size: 14px; color: #B85050; }
+
+  .divider { height: 1px; background: var(--bdr); margin: 32px 0; }
+
+  .contact-card {
+    background: var(--card); border: 1.5px solid var(--bdr);
+    border-radius: 16px; padding: 28px; margin-top: 48px; text-align: center;
+  }
+  .contact-card h3 { font-family: var(--fH); font-size: 22px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+  .contact-card p { font-size: 14px; color: var(--inm); margin-bottom: 16px; }
+  .contact-card a { color: var(--p); font-weight: 600; text-decoration: none; }
+
+  footer { padding: 24px 6vw; border-top: 1px solid var(--bdr); text-align: center; }
+  footer p { font-size: 12px; color: var(--inl); }
+  footer a { color: var(--p); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <div class="logo-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M9 12a3 3 0 1 0 6 0"/>
+      </svg>
+    </div>
+    <span class="logo-txt">PsychoCore</span>
+  </a>
+  <a href="/" class="back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Volver al inicio
+  </a>
+</nav>
+
+<div class="hero">
+  <div class="hero-tag">Documento legal</div>
+  <h1>Política de Privacidad</h1>
+  <p>Última actualización: 16 de marzo de 2026</p>
+</div>
+
+<div class="layout">
+
+  <div class="toc">
+    <div class="toc-title">Contenido</div>
+    <ol>
+      <li><a href="#responsable">Responsable del tratamiento</a></li>
+      <li><a href="#datos">Datos personales que recopilamos</a></li>
+      <li><a href="#finalidades">Finalidades del tratamiento</a></li>
+      <li><a href="#sensibles">Datos sensibles de pacientes</a></li>
+      <li><a href="#transferencias">Transferencias a terceros</a></li>
+      <li><a href="#seguridad">Medidas de seguridad</a></li>
+      <li><a href="#derechos">Derechos ARCO</a></li>
+      <li><a href="#cookies">Cookies y tecnologías similares</a></li>
+      <li><a href="#menores">Menores de edad</a></li>
+      <li><a href="#cambios">Cambios a esta política</a></li>
+      <li><a href="#contacto">Contacto</a></li>
+    </ol>
+  </div>
+
+  <div class="highlight">
+    <p>Esta Política de Privacidad está redactada en cumplimiento de la <strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong> y su Reglamento, vigentes en los Estados Unidos Mexicanos.</p>
+  </div>
+
+  <!-- 1 -->
+  <div class="section" id="responsable">
+    <div class="section-num">01</div>
+    <h2>Responsable del tratamiento</h2>
+    <p>PsychoCore (en adelante "nosotros", "la plataforma" o "PsychoCore") es responsable del tratamiento de los datos personales que se recopilan a través de la plataforma disponible en <strong>psychocore.vercel.app</strong>.</p>
+    <p>Para cualquier asunto relacionado con el tratamiento de tus datos personales, puedes contactarnos en: <strong>soporte@psychocore.app</strong></p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 2 -->
+  <div class="section" id="datos">
+    <div class="section-num">02</div>
+    <h2>Datos personales que recopilamos</h2>
+    <p>Recopilamos dos categorías de datos según el tipo de usuario:</p>
+
+    <p><strong>A) Psicólogos (usuarios de la plataforma principal)</strong></p>
+    <ul>
+      <li>Nombre completo y correo electrónico proporcionados por Google al autenticarse</li>
+      <li>Información de perfil profesional: especialidad, cédula profesional, teléfono, RFC, nombre del consultorio (proporcionada voluntariamente)</li>
+      <li>Datos de uso de la plataforma: módulos visitados, fecha y hora de acceso</li>
+      <li>Información de suscripción: fecha de inicio del período de prueba, estado de la cuenta</li>
+    </ul>
+
+    <p><strong>B) Pacientes (usuarios del portal de tareas)</strong></p>
+    <ul>
+      <li>Número de teléfono celular (utilizado como identificador de acceso al portal)</li>
+      <li>Respuestas a tareas terapéuticas asignadas por su psicólogo</li>
+      <li>Fecha y hora de completación de tareas</li>
+    </ul>
+
+    <div class="warn">
+      <p>⚠️ Los expedientes clínicos completos de los pacientes (diagnósticos, notas de sesión, evaluaciones de riesgo, etc.) son ingresados y administrados exclusivamente por el psicólogo. PsychoCore actúa como encargado del tratamiento respecto a dichos datos.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 3 -->
+  <div class="section" id="finalidades">
+    <div class="section-num">03</div>
+    <h2>Finalidades del tratamiento</h2>
+
+    <p><strong>Finalidades primarias</strong> (necesarias para la prestación del servicio):</p>
+    <ul>
+      <li>Autenticar y gestionar el acceso seguro a la plataforma</li>
+      <li>Almacenar y sincronizar los expedientes clínicos del psicólogo en la nube</li>
+      <li>Permitir al paciente acceder a su portal de tareas y enviar respuestas</li>
+      <li>Gestionar el período de prueba y la suscripción del psicólogo</li>
+      <li>Enviar comunicaciones relacionadas con el servicio (vencimiento del trial, actualizaciones importantes)</li>
+    </ul>
+
+    <p><strong>Finalidades secundarias</strong> (puedes oponerte sin afectar el servicio):</p>
+    <ul>
+      <li>Enviar comunicaciones sobre nuevas funcionalidades y mejoras de la plataforma</li>
+      <li>Realizar análisis agregados y anónimos de uso para mejorar el producto</li>
+    </ul>
+
+    <p>Si no deseas que tus datos sean tratados para finalidades secundarias, puedes manifestarlo enviando un correo a <strong>soporte@psychocore.app</strong>.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 4 -->
+  <div class="section" id="sensibles">
+    <div class="section-num">04</div>
+    <h2>Datos sensibles de pacientes</h2>
+
+    <div class="warn">
+      <p>⚠️ PsychoCore procesa datos clínicos que pueden considerarse <strong>datos personales sensibles</strong> conforme al artículo 3, fracción VI de la LFPDPPP, incluyendo información sobre salud física y mental.</p>
+    </div>
+
+    <p>El psicólogo, al utilizar PsychoCore, asume la responsabilidad de:</p>
+    <ul>
+      <li>Contar con el consentimiento informado de sus pacientes para el tratamiento de sus datos clínicos en una plataforma digital</li>
+      <li>Informar a sus pacientes que sus datos serán almacenados en servicios de nube seguros</li>
+      <li>Cumplir con las obligaciones éticas y legales de su profesión respecto a la confidencialidad clínica</li>
+      <li>Verificar que el uso de la plataforma sea compatible con las normativas aplicables en su jurisdicción</li>
+    </ul>
+
+    <p>PsychoCore como plataforma tecnológica actúa como <strong>encargado del tratamiento</strong> de dichos datos, limitando su uso exclusivamente a la prestación del servicio contratado por el psicólogo, sin utilizarlos para ningún otro fin.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 5 -->
+  <div class="section" id="transferencias">
+    <div class="section-num">05</div>
+    <h2>Transferencias a terceros</h2>
+    <p>Para la operación de la plataforma, compartimos datos con los siguientes proveedores de servicios tecnológicos, quienes actúan como subencargados del tratamiento:</p>
+    <ul>
+      <li><strong>Supabase Inc.</strong> (Estados Unidos) — Base de datos, autenticación y almacenamiento seguro. <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Política de privacidad</a></li>
+      <li><strong>Google LLC</strong> (Estados Unidos) — Autenticación de usuarios mediante Google OAuth. <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de privacidad</a></li>
+      <li><strong>Vercel Inc.</strong> (Estados Unidos) — Hospedaje y distribución de la aplicación web. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Política de privacidad</a></li>
+    </ul>
+    <p>Todos nuestros proveedores han sido seleccionados por cumplir con estándares de seguridad reconocidos internacionalmente. <strong>No vendemos, alquilamos ni compartimos datos personales con terceros para fines comerciales.</strong></p>
+    <p>Podemos divulgar información cuando sea requerido por autoridad competente mediante orden judicial o mandato legal aplicable en México.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 6 -->
+  <div class="section" id="seguridad">
+    <div class="section-num">06</div>
+    <h2>Medidas de seguridad</h2>
+    <p>Implementamos medidas técnicas y organizativas para proteger los datos personales:</p>
+    <ul>
+      <li><strong>Cifrado en tránsito:</strong> toda la comunicación entre el navegador y nuestros servidores se realiza mediante TLS/HTTPS</li>
+      <li><strong>Cifrado en reposo:</strong> los datos almacenados en Supabase se encuentran cifrados</li>
+      <li><strong>Autenticación segura:</strong> acceso mediante Google OAuth, sin almacenamiento de contraseñas propias</li>
+      <li><strong>Aislamiento de datos:</strong> Row Level Security (RLS) garantiza que cada psicólogo solo acceda a sus propios datos</li>
+      <li><strong>Acceso mínimo:</strong> los empleados y colaboradores de PsychoCore tienen acceso restringido a los datos de usuarios</li>
+    </ul>
+    <p>En caso de una brecha de seguridad que afecte tus datos personales, te notificaremos conforme a lo establecido en la LFPDPPP y su Reglamento.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 7 -->
+  <div class="section" id="derechos">
+    <div class="section-num">07</div>
+    <h2>Derechos ARCO</h2>
+    <p>Conforme a la LFPDPPP, tienes derecho a:</p>
+    <ul>
+      <li><strong>Acceso:</strong> conocer qué datos personales tenemos sobre ti y cómo los usamos</li>
+      <li><strong>Rectificación:</strong> solicitar la corrección de datos inexactos o incompletos</li>
+      <li><strong>Cancelación:</strong> solicitar la eliminación de tus datos cuando consideres que no son necesarios para las finalidades del tratamiento</li>
+      <li><strong>Oposición:</strong> oponerte al tratamiento de tus datos para finalidades secundarias</li>
+    </ul>
+    <p>Para ejercer cualquiera de estos derechos, envía un correo a <strong>soporte@psychocore.app</strong> con:</p>
+    <ul>
+      <li>Tu nombre completo y correo electrónico registrado</li>
+      <li>Descripción clara del derecho que deseas ejercer</li>
+      <li>Cualquier documento o información que facilite la localización de tus datos</li>
+    </ul>
+    <p>Responderemos tu solicitud en un plazo máximo de <strong>20 días hábiles</strong> a partir de su recepción, conforme al artículo 32 de la LFPDPPP.</p>
+    <p>Si consideras que tu solicitud no fue atendida correctamente, puedes presentar una queja ante el <strong>Instituto Nacional de Transparencia, Acceso a la Información y Protección de Datos Personales (INAI)</strong> en <a href="https://home.inai.org.mx" target="_blank" rel="noopener">home.inai.org.mx</a>.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 8 -->
+  <div class="section" id="cookies">
+    <div class="section-num">08</div>
+    <h2>Cookies y tecnologías similares</h2>
+    <p>PsychoCore utiliza las siguientes tecnologías de almacenamiento local:</p>
+    <ul>
+      <li><strong>Cookies de sesión:</strong> necesarias para mantener la sesión autenticada del usuario. No pueden desactivarse sin afectar el funcionamiento del servicio.</li>
+      <li><strong>localStorage:</strong> almacenamos preferencias de usuario (como modo oscuro/claro) y tokens de autenticación de Supabase en el almacenamiento local del navegador.</li>
+    </ul>
+    <p>No utilizamos cookies de seguimiento, publicidad o análisis de terceros.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 9 -->
+  <div class="section" id="menores">
+    <div class="section-num">09</div>
+    <h2>Menores de edad</h2>
+    <p>La plataforma principal de PsychoCore está dirigida exclusivamente a profesionales de la salud mental mayores de 18 años.</p>
+    <p>Respecto al portal de tareas para pacientes: si el psicólogo atiende a pacientes menores de edad, es responsabilidad del psicólogo obtener el consentimiento del tutor o representante legal antes de registrar el número de celular del menor en la plataforma.</p>
+    <p>PsychoCore no recopila datos de menores de manera directa ni consciente. Si tienes conocimiento de que un menor ha proporcionado datos sin autorización, contáctanos para eliminarlos.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 10 -->
+  <div class="section" id="cambios">
+    <div class="section-num">10</div>
+    <h2>Cambios a esta política</h2>
+    <p>Nos reservamos el derecho de actualizar esta Política de Privacidad en cualquier momento. Los cambios serán notificados mediante:</p>
+    <ul>
+      <li>Un aviso visible en la plataforma al iniciar sesión</li>
+      <li>Correo electrónico al correo registrado con tu cuenta de Google</li>
+    </ul>
+    <p>El uso continuado de la plataforma después de la notificación implica la aceptación de los cambios realizados.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 11 -->
+  <div class="section" id="contacto">
+    <div class="section-num">11</div>
+    <h2>Contacto</h2>
+    <p>Para cualquier pregunta, comentario o solicitud relacionada con esta Política de Privacidad o el tratamiento de tus datos personales:</p>
+  </div>
+
+  <div class="contact-card">
+    <h3>¿Tienes preguntas sobre tu privacidad?</h3>
+    <p>Nuestro equipo responde en un máximo de 20 días hábiles conforme a la LFPDPPP.</p>
+    <a href="mailto:soporte@psychocore.app">soporte@psychocore.app</a>
+  </div>
+
+</div>
+
+<footer>
+  <p>© 2026 PsychoCore · <a href="/privacidad">Política de Privacidad</a> · <a href="/terminos">Términos de Uso</a> · <a href="/">Inicio</a></p>
+</footer>
+
+</body>
+</html>
