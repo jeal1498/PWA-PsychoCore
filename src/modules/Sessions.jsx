@@ -233,9 +233,10 @@ function StructuredPreview({ session }) {
         <LayoutList size={10}/>{fd.label}
       </span>
       <div style={{ marginBottom:6 }}>
-        <span style={{ fontSize:10, fontWeight:700, color:fd.color, textTransform:"uppercase", letterSpacing:"0.07em", marginRight:6 }}>{firstField.key}</span>
-        <span style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.65 }}>
-          {previewText.length > 120 && !expanded ? previewText.slice(0, 120) + "…" : previewText}
+        <span style={{ fontFamily:T.fB, fontSize:13, color:T.tm, lineHeight:1.6,
+          display:"-webkit-box", WebkitLineClamp: expanded ? 99 : 2,
+          WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+          {previewText}
         </span>
       </div>
       {expanded && fd.fields.slice(1).map(f => session.structured[f.key] ? (
@@ -766,19 +767,34 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           const ps = progressStyle(s.progress);
           const isStruct = s.noteFormat && s.noteFormat !== "libre" && s.structured;
           return (
-            <Card key={s.id} style={{ padding:22, marginBottom:12 }}>
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
-                    <span style={{ fontFamily:T.fH, fontSize:17, fontWeight:500, color:T.t }}>{s.patientName.split(" ").slice(0,2).join(" ")}</span>
-                    <span style={{ fontSize:11, color:T.tl }}>·</span>
-                    <span style={{ fontSize:13, color:T.tm, fontFamily:T.fB }}>{fmtDate(s.date)}</span>
-                    <span style={{ fontSize:11, color:T.tl }}>·</span>
-                    <span style={{ fontSize:12, color:T.tm, fontFamily:T.fB }}>{s.duration} min</span>
+            <Card key={s.id} style={{ padding:"16px 18px", marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  {/* Nombre + meta en dos líneas compactas */}
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2, flexWrap:"nowrap", overflow:"hidden" }}>
+                    <span style={{ fontFamily:T.fB, fontSize:14.5, fontWeight:600, color:T.t,
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {s.patientName.split(" ").slice(0,2).join(" ")}
+                    </span>
+                    {isStruct && (
+                      <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"1px 7px",
+                        borderRadius:9999, background:NOTE_FORMATS[s.noteFormat]?.bg,
+                        color:NOTE_FORMATS[s.noteFormat]?.color, fontSize:9, fontWeight:700,
+                        fontFamily:T.fB, flexShrink:0, letterSpacing:"0.04em" }}>
+                        {s.noteFormat}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:10 }}>
+                    {fmtDate(s.date)} · {s.duration} min
                   </div>
                   {isStruct
                     ? <StructuredPreview session={s}/>
-                    : <p style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, margin:"0 0 12px", lineHeight:1.65 }}>{s.notes}</p>
+                    : <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, margin:"0 0 10px",
+                        lineHeight:1.6, display:"-webkit-box", WebkitLineClamp:2,
+                        WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                        {s.notes}
+                      </p>
                   }
                   <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginTop:isStruct?8:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -788,23 +804,20 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
                     <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
                     {(s.tags||[]).map(tag => <Badge key={tag} color={T.acc} bg={T.accA}><Tag size={10}/>{tag}</Badge>)}
                   </div>
-                  {/* Task badges */}
-                  {(s.taskAssigned || s.taskCompleted !== null) && (
-                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:8 }}>
-                      {s.taskCompleted === true  && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.sucA, color:T.suc, fontSize:11, fontWeight:700, fontFamily:T.fB }}><Check size={10}/>Tarea completada</span>}
-                      {s.taskCompleted === false && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.warA, color:T.war, fontSize:11, fontWeight:700, fontFamily:T.fB }}>✗ Tarea no completada</span>}
-                      {s.taskAssigned && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.pA, color:T.p, fontSize:11, fontWeight:600, fontFamily:T.fB }}><ClipboardCheck size={10}/>Tarea: {s.taskAssigned.slice(0,40)}{s.taskAssigned.length>40?"…":""}</span>}
-                      {s.tasksAssigned?.length > 0 && <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 9px", borderRadius:9999, background:T.pA, color:T.p, fontSize:11, fontWeight:600, fontFamily:T.fB }}><ClipboardCheck size={10}/>{s.tasksAssigned.length} tarea{s.tasksAssigned.length>1?"s":""} asignada{s.tasksAssigned.length>1?"s":""}</span>}
+                  {/* Task badges — línea compacta */}
+                  {(s.taskCompleted !== null || s.tasksAssigned?.length > 0) && (
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:6 }}>
+                      {s.taskCompleted === true  && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:9999, background:T.sucA, color:T.suc, fontSize:10, fontWeight:700, fontFamily:T.fB }}><Check size={9}/>Tarea completada</span>}
+                      {s.taskCompleted === false && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:9999, background:T.warA, color:T.war, fontSize:10, fontWeight:700, fontFamily:T.fB }}>✗ No completada</span>}
+                      {s.tasksAssigned?.length > 0 && <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px", borderRadius:9999, background:T.pA, color:T.p, fontSize:10, fontWeight:600, fontFamily:T.fB }}><ClipboardCheck size={9}/>{s.tasksAssigned.length} tarea{s.tasksAssigned.length>1?"s":""} asignada{s.tasksAssigned.length>1?"s":""}</span>}
                     </div>
                   )}
                 </div>
-                <div style={{ display:"flex", gap:5, flexShrink:0, flexDirection:"column" }}>
-                  <div style={{ display:"flex", gap:5 }}>
-                    <button onClick={() => duplicate(s)} title="Usar como plantilla" style={{ background:T.pA, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.p }}><Copy size={14}/></button>
-                    <button onClick={() => openReferral(s)} title="Carta de derivación" style={{ background:T.accA, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.acc }}><Send size={14}/></button>
-                    <button onClick={() => printNote(s, patients)} title="Exportar nota PDF" style={{ background:T.bdrL, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.tm }}><Printer size={15}/></button>
-                    <button onClick={() => del(s.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", padding:8 }}><Trash2 size={15}/></button>
-                  </div>
+                <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"flex-start" }}>
+                  <button onClick={() => duplicate(s)} title="Usar como plantilla" style={{ background:"none", border:"none", borderRadius:7, padding:6, cursor:"pointer", color:T.tl }}><Copy size={14}/></button>
+                  <button onClick={() => openReferral(s)} title="Carta de derivación" style={{ background:"none", border:"none", borderRadius:7, padding:6, cursor:"pointer", color:T.tl }}><Send size={14}/></button>
+                  <button onClick={() => printNote(s, patients)} title="Exportar nota PDF" style={{ background:"none", border:"none", borderRadius:7, padding:6, cursor:"pointer", color:T.tl }}><Printer size={14}/></button>
+                  <button onClick={() => del(s.id)} title="Eliminar" style={{ background:"none", border:"none", borderRadius:7, padding:6, cursor:"pointer", color:T.tl }}><Trash2 size={14}/></button>
                 </div>
               </div>
             </Card>
