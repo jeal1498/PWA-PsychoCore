@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import { Menu, Brain } from "lucide-react";
 import { T } from "./theme.js";
 import { useIsMobile }         from "./hooks/useIsMobile.js";
@@ -12,18 +12,19 @@ import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 
-import Dashboard       from "./modules/Dashboard.jsx";
-import Patients        from "./modules/Patients.jsx";
-import Agenda          from "./modules/Agenda.jsx";
-import Sessions        from "./modules/Sessions.jsx";
-import Finance         from "./modules/Finance.jsx";
-import Settings        from "./modules/Settings.jsx";
-import Stats           from "./modules/Stats.jsx";
-import RiskAssessment  from "./modules/RiskAssessment.jsx";
-import Scales          from "./modules/Scales.jsx";
-import TreatmentPlan   from "./modules/TreatmentPlan.jsx";
-import Reports         from "./modules/Reports.jsx";
-import Tasks           from "./modules/Tasks.jsx";
+// Lazy loading — cada módulo se descarga solo cuando el usuario lo abre por primera vez
+const Dashboard     = lazy(() => import("./modules/Dashboard.jsx"));
+const Patients      = lazy(() => import("./modules/Patients.jsx"));
+const Agenda        = lazy(() => import("./modules/Agenda.jsx"));
+const Sessions      = lazy(() => import("./modules/Sessions.jsx"));
+const Finance       = lazy(() => import("./modules/Finance.jsx"));
+const Settings      = lazy(() => import("./modules/Settings.jsx"));
+const Stats         = lazy(() => import("./modules/Stats.jsx"));
+const RiskAssessment= lazy(() => import("./modules/RiskAssessment.jsx"));
+const Scales        = lazy(() => import("./modules/Scales.jsx"));
+const TreatmentPlan = lazy(() => import("./modules/TreatmentPlan.jsx"));
+const Reports       = lazy(() => import("./modules/Reports.jsx"));
+const Tasks         = lazy(() => import("./modules/Tasks.jsx"));
 
 import { DEFAULT_PROFILE } from "./sampleData.js";
 
@@ -349,7 +350,14 @@ export default function App() {
         </div>
 
         <main style={{ flex:1, padding:isMobile?"20px 18px 32px":"36px 40px", overflowY:"auto", minHeight:0 }}>
-          {renderModule()}
+          <Suspense fallback={
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"60vh" }}>
+              <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+            </div>
+          }>
+            {renderModule()}
+          </Suspense>
         </main>
       </div>
     </div>
