@@ -179,7 +179,8 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   useEffect(() => {
     if (autoOpen === "add") setShowAdd(true);
   }, [autoOpen]);
-  const [filterPt, setFilterPt] = useState("");
+  const [filterPt,     setFilterPt]     = useState("");
+  const [filterStatus, setFilterStatus] = useState(""); // "" | "pagado" | "pendiente"
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -194,9 +195,13 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
 
   const filtered = useMemo(() =>
     payments
-      .filter(p => (!filterPt || p.patientId === filterPt) && p.date.startsWith(filterYear))
+      .filter(p =>
+        (!filterPt     || p.patientId === filterPt) &&
+        (!filterStatus || p.status    === filterStatus) &&
+        p.date.startsWith(filterYear)
+      )
       .sort((a,b) => b.date.localeCompare(a.date)),
-    [payments, filterPt, filterYear]);
+    [payments, filterPt, filterStatus, filterYear]);
 
   const monthStr    = fmt(todayDate).slice(0,7);
   const monthIncome = payments.filter(p => p.status==="pagado" && p.date.startsWith(monthStr)).reduce((s,p)=>s+Number(p.amount),0);
@@ -216,9 +221,9 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const toggle = id => setPayments(prev => prev.map(p => p.id===id ? {...p, status:p.status==="pagado"?"pendiente":"pagado"} : p));
 
   const stats = [
-    { label:"Este mes",    value:fmtCur(monthIncome), icon:TrendingUp,  color:T.suc, bg:T.sucA },
-    { label:"Cobrado",     value:fmtCur(totalPaid),   icon:CheckCircle, color:T.p,   bg:T.pA   },
-    { label:"Por cobrar",  value:fmtCur(totalPend),   icon:AlertCircle, color:T.war, bg:T.warA },
+    { label:"Este mes",   value:fmtCur(monthIncome), icon:TrendingUp,  color:T.suc, bg:T.sucA, filterKey:""          },
+    { label:"Cobrado",    value:fmtCur(totalPaid),   icon:CheckCircle, color:T.p,   bg:T.pA,   filterKey:"pagado"    },
+    { label:"Por cobrar", value:fmtCur(totalPend),   icon:AlertCircle, color:T.war, bg:T.warA, filterKey:"pendiente" },
   ];
 
   const paymentRow = (p) => {
@@ -282,35 +287,54 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         action={<Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Registrar pago</Btn>}
       />
 
-      {/* KPI Stats — una sola fila */}
+      {/* KPI Stats — tapeables para filtrar */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
-        {stats.map(s => (
-          <Card key={s.label} style={{ padding:"14px 12px" }}>
-            <div style={{ width:32, height:32, borderRadius:9, background:s.bg,
-              display:"flex", alignItems:"center", justifyContent:"center", marginBottom:8 }}>
-              <s.icon size={15} color={s.color} strokeWidth={1.7}/>
-            </div>
-            <div style={{ fontFamily:T.fH, fontSize:22, fontWeight:500, color:T.t, lineHeight:1, marginBottom:4 }}>{s.value}</div>
-            <div style={{ fontSize:10, fontWeight:600, color:T.tl, fontFamily:T.fB,
-              letterSpacing:"0.05em", textTransform:"uppercase" }}>{s.label}</div>
-          </Card>
-        ))}
+        {stats.map(s => {
+          const active = filterStatus === s.filterKey;
+          return (
+            <button key={s.label}
+              onClick={() => setFilterStatus(active ? "" : s.filterKey)}
+              style={{ padding:"14px 12px", borderRadius:16, textAlign:"left", cursor:"pointer",
+                background: active ? s.bg : T.card,
+                border: active ? `2px solid ${s.color}60` : `2px solid ${T.bdrL}`,
+                boxShadow: active ? `0 0 0 3px ${s.color}15` : T.sh,
+                transition:"all .15s" }}>
+              <div style={{ width:32, height:32, borderRadius:9, background:s.bg,
+                display:"flex", alignItems:"center", justifyContent:"center", marginBottom:8 }}>
+                <s.icon size={15} color={s.color} strokeWidth={1.7}/>
+              </div>
+              <div style={{ fontFamily:T.fH, fontSize:22, fontWeight:500,
+                color: active ? s.color : T.t, lineHeight:1, marginBottom:4 }}>
+                {s.value}
+              </div>
+              <div style={{ fontSize:10, fontWeight:600,
+                color: active ? s.color : T.tl, fontFamily:T.fB,
+                letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                {s.label}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+      <div style={{ display:"flex", gap:10, marginBottom:16, alignItems:"center" }}>
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
-          style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
+          style={{ flex:1, padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+            fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
           <option value="">Todos los pacientes</option>
           {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
         </select>
         <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
-          style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
+          style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+            fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer",
+            outline:"none", marginLeft:"auto" }}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>
-          {filtered.length} registro{filtered.length !== 1 ? "s" : ""} · {fmtCur(totalPaid)} cobrado
-        </span>
+      </div>
+      <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:12 }}>
+        {filtered.length} registro{filtered.length !== 1 ? "s" : ""} · {fmtCur(totalPaid)} cobrado
+        {filterStatus && <span style={{ marginLeft:6, color:filterStatus==="pagado"?T.p:T.war, fontWeight:600 }}>· Filtro: {filterStatus}</span>}
       </div>
 
       {/* Table */}
