@@ -114,14 +114,10 @@ function ApptCard({ appt, onStart }) {
 
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label:"Nuevo
-paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add", handler: null },
-    { label:"Agendar
-cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add", handler: null },
-    { label:"Nueva
-nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add", handler: onNewSession },
-    { label:"Registrar
-pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add", handler: null },
+    { label:"Nuevo",     sub:"paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add", handler: null },
+    { label:"Agendar",   sub:"cita",     icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add", handler: null },
+    { label:"Nueva",     sub:"nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add", handler: onNewSession },
+    { label:"Registrar", sub:"pago",     icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add", handler: null },
   ];
   return (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:24 }}>
@@ -136,8 +132,9 @@ pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add",
             display:"flex", alignItems:"center", justifyContent:"center" }}>
             <a.icon size={18} color={a.color} strokeWidth={1.6}/>
           </div>
-          <span style={{ fontSize:11, fontWeight:600, color:T.tm, lineHeight:1.3, textAlign:"center",
-            whiteSpace:"pre-line" }}>{a.label}</span>
+          <span style={{ fontSize:11, fontWeight:600, color:T.tm, lineHeight:1.3, textAlign:"center" }}>
+            {a.label}<br/>{a.sub}
+          </span>
         </button>
       ))}
     </div>
