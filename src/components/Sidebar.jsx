@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Home, Users, Calendar, FileText, DollarSign, Lock, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
+import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
@@ -97,12 +97,6 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
             <Settings size={14} color="rgba(255,255,255,0.4)"/>
           </button>
 
-          <button onClick={onLock}
-            style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 14px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13, background:"transparent", color:"rgba(255,255,255,0.35)", transition:"all .15s" }}
-            onMouseEnter={e => { e.currentTarget.style.color="rgba(255,255,255,0.75)"; e.currentTarget.style.background="rgba(255,255,255,0.05)"; }}
-            onMouseLeave={e => { e.currentTarget.style.color="rgba(255,255,255,0.35)"; e.currentTarget.style.background="transparent"; }}>
-            <Lock size={15} strokeWidth={1.8}/>Bloquear pantalla
-          </button>
         </div>
       </aside>
     </>
