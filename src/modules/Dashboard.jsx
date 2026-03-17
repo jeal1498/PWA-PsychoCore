@@ -287,19 +287,8 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* 3. KPIs */}
-      <div style={{ display:"grid",
-        gridTemplateColumns:"repeat(auto-fill, minmax(140px,1fr))",
-        gap:12, marginBottom:20 }}>
-        <KpiCard label="Pacientes activos" value={activeCount}
-          icon={Users} color={T.p} bg={T.pA} onClick={() => onNavigate("patients")}/>
-        <KpiCard label="Citas hoy" value={todayAppts.length}
-          icon={Calendar} color={T.acc} bg={T.accA} onClick={() => onNavigate("agenda")}/>
-        <KpiCard label="Ingresos este mes" value={fmtCur(monthIncome)}
-          icon={TrendingUp} color={T.suc} bg={T.sucA} onClick={() => onNavigate("finance")}/>
-        <KpiCard label="Pagos pendientes" value={pendingPay}
-          icon={AlertCircle} color={T.war} bg={T.warA} onClick={() => onNavigate("finance")}/>
-      </div>
+      {/* 3. ACCIONES RÁPIDAS */}
+      <QuickBar onQuickNav={onQuickNav} onNewSession={onNewSession} isMobile={isMobile}/>
 
       {/* 4. CITAS DE HOY */}
       <div style={{ marginBottom:24 }}>
@@ -343,8 +332,19 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* 5. ACCIONES RÁPIDAS */}
-      <QuickBar onQuickNav={onQuickNav} onNewSession={onNewSession} isMobile={isMobile}/>
+      {/* 5. KPIs */}
+      <div style={{ display:"grid",
+        gridTemplateColumns:"repeat(auto-fill, minmax(140px,1fr))",
+        gap:12, marginBottom:20 }}>
+        <KpiCard label="Pacientes activos" value={activeCount}
+          icon={Users} color={T.p} bg={T.pA} onClick={() => onNavigate("patients")}/>
+        <KpiCard label="Citas hoy" value={todayAppts.length}
+          icon={Calendar} color={T.acc} bg={T.accA} onClick={() => onNavigate("agenda")}/>
+        <KpiCard label="Ingresos este mes" value={fmtCur(monthIncome)}
+          icon={TrendingUp} color={T.suc} bg={T.sucA} onClick={() => onNavigate("finance")}/>
+        <KpiCard label="Pagos pendientes" value={pendingPay}
+          icon={AlertCircle} color={T.war} bg={T.warA} onClick={() => onNavigate("finance")}/>
+      </div>
 
       {/* 6. GRID SECUNDARIO */}
       <div style={{ display:"grid",
