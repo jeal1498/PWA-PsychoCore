@@ -422,23 +422,62 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             )}
           </div>
 
-          {/* Estado */}
+          {/* Estado — 3 opciones */}
           <div style={{ marginBottom:16 }}>
             <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
               textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Estado</label>
-            <div style={{ display:"flex", gap:8 }}>
-              {[{v:"pagado",label:"✓ Pagado",c:T.suc,bg:T.sucA},{v:"pendiente",label:"⏳ Pendiente",c:T.war,bg:T.warA}].map(({v,label,c,bg}) => {
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+              {[
+                { v:"pagado",   label:"Pagado",   icon:<CheckCircle size={13}/>, c:T.suc, bg:T.sucA },
+                { v:"parcial",  label:"Parcial",  icon:<AlertCircle size={13}/>, c:"#B8900A", bg:"rgba(184,144,10,0.1)" },
+                { v:"pendiente",label:"Pendiente",icon:<AlertCircle size={13}/>, c:T.war, bg:T.warA },
+              ].map(({v,label,icon,c,bg}) => {
                 const on = editPayment.status === v;
                 return (
-                  <button key={v} onClick={() => setEditPayment(ep => ({...ep, status:v}))}
-                    style={{ flex:1, padding:"10px", borderRadius:10, border:`2px solid ${on?c:T.bdr}`,
-                      background:on?bg:"transparent", fontFamily:T.fB, fontSize:13,
-                      fontWeight:on?700:400, color:on?c:T.tm, cursor:"pointer", transition:"all .13s" }}>
+                  <button key={v} onClick={() => setEditPayment(ep => ({...ep, status:v, amountPaid: v==="parcial" ? (ep.amountPaid||"") : undefined}))}
+                    style={{ padding:"10px 6px", borderRadius:10, border:`2px solid ${on?c:T.bdr}`,
+                      background:on?bg:"transparent", fontFamily:T.fB, fontSize:12.5,
+                      fontWeight:on?700:400, color:on?c:T.tm, cursor:"pointer",
+                      transition:"all .13s", display:"flex", flexDirection:"column",
+                      alignItems:"center", gap:4 }}>
+                    <span style={{ color:on?c:T.tl }}>{icon}</span>
                     {label}
                   </button>
                 );
               })}
             </div>
+            {/* Campo monto pagado si es parcial */}
+            {editPayment.status === "parcial" && (
+              <div style={{ marginTop:12, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8,
+                padding:"12px 14px", background:"rgba(184,144,10,0.06)", borderRadius:10,
+                border:"1px solid rgba(184,144,10,0.2)" }}>
+                <div>
+                  <label style={{ display:"block", fontSize:10, fontWeight:700, color:"#B8900A",
+                    textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
+                    Monto pagado
+                  </label>
+                  <input
+                    type="number"
+                    value={editPayment.amountPaid || ""}
+                    onChange={e => setEditPayment(ep => ({...ep, amountPaid: e.target.value}))}
+                    placeholder="0"
+                    style={{ width:"100%", padding:"8px 10px", border:`1.5px solid rgba(184,144,10,0.3)`,
+                      borderRadius:8, fontFamily:T.fB, fontSize:14, color:T.t,
+                      background:T.card, outline:"none", boxSizing:"border-box" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:10, fontWeight:700, color:T.tl,
+                    textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
+                    Saldo pendiente
+                  </label>
+                  <div style={{ padding:"8px 10px", fontFamily:T.fB, fontSize:14,
+                    fontWeight:600, color:T.err }}>
+                    {fmtCur(Math.max(0, Number(editPayment.amount) - Number(editPayment.amountPaid||0)))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Método */}
@@ -474,23 +513,33 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             />
           </div>
 
-          {/* Acciones */}
-          <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
+          {/* Acciones — 3 botones del mismo ancho */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
             <button onClick={() => {
               const patient = patients.find(pt => pt.id === editPayment.patientId);
               printRecibo(editPayment, patient, profile);
             }}
-              style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 14px",
-                borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent",
-                fontFamily:T.fB, fontSize:13, color:T.tm, cursor:"pointer" }}>
-              <Printer size={14}/> Recibo PDF
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                padding:"10px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
+                background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
+                cursor:"pointer", transition:"all .13s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
+              <Printer size={14}/> PDF
             </button>
-            <div style={{ display:"flex", gap:8 }}>
-              <Btn variant="ghost" onClick={() => setEditPayment(null)}>Cancelar</Btn>
-              <Btn onClick={() => updatePayment(editPayment)}>
-                <Check size={14}/> Guardar
-              </Btn>
-            </div>
+            <button onClick={() => setEditPayment(null)}
+              style={{ padding:"10px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
+                background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
+                cursor:"pointer", fontWeight:500 }}>
+              Cancelar
+            </button>
+            <button onClick={() => updatePayment(editPayment)}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                padding:"10px", borderRadius:10, border:"none",
+                background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13,
+                fontWeight:600, cursor:"pointer" }}>
+              <Check size={14}/> Guardar
+            </button>
           </div>
 
           {/* Eliminar */}
