@@ -856,7 +856,10 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                           <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
                         </div>
                       </div>
-                      <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, margin:"0 0 8px", lineHeight:1.65 }}>{s.notes}</p>
+                      <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, margin:"0 0 8px", lineHeight:1.65 }}>
+                        {(s.notes || "").replace(/\[(?:S|D|A|P|B|I|R)\]\s*/g, "").slice(0, 120)}
+                        {(s.notes || "").length > 120 ? "…" : ""}
+                      </p>
                       {(s.tags||[]).length > 0 && <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{s.tags.map(t => <Badge key={t} color={T.acc} bg={T.accA}><Tag size={10}/>{t}</Badge>)}</div>}
                     </div>
                   );
@@ -868,10 +871,19 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               ptPayments.length === 0
                 ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"24px 0", textAlign:"center" }}>Sin pagos registrados</div>
                 : <>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(110px,1fr))", gap:10, marginBottom:20, padding:"14px 16px", background:T.bg, borderRadius:12 }}>
-                    <div style={{ textAlign:"center" }}><div style={{ fontFamily:T.fH, fontSize:22, color:T.suc }}>{fmtCur(totalPaid)}</div><div style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>Total pagado</div></div>
-                    <div style={{ textAlign:"center" }}><div style={{ fontFamily:T.fH, fontSize:22, color:T.war }}>{fmtCur(totalPend)}</div><div style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>Pendiente</div></div>
-                    <div style={{ textAlign:"center" }}><div style={{ fontFamily:T.fH, fontSize:22, color:T.p }}>{ptPayments.length}</div><div style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>Registros</div></div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16, padding:"12px 14px", background:T.bg, borderRadius:12 }}>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontFamily:T.fH, fontSize:20, color:T.suc, lineHeight:1 }}>{fmtCur(totalPaid)}</div>
+                      <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm, marginTop:3 }}>Pagado</div>
+                    </div>
+                    <div style={{ textAlign:"center", borderLeft:`1px solid ${T.bdrL}`, borderRight:`1px solid ${T.bdrL}` }}>
+                      <div style={{ fontFamily:T.fH, fontSize:20, color:totalPend > 0 ? T.war : T.tl, lineHeight:1 }}>{fmtCur(totalPend)}</div>
+                      <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm, marginTop:3 }}>Pendiente</div>
+                    </div>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontFamily:T.fH, fontSize:20, color:T.p, lineHeight:1 }}>{ptPayments.length}</div>
+                      <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm, marginTop:3 }}>Registros</div>
+                    </div>
                   </div>
                   {ptPayments.map(p => (
                     <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", borderBottom:`1px solid ${T.bdrL}` }}>
@@ -891,15 +903,19 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             {/* Progress tab */}
             {detailTab === "progress" && (
               <div>
-                {ptSessions.length < 2
-                  ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"24px 0", textAlign:"center" }}>Se necesitan al menos 2 sesiones para mostrar la gráfica de evolución</div>
-                  : <ProgressSparkline sessions={ptSessions}/>
-                }
-
-                {/* Mood timeline */}
-                <div style={{ marginTop:24, paddingTop:20, borderTop:`1px solid ${T.bdrL}` }}>
-                  <MoodTimeline sessions={ptSessions}/>
-                </div>
+                {ptSessions.length < 2 ? (
+                  <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl,
+                    padding:"32px 0", textAlign:"center", lineHeight:1.6 }}>
+                    Registra al menos 2 sesiones para ver<br/>la evolución clínica del paciente
+                  </div>
+                ) : (
+                  <>
+                    <ProgressSparkline sessions={ptSessions}/>
+                    <div style={{ marginTop:24, paddingTop:20, borderTop:`1px solid ${T.bdrL}` }}>
+                      <MoodTimeline sessions={ptSessions}/>
+                    </div>
+                  </>
+                )}
 
                 {/* Session stats */}
                 {ptSessions.length > 0 && (
