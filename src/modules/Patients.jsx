@@ -104,6 +104,17 @@ function MoodTimeline({ sessions }) {
   );
 }
 
+// Calcula edad a partir de fecha de nacimiento "YYYY-MM-DD"
+function calcAge(birthdate) {
+  if (!birthdate) return "";
+  const today = new Date();
+  const bd    = new Date(birthdate + "T12:00");
+  let age = today.getFullYear() - bd.getFullYear();
+  const m = today.getMonth() - bd.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+  return age >= 0 ? age : "";
+}
+
 export const CIE11_CODES = [
   // Neurodesarrollo
   { code: "6A00", label: "TDAH, presentación combinada" },
@@ -206,14 +217,17 @@ function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label =
       {/* Search bar */}
       {showSearch && (
         <div style={{ position: "relative", marginBottom: 8 }}>
-          <input
-            value={query}
-            onChange={e => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 180)}
-            placeholder="Buscar en CIE-11 (ej: ansiedad, depresión, 6B00)..."
-            style={{ width: "100%", padding: "9px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
-          />
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, pointerEvents:"none" }}>🔍</span>
+            <input
+              value={query}
+              onChange={e => { setQuery(e.target.value); setOpen(true); }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setTimeout(() => setOpen(false), 180)}
+              placeholder="Buscar código CIE-11 (ej: ansiedad, depresión, 6B00)..."
+              style={{ width: "100%", padding: "9px 14px 9px 34px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
           {open && filtered.length > 0 && (
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: T.card, border: `1.5px solid ${T.bdr}`, borderRadius: 10, boxShadow: T.shM, marginTop: 4, overflow: "hidden" }}>
               {filtered.map(item => (
@@ -240,12 +254,17 @@ function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label =
       )}
 
       {/* Manual text field */}
-      <input
-        value={value}
-        onChange={e => onChangeDx(e.target.value)}
-        placeholder="Diagnóstico libre o ajustar texto del CIE-11..."
-        style={{ width: "100%", padding: "9px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
-      />
+      <div>
+        <div style={{ fontSize:10, fontWeight:600, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>
+          Texto del diagnóstico {!cie11Code && <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>— o escribe directamente si no está en CIE-11</span>}
+        </div>
+        <input
+          value={value}
+          onChange={e => onChangeDx(e.target.value)}
+          placeholder={cie11Code ? "Ajusta el texto si lo necesitas..." : "Ej. Trastorno de ansiedad generalizada"}
+          style={{ width: "100%", padding: "9px 14px", border: `1.5px solid ${cie11Code ? T.p+"40" : T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
+        />
+      </div>
     </div>
   );
 }
@@ -567,7 +586,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);
   const [newDx,        setNewDx]        = useState({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
-  const [form, setForm] = useState({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+  const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
@@ -605,8 +624,8 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
   const save = () => {
     if (!form.name.trim()) return;
-    setPatients(prev => [...prev, { ...form, id:"p"+uid(), createdAt:fmt(todayDate) }]);
-    setForm({ name:"", age:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setPatients(prev => [...prev, { ...form, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
+    setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
     setShowAdd(false);
   };
 
@@ -1006,7 +1025,19 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         </div>
         <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. García-López (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad — Cohorte 1":"Ej. María González López"}/>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Input label="Edad" value={form.age} onChange={fld("age")} type="number"/>
+          <div style={{ marginBottom:0 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+              Fecha de nacimiento
+              {form.birthdate && (
+                <span style={{ marginLeft:8, fontWeight:700, color:T.p, textTransform:"none", letterSpacing:0, fontSize:12 }}>
+                  · {calcAge(form.birthdate)} años
+                </span>
+              )}
+            </label>
+            <input type="date" value={form.birthdate} onChange={e => fld("birthdate")(e.target.value)}
+              style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+                fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
+          </div>
           <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-123-4567"/>
         </div>
         <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
