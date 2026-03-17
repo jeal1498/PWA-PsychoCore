@@ -91,75 +91,134 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
 
   const startStr = weekDays[0].toLocaleDateString("es-MX", { day:"numeric", month:"short" });
   const endStr   = weekDays[5].toLocaleDateString("es-MX", { day:"numeric", month:"short", year:"numeric" });
-  const totalSlots = 6 * WORK_HOURS.length;
-  const busySlots  = Object.keys(apptMap).length;
-  const freeSlots  = totalSlots - busySlots;
+  const busySlots = Object.keys(apptMap).length;
+
+  // Horas activas — solo mostrar horas que tienen citas ± 1 hora de margen
+  const activeHours = new Set();
+  Object.keys(apptMap).forEach(key => {
+    const h = parseInt(key.split("_")[1]);
+    activeHours.add(h - 1);
+    activeHours.add(h);
+    activeHours.add(h + 1);
+  });
+  // Si no hay citas, mostrar horario reducido 9-18
+  const visibleHours = busySlots > 0
+    ? WORK_HOURS.filter(h => activeHours.has(h))
+    : WORK_HOURS.filter(h => h >= 9 && h <= 18);
 
   return (
     <div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:8 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, gap:8 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           <button onClick={prevWeek} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:7, cursor:"pointer", color:T.tm }}><ChevronLeft size={15}/></button>
-          <span style={{ fontFamily:T.fH, fontSize:18, color:T.t }}>{startStr} — {endStr}</span>
+          <span style={{ fontFamily:T.fH, fontSize:17, color:T.t }}>{startStr} — {endStr}</span>
           <button onClick={nextWeek} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:7, cursor:"pointer", color:T.tm }}><ChevronRight size={15}/></button>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <span style={{ fontFamily:T.fB, fontSize:12, color:T.suc, background:T.sucA, padding:"4px 10px", borderRadius:9999, fontWeight:600 }}>
-            {freeSlots} huecos libres
-          </span>
-          <button onClick={thisWeek} style={{ fontFamily:T.fB, fontSize:12, color:T.p, background:T.pA, border:"none", borderRadius:9999, padding:"4px 12px", cursor:"pointer", fontWeight:600 }}>
-            Esta semana
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {busySlots > 0 && (
+            <span style={{ fontFamily:T.fB, fontSize:12, color:T.p, background:T.pA,
+              padding:"3px 10px", borderRadius:9999, fontWeight:600 }}>
+              {busySlots} cita{busySlots !== 1 ? "s" : ""}
+            </span>
+          )}
+          <button onClick={thisWeek}
+            style={{ fontFamily:T.fB, fontSize:12, color:T.tm, background:T.bdrL,
+              border:"none", borderRadius:9999, padding:"3px 12px", cursor:"pointer", fontWeight:600 }}>
+            Hoy
           </button>
         </div>
       </div>
 
-      <div style={{ overflowX:"auto" }}>
-        <div style={{ minWidth:560 }}>
-          <div style={{ display:"grid", gridTemplateColumns:`60px repeat(6, 1fr)`, gap:4, marginBottom:4 }}>
-            <div/>
-            {weekDays.map((d, i) => {
-              const ds = fmt(d);
-              const isToday = ds === todayStr;
-              return (
-                <div key={i} style={{ textAlign:"center", padding:"6px 4px", borderRadius:8, background:isToday?T.pA:"transparent" }}>
-                  <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl, letterSpacing:"0.06em" }}>
-                    {["LUN","MAR","MIÉ","JUE","VIE","SÁB"][i]}
+      {/* Indicador de scroll horizontal en móvil */}
+      <div style={{ position:"relative" }}>
+        <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+          <div style={{ minWidth:480 }}>
+            {/* Cabecera de días */}
+            <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:4, position:"sticky", top:0, background:T.card, zIndex:1 }}>
+              <div/>
+              {weekDays.map((d, i) => {
+                const ds = fmt(d);
+                const isToday = ds === todayStr;
+                const dayCitas = Object.keys(apptMap).filter(k => k.startsWith(ds)).length;
+                return (
+                  <div key={i} style={{ textAlign:"center", padding:"5px 2px", borderRadius:8,
+                    background:isToday ? T.pA : "transparent" }}>
+                    <div style={{ fontFamily:T.fB, fontSize:9, fontWeight:700, color:T.tl, letterSpacing:"0.06em" }}>
+                      {["LUN","MAR","MIÉ","JUE","VIE","SÁB"][i]}
+                    </div>
+                    <div style={{ fontFamily:T.fH, fontSize:17, color:isToday?T.p:T.t, fontWeight:isToday?600:400, lineHeight:1.2 }}>
+                      {d.getDate()}
+                    </div>
+                    {dayCitas > 0 && (
+                      <div style={{ width:5, height:5, borderRadius:"50%", background:isToday?"#fff":T.acc,
+                        margin:"2px auto 0" }}/>
+                    )}
                   </div>
-                  <div style={{ fontFamily:T.fH, fontSize:18, color:isToday?T.p:T.t, fontWeight:isToday?600:400 }}>
-                    {d.getDate()}
+                );
+              })}
+            </div>
+
+            {/* Filas de horas — solo las activas */}
+            {visibleHours.map((hour, idx) => {
+              // Separador visual si hay salto de horas
+              const prevHour = visibleHours[idx - 1];
+              const hasGap = prevHour !== undefined && hour - prevHour > 1;
+              return (
+                <div key={hour}>
+                  {hasGap && (
+                    <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:3 }}>
+                      <div style={{ fontFamily:T.fB, fontSize:9, color:T.tl, textAlign:"right", paddingRight:6, paddingTop:4 }}>···</div>
+                      {weekDays.map((_, di) => (
+                        <div key={di} style={{ height:8, background:T.bdrL+"33", borderRadius:4 }}/>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:3 }}>
+                    <div style={{ fontFamily:T.fB, fontSize:10, color:T.tl, paddingTop:5,
+                      textAlign:"right", paddingRight:6 }}>
+                      {hour}:00
+                    </div>
+                    {weekDays.map((d, di) => {
+                      const key = `${fmt(d)}_${hour}`;
+                      const slot = apptMap[key];
+                      const isToday = fmt(d) === todayStr;
+                      if (slot) {
+                        return (
+                          <div key={di} onClick={() => onOpenQuick(slot[0])}
+                            style={{ background:T.p, borderRadius:8, padding:"5px 5px",
+                              minHeight:36, cursor:"pointer", transition:"opacity .13s" }}
+                            onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
+                            onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+                            {slot.map(a => (
+                              <div key={a.id} style={{ fontFamily:T.fB, fontSize:10, color:"#fff",
+                                fontWeight:600, lineHeight:1.3, display:"flex", alignItems:"center", gap:2,
+                                overflow:"hidden" }}>
+                                {a.isRecurring && <Repeat size={7} style={{ opacity:0.7, flexShrink:0 }}/>}
+                                <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                                  {a.patientName.split(" ")[0]}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={di} style={{ background:isToday?"rgba(58,107,110,0.03)":"transparent",
+                          borderRadius:8, minHeight:36,
+                          border:`1px solid ${T.bdrL}` }}/>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
           </div>
-          {WORK_HOURS.map(hour => (
-            <div key={hour} style={{ display:"grid", gridTemplateColumns:`60px repeat(6, 1fr)`, gap:4, marginBottom:3 }}>
-              <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, paddingTop:6, textAlign:"right", paddingRight:8 }}>
-                {hour}:00
-              </div>
-              {weekDays.map((d, di) => {
-                const key = `${fmt(d)}_${hour}`;
-                const slot = apptMap[key];
-                const isToday = fmt(d) === todayStr;
-                if (slot) {
-                  return (
-                    <div key={di} style={{ background:T.p, borderRadius:8, padding:"4px 6px", minHeight:34 }}>
-                      {slot.map(a => (
-                        <div key={a.id} style={{ fontFamily:T.fB, fontSize:10, color:"#fff", fontWeight:500, lineHeight:1.3, display:"flex", alignItems:"center", gap:3 }}>
-                          {a.isRecurring && <Repeat size={8} style={{ opacity:0.7, flexShrink:0 }}/>}
-                          {a.patientName.split(" ")[0]} · {a.time}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-                return (
-                  <div key={di} style={{ background:isToday?"rgba(58,107,110,0.04)":T.bdrL+"44", borderRadius:8, minHeight:34, border:`1px dashed ${T.bdrL}`, opacity:0.6 }}/>
-                );
-              })}
-            </div>
-          ))}
         </div>
+        {/* Indicador de scroll → */}
+        <div style={{ position:"absolute", right:0, top:"50%", transform:"translateY(-50%)",
+          background:`linear-gradient(90deg, transparent, ${T.card})`,
+          width:24, height:"100%", pointerEvents:"none" }}/>
       </div>
     </div>
   );
