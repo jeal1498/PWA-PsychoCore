@@ -16,11 +16,6 @@ registerSW({
 const path = window.location.pathname;
 
 const isPortal = /^\/p\/?$/.test(path);
-const isApp    = /^\/app(\/.*)?$/.test(path);
-
-// Si es raíz (/), redirigir a landing estática no es necesario aquí
-// porque Vercel sirve landing.html directamente para /
-// Este bundle solo se ejecuta cuando Vercel lo sirve para /app y /p
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
