@@ -790,6 +790,23 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                 <div style={{ fontSize:11, color:T.tm, marginTop:3, fontFamily:T.fB }}>Pendiente</div>
               </div>}
             </div>
+
+            {/* Botón eliminar — al fondo del perfil, no en la lista */}
+            <button
+              onClick={() => {
+                if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
+                  del(selected.id);
+                }
+              }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                width:"100%", marginTop:16, padding:"8px", borderRadius:9,
+                border:`1.5px solid ${T.errA}`, background:"transparent",
+                color:T.err, fontFamily:T.fB, fontSize:12, fontWeight:600,
+                cursor:"pointer", opacity:0.7, transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity="0.7"; e.currentTarget.style.background="transparent"; }}>
+              <Trash2 size={13}/> Eliminar expediente
+            </button>
           </Card>
 
           {/* Tabs: Sesiones | Pagos | Progreso | Contactos | Medicación */}
@@ -960,46 +977,55 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             const scaleSev    = latestScale ? getSeverity(latestScale.scaleId, latestScale.score) : null;
             const scaleColor  = latestScale ? (SCALES[latestScale.scaleId]?.color || T.tm) : null;
             const activePlan  = treatmentPlans.find(tp => tp.patientId === p.id && tp.status === "activo");
+            // Indicadores relevantes — solo riesgo alto y consentimiento pendiente
+            const showRisk    = latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente");
+            const showConsent = cs === "pending" || cs === "expired";
+
             return (
-              <Card key={p.id} onClick={() => handleSelect(p)} style={{ padding:20, cursor:"pointer" }}
+              <Card key={p.id} onClick={() => handleSelect(p)}
+                style={{ padding:"12px 16px", cursor:"pointer" }}
                 onMouseEnter={e => e.currentTarget.style.boxShadow = T.shM}
                 onMouseLeave={e => e.currentTarget.style.boxShadow = T.sh}>
-                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12 }}>
-                  <div style={{ width:46, height:46, borderRadius:"50%", background:T.pA, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <span style={{ fontFamily:T.fH, fontSize:20, color:T.p }}>{p.name[0]}</span>
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  {/* Avatar compacto */}
+                  <div style={{ width:40, height:40, borderRadius:"50%", background:T.pA,
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <span style={{ fontFamily:T.fH, fontSize:17, color:T.p }}>{p.name[0]}</span>
                   </div>
-                  <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
-                    {hasPend && <Badge color={T.war} bg={T.warA}>💰</Badge>}
-                    {(cs === "pending" || cs === "expired") && (
-                      <span title={csCfg.label} style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 7px", borderRadius:9999, fontSize:10, fontWeight:700, fontFamily:T.fB, color:csCfg.color, background:csCfg.bg, whiteSpace:"nowrap" }}>
-                        {cs === "pending" ? "📋 Sin firmar" : "🔴 CI vencido"}
+
+                  {/* Info principal */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                      <span style={{ fontFamily:T.fB, fontSize:14.5, fontWeight:600, color:T.t,
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        {p.name.split(" ").slice(0,2).join(" ")}
                       </span>
-                    )}
-                    {MI && <MI size={14} color={moodColor(lastMood)}/>}
-                    {latestRisk && <RiskBadge level={latestRisk.riskLevel} size="small"/>}
-                    {latestScale && scaleSev && (
-                      <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 7px", borderRadius:9999, fontSize:10, fontWeight:700, fontFamily:T.fB, color:scaleColor, background:`rgba(${scaleColor === T.war ? "184,144,10" : "58,107,110"},0.10)`, whiteSpace:"nowrap" }}>
-                        {SCALES[latestScale.scaleId]?.name} {latestScale.score}
-                      </span>
-                    )}
-                    {activePlan && (() => {
-                      const obj = activePlan.objectives || [];
-                      const pct = obj.length > 0 ? Math.round((obj.filter(o=>o.status==="logrado").length/obj.length)*100) : null;
-                      return (
-                        <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 7px", borderRadius:9999, fontSize:10, fontWeight:700, fontFamily:T.fB, color:T.p, background:T.pA, whiteSpace:"nowrap" }}>
-                          🎯{pct !== null ? ` ${pct}%` : " Plan"}
+                      {/* Solo badges críticos */}
+                      {showRisk && <RiskBadge level={latestRisk.riskLevel} size="small"/>}
+                      {showConsent && (
+                        <span style={{ padding:"1px 6px", borderRadius:9999, fontSize:9,
+                          fontWeight:700, fontFamily:T.fB, color:csCfg.color,
+                          background:csCfg.bg, whiteSpace:"nowrap", flexShrink:0 }}>
+                          {cs === "pending" ? "Sin CI" : "CI vencido"}
                         </span>
-                      );
-                    })()}
-                    <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
-                    <button onClick={e => { e.stopPropagation(); del(p.id); }} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", padding:4 }}><Trash2 size={14}/></button>
+                      )}
+                    </div>
+                    <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm,
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {p.age ? `${p.age} años · ` : ""}
+                      {p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim() : "Sin diagnóstico"}
+                    </div>
                   </div>
-                </div>
-                <div style={{ fontFamily:T.fH, fontSize:18, fontWeight:500, color:T.t, marginBottom:2 }}>{p.name.split(" ").slice(0,2).join(" ")}</div>
-                <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:10 }}>{p.age?`${p.age} años · `:""}Desde {fmtDate(p.createdAt)}</div>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  {p.diagnosis && <Badge>{p.diagnosis.split("—")[0].trim()}</Badge>}
-                  {p.rate && <span style={{ fontFamily:T.fB, fontSize:11, color:T.acc, fontWeight:600 }}>${Number(p.rate).toLocaleString("es-MX")}/ses</span>}
+
+                  {/* Status + flecha */}
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end",
+                    gap:4, flexShrink:0 }}>
+                    <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
+                    {hasPend && (
+                      <span style={{ fontSize:10, fontWeight:600, color:T.war,
+                        fontFamily:T.fB }}>💰 Pendiente</span>
+                    )}
+                  </div>
                 </div>
               </Card>
             );
