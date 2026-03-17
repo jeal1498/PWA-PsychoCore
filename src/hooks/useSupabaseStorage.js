@@ -27,9 +27,13 @@ let _sessionPromise = null;
 
 function getCachedSession() {
   if (!_sessionPromise) {
-    _sessionPromise = supabase.auth.getSession()
-      .then(({ data: { session } }) => session)
-      .catch(() => null);
+    // Timeout de 6s — si getSession() tarda demasiado (token refresh en red lenta)
+    // resolvemos con null para que los hooks terminen y no bloqueen la UI.
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+    _sessionPromise = Promise.race([
+      supabase.auth.getSession().then(({ data: { session } }) => session).catch(() => null),
+      timeout,
+    ]);
   }
   return _sessionPromise;
 }
