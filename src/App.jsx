@@ -122,6 +122,14 @@ export default function App() {
 
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
 
+  // ── Timeout de seguridad — si en 12s los datos no cargaron, continuar igual
+  const [dataTimedOut, setDataTimedOut] = useState(false);
+  useEffect(() => {
+    if (dataLoaded) return;
+    const t = setTimeout(() => setDataTimedOut(true), 12000);
+    return () => clearTimeout(t);
+  }, [dataLoaded]);
+
   const allData = useMemo(() => ({ patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications }),
     [patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
 
@@ -234,7 +242,7 @@ export default function App() {
     );
   }
 
-  if (!dataLoaded) return (
+  if (!dataLoaded && !dataTimedOut) return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ width:48, height:48, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/>
