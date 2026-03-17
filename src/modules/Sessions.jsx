@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye } from "lucide-react";
+import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
@@ -592,6 +592,9 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
   const [patientTasks,     setPatientTasks]     = useState([]);
   const [viewTaskResponse, setViewTaskResponse] = useState(null);
 
+  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
+  const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
+
   useEffect(() => {
     if (!form?.patientId) { setPatientTasks([]); return; }
     getAssignmentsByPatient(form.patientId)
@@ -599,9 +602,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       .catch(() => setPatientTasks([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form?.patientId]);
-
-  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
-  const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
   const fld  = k => v => setForm(f => ({ ...f, [k]:v }));
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
