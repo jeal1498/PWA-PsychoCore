@@ -66,8 +66,20 @@ export function trialDaysLeft(psychologist) {
 // caso cae al anon key, que es suficiente porque el portal solo consulta
 // por phone sin acceder a datos de otros psicólogos.
 async function getAuthToken() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || SUPABASE_ANON;
+  // Timeout de 2s — si getSession() se cuelga, caer al anon key
+  // para no bloquear operaciones de tareas
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 2000)
+    );
+    const { data: { session } } = await Promise.race([
+      supabase.auth.getSession(),
+      timeout,
+    ]);
+    return session?.access_token || SUPABASE_ANON;
+  } catch {
+    return SUPABASE_ANON;
+  }
 }
 
 const sb = async (path, opts = {}) => {
