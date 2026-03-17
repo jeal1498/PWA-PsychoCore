@@ -216,9 +216,9 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const toggle = id => setPayments(prev => prev.map(p => p.id===id ? {...p, status:p.status==="pagado"?"pendiente":"pagado"} : p));
 
   const stats = [
-    { label:"Ingresos este mes",  value:fmtCur(monthIncome), icon:TrendingUp,  color:T.suc, bg:T.sucA },
-    { label:"Cobrado (filtro)",   value:fmtCur(totalPaid),   icon:CheckCircle, color:T.p,   bg:T.pA   },
-    { label:"Por cobrar (filtro)",value:fmtCur(totalPend),   icon:AlertCircle, color:T.war, bg:T.warA },
+    { label:"Este mes",    value:fmtCur(monthIncome), icon:TrendingUp,  color:T.suc, bg:T.sucA },
+    { label:"Cobrado",     value:fmtCur(totalPaid),   icon:CheckCircle, color:T.p,   bg:T.pA   },
+    { label:"Por cobrar",  value:fmtCur(totalPend),   icon:AlertCircle, color:T.war, bg:T.warA },
   ];
 
   const paymentRow = (p) => {
@@ -258,7 +258,15 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{p.method}</span>
-          <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
+          <button onClick={() => toggle(p.id)}
+            title="Tap para cambiar estado"
+            style={{ display:"flex", alignItems:"center", gap:4, background:p.status==="pagado"?T.sucA:T.warA,
+              border:`1px solid ${p.status==="pagado"?T.suc+"40":T.war+"40"}`,
+              borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11,
+              fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>
+            {p.status==="pagado" ? <CheckCircle size={10}/> : <AlertCircle size={10}/>}
+            {p.status}
+          </button>
           <button onClick={() => printRecibo(p, patient, profile)} title="Recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"5px 8px", cursor:"pointer", color:T.p, display:"flex", alignItems:"center" }}>
             <Printer size={12}/>
           </button>
@@ -271,31 +279,20 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   return (
     <div>
       <PageHeader title="Finanzas" subtitle="Control de ingresos y estados de cuenta"
-        action={
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button onClick={() => exportCSV(payments, filterYear, profile)}
-              title={`Exportar CSV ${filterYear} para declaración fiscal`}
-              style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 14px", background:T.sucA, border:`1.5px solid rgba(78,139,95,0.3)`, borderRadius:9999, fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.suc, cursor:"pointer" }}>
-              <Download size={14}/> CSV {filterYear}
-            </button>
-            <Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Registrar pago</Btn>
-          </div>
-        }
+        action={<Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Registrar pago</Btn>}
       />
 
-      {/* KPI Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px,1fr))", gap:16, marginBottom:28 }}>
+      {/* KPI Stats — una sola fila */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
         {stats.map(s => (
-          <Card key={s.label} style={{ padding:20 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <div style={{ fontSize:11, fontWeight:600, color:T.tm, fontFamily:T.fB, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:6 }}>{s.label}</div>
-                <div style={{ fontFamily:T.fH, fontSize:28, fontWeight:500, color:T.t }}>{s.value}</div>
-              </div>
-              <div style={{ width:42, height:42, borderRadius:12, background:s.bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <s.icon size={20} color={s.color} strokeWidth={1.6}/>
-              </div>
+          <Card key={s.label} style={{ padding:"14px 12px" }}>
+            <div style={{ width:32, height:32, borderRadius:9, background:s.bg,
+              display:"flex", alignItems:"center", justifyContent:"center", marginBottom:8 }}>
+              <s.icon size={15} color={s.color} strokeWidth={1.7}/>
             </div>
+            <div style={{ fontFamily:T.fH, fontSize:22, fontWeight:500, color:T.t, lineHeight:1, marginBottom:4 }}>{s.value}</div>
+            <div style={{ fontSize:10, fontWeight:600, color:T.tl, fontFamily:T.fB,
+              letterSpacing:"0.05em", textTransform:"uppercase" }}>{s.label}</div>
           </Card>
         ))}
       </div>
