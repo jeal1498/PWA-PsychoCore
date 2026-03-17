@@ -387,21 +387,32 @@ export default function Tasks({ patients }) {
     if (!patient?.phone) { setSaveError("Este paciente no tiene número de teléfono registrado. Agrégalo en su expediente."); return; }
     setSaving(true);
     setSaveError("");
+    // Timeout de 8s — si Supabase no responde, desbloquear el botón
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 8000)
+    );
     try {
-      await createAssignment({
-        patientId:    patient.id,
-        patientName:  patient.name,
-        patientPhone: patient.phone.replace(/\D/g, ""),
-        templateId:   selTemplate.id,
-        title:        selTemplate.title,
-        notes:        notes.trim() || null,
-      });
+      await Promise.race([
+        createAssignment({
+          patientId:    patient.id,
+          patientName:  patient.name,
+          patientPhone: patient.phone.replace(/\D/g, ""),
+          templateId:   selTemplate.id,
+          title:        selTemplate.title,
+          notes:        notes.trim() || null,
+        }),
+        timeout,
+      ]);
       setShowAdd(false);
       setSelTemplate(null);
       setNotes("");
       setFilterPt(patient.id);
     } catch (e) {
-      setSaveError("Error al guardar. Revisa la conexión con Supabase.");
+      setSaveError(
+        e.message === "timeout"
+          ? "La conexión tardó demasiado. Verifica tu internet e intenta de nuevo."
+          : "Error al guardar. Revisa la conexión con Supabase."
+      );
     } finally {
       setSaving(false);
     }
