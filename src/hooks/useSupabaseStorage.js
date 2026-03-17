@@ -20,6 +20,28 @@ const TABLE_MAP = {
   pc_medications:      "pc_medications",
 };
 
+// ── Caché de sesión compartida entre todas las instancias del hook ──────────
+// Evita 10 llamadas redundantes a getSession() en el primer render.
+// Se invalida al hacer logout (onAuthStateChange lo resetea).
+let _sessionPromise = null;
+
+function getCachedSession() {
+  if (!_sessionPromise) {
+    _sessionPromise = supabase.auth.getSession()
+      .then(({ data: { session } }) => session)
+      .catch(() => null);
+  }
+  return _sessionPromise;
+}
+
+supabase.auth.onAuthStateChange((event) => {
+  // Invalidar caché en logout o refresh de token para que la próxima
+  // llamada obtenga una sesión fresca.
+  if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
+    _sessionPromise = null;
+  }
+});
+
 export function useSupabaseStorage(key, initialValue) {
   const [value,  setValue_]  = useState(initialValue);
   const [loaded, setLoaded]  = useState(false);
@@ -35,7 +57,8 @@ export function useSupabaseStorage(key, initialValue) {
 
     async function load() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Usa la sesión cacheada — todas las instancias comparten la misma promesa
+        const session = await getCachedSession();
         if (!session?.user) return; // setLoaded en finally
 
         const uid = session.user.id;
