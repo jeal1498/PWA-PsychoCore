@@ -195,6 +195,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
   const [showAdd,       setShowAdd]       = useState(false);
+  const [calCollapsed,  setCalCollapsed]  = useState(false);
 
   useEffect(() => {
     if (autoOpen === "add") setShowAdd(true);
@@ -326,12 +327,18 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
       {view === "month" && (
         <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr minmax(0,320px)", gap:20 }}>
-          <Card style={{ padding:24 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+          <Card style={{ padding:0, overflow:"hidden" }}>
+            {/* Header del calendario — siempre visible, con toggle en móvil */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom: calCollapsed ? "none" : `1px solid ${T.bdrL}` }}>
               <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth()-1, 1))} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.tm }}><ChevronLeft size={16}/></button>
-              <span style={{ fontFamily:T.fH, fontSize:22, fontWeight:500, color:T.t }}>{MONTHS_ES[month]} {year}</span>
+              <button onClick={() => isMobile && setCalCollapsed(c => !c)}
+                style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", cursor: isMobile ? "pointer" : "default" }}>
+                <span style={{ fontFamily:T.fH, fontSize:20, fontWeight:500, color:T.t }}>{MONTHS_ES[month]} {year}</span>
+                {isMobile && <ChevronRight size={14} color={T.tl} style={{ transform: calCollapsed ? "rotate(90deg)" : "rotate(-90deg)", transition:"transform .2s" }}/>}
+              </button>
               <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth()+1, 1))} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.tm }}><ChevronRight size={16}/></button>
             </div>
+            <div style={{ display: calCollapsed ? "none" : "block", padding:"16px 20px 20px" }}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
               {DAYS_ES.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.06em", padding:"6px 0" }}>{d}</div>)}
             </div>
@@ -371,8 +378,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               </div>
             )}
 
+            </div>{/* fin del div colapsable */}
+
             {selectedDay && (
-              <div style={{ marginTop:20, borderTop:`1px solid ${T.bdrL}`, paddingTop:16 }}>
+              <div style={{ padding:"16px 20px", borderTop:`1px solid ${T.bdrL}` }}>
                 <h4 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 12px" }}>{parseInt(selectedDay)} de {MONTHS_ES[month]}</h4>
                 {dayAppts.length === 0
                   ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl }}>Sin citas — día libre</div>
@@ -431,44 +440,92 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 14px" }}>Próximas citas</h3>
             {upcomingAppts.length === 0
               ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl }}>No hay citas próximas</div>
-              : upcomingAppts.map(a => (
-                <div key={a.id} style={{ display:"flex", gap:12, padding:"10px 0", borderBottom:`1px solid ${T.bdrL}` }}>
-                  <div style={{ width:38, textAlign:"center", flexShrink:0 }}>
-                    <div style={{ fontFamily:T.fH, fontSize:20, color:T.p, lineHeight:1 }}>{parseInt(a.date.split("-")[2])}</div>
-                    <div style={{ fontSize:10, color:T.tl, fontFamily:T.fB }}>{MONTHS_ES[parseInt(a.date.split("-")[1])-1].slice(0,3)}</div>
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:500, color:T.t, display:"flex", alignItems:"center", gap:5 }}>
-                      {a.patientName.split(" ").slice(0,2).join(" ")}
-                      {a.isRecurring && <Repeat size={10} color={T.p} style={{ opacity:0.6 }}/>}
-                    </div>
-                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, display:"flex", alignItems:"center", gap:4 }}>
-                      {a.time} · {a.type}
-                      {a.type === "Seguimiento post-alta" && (
-                        <span style={{ padding:"1px 6px", borderRadius:9999, background:"rgba(91,141,184,0.12)", color:"#5B8DB8", fontSize:10, fontWeight:700 }}>
-                          {a.followUpMonth ? `${a.followUpMonth}m` : "Post-alta"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {a.date === todayStr && (
-                    <button onClick={() => openQuickSession(a)} title="Registrar sesión"
-                      style={{ background:T.pA, border:"none", borderRadius:8, padding:"6px 8px", cursor:"pointer", color:T.p }}>
-                      <FileText size={14}/>
-                    </button>
-                  )}
-                  {a.status !== "completada" && (() => {
-                    const pt  = patients.find(p => p.id === a.patientId);
-                    const url = whatsappReminder(a, pt, profile);
-                    return url ? (
-                      <a href={url} target="_blank" rel="noreferrer" title="Enviar recordatorio por WhatsApp"
-                        style={{ background:"#25D36620", border:"none", borderRadius:8, padding:"6px 8px", cursor:"pointer", color:"#25D366", display:"flex", alignItems:"center", textDecoration:"none" }}>
-                        <MessageCircle size={14}/>
-                      </a>
-                    ) : null;
-                  })()}
-                </div>
-              ))
+              : (() => {
+                  // Agrupar por día
+                  const groups = [];
+                  let lastDate = null;
+                  upcomingAppts.forEach(a => {
+                    if (a.date !== lastDate) {
+                      groups.push({ date: a.date, appts: [a] });
+                      lastDate = a.date;
+                    } else {
+                      groups[groups.length - 1].appts.push(a);
+                    }
+                  });
+                  return groups.map(g => {
+                    const isToday = g.date === todayStr;
+                    const dayNum  = parseInt(g.date.split("-")[2]);
+                    const monIdx  = parseInt(g.date.split("-")[1]) - 1;
+                    const label   = isToday ? "Hoy" : `${dayNum} ${MONTHS_ES[monIdx].slice(0,3)}`;
+                    return (
+                      <div key={g.date} style={{ marginBottom:16 }}>
+                        {/* Encabezado de día */}
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                          <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700,
+                            color: isToday ? T.p : T.tl,
+                            textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                            {label}
+                          </span>
+                          <div style={{ flex:1, height:1, background:T.bdrL }}/>
+                        </div>
+                        {/* Citas del día */}
+                        {g.appts.map(a => {
+                          const pt  = patients.find(p => p.id === a.patientId);
+                          const url = a.status !== "completada" ? whatsappReminder(a, pt, profile) : null;
+                          return (
+                            <div key={a.id} style={{ display:"flex", alignItems:"center", gap:10,
+                              padding:"8px 10px", borderRadius:10, marginBottom:6,
+                              background: a.status === "completada" ? T.cardAlt : T.card,
+                              border:`1px solid ${T.bdrL}`,
+                              opacity: a.status === "completada" ? 0.6 : 1 }}>
+                              {/* Hora */}
+                              <span style={{ fontFamily:T.fB, fontSize:12, fontWeight:700,
+                                color: a.status === "completada" ? T.tl : T.p,
+                                flexShrink:0, width:38, textAlign:"center" }}>
+                                {a.time}
+                              </span>
+                              {/* Info */}
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t,
+                                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                                  display:"flex", alignItems:"center", gap:5 }}>
+                                  {a.patientName.split(" ").slice(0,2).join(" ")}
+                                  {a.isRecurring && <Repeat size={9} color={T.p} style={{ opacity:0.6, flexShrink:0 }}/>}
+                                </div>
+                                <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm,
+                                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                                  {a.type}
+                                </div>
+                              </div>
+                              {/* Acciones */}
+                              <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                                {a.status !== "completada" && (
+                                  <button onClick={() => openQuickSession(a)}
+                                    title="Registrar sesión"
+                                    style={{ display:"flex", alignItems:"center", gap:4, padding:"5px 8px",
+                                      borderRadius:7, border:`1px solid ${T.p}`, background:T.pA,
+                                      color:T.p, fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer" }}>
+                                    <FileText size={11}/> Sesión
+                                  </button>
+                                )}
+                                {url && (
+                                  <a href={url} target="_blank" rel="noreferrer"
+                                    title="Recordatorio WhatsApp"
+                                    style={{ display:"flex", alignItems:"center", padding:"5px 7px",
+                                      borderRadius:7, border:"1px solid #25D36640",
+                                      background:"#25D36615", color:"#25D366",
+                                      textDecoration:"none" }}>
+                                    <MessageCircle size={13}/>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()
             }
           </Card>
         </div>
