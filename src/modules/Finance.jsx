@@ -296,9 +296,9 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
               onClick={() => setFilterStatus(active ? "" : s.filterKey)}
               style={{ padding:"14px 12px", borderRadius:16, textAlign:"left", cursor:"pointer",
                 background: active ? s.bg : T.card,
-                border: active ? `2px solid ${s.color}60` : `2px solid ${T.bdrL}`,
+                border: `2px solid ${active ? s.color+"60" : T.bdrL}`,
                 boxShadow: active ? `0 0 0 3px ${s.color}15` : T.sh,
-                transition:"all .15s" }}>
+                transition:"all .15s", minHeight:120 }}>
               <div style={{ width:32, height:32, borderRadius:9, background:s.bg,
                 display:"flex", alignItems:"center", justifyContent:"center", marginBottom:8 }}>
                 <s.icon size={15} color={s.color} strokeWidth={1.7}/>
@@ -309,7 +309,8 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
               </div>
               <div style={{ fontSize:10, fontWeight:600,
                 color: active ? s.color : T.tl, fontFamily:T.fB,
-                letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                letterSpacing:"0.05em", textTransform:"uppercase",
+                whiteSpace:"nowrap" }}>
                 {s.label}
               </div>
             </button>
