@@ -9,8 +9,10 @@ import { useIsMobile } from "../hooks/useIsMobile.js";
 // FOLIO GENERATOR — YYYY-NNNN
 // ─────────────────────────────────────────────────────────────────────────────
 function nextFolio(payments) {
-  const year   = new Date().getFullYear();
-  const prefix = String(year) + "-";
+  const now    = new Date();
+  const year   = now.getFullYear();
+  const month  = String(now.getMonth() + 1).padStart(2, "0");
+  const prefix = `${year}-${month}-`;
   const folios = payments
     .map(p => p.folio)
     .filter(f => f && f.startsWith(prefix))
@@ -180,6 +182,7 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
     if (autoOpen === "add") setShowAdd(true);
   }, [autoOpen]);
   const [filterPt,     setFilterPt]     = useState("");
+  const [editPayment,  setEditPayment]  = useState(null); // pago abierto en popup
   const [filterStatus, setFilterStatus] = useState(""); // "" | "pagado" | "pendiente"
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
@@ -217,7 +220,11 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
     setShowAdd(false);
   };
 
-  const del    = id => setPayments(prev => prev.filter(p => p.id !== id));
+  const del           = id => setPayments(prev => prev.filter(p => p.id !== id));
+  const updatePayment = (updated) => {
+    setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
+    setEditPayment(null);
+  };
   const toggle = id => setPayments(prev => prev.map(p => p.id===id ? {...p, status:p.status==="pagado"?"pendiente":"pagado"} : p));
 
   const stats = [
@@ -249,37 +256,40 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
     );
   };
 
-  const mobileRow = (p) => {
-    const patient = patients.find(pt => pt.id === p.patientId);
-    return (
-      <div key={p.id} style={{ padding:"16px 18px", borderBottom:`1px solid ${T.bdrL}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-          <div>
-            <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t }}>{p.patientName.split(" ").slice(0,2).join(" ")}</div>
-            <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>{fmtDate(p.date)} · {p.concept}</div>
-            {p.folio && <div style={{ fontFamily:"monospace", fontSize:10, color:T.tl, marginTop:1 }}>{p.folio}</div>}
+  const mobileRow = (p) => (
+    <div key={p.id}
+      onClick={() => setEditPayment({ ...p })}
+      style={{ padding:"14px 18px", borderBottom:`1px solid ${T.bdrL}`, cursor:"pointer",
+        transition:"background .13s" }}
+      onMouseEnter={e => e.currentTarget.style.background=T.cardAlt}
+      onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t,
+            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {p.patientName.split(" ").slice(0,2).join(" ")}
           </div>
-          <div style={{ fontFamily:T.fH, fontSize:20, fontWeight:500, color:T.t, flexShrink:0, marginLeft:8 }}>{fmtCur(p.amount)}</div>
+          <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:1 }}>
+            {fmtDate(p.date)} · {p.concept}
+          </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{p.method}</span>
-          <button onClick={() => toggle(p.id)}
-            title="Tap para cambiar estado"
-            style={{ display:"flex", alignItems:"center", gap:4, background:p.status==="pagado"?T.sucA:T.warA,
-              border:`1px solid ${p.status==="pagado"?T.suc+"40":T.war+"40"}`,
-              borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11,
-              fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>
-            {p.status==="pagado" ? <CheckCircle size={10}/> : <AlertCircle size={10}/>}
-            {p.status}
-          </button>
-          <button onClick={() => printRecibo(p, patient, profile)} title="Recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"5px 8px", cursor:"pointer", color:T.p, display:"flex", alignItems:"center" }}>
-            <Printer size={12}/>
-          </button>
-          <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", marginLeft:"auto" }}><Trash2 size={13}/></button>
+        <div style={{ fontFamily:T.fH, fontSize:20, fontWeight:500, color:T.t, flexShrink:0, marginLeft:12 }}>
+          {fmtCur(p.amount)}
         </div>
       </div>
-    );
-  };
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+        {p.folio && <span style={{ fontFamily:"monospace", fontSize:10, color:T.tl }}>{p.folio}</span>}
+        {p.method && <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>{p.method}</span>}
+        <span style={{ display:"inline-flex", alignItems:"center", gap:3, padding:"2px 8px",
+          borderRadius:9999, fontSize:10, fontWeight:700, fontFamily:T.fB,
+          background:p.status==="pagado"?T.sucA:T.warA,
+          color:p.status==="pagado"?T.suc:T.war }}>
+          {p.status==="pagado" ? <CheckCircle size={9}/> : <AlertCircle size={9}/>}
+          {p.status}
+        </span>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -383,6 +393,120 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
           <Btn onClick={save} disabled={!form.patientId||!form.amount}><Check size={15}/> Guardar pago</Btn>
         </div>
       </Modal>
+
+      {/* ── Edit payment modal ─────────────────────────────────────────── */}
+      {editPayment && (
+        <Modal open={!!editPayment} onClose={() => setEditPayment(null)}
+          title={`Pago — ${editPayment.patientName?.split(" ").slice(0,2).join(" ")}`}
+          width={480}>
+
+          {/* Resumen */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+            padding:"12px 16px", background:T.pA, borderRadius:12, marginBottom:20 }}>
+            <div>
+              <div style={{ fontFamily:T.fH, fontSize:28, fontWeight:500, color:T.t }}>
+                {fmtCur(editPayment.amount)}
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
+                {fmtDate(editPayment.date)}
+              </div>
+            </div>
+            {editPayment.folio && (
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontFamily:T.fB, fontSize:9, fontWeight:700, color:T.tl,
+                  textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>Folio</div>
+                <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, color:T.p }}>
+                  {editPayment.folio}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Estado */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Estado</label>
+            <div style={{ display:"flex", gap:8 }}>
+              {[{v:"pagado",label:"✓ Pagado",c:T.suc,bg:T.sucA},{v:"pendiente",label:"⏳ Pendiente",c:T.war,bg:T.warA}].map(({v,label,c,bg}) => {
+                const on = editPayment.status === v;
+                return (
+                  <button key={v} onClick={() => setEditPayment(ep => ({...ep, status:v}))}
+                    style={{ flex:1, padding:"10px", borderRadius:10, border:`2px solid ${on?c:T.bdr}`,
+                      background:on?bg:"transparent", fontFamily:T.fB, fontSize:13,
+                      fontWeight:on?700:400, color:on?c:T.tm, cursor:"pointer", transition:"all .13s" }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Método */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Método de pago</label>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+              {["Transferencia","Efectivo","Tarjeta","Otro"].map(m => {
+                const on = editPayment.method === m;
+                return (
+                  <button key={m} onClick={() => setEditPayment(ep => ({...ep, method:m}))}
+                    style={{ padding:"8px 12px", borderRadius:9, border:`1.5px solid ${on?T.p:T.bdr}`,
+                      background:on?T.pA:"transparent", fontFamily:T.fB, fontSize:13,
+                      fontWeight:on?600:400, color:on?T.p:T.tm, cursor:"pointer", transition:"all .13s",
+                      textAlign:"center" }}>
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Concepto */}
+          <div style={{ marginBottom:20 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Concepto</label>
+            <input
+              value={editPayment.concept || ""}
+              onChange={e => setEditPayment(ep => ({...ep, concept:e.target.value}))}
+              style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                background:T.card, outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
+
+          {/* Acciones */}
+          <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
+            <button onClick={() => {
+              const patient = patients.find(pt => pt.id === editPayment.patientId);
+              printRecibo(editPayment, patient, profile);
+            }}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 14px",
+                borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent",
+                fontFamily:T.fB, fontSize:13, color:T.tm, cursor:"pointer" }}>
+              <Printer size={14}/> Recibo PDF
+            </button>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn variant="ghost" onClick={() => setEditPayment(null)}>Cancelar</Btn>
+              <Btn onClick={() => updatePayment(editPayment)}>
+                <Check size={14}/> Guardar
+              </Btn>
+            </div>
+          </div>
+
+          {/* Eliminar */}
+          <div style={{ marginTop:16, paddingTop:14, borderTop:`1px dashed ${T.bdrL}` }}>
+            <button onClick={() => { del(editPayment.id); setEditPayment(null); }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                width:"100%", padding:"7px", borderRadius:9, border:`1px solid ${T.errA}`,
+                background:"transparent", color:T.err, fontFamily:T.fB, fontSize:11.5,
+                fontWeight:600, cursor:"pointer", opacity:0.5, transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity="0.5"; e.currentTarget.style.background="transparent"; }}>
+              <Trash2 size={12}/> Eliminar pago
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
