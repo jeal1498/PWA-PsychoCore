@@ -187,12 +187,12 @@ function FormatSelector({ value, onChange }) {
       <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:8, letterSpacing:"0.06em", textTransform:"uppercase" }}>
         Formato de nota
       </label>
-      <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6 }}>
         {Object.values(NOTE_FORMATS).map(fd => {
           const active = value === fd.id;
           return (
             <button key={fd.id} onClick={() => onChange(fd.id)}
-              style={{ padding:"7px 16px", borderRadius:9999, border:`1.5px solid ${active ? fd.color : T.bdr}`, background:active ? fd.bg : "transparent", color:active ? fd.color : T.tm, fontFamily:T.fB, fontSize:13, fontWeight:active?700:400, cursor:"pointer", transition:"all .13s" }}>
+              style={{ padding:"8px 4px", borderRadius:10, border:`1.5px solid ${active ? fd.color : T.bdr}`, background:active ? fd.bg : "transparent", color:active ? fd.color : T.tm, fontFamily:T.fB, fontSize:12.5, fontWeight:active?700:400, cursor:"pointer", transition:"all .13s", textAlign:"center", width:"100%" }}>
               {fd.label}
             </button>
           );
@@ -842,7 +842,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       }
 
       {/* ── New/duplicate modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota de sesión" width={620}>
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota" width={620}>
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
 
@@ -901,13 +901,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
         })()}
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Input label="Fecha"          value={form.date}     onChange={fld("date")}     type="date"/>
-          <Input label="Duración (min)" value={form.duration} onChange={fld("duration")} type="number"/>
+          <Input label="Fecha"      value={form.date}     onChange={fld("date")}     type="date"/>
+          <Input label="Duración"   value={form.duration} onChange={fld("duration")} type="number"/>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Select label="Progreso"      value={form.progress} onChange={fld("progress")}
+          <Select label="Progreso" value={form.progress} onChange={fld("progress")}
             options={["excelente","bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
-          <Select label="Estado de ánimo" value={form.mood} onChange={fld("mood")}
+          <Select label="Ánimo" value={form.mood} onChange={fld("mood")}
             options={["bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
         </div>
 
@@ -958,14 +958,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
 
         {/* ── Tareas terapéuticas ───────────────────────────────────── */}
         <div style={{ border:`1.5px solid ${T.bdr}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
-          <div style={{ padding:"10px 16px", background:T.pA, borderBottom:`1px solid ${T.bdrL}` }}>
+          <div style={{ padding:"9px 14px", background:T.pA, borderBottom:`1px solid ${T.bdrL}` }}>
             <label style={{ fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.07em", display:"flex", alignItems:"center", gap:6 }}>
               <ClipboardCheck size={13}/> Tareas terapéuticas
             </label>
           </div>
-          <div style={{ padding:"14px 16px", background:T.card }}>
-            <div style={{ marginBottom:14 }}>
-              <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:7 }}>¿Completó la tarea de la sesión anterior?</label>
+          <div style={{ padding:"12px 14px", background:T.card }}>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:7 }}>¿Completó la tarea anterior?</label>
               <div style={{ display:"flex", gap:7 }}>
                 {[{v:null,l:"No aplica"},{v:true,l:"✓ Sí"},{v:false,l:"✗ No"}].map(({v,l}) => {
                   const on = form.taskCompleted === v;
