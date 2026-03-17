@@ -41,20 +41,18 @@ function SectionHead({ title, action }) {
 function KpiCard({ label, value, icon:Icon, color, bg, onClick }) {
   return (
     <Card onClick={onClick}
-      style={{ padding:"16px 18px", cursor:"pointer", transition:"all .15s" }}
+      style={{ padding:"14px 16px", cursor:"pointer", transition:"all .15s" }}
       onMouseEnter={e => { e.currentTarget.style.boxShadow = T.shM; e.currentTarget.style.transform = "translateY(-2px)"; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = T.sh;  e.currentTarget.style.transform = "translateY(0)"; }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
-        <div>
-          <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
-            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
-          <div style={{ fontFamily:T.fH, fontSize:28, fontWeight:500, color:T.t, lineHeight:1 }}>{value}</div>
-        </div>
-        <div style={{ width:40, height:40, borderRadius:11, background:bg,
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, marginBottom:10 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:bg,
           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <Icon size={18} color={color} strokeWidth={1.6}/>
+          <Icon size={16} color={color} strokeWidth={1.7}/>
         </div>
       </div>
+      <div style={{ fontFamily:T.fH, fontSize:32, fontWeight:500, color:T.t, lineHeight:1, marginBottom:4 }}>{value}</div>
+      <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tl,
+        letterSpacing:"0.06em", textTransform:"uppercase" }}>{label}</div>
     </Card>
   );
 }
@@ -64,67 +62,82 @@ function ApptCard({ appt, onStart }) {
   return (
     <div style={{ background: done ? T.cardAlt : T.card,
       border:`1.5px solid ${done ? T.bdrL : T.bdr}`,
-      borderRadius:14, padding:"16px 18px",
-      opacity: done ? 0.7 : 1, transition:"all .15s" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom: done ? 0 : 12 }}>
-        <div style={{ width:44, height:44, borderRadius:12,
+      borderRadius:14, padding:"12px 16px",
+      opacity: done ? 0.65 : 1, transition:"all .15s" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        {/* Hora */}
+        <div style={{ width:40, height:40, borderRadius:10,
           background: done ? T.sucA : T.pA,
-          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <Clock size={19} color={done ? T.suc : T.p} strokeWidth={1.5}/>
+          display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", flexShrink:0 }}>
+          <Clock size={14} color={done ? T.suc : T.p} strokeWidth={1.6}/>
+          {appt.time && (
+            <span style={{ fontFamily:T.fB, fontSize:9, fontWeight:700,
+              color: done ? T.suc : T.p, marginTop:1, lineHeight:1 }}>
+              {appt.time}
+            </span>
+          )}
         </div>
+        {/* Info */}
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:T.fB, fontSize:15, fontWeight:600, color:T.t,
+          <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t,
             whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             {appt.patientName.split(" ").slice(0,2).join(" ")}
           </div>
-          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:1 }}>
-            {appt.time && <span style={{ marginRight:8 }}>🕐 {appt.time}</span>}
-            {appt.type && <span>{appt.type}</span>}
+          <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:1,
+            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {appt.type}
           </div>
         </div>
-        <Badge color={done ? T.suc : T.p} bg={done ? T.sucA : T.pA}>
-          {done ? "Completada" : "Pendiente"}
-        </Badge>
+        {/* Estado + acción */}
+        {done ? (
+          <span style={{ padding:"3px 10px", borderRadius:9999, fontSize:11,
+            fontWeight:700, fontFamily:T.fB, color:T.suc, background:T.sucA,
+            flexShrink:0 }}>
+            Completada
+          </span>
+        ) : (
+          <button onClick={() => onStart(appt)}
+            style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 12px",
+              borderRadius:9999, border:`1.5px solid ${T.p}`, background:T.pA,
+              color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:700,
+              cursor:"pointer", transition:"all .15s", flexShrink:0 }}
+            onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
+            onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
+            <FileText size={12}/> Sesión
+          </button>
+        )}
       </div>
-      {!done && (
-        <button onClick={() => onStart(appt)}
-          style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-            width:"100%", padding:"10px", borderRadius:10,
-            border:`1.5px solid ${T.p}`, background:T.pA,
-            color:T.p, fontFamily:T.fB, fontSize:13, fontWeight:700,
-            cursor:"pointer", transition:"all .15s" }}
-          onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
-          onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-          <FileText size={14}/> Iniciar sesión
-        </button>
-      )}
     </div>
   );
 }
 
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label:"Nuevo paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add", handler: null },
-    { label:"Agendar cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add", handler: null },
-    { label:"Nueva nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add", handler: onNewSession },
-    { label:"Registrar pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add", handler: null },
+    { label:"Nuevo
+paciente", icon:Users,      color:T.p,   bg:T.pA,   module:"patients", action:"add", handler: null },
+    { label:"Agendar
+cita",   icon:Calendar,   color:T.acc, bg:T.accA, module:"agenda",   action:"add", handler: null },
+    { label:"Nueva
+nota",     icon:FileText,   color:T.suc, bg:T.sucA, module:"sessions", action:"add", handler: onNewSession },
+    { label:"Registrar
+pago", icon:DollarSign, color:T.war, bg:T.warA, module:"finance",  action:"add", handler: null },
   ];
   return (
-    <div style={{ display:"grid",
-      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-      gap:10, marginBottom:24 }}>
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:24 }}>
       {actions.map(a => (
         <button key={a.label} onClick={() => a.handler ? a.handler() : onQuickNav(a.module, a.action)}
-          style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
-            borderRadius:12, border:`1.5px solid ${T.bdrL}`, background:T.card,
-            cursor:"pointer", textAlign:"left", transition:"all .15s", fontFamily:T.fB }}
+          style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+            gap:6, padding:"14px 8px", borderRadius:14, border:`1.5px solid ${T.bdrL}`,
+            background:T.card, cursor:"pointer", transition:"all .15s", fontFamily:T.fB }}
           onMouseEnter={e => { e.currentTarget.style.borderColor=a.color; e.currentTarget.style.background=a.bg; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdrL; e.currentTarget.style.background=T.card; }}>
-          <div style={{ width:34, height:34, borderRadius:9, background:a.bg,
-            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <a.icon size={15} color={a.color} strokeWidth={1.7}/>
+          <div style={{ width:40, height:40, borderRadius:11, background:a.bg,
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <a.icon size={18} color={a.color} strokeWidth={1.6}/>
           </div>
-          <span style={{ fontSize:13, fontWeight:600, color:T.t, lineHeight:1.2 }}>{a.label}</span>
+          <span style={{ fontSize:11, fontWeight:600, color:T.tm, lineHeight:1.3, textAlign:"center",
+            whiteSpace:"pre-line" }}>{a.label}</span>
         </button>
       ))}
     </div>
@@ -188,7 +201,7 @@ export default function Dashboard({
   if (riskAlerts.length > 0)
     summaryParts.push(`${riskAlerts.length} alerta${riskAlerts.length > 1 ? "s" : ""} clínica${riskAlerts.length > 1 ? "s" : ""}`);
   if (consentIssues.length > 0)
-    summaryParts.push(`${consentIssues.length} CI pendiente${consentIssues.length > 1 ? "s" : ""}`);
+    summaryParts.push(`${consentIssues.length} consentimiento${consentIssues.length > 1 ? "s" : ""} pendiente${consentIssues.length > 1 ? "s" : ""}`);
 
   const hasSecondaryAlerts =
     consentIssues.length > 0 || tomorrowAppts.length > 0 ||
