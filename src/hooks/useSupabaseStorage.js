@@ -34,24 +34,29 @@ export function useSupabaseStorage(key, initialValue) {
     let cancelled = false;
 
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { setLoaded(true); return; }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return; // setLoaded en finally
 
-      const uid = session.user.id;
-      userIdRef.current = uid;
+        const uid = session.user.id;
+        userIdRef.current = uid;
 
-      const { data, error } = await supabase
-        .from(table)
-        .select("data")
-        .eq("psychologist_id", uid)
-        .maybeSingle();
+        const { data, error } = await supabase
+          .from(table)
+          .select("data")
+          .eq("psychologist_id", uid)
+          .maybeSingle();
 
-      if (!cancelled) {
-        if (!error && data?.data !== undefined && data.data !== null) {
-          setValue_(data.data);
+        if (!cancelled) {
+          if (!error && data?.data !== undefined && data.data !== null) {
+            setValue_(data.data);
+          }
+          // If no row yet, keep initialValue — it will be saved on first write
         }
-        // If no row yet, keep initialValue — it will be saved on first write
-        setLoaded(true);
+      } catch (e) {
+        console.warn(`[storage] Error cargando ${key}:`, e);
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     }
 
