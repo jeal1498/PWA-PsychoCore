@@ -452,11 +452,11 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
 const FAQ_ITEMS = [
   {
     q: "¿Cómo agrego un paciente nuevo?",
-    a: "Ve al módulo Pacientes → botón "Nuevo paciente" en la esquina superior derecha. Llena los datos básicos y guarda. El paciente aparecerá disponible en Sesiones, Agenda y demás módulos inmediatamente.",
+    a: "Ve al módulo Pacientes → botón «Nuevo paciente» en la esquina superior derecha. Llena los datos básicos y guarda. El paciente aparecerá disponible en Sesiones, Agenda y demás módulos inmediatamente.",
   },
   {
     q: "¿Cómo registro una sesión?",
-    a: "Ve a Sesiones → "Nueva nota". Selecciona el paciente, elige el formato de nota (Libre, SOAP, DAP o BIRP), completa los campos y guarda. La nota queda vinculada al expediente del paciente.",
+    a: "Ve a Sesiones → «Nueva nota». Selecciona el paciente, elige el formato de nota (Libre, SOAP, DAP o BIRP), completa los campos y guarda. La nota queda vinculada al expediente del paciente.",
   },
   {
     q: "¿Cómo asigno una tarea a un paciente?",
@@ -464,7 +464,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "¿Cómo agendo una cita?",
-    a: "Ve a Agenda → "Nueva cita". Selecciona paciente, fecha, hora y tipo de consulta. Las citas próximas aparecerán en el Dashboard y en las notificaciones.",
+    a: "Ve a Agenda → «Nueva cita». Selecciona paciente, fecha, hora y tipo de consulta. Las citas próximas aparecerán en el Dashboard y en las notificaciones.",
   },
   {
     q: "¿Dónde veo los pagos pendientes?",
@@ -480,7 +480,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "¿Puedo usar PsychoCore en móvil?",
-    a: "Sí, es una PWA. En Android puedes instalarla desde Chrome: menú → "Agregar a pantalla de inicio". Funciona como app nativa.",
+    a: "Sí, es una PWA. En Android puedes instalarla desde Chrome: menú → «Agregar a pantalla de inicio». Funciona como app nativa.",
   },
   {
     q: "¿Qué pasa si pierdo internet?",
