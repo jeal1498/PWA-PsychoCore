@@ -5,7 +5,15 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const todayDate = new Date();
 
-export const fmt = (d) => d.toISOString().split("T")[0];
+// Formatea una fecha como "YYYY-MM-DD" usando la hora local del dispositivo.
+// toISOString() usa UTC — en México (UTC-5/6) a partir de las ~18h devuelve
+// "mañana", lo que causaba fechas incorrectas en formularios y notificaciones.
+export const fmt = (d) => {
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
 export const daysAgo = (n) => {
   const d = new Date();
