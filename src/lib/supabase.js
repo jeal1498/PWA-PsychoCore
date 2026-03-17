@@ -61,17 +61,28 @@ export function trialDaysLeft(psychologist) {
 }
 
 // ── Fetch helper (para REST directo — tareas) ─────────────────────────────────
-const sb = (path, opts = {}) =>
-  fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+// Usa el JWT del usuario autenticado para respetar Row Level Security.
+// El portal del paciente (PatientPortal) no tiene sesión activa — en ese
+// caso cae al anon key, que es suficiente porque el portal solo consulta
+// por phone sin acceder a datos de otros psicólogos.
+async function getAuthToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || SUPABASE_ANON;
+}
+
+const sb = async (path, opts = {}) => {
+  const token = await getAuthToken();
+  return fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     headers: {
       "apikey":        SUPABASE_ANON,
-      "Authorization": `Bearer ${SUPABASE_ANON}`,
+      "Authorization": `Bearer ${token}`,
       "Content-Type":  "application/json",
       "Prefer":        opts.prefer || "return=representation",
       ...opts.headers,
     },
     ...opts,
   });
+};
 
 // ── TASK ASSIGNMENTS ─────────────────────────────────────────────────────────
 
