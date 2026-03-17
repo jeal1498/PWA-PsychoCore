@@ -420,35 +420,6 @@ export default function Dashboard({
               </div>
             )}
 
-            {patientsWithLogs.length > 0 && (
-              <div style={{ marginBottom:16 }}>
-                <div style={{ display:"flex", alignItems:"center",
-                  justifyContent:"space-between", marginBottom:8 }}>
-                  <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700,
-                    color:T.suc, textTransform:"uppercase", letterSpacing:"0.07em" }}>
-                    📋 Autorregistros
-                  </span>
-                  <SeeAll label="Ver" onClick={() => onNavigate("patients")}/>
-                </div>
-                {patientsWithLogs.slice(0,3).map(p => (
-                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
-                    padding:"7px 10px", borderRadius:9, background:T.sucA, marginBottom:5 }}>
-                    <div style={{ width:28, height:28, borderRadius:"50%",
-                      background:"rgba(78,139,95,0.15)", display:"flex", alignItems:"center",
-                      justifyContent:"center", flexShrink:0, border:`1.5px solid ${T.suc}40` }}>
-                      <span style={{ fontFamily:T.fH, fontSize:12, color:T.suc }}>{p.name[0]}</span>
-                    </div>
-                    <span style={{ fontFamily:T.fB, fontSize:13, color:T.t, flex:1,
-                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                      {p.name.split(" ").slice(0,2).join(" ")}
-                    </span>
-                    <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.suc, flexShrink:0 }}>
-                      {byToken[p.selfLogToken]} nuevo{byToken[p.selfLogToken] > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {(overdueFollowUps.length > 0 || followUps.length > 0) && (
               <div>
