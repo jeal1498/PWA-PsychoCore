@@ -62,7 +62,7 @@ function ApptCard({ appt, onStart }) {
   return (
     <div style={{ background: done ? T.cardAlt : T.card,
       border:`1.5px solid ${done ? T.bdrL : T.bdr}`,
-      borderRadius:14, padding:"12px 16px",
+      borderRadius:14, padding:"12px 14px",
       opacity: done ? 0.65 : 1, transition:"all .15s" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         {/* Hora */}
@@ -98,13 +98,13 @@ function ApptCard({ appt, onStart }) {
           </span>
         ) : (
           <button onClick={() => onStart(appt)}
-            style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 12px",
+            style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px",
               borderRadius:9999, border:`1.5px solid ${T.p}`, background:T.pA,
-              color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:700,
-              cursor:"pointer", transition:"all .15s", flexShrink:0 }}
+              color:T.p, fontFamily:T.fB, fontSize:11.5, fontWeight:700,
+              cursor:"pointer", transition:"all .15s", flexShrink:0, whiteSpace:"nowrap" }}
             onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
             onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-            <FileText size={12}/> Sesión
+            <FileText size={11}/> Sesión
           </button>
         )}
       </div>
