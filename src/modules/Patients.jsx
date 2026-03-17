@@ -650,35 +650,47 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
     return (
       <div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:10 }}>
-          <button onClick={() => setSelected(null)} style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:"none", color:T.p, fontFamily:T.fB, fontSize:13, cursor:"pointer", padding:0 }}>
-            <ChevronLeft size={16}/> Volver a pacientes
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <button onClick={() => setSelected(null)}
+            style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none",
+              color:T.p, fontFamily:T.fB, fontSize:13, cursor:"pointer", padding:0 }}>
+            <ChevronLeft size={15}/> Volver
           </button>
           <button onClick={() => exportExpediente(selected, sessions, payments, profile)}
-            style={{ display:"flex", alignItems:"center", gap:6, background:T.pA, border:"none", borderRadius:9999, padding:"8px 16px", fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.p, cursor:"pointer", transition:"all .15s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = T.p; e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = T.pA; e.currentTarget.style.color = T.p; }}>
-            <Download size={14}/> Exportar expediente PDF
+            style={{ display:"flex", alignItems:"center", gap:5, background:"transparent",
+              border:`1.5px solid ${T.bdr}`, borderRadius:9999, padding:"6px 14px",
+              fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.tm, cursor:"pointer", transition:"all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
+            <Download size={13}/> Exportar PDF
           </button>
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,290px) 1fr", gap:20, alignItems:"start" }}>
           {/* Profile card */}
-          <Card style={{ padding:24 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
-              <div style={{ width:60, height:60, borderRadius:"50%", background:T.pA, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <span style={{ fontFamily:T.fH, fontSize:24, color:T.p }}>{selected.name[0]}</span>
+          <Card style={{ padding:20 }}>
+            {/* Header compacto — avatar + nombre + status en una fila */}
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+              <div style={{ width:44, height:44, borderRadius:"50%", background:T.pA,
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:T.fH, fontSize:19, color:T.p }}>{selected.name[0]}</span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <h2 style={{ fontFamily:T.fH, fontSize:19, fontWeight:500, color:T.t,
+                  margin:"0 0 2px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {selected.name}
+                </h2>
+                <p style={{ fontFamily:T.fB, fontSize:12, color:T.tm, margin:0 }}>
+                  {selected.age ? `${selected.age} años · ` : ""}Desde {fmtDate(selected.createdAt)}
+                </p>
               </div>
               <select value={selected.status || "activo"} onChange={e => setStatus(selected.id, e.target.value)}
-                style={{ appearance:"none", padding:"4px 12px", borderRadius:9999, fontFamily:T.fB, fontSize:11, fontWeight:700, letterSpacing:"0.05em", border:"none", cursor:"pointer", background:sc.bg, color:sc.color }}>
+                style={{ appearance:"none", padding:"4px 10px", borderRadius:9999, fontFamily:T.fB,
+                  fontSize:11, fontWeight:700, letterSpacing:"0.04em", border:"none",
+                  cursor:"pointer", background:sc.bg, color:sc.color, flexShrink:0 }}>
                 {Object.entries(STATUS_CONFIG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
-
-            <h2 style={{ fontFamily:T.fH, fontSize:21, fontWeight:500, color:T.t, margin:"0 0 3px" }}>{selected.name}</h2>
-            <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, margin:"0 0 16px" }}>
-              {selected.age ? `${selected.age} años · ` : ""}Desde {fmtDate(selected.createdAt)}
-            </p>
 
             <div style={{ borderTop:`1px solid ${T.bdrL}`, paddingTop:14, marginBottom:14 }}>
               {selected.phone && <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:8, fontFamily:T.fB, fontSize:13, color:T.tm }}><Phone size={13}/>{selected.phone}</div>}
@@ -701,20 +713,24 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               </div>
             )}
 
-            {/* Tarifa individual */}
-            <div style={{ padding:"12px 14px", background:T.accA, borderRadius:10, marginBottom:12 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:T.acc, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Tarifa por sesión</div>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>$</span>
-                <input
-                  type="number"
-                  value={selected.rate || ""}
-                  onChange={e => setRate(selected.id, e.target.value)}
-                  placeholder="Tarifa preferencial…"
-                  style={{ flex:1, border:`1.5px solid ${T.bdr}`, borderRadius:8, padding:"6px 10px", fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}
-                />
-              </div>
-              {selected.rate && <div style={{ fontFamily:T.fB, fontSize:11, color:T.acc, marginTop:4 }}>Tarifa personalizada activa</div>}
+            {/* Tarifa individual — discreta */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
+              background:T.cardAlt, borderRadius:9, marginBottom:10,
+              border:`1px solid ${T.bdrL}` }}>
+              <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tl,
+                textTransform:"uppercase", letterSpacing:"0.06em", flexShrink:0 }}>
+                Tarifa
+              </span>
+              <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm, flexShrink:0 }}>$</span>
+              <input
+                type="number"
+                value={selected.rate || ""}
+                onChange={e => setRate(selected.id, e.target.value)}
+                placeholder="—"
+                style={{ flex:1, border:"none", background:"transparent", fontFamily:T.fB,
+                  fontSize:13, color:T.t, outline:"none", minWidth:0 }}
+              />
+              <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl, flexShrink:0 }}>/ses</span>
             </div>
 
             {selected.diagnosis && <div style={{ padding:12, background:T.pA, borderRadius:10, marginBottom:10 }}>
@@ -791,22 +807,24 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               </div>}
             </div>
 
-            {/* Botón eliminar — al fondo del perfil, no en la lista */}
-            <button
-              onClick={() => {
-                if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
-                  del(selected.id);
-                }
-              }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                width:"100%", marginTop:16, padding:"8px", borderRadius:9,
-                border:`1.5px solid ${T.errA}`, background:"transparent",
-                color:T.err, fontFamily:T.fB, fontSize:12, fontWeight:600,
-                cursor:"pointer", opacity:0.7, transition:"all .15s" }}
-              onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity="0.7"; e.currentTarget.style.background="transparent"; }}>
-              <Trash2 size={13}/> Eliminar expediente
-            </button>
+            {/* Botón eliminar — separado visualmente, zona de peligro */}
+            <div style={{ marginTop:20, paddingTop:14, borderTop:`1px dashed ${T.bdrL}` }}>
+              <button
+                onClick={() => {
+                  if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
+                    del(selected.id);
+                  }
+                }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  width:"100%", padding:"7px", borderRadius:9,
+                  border:`1px solid ${T.errA}`, background:"transparent",
+                  color:T.err, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
+                  cursor:"pointer", opacity:0.5, transition:"all .15s" }}
+                onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity="0.5"; e.currentTarget.style.background="transparent"; }}>
+                <Trash2 size={12}/> Eliminar expediente
+              </button>
+            </div>
           </Card>
 
           {/* Tabs: Sesiones | Pagos | Progreso | Contactos | Medicación */}
