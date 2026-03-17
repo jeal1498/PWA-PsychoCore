@@ -819,7 +819,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
               {/* Barra de acciones — separada con línea */}
               <div style={{ borderTop:`1px solid ${T.bdrL}`, display:"flex", alignItems:"center", background:T.cardAlt }}>
                 {[
-                  { label:"Duplicar", icon:Copy,    onClick:() => duplicate(s),            color:T.tm },
                   { label:"Derivar",  icon:Send,    onClick:() => openReferral(s),          color:T.tm },
                   { label:"PDF",      icon:Printer, onClick:() => printNote(s, patients),   color:T.tm },
                   { label:"Eliminar", icon:Trash2,  onClick:() => del(s.id),               color:T.err },
