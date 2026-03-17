@@ -3,7 +3,7 @@
 // Módulo de Tareas Terapéuticas — vista de Karen
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, CheckCircle2, Clock, MessageCircle, ChevronDown, ChevronUp, RefreshCw, ClipboardList, Eye } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, Clock, MessageCircle, ChevronDown, ChevronUp, RefreshCw, ClipboardList, Eye, Bell } from "lucide-react";
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Select, Textarea, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
@@ -222,54 +222,51 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 
   return (
     <div>
-      {/* Métricas resumen */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:24 }}>
+      {/* Métricas — tapeables para filtrar */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
         {[
-          { label:"Nuevas respuestas", value:newResponses.length, color:T.suc, bg:T.sucA, emoji:"🆕" },
-          { label:"Pendientes",        value:pending.length,      color:"#B8900A", bg:"rgba(184,144,10,0.1)", emoji:"⏳" },
-          { label:"Completadas total", value:completed.length,    color:T.p,   bg:T.pA,   emoji:"✅" },
+          { id:"nuevas",     label:"Nuevas",     value:newResponses.length, color:T.suc,    bg:T.sucA,                      Icon:Bell        },
+          { id:"pendientes", label:"Pendientes", value:pending.length,      color:"#B8900A", bg:"rgba(184,144,10,0.1)",     Icon:Clock       },
+          { id:"todas",      label:"Completadas",value:completed.length,    color:T.p,      bg:T.pA,                        Icon:CheckCircle2},
         ].map(m => (
-          <div key={m.label} style={{ background:m.bg, border:`1.5px solid ${m.color}30`, borderRadius:14, padding:"14px 16px", textAlign:"center" }}>
-            <div style={{ fontSize:22 }}>{m.emoji}</div>
-            <div style={{ fontFamily:T.fB, fontSize:26, fontWeight:700, color:m.color, lineHeight:1.1 }}>{m.value}</div>
-            <div style={{ fontFamily:T.fB, fontSize:11, color:m.color, opacity:0.8, marginTop:2 }}>{m.label}</div>
-          </div>
+          <button key={m.id} onClick={() => setFilter(m.id)}
+            style={{ background: filter===m.id ? m.bg : T.card,
+              border:`1.5px solid ${filter===m.id ? m.color+"50" : T.bdrL}`,
+              borderRadius:14, padding:"12px 10px", textAlign:"center",
+              cursor:"pointer", transition:"all .13s" }}>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:6 }}>
+              <m.Icon size={16} color={m.color} strokeWidth={1.8}/>
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:24, fontWeight:700, color:m.color, lineHeight:1 }}>{m.value}</div>
+            <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm, marginTop:3, letterSpacing:"0.02em" }}>{m.label}</div>
+          </button>
         ))}
       </div>
 
-      {/* Filtros */}
-      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
-        {[
-          { id:"nuevas",     label:`🆕 Nuevas (${newResponses.length})` },
-          { id:"pendientes", label:`⏳ Pendientes (${pending.length})` },
-          { id:"todas",      label:`✅ Completadas (${completed.length})` },
-        ].map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
-            style={{ padding:"7px 14px", borderRadius:9999, border:`1.5px solid ${filter===f.id ? T.p : T.bdr}`,
-              background: filter===f.id ? T.pA : "transparent",
-              color: filter===f.id ? T.p : T.tm,
-              fontFamily:T.fB, fontSize:12.5, fontWeight: filter===f.id ? 700 : 400,
-              cursor:"pointer", transition:"all .12s" }}>
-            {f.label}
-          </button>
-        ))}
-        <button onClick={load} style={{ marginLeft:"auto", padding:"7px 10px", borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent", cursor:"pointer", color:T.tm }}>
-          <RefreshCw size={13}/>
+      {/* Botón refresh discreto */}
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+        <button onClick={load} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:9999, border:`1px solid ${T.bdrL}`, background:"transparent", cursor:"pointer", color:T.tl, fontFamily:T.fB, fontSize:11 }}>
+          <RefreshCw size={11}/> Actualizar
         </button>
       </div>
 
       {/* Lista */}
       {shown.length === 0 ? (
-        <div style={{ textAlign:"center", padding:"48px 20px", color:T.tl, fontFamily:T.fB }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>
-            {filter === "nuevas" ? "🎉" : filter === "pendientes" ? "✨" : "📋"}
+        <div style={{ textAlign:"center", padding:"48px 20px", fontFamily:T.fB }}>
+          <div style={{ marginBottom:10, display:"flex", justifyContent:"center" }}>
+            {filter === "nuevas"
+              ? <Bell size={32} strokeWidth={1.2} color={T.tl}/>
+              : filter === "pendientes"
+              ? <Clock size={32} strokeWidth={1.2} color={T.tl}/>
+              : <CheckCircle2 size={32} strokeWidth={1.2} color={T.tl}/>
+            }
           </div>
-          <div style={{ fontSize:15, color:T.tm, fontWeight:600, marginBottom:6 }}>
+          <div style={{ fontSize:14, color:T.tm, fontWeight:600, marginBottom:4 }}>
             {filter === "nuevas" ? "Sin respuestas nuevas" : filter === "pendientes" ? "Sin tareas pendientes" : "Sin tareas completadas"}
           </div>
-          <div style={{ fontSize:13 }}>
-            {filter === "nuevas" ? "Cuando un paciente complete una tarea aparecerá aquí" : ""}
-          </div>
+          {filter === "nuevas" && (
+            <div style={{ fontSize:12, color:T.tl }}>Cuando un paciente complete una tarea aparecerá aquí</div>
+          )}
         </div>
       ) : shown.map(a => {
         const tpl = getTemplate(a.template_id);
@@ -437,7 +434,7 @@ export default function Tasks({ patients }) {
   return (
     <div>
       <PageHeader
-        title="Tareas Terapéuticas"
+        title="Tareas"
         subtitle="Respuestas de pacientes y gestión de tareas"
         action={<Btn onClick={() => { setShowAdd(true); setSelPatient(""); setSelTemplate(null); setNotes(""); setSaveError(""); }}><Plus size={15}/> Nueva tarea</Btn>}
       />
@@ -445,8 +442,8 @@ export default function Tasks({ patients }) {
       {/* Vista tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${T.bdr}`, paddingBottom:0 }}>
         {[
-          { id:"dashboard", label:"📊 Respuestas" },
-          { id:"manage",    label:"📋 Gestionar por paciente" },
+          { id:"dashboard", label:"Respuestas" },
+          { id:"manage",    label:"Por paciente" },
         ].map(v => (
           <button key={v.id} onClick={() => setView(v.id)}
             style={{ padding:"10px 18px", border:"none", background:"none", cursor:"pointer",
