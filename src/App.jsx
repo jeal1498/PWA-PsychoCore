@@ -37,7 +37,10 @@ export default function App() {
   const [sessionPrefill,setSessionPrefill]= useState(null);
   // "auto" | "dark" | "light"
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
-  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // systemDark como estado reactivo — se actualiza cuando el SO cambia el tema
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
   const darkMode = darkPref === "auto" ? systemDark : darkPref === "dark";
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
@@ -101,6 +104,7 @@ export default function App() {
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
+      setSystemDark(mq.matches);
       if (darkPref === "auto") {
         document.documentElement.setAttribute("data-theme", mq.matches ? "dark" : "light");
       }
