@@ -995,7 +995,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
                 </div>
               )}
               {/* Template grid */}
-              <div style={{ maxHeight:200, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.cardAlt, display:"grid", gridTemplateColumns:"1fr 1fr", gap:5 }}>
+              <div style={{ maxHeight:220, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.cardAlt, display:"flex", flexDirection:"column", gap:5 }}>
                 {Object.values(TASK_TEMPLATES).map(tpl => {
                   const selected = form.tasksAssigned?.includes(tpl.id);
                   return (
