@@ -129,6 +129,15 @@ export default function App() {
   const dataReady = pLoaded || prLoaded;
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
 
+  // Timeout de seguridad: si en 8s dataReady sigue false (red lenta, token
+  // expirado que tarda en refreshear), pasamos igual al dashboard con datos vacíos.
+  const [dataTimedOut, setDataTimedOut] = useState(false);
+  useEffect(() => {
+    if (dataReady) { setDataTimedOut(false); return; }
+    const t = setTimeout(() => setDataTimedOut(true), 3000);
+    return () => clearTimeout(t);
+  }, [dataReady]);
+
   const allData = useMemo(() => ({ patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications }),
     [patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
 
@@ -241,7 +250,7 @@ export default function App() {
     );
   }
 
-  if (!dataReady) return (
+  if (!dataReady && !dataTimedOut) return (
     <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ width:48, height:48, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/>
