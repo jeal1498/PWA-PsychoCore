@@ -79,11 +79,25 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ["react", "react-dom"],
-          icons: ["lucide-react"]
+          // Librerías externas — cambian poco, se cachean bien
+          vendor:   ["react", "react-dom"],
+          icons:    ["lucide-react"],
+          supabase: ["@supabase/supabase-js"],
+          // Módulos clínicos pesados — se cargan bajo demanda
+          "mod-patients":  ["./src/modules/Patients.jsx"],
+          "mod-sessions":  ["./src/modules/Sessions.jsx"],
+          "mod-scales":    ["./src/modules/Scales.jsx"],
+          "mod-treatment": ["./src/modules/TreatmentPlan.jsx"],
+          "mod-reports":   ["./src/modules/Reports.jsx"],
+          "mod-agenda":    ["./src/modules/Agenda.jsx"],
+          "mod-risk":      ["./src/modules/RiskAssessment.jsx"],
+          "mod-stats":     ["./src/modules/Stats.jsx"],
+          "mod-finance":   ["./src/modules/Finance.jsx"],
+          "mod-tasks":     ["./src/modules/Tasks.jsx"],
         }
       }
     }
