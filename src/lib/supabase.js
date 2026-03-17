@@ -14,7 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 export const signInWithGoogle = () =>
   supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: window.location.origin + "/app" },
+    options: { redirectTo: window.location.origin },
   });
 
 export const signOut = () => supabase.auth.signOut();
