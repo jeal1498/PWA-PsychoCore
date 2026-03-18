@@ -921,13 +921,12 @@ function PlanCard({ plan, patient, sessions, onClick }) {
         <span style={{ padding: "3px 10px", borderRadius: 9999, background: ps.bg, color: ps.color, fontSize: 10, fontWeight: 700, fontFamily: T.fB }}>{ps.label}</span>
       </div>
       <div style={{ fontFamily: T.fH, fontSize: 18, fontWeight: 500, color: T.t, marginBottom: 2 }}>{patient?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}</div>
-      <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 12 }}>Desde {fmtDate(plan.startDate)} · {ptSessions} sesiones</div>
+      <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 12 }}>Desde {fmtDate(plan.startDate)} · {ptSessions} {ptSessions === 1 ? "sesión" : "sesiones"}</div>
 
       {obj.length > 0 && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-            <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{achieved}/{obj.length} objetivos</span>
-            <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: pct === 100 ? T.suc : T.p }}>{pct}%</span>
+            <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>{achieved}/{obj.length} objetivos logrados</span>
           </div>
           <div style={{ height: 5, background: T.bdrL, borderRadius: 9999, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? T.suc : T.p, borderRadius: 9999, transition: "width .3s" }}/>
@@ -1014,21 +1013,28 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
   return (
     <div>
       <PageHeader
-        title="Planes de Tratamiento"
+        title="Tratamiento"
         subtitle={`${treatmentPlans.length} plan${treatmentPlans.length !== 1 ? "es" : ""} · ${totalActive} activo${totalActive !== 1 ? "s" : ""} · ${patientsWithPlan} paciente${patientsWithPlan !== 1 ? "s" : ""}`}
         action={<Btn onClick={() => setShowNew(true)}><Plus size={15}/> Nuevo plan</Btn>}
       />
 
-      {/* Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 12, marginBottom: 28 }}>
+      {/* Summary — una fila de 4 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
         {Object.entries(PLAN_STATUS).map(([k, v]) => {
-          const count = treatmentPlans.filter(p => p.status === k).length;
+          const count   = treatmentPlans.filter(p => p.status === k).length;
+          const active  = filterStatus === k;
           return (
-            <Card key={k} style={{ padding: 16, cursor: "pointer", border: filterStatus === k ? `2px solid ${v.color}` : `1px solid ${T.bdrL}` }}
-              onClick={() => setFilterStatus(prev => prev === k ? "todos" : k)}>
-              <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: v.color }}>{count}</div>
-              <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 600, color: T.tm, textTransform: "uppercase", letterSpacing: "0.06em" }}>{v.label}</div>
-            </Card>
+            <button key={k}
+              onClick={() => setFilterStatus(prev => prev === k ? "todos" : k)}
+              style={{ padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
+                background: active ? v.bg : T.card,
+                border: `2px solid ${active ? v.color+"60" : T.bdrL}`,
+                boxShadow: active ? `0 0 0 3px ${v.color}15` : T.sh,
+                transition: "all .13s" }}>
+              <div style={{ fontFamily: T.fH, fontSize: 24, fontWeight: 500, color: active ? v.color : T.t, lineHeight: 1, marginBottom: 4 }}>{count}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 9, fontWeight: 700, color: active ? v.color : T.tl,
+                textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{v.label}</div>
+            </button>
           );
         })}
       </div>
