@@ -498,7 +498,10 @@ function ReportTypeCard({ type, active, onClick, disabled }) {
       </div>
       <div>
         <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: active ? type.color : T.t, marginBottom: 3 }}>{type.label}</div>
-        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.5 }}>{type.desc}</div>
+        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.5,
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {type.desc}
+        </div>
       </div>
     </button>
   );
@@ -585,7 +588,7 @@ export default function Reports({ patients = [], sessions = [], scaleResults = [
   return (
     <div>
       <PageHeader
-        title="Informes Psicológicos"
+        title="Informes"
         subtitle="Generación automática de informes a partir del expediente clínico"
       />
 
@@ -704,8 +707,9 @@ export default function Reports({ patients = [], sessions = [], scaleResults = [
 
               {/* Editable fields */}
               <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.bdr}`, padding: 20, marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.tm, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
-                  <FileText size={12} color={T.acc} /> Secciones narrativas (tú las redactas)
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.tl, marginBottom: 16,
+                  display: "flex", alignItems: "center", gap: 6 }}>
+                  <FileText size={12} color={T.tl} /> Secciones narrativas
                 </div>
 
                 {REPORT_FIELDS[reportType].map(field => (
