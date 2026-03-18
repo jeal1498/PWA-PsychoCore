@@ -561,7 +561,7 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
     <div>
       <PageHeader
         title="Riesgo"
-        subtitle={`${riskAssessments.length} evaluación${riskAssessments.length !== 1 ? "es" : ""} registrada${riskAssessments.length !== 1 ? "s" : ""}${alertCount > 0 ? ` · ${alertCount} en nivel alto/inminente` : ""}`}
+        subtitle={`${riskAssessments.length} ${riskAssessments.length !== 1 ? "evaluaciones" : "evaluación"} registrada${riskAssessments.length !== 1 ? "s" : ""}${alertCount > 0 ? ` · ${alertCount} en nivel alto/inminente` : ""}`}
         action={<Btn onClick={() => setShowForm(true)}><Plus size={15}/> Nueva evaluación</Btn>}
       />
 
@@ -625,25 +625,37 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
             const rc = RISK_CONFIG[latest.riskLevel];
             const count = riskAssessments.filter(a => a.patientId === p.id).length;
             return (
-              <Card key={p.id} style={{ padding: 20 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: "50%", background: rc.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontFamily: T.fH, fontSize: 18, color: rc.color }}>{p.name[0]}</span>
+              <Card key={p.id} style={{ padding: "12px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {/* Avatar compacto */}
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: rc.bg,
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontFamily: T.fH, fontSize: 17, color: rc.color }}>{p.name[0]}</span>
                   </div>
-                  <RiskBadge level={latest.riskLevel}/>
-                </div>
-                <div style={{ fontFamily: T.fH, fontSize: 17, fontWeight: 500, color: T.t, marginBottom: 2 }}>{p.name.split(" ").slice(0, 2).join(" ")}</div>
-                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 8 }}>
-                  Última evaluación: {fmtDate(latest.date)} · {count} total
-                </div>
-                {latest.suicidalIdeation !== "ninguna" && (
-                  <div style={{ fontFamily: T.fB, fontSize: 12, color: latest.suicidalIdeation === "activa" ? T.err : T.war, fontWeight: 600, marginBottom: 4 }}>
-                    ⚠ Ideación {latest.suicidalIdeation}
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {p.name.split(" ").slice(0, 2).join(" ")}
+                      </span>
+                      <RiskBadge level={latest.riskLevel}/>
+                    </div>
+                    <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tm }}>
+                      {fmtDate(latest.date)} · {count} evaluación{count !== 1 ? "es" : ""}
+                    </div>
+                    {latest.suicidalIdeation !== "ninguna" && (
+                      <div style={{ fontFamily: T.fB, fontSize: 11, color: latest.suicidalIdeation === "activa" ? T.err : T.war, fontWeight: 600, marginTop: 2 }}>
+                        ⚠ Ideación {latest.suicidalIdeation}
+                      </div>
+                    )}
+                    {latest.protectiveFactors?.length > 0 && (
+                      <div style={{ fontFamily: T.fB, fontSize: 11, color: T.suc, marginTop: 2 }}>
+                        ✓ {latest.protectiveFactors.length} factor{latest.protectiveFactors.length > 1 ? "es" : ""} protector{latest.protectiveFactors.length > 1 ? "es" : ""}
+                      </div>
+                    )}
                   </div>
-                )}
-                {latest.protectiveFactors?.length > 0 && (
-                  <div style={{ fontFamily: T.fB, fontSize: 12, color: T.suc }}>✓ {latest.protectiveFactors.length} factor{latest.protectiveFactors.length > 1 ? "es" : ""} protector{latest.protectiveFactors.length > 1 ? "es" : ""}</div>
-                )}
+                </div>
               </Card>
             );
           })}
