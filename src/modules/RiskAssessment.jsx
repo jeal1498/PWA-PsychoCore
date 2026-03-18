@@ -504,22 +504,26 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
       {/* Barra de acciones — flush al fondo */}
       <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
         {[
-          { label: expanded ? "Contraer" : "Expandir", icon: expanded ? ChevronUp : ChevronDown, onClick: () => setExpanded(e => !e), color: T.tm },
-          { label: "PDF",      icon: Printer, onClick: () => printAssessmentRecord(a, patient, profile), color: T.tm },
+          { label: expanded ? "Contraer" : "Ver más", icon: expanded ? ChevronUp : ChevronDown, onClick: () => setExpanded(e => !e), color: T.tm },
+          { label: "PDF",    icon: Printer, onClick: () => printAssessmentRecord(a, patient, profile), color: T.tm },
           ...(a.safetyPlan && Object.values(a.safetyPlan).some(v => v)
-            ? [{ label: "Plan seg.", icon: Shield, onClick: () => printSafetyPlan(a, patient, profile), color: T.p }]
+            ? [{ label: "Plan", icon: Shield, onClick: () => printSafetyPlan(a, patient, profile), color: T.p }]
             : []),
-          { label: "Eliminar", icon: Trash2,  onClick: () => onDelete(a.id), color: T.err },
+          { label: "Borrar",  icon: Trash2,  onClick: () => {
+              if (window.confirm(`¿Eliminar esta evaluación de riesgo?
+
+Esta acción no se puede deshacer.`)) onDelete(a.id);
+            }, color: T.err },
         ].map(b => (
           <button key={b.label} onClick={b.onClick}
             style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 5, padding: "9px 4px", background: "none", border: "none",
+              gap: 4, padding: "9px 2px", background: "none", border: "none",
               borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
               fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: b.color,
-              transition: "background .13s" }}
+              transition: "background .13s", whiteSpace: "nowrap" }}
             onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
             onMouseLeave={e => e.currentTarget.style.background = "none"}>
-            <b.icon size={13}/>{b.label}
+            <b.icon size={12}/>{b.label}
           </button>
         ))}
       </div>
