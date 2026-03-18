@@ -132,9 +132,9 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
   <span>PsychoCore · Recibo de pago</span>
   <span>Folio ${folio} · Documento confidencial</span>
 </footer>
-</body></html>`);
-;
+</body></html>`;
 }
+
 
 async function shareRecibo(payment, patient, profile) {
   const html  = buildReciboHtml(payment, patient, profile);
