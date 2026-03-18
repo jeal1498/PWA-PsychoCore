@@ -957,6 +957,7 @@ function PatientSummary({ patient, results, profile }) {
         const rlist  = byScale[sid].sort((a, b) => b.date.localeCompare(a.date));
         const latest = rlist[0];
         const sev    = getSeverity(sid, latest.score);
+        if (!scale || !latest) return null;
         return (
           <div key={sid} style={{ marginTop: 16, padding: 16, background: T.cardAlt, borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
