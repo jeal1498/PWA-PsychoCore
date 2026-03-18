@@ -186,41 +186,34 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const [editPayment,  setEditPayment]  = useState(null); // pago abierto en popup
   const [savedPayment, setSavedPayment] = useState(null); // confirmación tras guardar
   const [filterStatus, setFilterStatus] = useState(""); // "" | "pagado" | "pendiente"
-  // filterPeriod: "YYYY-MM" para mes específico, "YYYY" para año completo
   const now = new Date();
-  const [filterPeriod, setFilterPeriod] = useState(
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`
-  );
+  const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1)); // "1"-"12" o ""
+  const [filterDay,   setFilterDay]   = useState(""); // "1"-"31" o ""
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
-  // Opciones de período: año completo + meses por año
-  const periodOptions = useMemo(() => {
+  const MONTHS_LIST = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  const availableYears = useMemo(() => {
     const ys = new Set([String(new Date().getFullYear())]);
     payments.forEach(p => { if (p.date) ys.add(p.date.slice(0, 4)); });
-    const years = [...ys].sort().reverse();
-    const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-    const opts = [];
-    years.forEach(y => {
-      opts.push({ value: y, label: `Todo ${y}` });
-      for (let m = 1; m <= 12; m++) {
-        const val = `${y}-${String(m).padStart(2,"0")}`;
-        opts.push({ value: val, label: `${MONTHS[m-1]} ${y}` });
-      }
-    });
-    return opts;
+    return [...ys].sort().reverse();
   }, [payments]);
 
-  const filtered = useMemo(() =>
-    payments
+  const filtered = useMemo(() => {
+    const mm = filterMonth ? String(filterMonth).padStart(2,"0") : null;
+    const dd = filterDay   ? String(filterDay).padStart(2,"0")   : null;
+    const prefix = filterYear + (mm ? `-${mm}` : "") + (mm && dd ? `-${dd}` : "");
+    return payments
       .filter(p =>
         (!filterPt     || p.patientId === filterPt) &&
         (!filterStatus || p.status    === filterStatus) &&
-        p.date.startsWith(filterPeriod)
+        p.date.startsWith(prefix)
       )
-      .sort((a,b) => b.date.localeCompare(a.date)),
-    [payments, filterPt, filterStatus, filterPeriod]);
+      .sort((a,b) => b.date.localeCompare(a.date));
+  }, [payments, filterPt, filterStatus, filterYear, filterMonth, filterDay]);
 
   const monthStr    = fmt(todayDate).slice(0,7);
   // KPI "Este mes" siempre muestra el mes actual sin importar el filtro
@@ -346,20 +339,44 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         })}
       </div>
 
-      {/* Filters */}
-      <div style={{ display:"flex", gap:10, marginBottom:16, alignItems:"center" }}>
+      {/* Filtros — paciente + año + mes + día opcional */}
+      <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap", alignItems:"center" }}>
+        {/* Paciente */}
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
-          style={{ flex:1, padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
-            fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
+          style={{ flex:1, minWidth:140, padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
+            borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
+            background:T.card, cursor:"pointer", outline:"none" }}>
           <option value="">Todos los pacientes</option>
           {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
         </select>
-        <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}
-          style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
-            fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer",
-            outline:"none", minWidth:130 }}>
-          {periodOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {/* Año */}
+        <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(""); setFilterDay(""); }}
+          style={{ padding:"9px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+            fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
+          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        {/* Mes */}
+        <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDay(""); }}
+          style={{ padding:"9px 10px", border:`1.5px solid ${filterMonth ? T.p : T.bdr}`,
+            borderRadius:10, fontFamily:T.fB, fontSize:13,
+            color:filterMonth ? T.p : T.t, fontWeight:filterMonth ? 600 : 400,
+            background:filterMonth ? T.pA : T.card, cursor:"pointer", outline:"none" }}>
+          <option value="">Todo el año</option>
+          {MONTHS_LIST.map((m,i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
+        </select>
+        {/* Día — solo si hay mes seleccionado */}
+        {filterMonth && (
+          <input
+            type="number" min="1" max="31"
+            value={filterDay}
+            onChange={e => setFilterDay(e.target.value)}
+            placeholder="Día"
+            style={{ width:64, padding:"9px 10px", border:`1.5px solid ${filterDay ? T.p : T.bdr}`,
+              borderRadius:10, fontFamily:T.fB, fontSize:13,
+              color:filterDay ? T.p : T.t, fontWeight:filterDay ? 600 : 400,
+              background:filterDay ? T.pA : T.card, outline:"none", textAlign:"center" }}
+          />
+        )}
       </div>
       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:12 }}>
         {filtered.length} registro{filtered.length !== 1 ? "s" : ""} · {fmtCur(totalPaid)} cobrado
