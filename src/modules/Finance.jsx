@@ -137,28 +137,156 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
 
 
 async function shareRecibo(payment, patient, profile) {
-  const html  = buildReciboHtml(payment, patient, profile);
-  const folio = payment.folio || "recibo";
-  const fname = `Recibo_${folio}_${(patient?.name||"paciente").split(" ")[0]}.html`;
+  const folio   = payment.folio || "—";
+  const nombre  = patient?.name || payment.patientName || "Paciente";
+  const fecha   = new Date(payment.date + "T12:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+  const monto   = Number(payment.status === "parcial" ? (payment.amountPaid||0) : payment.amount);
+  const montFmt = "$" + monto.toLocaleString("es-MX", { minimumFractionDigits:2 });
+  const terapeuta = profile?.name || "Terapeuta";
+  const clinica   = profile?.clinic || "";
+  const cedula    = profile?.cedula ? `Céd. ${profile.cedula}` : "";
 
-  // Web Share API con archivo — funciona en Android Chrome
-  if (navigator.canShare) {
-    const blob = new Blob([html], { type: "text/html" });
-    const file = new File([blob], fname, { type: "text/html" });
-    if (navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: `Recibo ${folio}` });
-        return;
-      } catch (e) {
-        if (e.name === "AbortError") return; // usuario canceló
-      }
-    }
+  // ── Dibujar tarjeta en canvas ──────────────────────────────────────────────
+  const W = 720, H = 420;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // Fondo
+  ctx.fillStyle = "#F9F8F5";
+  ctx.fillRect(0, 0, W, H);
+
+  // Barra superior
+  ctx.fillStyle = "#3A6B6E";
+  ctx.fillRect(0, 0, W, 8);
+
+  // Borde izquierdo decorativo
+  ctx.fillStyle = "#3A6B6E";
+  ctx.fillRect(0, 0, 6, H);
+
+  // Logo / nombre clínica
+  ctx.fillStyle = "#3A6B6E";
+  ctx.font = "bold 20px serif";
+  ctx.fillText(clinica || "PsychoCore", 40, 56);
+
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "12px sans-serif";
+  ctx.fillText(cedula, 40, 76);
+
+  // Folio
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "bold 10px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("RECIBO", W - 40, 46);
+  ctx.fillStyle = "#3A6B6E";
+  ctx.font = "bold 18px monospace";
+  ctx.fillText(folio, W - 40, 68);
+
+  // Línea separadora
+  ctx.strokeStyle = "#E8EDEC";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, 96); ctx.lineTo(W - 40, 96); ctx.stroke();
+
+  // Paciente
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText("PACIENTE", 40, 124);
+  ctx.fillStyle = "#1A2B28";
+  ctx.font = "bold 18px serif";
+  ctx.fillText(nombre, 40, 148);
+
+  // Fecha
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "11px sans-serif";
+  ctx.fillText(fecha, 40, 168);
+
+  // Concepto
+  ctx.fillStyle = "#5A7270";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(payment.concept || "Sesión", 40, 190);
+
+  // Monto — destacado
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#3A6B6E";
+  ctx.font = "bold 48px serif";
+  ctx.fillText(montFmt, W - 40, 168);
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "12px sans-serif";
+  ctx.fillText("MXN · " + (payment.method || ""), W - 40, 190);
+
+  // Badge de estado
+  const statusLabel = payment.status === "pagado" ? "✓ PAGADO" : payment.status === "parcial" ? "PAGO PARCIAL" : "PENDIENTE";
+  const statusColor = payment.status === "pagado" ? "#4E8B5F" : payment.status === "parcial" ? "#B8900A" : "#B85050";
+  const statusBg    = payment.status === "pagado" ? "rgba(78,139,95,0.12)" : payment.status === "parcial" ? "rgba(184,144,10,0.12)" : "rgba(184,80,80,0.12)";
+  const badgeW = ctx.measureText(statusLabel).width + 28;
+  ctx.textAlign = "right";
+  ctx.fillStyle = statusBg;
+  roundRect(ctx, W - 40 - badgeW, 204, badgeW, 26, 13);
+  ctx.fillStyle = statusColor;
+  ctx.font = "bold 11px sans-serif";
+  ctx.fillText(statusLabel, W - 40 - 14, 221);
+
+  // Si parcial, mostrar saldo
+  if (payment.status === "parcial") {
+    const saldo = Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0));
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#B85050";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(`Saldo pendiente: $${saldo.toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`, W - 40, 246);
   }
-  // Fallback: abrir en nueva ventana y print
-  const w = window.open("", "_blank");
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => w.print(), 600);
+
+  // Línea separadora
+  ctx.strokeStyle = "#E8EDEC";
+  ctx.beginPath(); ctx.moveTo(40, 270); ctx.lineTo(W - 40, 270); ctx.stroke();
+
+  // Terapeuta
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "10px sans-serif";
+  ctx.fillText("EMITIDO POR", 40, 296);
+  ctx.fillStyle = "#1A2B28";
+  ctx.font = "bold 15px serif";
+  ctx.fillText(terapeuta, 40, 316);
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "11px sans-serif";
+  ctx.fillText(cedula, 40, 334);
+
+  // Footer
+  ctx.fillStyle = "#C8D6D4";
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).", W/2, 390);
+
+  // ── Compartir / descargar ──────────────────────────────────────────────────
+  canvas.toBlob(async (blob) => {
+    const fname = `Recibo_${folio}_${nombre.split(" ")[0]}.png`;
+    const file  = new File([blob], fname, { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: `Recibo ${folio} — ${nombre}` }); return; }
+      catch (e) { if (e.name === "AbortError") return; }
+    }
+    // Fallback: descargar
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fname; a.click();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -563,7 +691,14 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
 
           {/* Acciones — Eliminar · Compartir */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:20 }}>
-            <button onClick={() => { del(editPayment.id); setEditPayment(null); }}
+            <button onClick={() => {
+                if (window.confirm(`¿Eliminar el pago de ${editPayment.patientName?.split(" ")[0]}?
+
+Esta acción no se puede deshacer.`)) {
+                  del(editPayment.id);
+                  setEditPayment(null);
+                }
+              }}
               style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
                 padding:"11px", borderRadius:10, border:`1.5px solid ${T.errA}`,
                 background:"transparent", fontFamily:T.fB, fontSize:13,
