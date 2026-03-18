@@ -436,66 +436,65 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
   if (!rc) return null;
 
   return (
-    <Card style={{ padding: 20, marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: T.fH, fontSize: 17, fontWeight: 500, color: T.t }}>{patient?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}</span>
-            <span style={{ fontSize: 11, color: T.tl }}>·</span>
-            <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{fmtDate(a.date)}</span>
-            <span style={{ fontSize: 11, color: T.tl }}>·</span>
-            <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
-              {{ session: "Sesión", intake: "Evaluación inicial", crisis: "Crisis" }[a.evaluatedBy] || a.evaluatedBy}
-            </span>
-            <RiskBadge level={a.riskLevel}/>
-          </div>
-
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: a.clinicalNotes ? 10 : 0 }}>
-            {a.suicidalIdeation !== "ninguna" && (
-              <span style={{ fontFamily: T.fB, fontSize: 12, color: a.suicidalIdeation === "activa" ? T.err : T.war, fontWeight: 600 }}>
-                ⚠ Ideación {a.suicidalIdeation}
-              </span>
-            )}
-            {a.selfHarm === "activa" && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 600 }}>⚠ Autolesiones activas</span>}
-            {a.harmToOthers && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 600 }}>⚠ Riesgo a terceros</span>}
-            {a.previousAttempts > 0 && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.war, fontWeight: 600 }}>{a.previousAttempts} intento{a.previousAttempts > 1 ? "s" : ""} previo{a.previousAttempts > 1 ? "s" : ""}</span>}
-          </div>
-
-          {a.clinicalNotes && (
-            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, margin: 0, lineHeight: 1.6 }}>{a.clinicalNotes}</p>
-          )}
-
-          {expanded && a.protectiveFactors?.length > 0 && (
-            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {a.protectiveFactors.map(f => (
-                <span key={f} style={{ padding: "3px 10px", borderRadius: 9999, background: T.sucA, color: T.suc, fontSize: 11, fontWeight: 600, fontFamily: T.fB }}>{f}</span>
-              ))}
-            </div>
-          )}
-
-          {expanded && a.safetyPlan && Object.values(a.safetyPlan).some(v => v) && (
-            <div style={{ marginTop: 14, padding: 14, background: T.cardAlt, borderRadius: 10, border: `1px solid ${T.bdrL}` }}>
-              <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Plan de seguridad</div>
-              {[
-                ["Señales de advertencia", a.safetyPlan.warningSignals],
-                ["Estrategias de afrontamiento", a.safetyPlan.copingStrategies],
-                ["Personas de apoyo", a.safetyPlan.supportContacts],
-                ["Contactos profesionales", a.safetyPlan.professionalContacts],
-                ["Retiro de medios", a.safetyPlan.environmentSafety],
-                ["Razones para vivir", a.safetyPlan.reasonsToLive],
-              ].filter(([, v]) => v).map(([label, val]) => (
-                <div key={label} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
-                  <div style={{ fontFamily: T.fB, fontSize: 13, color: T.t, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{val}</div>
-                </div>
-              ))}
-            </div>
-          )}
+    <Card style={{ padding: 0, marginBottom: 12, overflow: "hidden" }}>
+      {/* Contenido */}
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: T.fB, fontSize: 14.5, fontWeight: 600, color: T.t }}>{patient?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}</span>
+          <span style={{ fontSize: 11, color: T.tl }}>·</span>
+          <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>{fmtDate(a.date)}</span>
+          <span style={{ fontSize: 11, color: T.tl }}>·</span>
+          <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
+            {{ session: "Sesión", intake: "Evaluación inicial", crisis: "Crisis" }[a.evaluatedBy] || a.evaluatedBy}
+          </span>
         </div>
 
+        <RiskBadge level={a.riskLevel}/>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, marginBottom: a.clinicalNotes ? 8 : 0 }}>
+          {a.suicidalIdeation !== "ninguna" && (
+            <span style={{ fontFamily: T.fB, fontSize: 12, color: a.suicidalIdeation === "activa" ? T.err : T.war, fontWeight: 600 }}>
+              ⚠ Ideación {a.suicidalIdeation}
+            </span>
+          )}
+          {a.selfHarm === "activa" && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 600 }}>⚠ Autolesiones activas</span>}
+          {a.harmToOthers && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 600 }}>⚠ Riesgo a terceros</span>}
+          {a.previousAttempts > 0 && <span style={{ fontFamily: T.fB, fontSize: 12, color: T.war, fontWeight: 600 }}>{a.previousAttempts} intento{a.previousAttempts > 1 ? "s" : ""} previo{a.previousAttempts > 1 ? "s" : ""}</span>}
+        </div>
+
+        {a.clinicalNotes && (
+          <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, margin: 0, lineHeight: 1.6 }}>{a.clinicalNotes}</p>
+        )}
+
+        {expanded && a.protectiveFactors?.length > 0 && (
+          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {a.protectiveFactors.map(f => (
+              <span key={f} style={{ padding: "3px 10px", borderRadius: 9999, background: T.sucA, color: T.suc, fontSize: 11, fontWeight: 600, fontFamily: T.fB }}>{f}</span>
+            ))}
+          </div>
+        )}
+
+        {expanded && a.safetyPlan && Object.values(a.safetyPlan).some(v => v) && (
+          <div style={{ marginTop: 12, padding: 14, background: T.cardAlt, borderRadius: 10, border: `1px solid ${T.bdrL}` }}>
+            <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Plan de seguridad</div>
+            {[
+              ["Señales de advertencia", a.safetyPlan.warningSignals],
+              ["Estrategias de afrontamiento", a.safetyPlan.copingStrategies],
+              ["Personas de apoyo", a.safetyPlan.supportContacts],
+              ["Contactos profesionales", a.safetyPlan.professionalContacts],
+              ["Retiro de medios", a.safetyPlan.environmentSafety],
+              ["Razones para vivir", a.safetyPlan.reasonsToLive],
+            ].filter(([, v]) => v).map(([label, val]) => (
+              <div key={label} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+                <div style={{ fontFamily: T.fB, fontSize: 13, color: T.t, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Barra de acciones */}
+      {/* Barra de acciones — flush al fondo */}
       <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
         {[
           { label: expanded ? "Contraer" : "Expandir", icon: expanded ? ChevronUp : ChevronDown, onClick: () => setExpanded(e => !e), color: T.tm },
