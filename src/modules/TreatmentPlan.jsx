@@ -78,10 +78,10 @@ const OBJECTIVE_HORIZON = {
 };
 
 const PLAN_STATUS = {
-  activo:     { label: "En tratamiento", color: T.suc, bg: T.sucA  },
-  revision:   { label: "En revisión",    color: T.war, bg: T.warA  },
-  completado: { label: "Completado",     color: T.p,   bg: T.pA    },
-  abandonado: { label: "Abandonado",     color: T.err, bg: T.errA  },
+  activo:     { label: "Activo",     color: T.suc, bg: T.sucA  },
+  revision:   { label: "Revisión",   color: T.war, bg: T.warA  },
+  completado: { label: "Listo",      color: T.p,   bg: T.pA    },
+  abandonado: { label: "Abandonado", color: T.err, bg: T.errA  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
