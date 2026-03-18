@@ -156,7 +156,7 @@ async function shareRecibo(payment, patient, profile) {
   wrap.innerHTML = `
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <div id="recibo-dom" style="
-      width:500px; background:#fff; border-radius:16px; overflow:hidden;
+      width:500px; background:#fff; border-radius:0; overflow:hidden;
       font-family:'Plus Jakarta Sans',sans-serif; box-shadow:none;
     ">
       <!-- Header teal -->
