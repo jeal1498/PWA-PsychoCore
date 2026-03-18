@@ -770,7 +770,7 @@ function ServicesTab({ services, setServices }) {
 
         {/* Nombre */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Nombre del servicio</label>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
           <input value={form.name} onChange={e => fld("name")(e.target.value)}
             placeholder="Ej: Sesión 50 min, Evaluación TDAH..."
             style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`,
