@@ -444,26 +444,30 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
 
       {/* CSV import */}
       <Card style={{ padding:24 }}>
-        <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 8px" }}>Importar pacientes desde CSV</h3>
-        <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:20, lineHeight:1.65 }}>
-          Migra pacientes desde otra herramienta. El archivo debe tener una fila de encabezados. Columnas reconocidas automáticamente: <strong>nombre</strong>, email, teléfono, fechanacimiento, diagnóstico, notas.
+        <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 8px" }}>Importar desde CSV</h3>
+        <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.65 }}>
+          Migra pacientes desde otra herramienta. Columnas reconocidas: <strong>nombre</strong>, email, teléfono, fecha_nacimiento, diagnóstico, notas.
         </p>
 
-        {/* Example table */}
-        <div style={{ background:T.cardAlt, borderRadius:10, padding:14, marginBottom:20, overflowX:"auto" }}>
+        {/* Example table — solo 3 columnas relevantes */}
+        <div style={{ background:T.cardAlt, borderRadius:10, padding:14, marginBottom:20 }}>
           <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Ejemplo de CSV</div>
-          <table style={{ borderCollapse:"collapse", fontFamily:T.fB, fontSize:12, width:"100%" }}>
+          <table style={{ borderCollapse:"collapse", fontFamily:T.fB, fontSize:12, width:"100%", tableLayout:"fixed" }}>
             <thead>
-              <tr>{["nombre","email","telefono","fechanacimiento","diagnostico"].map(h => (
-                <td key={h} style={{ padding:"4px 10px", background:T.p, color:"#fff", fontWeight:600, borderRadius:0 }}>{h}</td>
+              <tr>{["nombre","email","teléfono"].map(h => (
+                <td key={h} style={{ padding:"6px 10px", background:T.p, color:"#fff", fontWeight:600 }}>{h}</td>
               ))}</tr>
             </thead>
             <tbody>
-              <tr>{["Ana López","ana@mail.com","998-000-0001","1990-05-12","TAG"].map((v,i) => (
-                <td key={i} style={{ padding:"4px 10px", color:T.tm, borderBottom:`1px solid ${T.bdrL}` }}>{v}</td>
+              <tr>{["Ana López","ana@mail.com","998-000-0001"].map((v,i) => (
+                <td key={i} style={{ padding:"6px 10px", color:T.tm, borderBottom:`1px solid ${T.bdrL}`,
+                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{v}</td>
               ))}</tr>
             </tbody>
           </table>
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:8 }}>
+            + fecha_nacimiento, diagnóstico, notas (opcionales)
+          </div>
         </div>
 
         {csvMsg && (
