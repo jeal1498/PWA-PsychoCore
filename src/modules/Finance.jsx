@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import html2canvas from "html2canvas";
 import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Share2, MessageCircle } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
@@ -137,150 +138,105 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
 
 
 async function shareRecibo(payment, patient, profile) {
-  const folio   = payment.folio || "—";
-  const nombre  = patient?.name || payment.patientName || "Paciente";
-  const fecha   = new Date(payment.date + "T12:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
-  const monto   = Number(payment.status === "parcial" ? (payment.amountPaid||0) : payment.amount);
-  const montFmt = "$" + monto.toLocaleString("es-MX", { minimumFractionDigits:2 });
+  const folio     = payment.folio || "—";
+  const nombre    = patient?.name || payment.patientName || "Paciente";
+  const fecha     = new Date(payment.date + "T12:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+  const monto     = Number(payment.status === "parcial" ? (payment.amountPaid||0) : payment.amount);
+  const montFmt   = "$" + monto.toLocaleString("es-MX", { minimumFractionDigits:2 });
   const terapeuta = profile?.name || "Terapeuta";
-  const clinica   = profile?.clinic || "";
+  const clinica   = profile?.clinic || "PsychoCore";
   const cedula    = profile?.cedula ? `Céd. ${profile.cedula}` : "";
-
-  // ── Canvas — Diseño "Header Bold" (Opción 2) ─────────────────────────────
-  const W = 500, H = 400;
-  const PAD = 28;
-  const CARD_GAP = 10;
-  const CARD_W = (W - PAD * 2 - CARD_GAP) / 2;
-  const HEADER_H = 152;
-
-  const SCALE = 2; // 2x para alta resolución
-  const canvas = document.createElement("canvas");
-  canvas.width = W * SCALE; canvas.height = H * SCALE;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(SCALE, SCALE);
-
-  // ── Fondo blanco ──
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, W, H);
-
-  // ── Header teal ──
-  ctx.fillStyle = "#3A6B6E";
-  ctx.fillRect(0, 0, W, HEADER_H);
-
-  // Clínica
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 15px sans-serif";
-  ctx.fillText(clinica || "PsychoCore", PAD, 34);
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.font = "11px sans-serif";
-  ctx.fillText(cedula, PAD, 52);
-
-  // Caja folio (derecha arriba)
-  const folioBoxW = 136, folioBoxH = 44, folioBoxX = W - PAD - folioBoxW, folioBoxY = 16;
-  ctx.fillStyle = "rgba(255,255,255,0.13)";
-  roundRect(ctx, folioBoxX, folioBoxY, folioBoxW, folioBoxH, 8);
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = "bold 8px sans-serif";
-  ctx.fillText("FOLIO", folioBoxX + folioBoxW / 2, folioBoxY + 14);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 12px monospace";
-  ctx.fillText(folio, folioBoxX + folioBoxW / 2, folioBoxY + 32);
-
-  // Separador interno header
-  ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, 66); ctx.lineTo(W - PAD, 66); ctx.stroke();
-
-  // Monto + label (izquierda)
-  ctx.textAlign = "left";
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = "bold 8px sans-serif";
-  ctx.fillText(payment.status === "parcial" ? "MONTO PAGADO" : "IMPORTE TOTAL", PAD, 86);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 40px sans-serif";
-  ctx.fillText(montFmt, PAD, 128);
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.font = "11px sans-serif";
-  ctx.fillText("MXN · " + (payment.method || ""), PAD, 146);
-
-  // Badge estado (derecha, alineado con monto)
   const statusLabel = payment.status === "pagado" ? "✓ PAGADO" : payment.status === "parcial" ? "PAGO PARCIAL" : "PENDIENTE";
   const statusBg    = payment.status === "pagado" ? "#4E8B5F" : payment.status === "parcial" ? "#B8900A" : "#B85050";
-  ctx.font = "bold 11px sans-serif";
-  const bW = ctx.measureText(statusLabel).width + 22;
-  ctx.fillStyle = statusBg;
-  roundRect(ctx, W - PAD - bW, 100, bW, 26, 13);
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillText(statusLabel, W - PAD - 11, 117);
 
-  // Saldo pendiente si parcial
-  if (payment.status === "parcial") {
-    const saldo = Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0));
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255,200,200,0.9)";
-    ctx.font = "bold 11px sans-serif";
-    ctx.fillText(`Saldo: $${saldo.toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`, W - PAD, 142);
-  }
+  // ── Crear div oculto con el diseño HTML/CSS ───────────────────────────────
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "position:fixed;left:-9999px;top:-9999px;z-index:-1;";
 
-  // ── Grid 2×2 de tarjetas ──
-  const cards = [
-    { label: "Paciente",   value: nombre },
-    { label: "Fecha",      value: fecha  },
-    { label: "Concepto",   value: payment.concept || "Sesión" },
-    { label: "Terapeuta",  value: terapeuta },
-  ];
-  const CARD_H = 64;
-  const CARDS_TOP = HEADER_H + 16;
+  wrap.innerHTML = `
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <div id="recibo-dom" style="
+      width:500px; background:#fff; border-radius:16px; overflow:hidden;
+      font-family:'Plus Jakarta Sans',sans-serif; box-shadow:none;
+    ">
+      <!-- Header teal -->
+      <div style="background:#3A6B6E; padding:20px 24px 18px;">
+        <!-- Fila 1: Clínica + Folio -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+          <div>
+            <div style="font-size:15px; font-weight:800; color:#fff; line-height:1.3;">${clinica}</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:3px;">${cedula}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.13); border-radius:8px; padding:7px 14px; text-align:center; min-width:120px;">
+            <div style="font-size:8px; font-weight:700; color:rgba(255,255,255,0.55); letter-spacing:0.1em; margin-bottom:3px;">FOLIO</div>
+            <div style="font-size:12px; font-weight:700; color:#fff; font-family:monospace;">${folio}</div>
+          </div>
+        </div>
+        <!-- Separador -->
+        <div style="border-top:1px solid rgba(255,255,255,0.15); margin-bottom:14px;"></div>
+        <!-- Fila 2: Monto + Badge -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+          <div>
+            <div style="font-size:8px; font-weight:700; color:rgba(255,255,255,0.55); letter-spacing:0.1em; margin-bottom:6px;">
+              ${payment.status === "parcial" ? "MONTO PAGADO" : "IMPORTE TOTAL"}
+            </div>
+            <div style="font-size:38px; font-weight:800; color:#fff; line-height:1; letter-spacing:-0.5px;">${montFmt}</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:5px;">MXN · ${payment.method || ""}</div>
+            ${payment.status === "parcial" ? `
+              <div style="font-size:11px; font-weight:700; color:rgba(255,180,180,0.9); margin-top:4px;">
+                Saldo: $${Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0)).toLocaleString("es-MX",{minimumFractionDigits:2})} MXN
+              </div>` : ""}
+          </div>
+          <div style="background:${statusBg}; border-radius:20px; padding:6px 14px; font-size:11px; font-weight:700; color:#fff; letter-spacing:0.05em;">
+            ${statusLabel}
+          </div>
+        </div>
+      </div>
 
-  cards.forEach((card, i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const cx = PAD + col * (CARD_W + CARD_GAP);
-    const cy = CARDS_TOP + row * (CARD_H + CARD_GAP);
+      <!-- Body: grid 2x2 -->
+      <div style="padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        ${[
+          ["PACIENTE",  nombre],
+          ["FECHA",     fecha],
+          ["CONCEPTO",  payment.concept || "Sesión"],
+          ["TERAPEUTA", terapeuta, cedula],
+        ].map(([label, value, sub]) => `
+          <div style="background:#F7F9F8; border-radius:10px; padding:12px 14px;">
+            <div style="font-size:8px; font-weight:700; color:#9BAFAD; letter-spacing:0.09em; margin-bottom:5px;">${label}</div>
+            <div style="font-size:13px; font-weight:700; color:#1A2B28; line-height:1.3;">${value}</div>
+            ${sub ? `<div style="font-size:10px; color:#9BAFAD; margin-top:3px;">${sub}</div>` : ""}
+          </div>
+        `).join("")}
+      </div>
 
-    // Fondo tarjeta
-    ctx.fillStyle = "#F7F9F8";
-    roundRect(ctx, cx, cy, CARD_W, CARD_H, 8);
+      <!-- Footer -->
+      <div style="border-top:1px solid #EEF2F1; margin:0 16px; padding:12px 0 16px; text-align:center;">
+        <div style="font-size:9px; color:#B0BFC0; line-height:1.6;">
+          Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).
+        </div>
+        <div style="font-size:9px; color:#D0DCDA; margin-top:4px;">
+          PsychoCore · Folio ${folio} · Documento confidencial
+        </div>
+      </div>
+    </div>
+  `;
 
-    // Label
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#9BAFAD";
-    ctx.font = "bold 8px sans-serif";
-    ctx.fillText(card.label.toUpperCase(), cx + 12, cy + 18);
+  document.body.appendChild(wrap);
 
-    // Valor (con truncado si es muy largo)
-    ctx.fillStyle = "#1A2B28";
-    ctx.font = "bold 13px sans-serif";
-    let val = card.value;
-    while (ctx.measureText(val).width > CARD_W - 24 && val.length > 4) val = val.slice(0, -1);
-    if (val !== card.value) val = val.trimEnd() + "…";
-    ctx.fillText(val, cx + 12, cy + 38);
+  // Esperar a que la fuente cargue
+  await document.fonts.ready;
 
-    // Segunda línea para paciente (solo cedula bajo terapeuta)
-    if (card.label === "Terapeuta" && cedula) {
-      ctx.fillStyle = "#9BAFAD";
-      ctx.font = "10px sans-serif";
-      ctx.fillText(cedula, cx + 12, cy + 54);
-    }
+  const node = wrap.querySelector("#recibo-dom");
+  const canvas = await html2canvas(node, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    logging: false,
   });
 
-  // ── Footer ──
-  const footerY = CARDS_TOP + 2 * (CARD_H + CARD_GAP) + 14;
-  ctx.strokeStyle = "#EEF2F1"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(PAD, footerY); ctx.lineTo(W - PAD, footerY); ctx.stroke();
+  document.body.removeChild(wrap);
 
-  ctx.fillStyle = "#B0BFC0";
-  ctx.font = "9px sans-serif";
-  ctx.textAlign = "center";
-  wrapText(ctx, "Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).", W / 2, footerY + 18, W - PAD * 2, 14);
-
-  ctx.fillStyle = "#D0DCDA";
-  ctx.font = "9px sans-serif";
-  ctx.fillText(`PsychoCore · Folio ${folio} · Documento confidencial`, W / 2, H - 10);
-
-  // ── Compartir / descargar ──────────────────────────────────────────────────
+  // ── Compartir / descargar ────────────────────────────────────────────────
   canvas.toBlob(async (blob) => {
     const fname = `Recibo_${folio}_${nombre.split(" ")[0]}.png`;
     const file  = new File([blob], fname, { type: "image/png" });
@@ -288,43 +244,11 @@ async function shareRecibo(payment, patient, profile) {
       try { await navigator.share({ files: [file], title: `Recibo ${folio} — ${nombre}` }); return; }
       catch (e) { if (e.name === "AbortError") return; }
     }
-    // Fallback: descargar
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = fname; a.click();
     URL.revokeObjectURL(url);
   }, "image/png");
-}
-
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(" ");
-  let line = "";
-  for (let n = 0; n < words.length; n++) {
-    const test = line + words[n] + " ";
-    if (ctx.measureText(test).width > maxWidth && n > 0) {
-      ctx.fillText(line.trim(), x, y);
-      line = words[n] + " ";
-      y += lineHeight;
-    } else {
-      line = test;
-    }
-  }
-  ctx.fillText(line.trim(), x, y);
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fill();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
