@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Download, FileText } from "lucide-react";
+import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Download, FileText, MessageCircle } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
@@ -473,16 +473,44 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             )}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <button onClick={() => {
+            {(() => {
               const patient = patients.find(pt => pt.id === savedPayment.patientId);
-              printRecibo(savedPayment, patient, profile);
-            }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                padding:"11px", borderRadius:10, border:`1.5px solid ${T.p}`,
-                background:T.pA, fontFamily:T.fB, fontSize:13, fontWeight:600,
-                color:T.p, cursor:"pointer" }}>
-              <Printer size={14}/> Generar recibo
-            </button>
+              const phone   = patient?.phone?.replace(/\D/g, "");
+              const nombre  = patient?.name?.split(" ")[0] || "paciente";
+              const doctor  = profile?.name || "Tu especialista";
+              const especialidad = profile?.specialty || "";
+              const folio   = savedPayment.folio || "—";
+              const monto   = Number(savedPayment.status === "parcial"
+                ? savedPayment.amountPaid || 0
+                : savedPayment.amount).toLocaleString("es-MX", { minimumFractionDigits:2 });
+              const estado  = savedPayment.status === "pagado" ? "✅ Pagado"
+                            : savedPayment.status === "parcial" ? "🔶 Pago parcial"
+                            : "⏳ Pendiente";
+              const saldo   = savedPayment.status === "parcial"
+                ? `\n💳 Saldo pendiente: $${Math.max(0, Number(savedPayment.amount) - Number(savedPayment.amountPaid||0)).toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`
+                : "";
+              const msg = encodeURIComponent(
+                `Hola ${nombre} 👋\n\nTe comparto el resumen de tu pago:\n\n📋 Folio: ${folio}\n💰 Monto: $${monto} MXN\n📅 Fecha: ${fmtDate(savedPayment.date)}\n🏥 Concepto: ${savedPayment.concept}\n${estado}${saldo}\n\n— ${doctor}${especialidad ? ", " + especialidad : ""}`
+              );
+              const waUrl = phone ? `https://wa.me/52${phone}?text=${msg}` : null;
+              return (
+                <a href={waUrl || "#"}
+                  target={waUrl ? "_blank" : undefined}
+                  rel="noreferrer"
+                  onClick={!waUrl ? e => e.preventDefault() : undefined}
+                  style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    padding:"11px", borderRadius:10,
+                    border:`1.5px solid ${waUrl ? "#25D366" : T.bdr}`,
+                    background:waUrl ? "#25D36618" : T.bdrL,
+                    fontFamily:T.fB, fontSize:13, fontWeight:600,
+                    color:waUrl ? "#25D366" : T.tl,
+                    cursor:waUrl ? "pointer" : "not-allowed",
+                    textDecoration:"none",
+                    opacity:waUrl ? 1 : 0.5 }}>
+                  <MessageCircle size={14}/> Compartir recibo
+                </a>
+              );
+            })()}
             <button onClick={() => setSavedPayment(null)}
               style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
                 background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
