@@ -184,7 +184,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   const diagDist = useMemo(() => {
     const map = {};
     patients.forEach(p => {
-      const key = (p.diagnosis||"Sin diagnóstico").split("—")[0].split("–")[0].trim().slice(0,30);
+      const key = (p.diagnosis||"Sin diagnóstico").split("—")[0].split("–")[0].split("(")[0].trim().slice(0,45);
       map[key] = (map[key]||0) + 1;
     });
     return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,6);
@@ -406,7 +406,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
               return (
                 <div key={diag} style={{ marginBottom:12 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontFamily:T.fB, fontSize:12, color:T.t }}>{diag}</span>
+                    <span style={{ fontFamily:T.fB, fontSize:12, color:T.t, flex:1, paddingRight:8 }}>{diag}</span>
                     <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{count} ({pct}%)</span>
                   </div>
                   <div style={{ height:6, background:T.bdrL, borderRadius:9999, overflow:"hidden" }}>
@@ -430,7 +430,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
                 </div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{(p.name||"").split(" ").slice(0,2).join(" ")}</div>
-                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{p.sessions} sesiones</div>
+                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>{p.sessions} {p.sessions === 1 ? "sesión" : "sesiones"}</div>
                 </div>
                 <div style={{ fontFamily:T.fH, fontSize:16, color:T.suc }}>{fmtCur(p.income)}</div>
               </div>
