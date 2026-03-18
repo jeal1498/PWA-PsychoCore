@@ -448,11 +448,15 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:20 }}>
 
         {/* Gauge */}
-        <Card style={{ padding:24, display:"flex", flexDirection:"column", alignItems:"center" }}>
-          <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 8px", alignSelf:"flex-start" }}>Alta acumulada</h3>
-          <GaugeChart value={tasaAlta} max={100} color={T.suc} size={130} label={`${altaPatients} de ${totalPatients}`}/>
-          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, textAlign:"center", marginTop:8 }}>
-            {altaPatients} paciente{altaPatients!==1?"s":""} con alta de {totalPatients} registrados
+        <Card style={{ padding:"16px 20px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+            <GaugeChart value={tasaAlta} max={100} color={T.suc} size={110} label={`${altaPatients}/${totalPatients}`}/>
+            <div>
+              <h3 style={{ fontFamily:T.fH, fontSize:17, color:T.t, margin:"0 0 4px" }}>Alta acumulada</h3>
+              <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5 }}>
+                {altaPatients} paciente{altaPatients!==1?"s":""} con alta<br/>de {totalPatients} registrados
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -490,16 +494,18 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:20 }}>
 
         {/* Gauge adherencia */}
-        <Card style={{ padding:24, display:"flex", flexDirection:"column", alignItems:"center" }}>
-          <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 8px", alignSelf:"flex-start" }}>Tasa de asistencia</h3>
+        <Card style={{ padding:"16px 20px" }}>
           {totalPast === 0
-            ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"24px 0", textAlign:"center" }}>Sin citas pasadas registradas</div>
-            : <>
-              <GaugeChart value={adherencia} max={100} color={adherencia>=75?T.suc:adherencia>=50?T.war:T.err} size={130} label={`${completedAppts.length} de ${totalPast}`}/>
-              <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, textAlign:"center", marginTop:8 }}>
-                {completedAppts.length} citas realizadas de {totalPast} pasadas
+            ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"16px 0" }}>Sin citas pasadas registradas</div>
+            : <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+                <GaugeChart value={adherencia} max={100} color={adherencia>=75?T.suc:adherencia>=50?T.war:T.err} size={110} label={`${completedAppts.length}/${totalPast}`}/>
+                <div>
+                  <h3 style={{ fontFamily:T.fH, fontSize:17, color:T.t, margin:"0 0 4px" }}>Tasa de asistencia</h3>
+                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5 }}>
+                    {completedAppts.length} citas realizadas<br/>de {totalPast} pasadas
+                  </div>
+                </div>
               </div>
-            </>
           }
         </Card>
 
