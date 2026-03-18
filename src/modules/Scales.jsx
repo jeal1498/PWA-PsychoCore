@@ -700,20 +700,18 @@ function ScaleForm({ scaleId, patients, onSave, onClose }) {
   return (
     <div>
       {/* Header info */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Paciente *</label>
-          <select value={patientId} onChange={e => setPatientId(e.target.value)}
-            style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none" }}>
-            <option value="">Seleccionar...</option>
-            {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Fecha</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none" }}/>
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Paciente *</label>
+        <select value={patientId} onChange={e => setPatientId(e.target.value)}
+          style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}>
+          <option value="">Seleccionar paciente...</option>
+          {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Fecha</label>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}/>
       </div>
 
       {/* ASRS: Part A / Part B header */}
@@ -1128,13 +1126,24 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
 
       {/* Apply scale modal */}
       <Modal open={showForm} onClose={() => setShowForm(false)} title={`Aplicar ${SCALES[activeScale]?.name}`} width={640}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-          {Object.values(SCALES).map(scale => (
-            <button key={scale.id} onClick={() => setActiveScale(scale.id)}
-              style={{ padding: "7px 14px", borderRadius: 9999, border: `1.5px solid ${activeScale === scale.id ? scale.color : T.bdr}`, background: activeScale === scale.id ? scale.bg : "transparent", color: activeScale === scale.id ? scale.color : T.tm, fontFamily: T.fB, fontSize: 12.5, fontWeight: activeScale === scale.id ? 700 : 400, cursor: "pointer", transition: "all .13s" }}>
-              {scale.name} <span style={{ opacity: 0.6, fontSize: 11 }}>— {scale.domain}</span>
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+          {Object.values(SCALES).map(scale => {
+            const active = activeScale === scale.id;
+            // Dominio abreviado para chips compactos
+            const domainShort = { "Depresión / Ansiedad / Estrés": "Dep/Ans/Str", "Ansiedad somática": "Ansiedad s.", "Resultados terapéuticos": "Resultados", "Alianza terapéutica": "Alianza", "Consumo de alcohol": "Alcohol", "TDAH adultos": "TDAH" }[scale.domain] || scale.domain;
+            return (
+              <button key={scale.id} onClick={() => setActiveScale(scale.id)}
+                style={{ padding: "6px 12px", borderRadius: 9999, whiteSpace: "nowrap",
+                  border: `1.5px solid ${active ? scale.color : T.bdr}`,
+                  background: active ? scale.bg : "transparent",
+                  color: active ? scale.color : T.tm,
+                  fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 400,
+                  cursor: "pointer", transition: "all .13s" }}>
+                {scale.name}
+                {active && <span style={{ opacity: 0.7, fontSize: 10, marginLeft: 4 }}>— {domainShort}</span>}
+              </button>
+            );
+          })}
         </div>
         <ScaleForm
           key={activeScale}
