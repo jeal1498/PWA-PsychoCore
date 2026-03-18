@@ -146,8 +146,8 @@ async function shareRecibo(payment, patient, profile) {
   const clinica   = profile?.clinic || "";
   const cedula    = profile?.cedula ? `Céd. ${profile.cedula}` : "";
 
-  // ── Dibujar tarjeta en canvas ──────────────────────────────────────────────
-  const W = 720, H = 420;
+  // ── Dibujar tarjeta en canvas — PORTRAIT ──────────────────────────────────
+  const W = 500, H = 720;
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
@@ -164,99 +164,111 @@ async function shareRecibo(payment, patient, profile) {
   ctx.fillStyle = "#3A6B6E";
   ctx.fillRect(0, 0, 6, H);
 
-  // Logo / nombre clínica
+  // ── Clínica ──
+  ctx.textAlign = "left";
   ctx.fillStyle = "#3A6B6E";
   ctx.font = "bold 20px serif";
   ctx.fillText(clinica || "PsychoCore", 40, 56);
-
   ctx.fillStyle = "#9BAFAD";
   ctx.font = "12px sans-serif";
   ctx.fillText(cedula, 40, 76);
 
-  // Folio
+  // Sep 1
+  ctx.strokeStyle = "#E8EDEC"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, 94); ctx.lineTo(W - 40, 94); ctx.stroke();
+
+  // ── Folio ──
+  ctx.textAlign = "right";
   ctx.fillStyle = "#9BAFAD";
   ctx.font = "bold 10px sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText("RECIBO", W - 40, 46);
+  ctx.fillText("RECIBO No.", W - 40, 122);
   ctx.fillStyle = "#3A6B6E";
   ctx.font = "bold 18px monospace";
-  ctx.fillText(folio, W - 40, 68);
-
-  // Línea separadora
-  ctx.strokeStyle = "#E8EDEC";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(40, 96); ctx.lineTo(W - 40, 96); ctx.stroke();
-
-  // Paciente
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#9BAFAD";
-  ctx.font = "bold 10px sans-serif";
-  ctx.fillText("PACIENTE", 40, 124);
-  ctx.fillStyle = "#1A2B28";
-  ctx.font = "bold 18px serif";
-  ctx.fillText(nombre, 40, 148);
-
-  // Fecha
-  ctx.fillStyle = "#9BAFAD";
-  ctx.font = "11px sans-serif";
-  ctx.fillText(fecha, 40, 168);
-
-  // Concepto
-  ctx.fillStyle = "#5A7270";
-  ctx.font = "13px sans-serif";
-  ctx.fillText(payment.concept || "Sesión", 40, 190);
-
-  // Monto — destacado
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#3A6B6E";
-  ctx.font = "bold 48px serif";
-  ctx.fillText(montFmt, W - 40, 168);
-  ctx.fillStyle = "#9BAFAD";
-  ctx.font = "12px sans-serif";
-  ctx.fillText("MXN · " + (payment.method || ""), W - 40, 190);
+  ctx.fillText(folio, W - 40, 144);
 
   // Badge de estado
   const statusLabel = payment.status === "pagado" ? "✓ PAGADO" : payment.status === "parcial" ? "PAGO PARCIAL" : "PENDIENTE";
   const statusColor = payment.status === "pagado" ? "#4E8B5F" : payment.status === "parcial" ? "#B8900A" : "#B85050";
   const statusBg    = payment.status === "pagado" ? "rgba(78,139,95,0.12)" : payment.status === "parcial" ? "rgba(184,144,10,0.12)" : "rgba(184,80,80,0.12)";
-  const badgeW = ctx.measureText(statusLabel).width + 28;
-  ctx.textAlign = "right";
-  ctx.fillStyle = statusBg;
-  roundRect(ctx, W - 40 - badgeW, 204, badgeW, 26, 13);
-  ctx.fillStyle = statusColor;
   ctx.font = "bold 11px sans-serif";
-  ctx.fillText(statusLabel, W - 40 - 14, 221);
+  const badgeW = ctx.measureText(statusLabel).width + 28;
+  ctx.fillStyle = statusBg;
+  roundRect(ctx, W - 40 - badgeW, 158, badgeW, 26, 13);
+  ctx.fillStyle = statusColor;
+  ctx.fillText(statusLabel, W - 40 - 14, 175);
 
-  // Si parcial, mostrar saldo
-  if (payment.status === "parcial") {
-    const saldo = Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0));
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#B85050";
-    ctx.font = "12px sans-serif";
-    ctx.fillText(`Saldo pendiente: $${saldo.toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`, W - 40, 246);
-  }
+  // Sep 2
+  ctx.beginPath(); ctx.moveTo(40, 200); ctx.lineTo(W - 40, 200); ctx.stroke();
 
-  // Línea separadora
-  ctx.strokeStyle = "#E8EDEC";
-  ctx.beginPath(); ctx.moveTo(40, 270); ctx.lineTo(W - 40, 270); ctx.stroke();
-
-  // Terapeuta
+  // ── Paciente ──
   ctx.textAlign = "left";
   ctx.fillStyle = "#9BAFAD";
-  ctx.font = "10px sans-serif";
-  ctx.fillText("EMITIDO POR", 40, 296);
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText("PACIENTE", 40, 226);
   ctx.fillStyle = "#1A2B28";
-  ctx.font = "bold 15px serif";
-  ctx.fillText(terapeuta, 40, 316);
+  ctx.font = "bold 18px serif";
+  ctx.fillText(nombre, 40, 250);
   ctx.fillStyle = "#9BAFAD";
   ctx.font = "11px sans-serif";
-  ctx.fillText(cedula, 40, 334);
+  ctx.fillText(fecha, 40, 270);
+  ctx.fillStyle = "#5A7270";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(payment.concept || "Sesión", 40, 290);
 
-  // Footer
+  // Sep 3
+  ctx.beginPath(); ctx.moveTo(40, 310); ctx.lineTo(W - 40, 310); ctx.stroke();
+
+  // ── Monto (caja centrada) ──
+  ctx.fillStyle = "rgba(58,107,110,0.06)";
+  roundRect(ctx, 40, 326, W - 80, 112, 12);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText(payment.status === "parcial" ? "MONTO PAGADO" : "IMPORTE TOTAL", W / 2, 352);
+  ctx.fillStyle = "#3A6B6E";
+  ctx.font = "bold 44px serif";
+  ctx.fillText(montFmt, W / 2, 400);
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "12px sans-serif";
+  ctx.fillText("MXN · " + (payment.method || ""), W / 2, 420);
+
+  if (payment.status === "parcial") {
+    const saldo = Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0));
+    ctx.fillStyle = "#B85050";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText(`Saldo pendiente: $${saldo.toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`, W / 2, 440);
+  }
+
+  // Sep 4
+  ctx.beginPath(); ctx.moveTo(40, 456); ctx.lineTo(W - 40, 456); ctx.stroke();
+
+  // ── Terapeuta ──
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText("EMITIDO POR", 40, 482);
+  ctx.fillStyle = "#1A2B28";
+  ctx.font = "bold 15px serif";
+  ctx.fillText(terapeuta, 40, 502);
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "11px sans-serif";
+  ctx.fillText(cedula, 40, 520);
+
+  // Sep 5
+  ctx.beginPath(); ctx.moveTo(40, 540); ctx.lineTo(W - 40, 540); ctx.stroke();
+
+  // ── Disclaimer (texto wrapeado) ──
+  ctx.fillStyle = "#9BAFAD";
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "center";
+  wrapText(ctx, "Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).", W / 2, 566, W - 80, 16);
+
+  // ── Footer ──
   ctx.fillStyle = "#C8D6D4";
   ctx.font = "10px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).", W/2, 390);
+  ctx.fillText(`PsychoCore · Folio ${folio} · Documento confidencial`, W / 2, 700);
 
   // ── Compartir / descargar ──────────────────────────────────────────────────
   canvas.toBlob(async (blob) => {
@@ -272,6 +284,22 @@ async function shareRecibo(payment, patient, profile) {
     a.href = url; a.download = fname; a.click();
     URL.revokeObjectURL(url);
   }, "image/png");
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + " ";
+    if (ctx.measureText(test).width > maxWidth && n > 0) {
+      ctx.fillText(line.trim(), x, y);
+      line = words[n] + " ";
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line.trim(), x, y);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
