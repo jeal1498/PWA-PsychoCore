@@ -630,19 +630,27 @@ function HelpTab() {
 // ── Tab: Servicios ───────────────────────────────────────────────────────────
 function ServicesTab({ services, setServices }) {
   const uid = () => Math.random().toString(36).slice(2, 9);
+  const DEFAULT_DESC = {
+    sesion:     "Sesión de psicoterapia individual de 50 minutos",
+    evaluacion: "Evaluación neuropsicológica completa con reporte escrito",
+    pareja:     "Sesión de terapia de pareja de 60 minutos",
+    grupo:      "Sesión grupal o taller terapéutico",
+    paquete:    "Paquete de sesiones con precio preferencial",
+    otro:       "",
+  };
   const [form, setForm] = useState({
-    name: "", price: "", priceVirtual: "", type: "sesion",
+    name: DEFAULT_DESC.sesion, price: "", priceVirtual: "", type: "sesion",
     sessions: "", modality: "presencial"
   });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
   const SERVICE_TYPES = {
-    sesion:     { label: "Sesión individual",   icon: "👤" },
-    evaluacion: { label: "Evaluación",          icon: "📋" },
-    pareja:     { label: "Terapia de pareja",   icon: "👫" },
-    grupo:      { label: "Grupo / Taller",      icon: "👥" },
-    paquete:    { label: "Paquete de sesiones", icon: "📦" },
-    otro:       { label: "Otro",                icon: "⚡" },
+    sesion:     { label: "Sesión individual",   icon: "👤", desc: "Sesión de psicoterapia individual de 50 minutos" },
+    evaluacion: { label: "Evaluación",          icon: "📋", desc: "Evaluación neuropsicológica completa con reporte escrito" },
+    pareja:     { label: "Terapia de pareja",   icon: "👫", desc: "Sesión de terapia de pareja de 60 minutos" },
+    grupo:      { label: "Grupo / Taller",      icon: "👥", desc: "Sesión grupal o taller terapéutico" },
+    paquete:    { label: "Paquete de sesiones", icon: "📦", desc: "Paquete de sesiones con precio preferencial" },
+    otro:       { label: "Otro",                icon: "⚡", desc: "" },
   };
 
   const MODALITIES = [
@@ -665,7 +673,7 @@ function ServicesTab({ services, setServices }) {
       modality: form.modality,
       sessions: form.type === "paquete" ? Number(form.sessions) : null,
     }]);
-    setForm({ name: "", price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" });
+    setForm({ name: DEFAULT_DESC.sesion, price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" });
   };
 
   const del = id => setServices(prev => prev.filter(s => s.id !== id));
@@ -737,7 +745,17 @@ function ServicesTab({ services, setServices }) {
             {Object.entries(SERVICE_TYPES).map(([k, v]) => {
               const on = form.type === k;
               return (
-                <button key={k} onClick={() => fld("type")(k)}
+                <button key={k} onClick={() => {
+                    fld("type")(k);
+                    // Pre-llenar descripción solo si está vacía o tenía el default anterior
+                    setForm(f => ({
+                      ...f,
+                      type: k,
+                      name: (!f.name.trim() || Object.values(SERVICE_TYPES).some(t => t.desc === f.name))
+                        ? (SERVICE_TYPES[k]?.desc || "")
+                        : f.name
+                    }));
+                  }}
                   style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.p : T.bdr}`,
                     background: on ? T.pA : "transparent", fontFamily: T.fB, fontSize: 11,
                     color: on ? T.p : T.tm, fontWeight: on ? 700 : 400,
