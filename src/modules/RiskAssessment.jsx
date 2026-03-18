@@ -358,12 +358,19 @@ function AssessmentForm({ patients, onSave, onClose }) {
 
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Factores protectores</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               {PROTECTIVE_FACTORS.map(f => {
                 const selected = form.protectiveFactors.includes(f);
                 return (
-                  <button key={f} onClick={() => toggleFactor(f)} style={{ padding: "7px 14px", borderRadius: 9999, border: `1.5px solid ${selected ? T.suc : T.bdr}`, background: selected ? T.sucA : T.card, color: selected ? T.suc : T.tm, fontFamily: T.fB, fontSize: 12.5, fontWeight: selected ? 700 : 400, cursor: "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 5 }}>
-                    {selected && <Check size={11} strokeWidth={2.5}/>}{f}
+                  <button key={f} onClick={() => toggleFactor(f)}
+                    style={{ padding: "8px 12px", borderRadius: 9, textAlign: "left",
+                      border: `1.5px solid ${selected ? T.suc : T.bdr}`,
+                      background: selected ? T.sucA : T.card,
+                      color: selected ? T.suc : T.tm,
+                      fontFamily: T.fB, fontSize: 12, fontWeight: selected ? 700 : 400,
+                      cursor: "pointer", transition: "all .15s",
+                      display: "flex", alignItems: "center", gap: 5 }}>
+                    {selected && <Check size={10} strokeWidth={2.5}/>}{f}
                   </button>
                 );
               })}
@@ -402,13 +409,13 @@ function AssessmentForm({ patients, onSave, onClose }) {
 
           <Textarea label="Señales de advertencia" value={form.safetyPlan.warningSignals} onChange={v => setSP("warningSignals", v)}
             placeholder="¿Qué pensamientos, sentimientos o situaciones indican que la crisis se acerca?" rows={3}/>
-          <Textarea label="Estrategias de afrontamiento personal" value={form.safetyPlan.copingStrategies} onChange={v => setSP("copingStrategies", v)}
+          <Textarea label="Estrategias de afrontamiento" value={form.safetyPlan.copingStrategies} onChange={v => setSP("copingStrategies", v)}
             placeholder="Actividades y técnicas que el paciente puede hacer solo para manejar la crisis..." rows={3}/>
-          <Textarea label="Personas de apoyo (nombre y teléfono)" value={form.safetyPlan.supportContacts} onChange={v => setSP("supportContacts", v)}
+          <Textarea label="Personas de apoyo" value={form.safetyPlan.supportContacts} onChange={v => setSP("supportContacts", v)}
             placeholder="Familiares o amigos de confianza a quienes puede llamar..." rows={2}/>
-          <Textarea label="Contactos profesionales de emergencia" value={form.safetyPlan.professionalContacts} onChange={v => setSP("professionalContacts", v)}
+          <Textarea label="Contactos de emergencia" value={form.safetyPlan.professionalContacts} onChange={v => setSP("professionalContacts", v)}
             placeholder="Terapeuta, psiquiatra, SAPTEL 55 5259-8121, Línea de la Vida 800 911-2000..." rows={2}/>
-          <Textarea label="Seguridad del entorno — Retiro de medios" value={form.safetyPlan.environmentSafety} onChange={v => setSP("environmentSafety", v)}
+          <Textarea label="Retiro de medios" value={form.safetyPlan.environmentSafety} onChange={v => setSP("environmentSafety", v)}
             placeholder="Acuerdos sobre retiro o aseguramiento de medios letales..." rows={2}/>
           <Textarea label="Razones para vivir" value={form.safetyPlan.reasonsToLive} onChange={v => setSP("reasonsToLive", v)}
             placeholder="Motivaciones personales que el paciente identifica para seguir adelante..." rows={2}/>
@@ -665,7 +672,7 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Nueva evaluación de riesgo" width={600}>
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="Nueva evaluación" width={600}>
         <AssessmentForm patients={patients} onSave={save} onClose={() => setShowForm(false)}/>
       </Modal>
     </div>
