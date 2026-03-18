@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
+import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, FlaskConical, Plus, Trash2, DollarSign, Package } from "lucide-react";
 import {
   SEED_PROFILE, SEED_PATIENTS, SEED_APPOINTMENTS, SEED_SESSIONS,
   SEED_PAYMENTS, SEED_RISK_ASSESSMENTS, SEED_SCALE_RESULTS,
@@ -627,12 +627,161 @@ function HelpTab() {
   );
 }
 
+// ── Tab: Servicios ───────────────────────────────────────────────────────────
+function ServicesTab({ services, setServices }) {
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const [form, setForm] = useState({ name: "", price: "", type: "sesion", sessions: "" });
+  const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+
+  const SERVICE_TYPES = {
+    sesion:     { label: "Sesión individual",   icon: "👤" },
+    evaluacion: { label: "Evaluación",          icon: "📋" },
+    pareja:     { label: "Terapia de pareja",   icon: "👫" },
+    grupo:      { label: "Grupo / Taller",      icon: "👥" },
+    paquete:    { label: "Paquete de sesiones", icon: "📦" },
+    otro:       { label: "Otro",                icon: "⚡" },
+  };
+
+  const add = () => {
+    if (!form.name.trim() || !form.price) return;
+    setServices(prev => [...prev, {
+      id: "svc" + uid(),
+      name: form.name.trim(),
+      price: Number(form.price),
+      type: form.type,
+      sessions: form.type === "paquete" ? Number(form.sessions) : null,
+    }]);
+    setForm({ name: "", price: "", type: "sesion", sessions: "" });
+  };
+
+  const del = id => setServices(prev => prev.filter(s => s.id !== id));
+
+  const fmtCur = n => "$" + Number(n).toLocaleString("es-MX");
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
+        Define tus servicios y tarifas. Se usarán al registrar pagos y agendar citas.
+      </p>
+
+      {/* Lista de servicios */}
+      {services.length > 0 && (
+        <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
+          {services.map((svc, i) => (
+            <div key={svc.id} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "14px 16px",
+              borderBottom: i < services.length - 1 ? `1px solid ${T.bdrL}` : "none"
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: T.pA,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {SERVICE_TYPES[svc.type]?.icon || "⚡"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t,
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {svc.name}
+                </div>
+                <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tm }}>
+                  {SERVICE_TYPES[svc.type]?.label}
+                  {svc.sessions ? ` · ${svc.sessions} sesiones` : ""}
+                </div>
+              </div>
+              <div style={{ fontFamily: T.fH, fontSize: 17, color: T.suc, fontWeight: 500, flexShrink: 0 }}>
+                {fmtCur(svc.price)}
+              </div>
+              <button onClick={() => del(svc.id)}
+                style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 6 }}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Formulario agregar */}
+      <Card style={{ padding: 20 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm,
+          textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>
+          Nuevo servicio
+        </div>
+
+        {/* Tipo */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Tipo</label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+            {Object.entries(SERVICE_TYPES).map(([k, v]) => {
+              const on = form.type === k;
+              return (
+                <button key={k} onClick={() => fld("type")(k)}
+                  style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.p : T.bdr}`,
+                    background: on ? T.pA : "transparent", fontFamily: T.fB, fontSize: 11,
+                    color: on ? T.p : T.tm, fontWeight: on ? 700 : 400,
+                    cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
+                  {v.icon} {v.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Nombre */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Nombre del servicio</label>
+          <input value={form.name} onChange={e => fld("name")(e.target.value)}
+            placeholder="Ej: Sesión 50 min, Evaluación TDAH..."
+            style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`,
+              borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t,
+              background: T.card, outline: "none", boxSizing: "border-box" }} />
+        </div>
+
+        {/* Precio + sesiones (si paquete) */}
+        <div style={{ display: "grid", gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 18 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Precio (MXN)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
+              <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
+                placeholder="900"
+                style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                  borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                  background: T.card, outline: "none" }} />
+            </div>
+          </div>
+          {form.type === "paquete" && (
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Número de sesiones</label>
+              <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
+                placeholder="4"
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                  borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                  background: T.card, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          )}
+        </div>
+
+        <button onClick={add} disabled={!form.name.trim() || !form.price}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            width: "100%", padding: "11px", borderRadius: 10, border: "none",
+            background: form.name.trim() && form.price ? T.p : T.bdrL,
+            color: form.name.trim() && form.price ? "#fff" : T.tl,
+            fontFamily: T.fB, fontSize: 13.5, fontWeight: 600,
+            cursor: form.name.trim() && form.price ? "pointer" : "not-allowed",
+            transition: "all .15s" }}>
+          <Plus size={15} /> Agregar servicio
+        </button>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Settings component ───────────────────────────────────────────────────
-export default function Settings({ profile, setProfile, darkMode, setDarkMode, patients, setPatients, googleUser, psychologist, allData, onRestore }) {
+export default function Settings({ profile, setProfile, darkMode, setDarkMode, patients, setPatients, googleUser, psychologist, allData, onRestore, services = [], setServices }) {
   const [tab, setTab] = useState("profile");
 
   const tabs = [
     { id: "profile",    label: "Perfil"     },
+    { id: "services",   label: "Servicios"  },
     { id: "appearance", label: "Apariencia" },
     { id: "data",       label: "Datos"      },
     { id: "help",       label: "Ayuda"      },
@@ -655,6 +804,7 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
       </div>
 
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
+      {tab === "services"   && <ServicesTab   services={services} setServices={setServices} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
       {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} />}
       {tab === "help"       && <HelpTab />}
