@@ -339,16 +339,8 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         })}
       </div>
 
-      {/* Filtros — paciente + año + mes + día opcional */}
-      <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap", alignItems:"center" }}>
-        {/* Paciente */}
-        <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
-          style={{ flex:1, minWidth:140, padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
-            borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
-            background:T.card, cursor:"pointer", outline:"none" }}>
-          <option value="">Todos los pacientes</option>
-          {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
-        </select>
+      {/* Filtros — año · mes · día · paciente */}
+      <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center", flexWrap:"wrap" }}>
         {/* Año */}
         <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(""); setFilterDay(""); }}
           style={{ padding:"9px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
@@ -364,19 +356,26 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
           <option value="">Todo el año</option>
           {MONTHS_LIST.map((m,i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
         </select>
-        {/* Día — solo si hay mes seleccionado */}
+        {/* Día — solo si hay mes */}
         {filterMonth && (
-          <input
-            type="number" min="1" max="31"
+          <input type="number" min="1" max="31"
             value={filterDay}
             onChange={e => setFilterDay(e.target.value)}
             placeholder="Día"
-            style={{ width:64, padding:"9px 10px", border:`1.5px solid ${filterDay ? T.p : T.bdr}`,
+            style={{ width:60, padding:"9px 8px", border:`1.5px solid ${filterDay ? T.p : T.bdr}`,
               borderRadius:10, fontFamily:T.fB, fontSize:13,
               color:filterDay ? T.p : T.t, fontWeight:filterDay ? 600 : 400,
               background:filterDay ? T.pA : T.card, outline:"none", textAlign:"center" }}
           />
         )}
+        {/* Paciente */}
+        <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
+          style={{ flex:1, minWidth:130, padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
+            borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
+            background:T.card, cursor:"pointer", outline:"none" }}>
+          <option value="">Todos los pacientes</option>
+          {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
+        </select>
       </div>
       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:12 }}>
         {filtered.length} registro{filtered.length !== 1 ? "s" : ""} · {fmtCur(totalPaid)} cobrado
