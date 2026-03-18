@@ -117,15 +117,16 @@ function GaugeChart({ value, max = 100, color, size = 110, label }) {
 // ── Stat card ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon:Icon, color, bg }) {
   return (
-    <Card style={{ padding:20 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-        <div style={{ width:40, height:40, borderRadius:11, background:bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <Icon size={18} color={color} strokeWidth={1.6}/>
-        </div>
+    <Card style={{ padding:"14px 12px" }}>
+      <div style={{ width:32, height:32, borderRadius:9, background:bg,
+        display:"flex", alignItems:"center", justifyContent:"center", marginBottom:8 }}>
+        <Icon size={15} color={color} strokeWidth={1.7}/>
       </div>
-      <div style={{ fontFamily:T.fH, fontSize:30, fontWeight:500, color:T.t, lineHeight:1 }}>{value}</div>
-      {sub && <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:4 }}>{sub}</div>}
-      <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginTop:6 }}>{label}</div>
+      <div style={{ fontFamily:T.fH, fontSize:24, fontWeight:500, color:T.t, lineHeight:1, marginBottom:3 }}>{value}</div>
+      {sub && <div style={{ fontFamily:T.fB, fontSize:10, color:T.tl, marginBottom:1 }}>{sub}</div>}
+      <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:600, color:T.tl,
+        letterSpacing:"0.04em", whiteSpace:"nowrap", overflow:"hidden",
+        textOverflow:"ellipsis" }}>{label}</div>
     </Card>
   );
 }
@@ -320,7 +321,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
         <StatCard label="Pacientes activos"    value={activoPatients}           icon={Users}      color={T.p}   bg={T.pA}   />
         <StatCard label="Sesiones este mes"    value={monthSess}                icon={FileText}   color={T.acc} bg={T.accA} />
         <StatCard label="Ingresos este mes"    value={fmtCur(monthIncome)}      icon={DollarSign} color={T.suc} bg={T.sucA} />
-        <StatCard label="Ingreso por sesión"   value={fmtCur(avgPerSession)}    icon={TrendingUp} color={T.p}   bg={T.pA}   sub="promedio histórico" />
+        <StatCard label="Por sesión"   value={fmtCur(avgPerSession)}    icon={TrendingUp} color={T.p}   bg={T.pA}   sub="promedio histórico" />
         <StatCard label="Por cobrar"           value={fmtCur(pendingAmount)}    icon={Activity}   color={T.war} bg={T.warA} />
         <StatCard label="Total sesiones"       value={sessions.length}          icon={Award}      color={T.acc} bg={T.accA} sub="histórico" />
       </div>
