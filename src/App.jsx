@@ -124,6 +124,7 @@ export default function App() {
   const [treatmentPlans,   setTreatmentPlans,   tpLoaded]  = useSupabaseStorage("pc_treatment_plans",   []);
   const [interSessions,    setInterSessions,    isLoaded]  = useSupabaseStorage("pc_inter_sessions",    []);
   const [medications,      setMedications,      medLoaded] = useSupabaseStorage("pc_medications",       []);
+  const [services,         setServices]                        = useSupabaseStorage("pc_services",           []);
 
   // Muestra la app en cuanto cargue el primer dato crítico (pacientes o perfil).
   // El resto llega en segundo plano sin bloquear el render.
@@ -283,6 +284,7 @@ export default function App() {
           googleUser={user}
           psychologist={psychologist}
           allData={allData}
+          services={services} setServices={setServices}
           onRestore={(data) => {
             if (data.patients)        setPatients(data.patients);
             if (data.appointments)    setAppointments(data.appointments);
