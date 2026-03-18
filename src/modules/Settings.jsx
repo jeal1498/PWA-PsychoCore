@@ -630,7 +630,10 @@ function HelpTab() {
 // ── Tab: Servicios ───────────────────────────────────────────────────────────
 function ServicesTab({ services, setServices }) {
   const uid = () => Math.random().toString(36).slice(2, 9);
-  const [form, setForm] = useState({ name: "", price: "", type: "sesion", sessions: "" });
+  const [form, setForm] = useState({
+    name: "", price: "", priceVirtual: "", type: "sesion",
+    sessions: "", modality: "presencial"
+  });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
   const SERVICE_TYPES = {
@@ -642,21 +645,34 @@ function ServicesTab({ services, setServices }) {
     otro:       { label: "Otro",                icon: "⚡" },
   };
 
+  const MODALITIES = [
+    { id: "presencial", label: "Presencial", icon: "🏢" },
+    { id: "virtual",    label: "Virtual",    icon: "💻" },
+    { id: "ambas",      label: "Ambas",      icon: "🔄" },
+  ];
+
+  const canAdd = form.name.trim() && form.price &&
+    (form.modality !== "ambas" || form.priceVirtual);
+
   const add = () => {
-    if (!form.name.trim() || !form.price) return;
+    if (!canAdd) return;
     setServices(prev => [...prev, {
       id: "svc" + uid(),
       name: form.name.trim(),
       price: Number(form.price),
+      priceVirtual: form.modality === "ambas" ? Number(form.priceVirtual) : null,
       type: form.type,
+      modality: form.modality,
       sessions: form.type === "paquete" ? Number(form.sessions) : null,
     }]);
-    setForm({ name: "", price: "", type: "sesion", sessions: "" });
+    setForm({ name: "", price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" });
   };
 
   const del = id => setServices(prev => prev.filter(s => s.id !== id));
-
   const fmtCur = n => "$" + Number(n).toLocaleString("es-MX");
+
+  const modalityLabel = { presencial: "Presencial", virtual: "Virtual", ambas: "Presencial y Virtual" };
+  const modalityIcon  = { presencial: "🏢", virtual: "💻", ambas: "🔄" };
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -685,10 +701,18 @@ function ServicesTab({ services, setServices }) {
                 <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tm }}>
                   {SERVICE_TYPES[svc.type]?.label}
                   {svc.sessions ? ` · ${svc.sessions} sesiones` : ""}
+                  {" · "}{modalityIcon[svc.modality] || "🏢"} {modalityLabel[svc.modality] || "Presencial"}
                 </div>
               </div>
-              <div style={{ fontFamily: T.fH, fontSize: 17, color: T.suc, fontWeight: 500, flexShrink: 0 }}>
-                {fmtCur(svc.price)}
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontFamily: T.fH, fontSize: 16, color: T.suc, fontWeight: 500 }}>
+                  {fmtCur(svc.price)}
+                </div>
+                {svc.priceVirtual && (
+                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.p }}>
+                    💻 {fmtCur(svc.priceVirtual)}
+                  </div>
+                )}
               </div>
               <button onClick={() => del(svc.id)}
                 style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 6 }}>
@@ -699,7 +723,7 @@ function ServicesTab({ services, setServices }) {
         </Card>
       )}
 
-      {/* Formulario agregar */}
+      {/* Formulario */}
       <Card style={{ padding: 20 }}>
         <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm,
           textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>
@@ -725,6 +749,25 @@ function ServicesTab({ services, setServices }) {
           </div>
         </div>
 
+        {/* Modalidad */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Modalidad</label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+            {MODALITIES.map(m => {
+              const on = form.modality === m.id;
+              return (
+                <button key={m.id} onClick={() => fld("modality")(m.id)}
+                  style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.acc : T.bdr}`,
+                    background: on ? T.accA : "transparent", fontFamily: T.fB, fontSize: 11,
+                    color: on ? T.acc : T.tm, fontWeight: on ? 700 : 400,
+                    cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
+                  {m.icon} {m.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Nombre */}
         <div style={{ marginBottom: 14 }}>
           <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Nombre del servicio</label>
@@ -735,38 +778,61 @@ function ServicesTab({ services, setServices }) {
               background: T.card, outline: "none", boxSizing: "border-box" }} />
         </div>
 
-        {/* Precio + sesiones (si paquete) */}
-        <div style={{ display: "grid", gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 18 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Precio (MXN)</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
-              <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
-                placeholder="900"
-                style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
-                  borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
-                  background: T.card, outline: "none" }} />
-            </div>
-          </div>
-          {form.type === "paquete" && (
+        {/* Precio(s) */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "grid",
+            gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr",
+            gap: 12, marginBottom: form.modality === "ambas" ? 10 : 0 }}>
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Número de sesiones</label>
-              <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
-                placeholder="4"
-                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
-                  borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
-                  background: T.card, outline: "none", boxSizing: "border-box" }} />
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
+                {form.modality === "ambas" ? "🏢 Precio presencial" : "Precio (MXN)"}
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
+                <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
+                  placeholder="900"
+                  style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                    background: T.card, outline: "none" }} />
+              </div>
+            </div>
+            {form.type === "paquete" && (
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Núm. sesiones</label>
+                <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
+                  placeholder="4"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                    background: T.card, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            )}
+          </div>
+
+          {/* Precio virtual — solo si modalidad = "ambas" */}
+          {form.modality === "ambas" && (
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>
+                💻 Precio virtual
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
+                <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
+                  placeholder="800"
+                  style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.p}40`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                    background: T.pA, outline: "none" }} />
+              </div>
             </div>
           )}
         </div>
 
-        <button onClick={add} disabled={!form.name.trim() || !form.price}
+        <button onClick={add} disabled={!canAdd}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             width: "100%", padding: "11px", borderRadius: 10, border: "none",
-            background: form.name.trim() && form.price ? T.p : T.bdrL,
-            color: form.name.trim() && form.price ? "#fff" : T.tl,
+            background: canAdd ? T.p : T.bdrL,
+            color: canAdd ? "#fff" : T.tl,
             fontFamily: T.fB, fontSize: 13.5, fontWeight: 600,
-            cursor: form.name.trim() && form.price ? "pointer" : "not-allowed",
+            cursor: canAdd ? "pointer" : "not-allowed",
             transition: "all .15s" }}>
           <Plus size={15} /> Agregar servicio
         </button>
