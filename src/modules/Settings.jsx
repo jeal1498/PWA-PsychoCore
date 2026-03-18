@@ -51,21 +51,19 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Input label="Nombre completo" value={form.name} onChange={fld("name")} placeholder="Dra. Ana López" style={{ marginBottom: 0 }} />
-          <Input label="Especialidad" value={form.specialty} onChange={fld("specialty")} placeholder="Psicóloga Clínica" style={{ marginBottom: 0 }} />
-        </div>
-        <div style={{ height: 16 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {/* Campos en una columna — sin truncado */}
+        <Input label="Nombre completo" value={form.name} onChange={fld("name")} placeholder="Dra. Ana López" />
+        <Input label="Especialidad" value={form.specialty} onChange={fld("specialty")} placeholder="Psicóloga Clínica" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <Input label="Cédula profesional" value={form.cedula} onChange={fld("cedula")} placeholder="XXXXXXX" style={{ marginBottom: 0 }} />
           <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-000-0000" style={{ marginBottom: 0 }} />
-          <Input label="RFC (para recibos)" value={form.rfc || ""} onChange={fld("rfc")} placeholder="LOAA800101XX0" style={{ marginBottom: 0 }} />
         </div>
-        <div style={{ height: 16 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Input label="Correo electrónico" value={form.email} onChange={fld("email")} placeholder="ana@consultorio.com" style={{ marginBottom: 0 }} />
-          <Input label="Nombre del consultorio" value={form.clinic} onChange={fld("clinic")} placeholder="Consultorio Integral" style={{ marginBottom: 0 }} />
+        <div style={{ marginBottom: 16 }}>
+          <Input label="RFC" value={form.rfc || ""} onChange={fld("rfc")} placeholder="LOAA800101XX0" style={{ marginBottom: 4 }} />
+          <div style={{ fontFamily: "var(--fB, sans-serif)", fontSize: 11, color: T.tl, paddingLeft: 2 }}>Se incluye en los recibos de pago generados</div>
         </div>
+        <Input label="Correo electrónico" value={form.email} onChange={fld("email")} placeholder="ana@consultorio.com" />
+        <Input label="Nombre del consultorio" value={form.clinic} onChange={fld("clinic")} placeholder="Consultorio Integral" />
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24, gap: 10, alignItems: "center" }}>
           {saved && (
