@@ -656,6 +656,7 @@ function ServicesTab({ services, setServices }) {
   ];
 
   const blankForm = { name: SERVICE_TYPES.sesion.desc, price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" };
+  const [selectedPkg, setSelectedPkg] = useState(null);
   const [form, setForm] = useState(blankForm);
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
@@ -734,25 +735,27 @@ function ServicesTab({ services, setServices }) {
                     {/* Precios por modalidad */}
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       {(svc.modality === "presencial" || svc.modality === "ambas") && (
-                        <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                          style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none",
-                            cursor: "pointer", fontFamily: T.fB, fontSize: 12, color: T.suc, fontWeight: 600, padding: 0 }}>
-                          🏢 {fmtCur(svc.price)} <span style={{ fontSize: 10, color: T.tl }}>✏️</span>
-                        </button>
+                        <span style={{ fontFamily: T.fB, fontSize: 12, color: T.suc, fontWeight: 600 }}>
+                          🏢 {fmtCur(svc.price)}
+                        </span>
                       )}
                       {(svc.modality === "virtual" || svc.modality === "ambas") && (
-                        <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                          style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none",
-                            cursor: "pointer", fontFamily: T.fB, fontSize: 12, color: T.p, fontWeight: 600, padding: 0 }}>
-                          💻 {fmtCur(svc.modality === "virtual" ? svc.price : (svc.priceVirtual || svc.price))} <span style={{ fontSize: 10, color: T.tl }}>✏️</span>
-                        </button>
+                        <span style={{ fontFamily: T.fB, fontSize: 12, color: T.p, fontWeight: 600 }}>
+                          💻 {fmtCur(svc.modality === "virtual" ? svc.price : (svc.priceVirtual || svc.price))}
+                        </span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => del(svc.id)}
-                    style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 4, flexShrink: 0 }}>
-                    <Trash2 size={14} />
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => del(svc.id)}
+                      style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 4 }}>
+                      <Trash2 size={14} />
+                    </button>
+                    <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
+                      style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 4, fontSize: 13 }}>
+                      ✏️
+                    </button>
+                  </div>
                 </div>
 
                 {/* Panel de edición de precio */}
@@ -882,30 +885,38 @@ function ServicesTab({ services, setServices }) {
               textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
               Paquetes sugeridos
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {SUGGESTED_PACKAGES.map(pkg => (
-                <button key={pkg.sessions} onClick={() => setForm(f => ({
-                    ...f, name: pkg.label, sessions: String(pkg.sessions), price: String(pkg.price)
-                  }))}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${T.bdr}`,
-                    background: T.card, cursor: "pointer", transition: "all .13s",
-                    fontFamily: T.fB, fontSize: 12, color: T.t, textAlign: "left" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.p; e.currentTarget.style.background = T.pA; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.bdr; e.currentTarget.style.background = T.card; }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{pkg.label}</div>
-                    <div style={{ fontSize: 11, color: T.tl }}>{pkg.desc}</div>
-                  </div>
-                  <div style={{ fontFamily: T.fH, fontSize: 15, color: T.suc, fontWeight: 500, flexShrink: 0 }}>
-                    {fmtCur(pkg.price)}
-                  </div>
-                </button>
-              ))}
+            {/* Grid de 3 columnas */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
+              {SUGGESTED_PACKAGES.map(pkg => {
+                const on = selectedPkg === pkg.sessions;
+                return (
+                  <button key={pkg.sessions} onClick={() => setSelectedPkg(on ? null : pkg.sessions)}
+                    style={{ padding: "10px 8px", borderRadius: 10, textAlign: "center",
+                      border: `2px solid ${on ? T.p : T.bdr}`,
+                      background: on ? T.pA : T.card,
+                      cursor: "pointer", transition: "all .13s" }}>
+                    <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700,
+                      color: on ? T.p : T.t, marginBottom: 2 }}>{pkg.label}</div>
+                    <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl,
+                      marginBottom: 6 }}>{pkg.sessions} ses · {pkg.sessions === 4 ? "10%" : pkg.sessions === 8 ? "15%" : "20%"} dto</div>
+                    <div style={{ fontFamily: T.fH, fontSize: 14, color: T.suc,
+                      fontWeight: 600 }}>{fmtCur(pkg.price)}</div>
+                  </button>
+                );
+              })}
             </div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 8 }}>
-              Tap para usar como base · puedes editar todos los campos
-            </div>
+            <button
+              onClick={() => {
+                const pkg = SUGGESTED_PACKAGES.find(p => p.sessions === selectedPkg);
+                if (pkg) { setForm(f => ({ ...f, name: pkg.label, sessions: String(pkg.sessions), price: String(pkg.price) })); setSelectedPkg(null); }
+              }}
+              disabled={!selectedPkg}
+              style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none",
+                background: selectedPkg ? T.p : T.bdrL, color: selectedPkg ? "#fff" : T.tl,
+                fontFamily: T.fB, fontSize: 13, fontWeight: 600,
+                cursor: selectedPkg ? "pointer" : "not-allowed", transition: "all .15s" }}>
+              Confirmar selección
+            </button>
           </div>
         )}
 
