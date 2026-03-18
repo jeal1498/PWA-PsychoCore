@@ -495,38 +495,27 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
 
       </div>
 
-      {/* Barra de acciones al fondo */}
-      <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", background: T.cardAlt, marginTop: 12 }}>
-        <button onClick={() => setExpanded(e => !e)}
-          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            padding: "9px 4px", background: "none", border: "none",
-            borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
-            fontFamily: T.fB, fontSize: 11, color: T.tm }}>
-          {expanded ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
-          {expanded ? "Contraer" : "Expandir"}
-        </button>
-        <button onClick={() => printAssessmentRecord(a, patient, profile)}
-          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            padding: "9px 4px", background: "none", border: "none",
-            borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
-            fontFamily: T.fB, fontSize: 11, color: T.tm }}>
-          <Printer size={13}/> PDF
-        </button>
-        {a.safetyPlan && Object.values(a.safetyPlan).some(v => v) && (
-          <button onClick={() => printSafetyPlan(a, patient, profile)}
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-              padding: "9px 4px", background: "none", border: "none",
+      {/* Barra de acciones */}
+      <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
+        {[
+          { label: expanded ? "Contraer" : "Expandir", icon: expanded ? ChevronUp : ChevronDown, onClick: () => setExpanded(e => !e), color: T.tm },
+          { label: "PDF",      icon: Printer, onClick: () => printAssessmentRecord(a, patient, profile), color: T.tm },
+          ...(a.safetyPlan && Object.values(a.safetyPlan).some(v => v)
+            ? [{ label: "Plan seg.", icon: Shield, onClick: () => printSafetyPlan(a, patient, profile), color: T.p }]
+            : []),
+          { label: "Eliminar", icon: Trash2,  onClick: () => onDelete(a.id), color: T.err },
+        ].map(b => (
+          <button key={b.label} onClick={b.onClick}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 5, padding: "9px 4px", background: "none", border: "none",
               borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
-              fontFamily: T.fB, fontSize: 11, color: T.p }}>
-            <Shield size={13}/> Plan
+              fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: b.color,
+              transition: "background .13s" }}
+            onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+            onMouseLeave={e => e.currentTarget.style.background = "none"}>
+            <b.icon size={13}/>{b.label}
           </button>
-        )}
-        <button onClick={() => onDelete(a.id)}
-          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            padding: "9px 4px", background: "none", border: "none",
-            cursor: "pointer", fontFamily: T.fB, fontSize: 11, color: T.err }}>
-          <Trash2 size={13}/> Eliminar
-        </button>
+        ))}
       </div>
     </Card>
   );
