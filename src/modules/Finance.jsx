@@ -153,9 +153,11 @@ async function shareRecibo(payment, patient, profile) {
   const CARD_W = (W - PAD * 2 - CARD_GAP) / 2;
   const HEADER_H = 152;
 
+  const SCALE = 2; // 2x para alta resolución
   const canvas = document.createElement("canvas");
-  canvas.width = W; canvas.height = H;
+  canvas.width = W * SCALE; canvas.height = H * SCALE;
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
 
   // ── Fondo blanco ──
   ctx.fillStyle = "#FFFFFF";
