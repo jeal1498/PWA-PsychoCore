@@ -25,8 +25,7 @@ function nextFolio(payments) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF: RECIBO DE PAGO
 // ─────────────────────────────────────────────────────────────────────────────
-function printRecibo(payment, patient, profile) {
-  const w     = window.open("", "_blank");
+function buildReciboHtml(payment, patient, profile) {
   const today = new Date(payment.date + "T12:00").toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
   });
@@ -34,7 +33,7 @@ function printRecibo(payment, patient, profile) {
   const amount = Number(payment.amount);
   const amountFmt = amount.toLocaleString("es-MX", { minimumFractionDigits: 2 });
 
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Recibo ${folio} — ${patient?.name}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -134,6 +133,30 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
   <span>Folio ${folio} · Documento confidencial</span>
 </footer>
 </body></html>`);
+;
+}
+
+async function shareRecibo(payment, patient, profile) {
+  const html  = buildReciboHtml(payment, patient, profile);
+  const folio = payment.folio || "recibo";
+  const fname = `Recibo_${folio}_${(patient?.name||"paciente").split(" ")[0]}.html`;
+
+  // Web Share API con archivo — funciona en Android Chrome
+  if (navigator.canShare) {
+    const blob = new Blob([html], { type: "text/html" });
+    const file = new File([blob], fname, { type: "text/html" });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: `Recibo ${folio}` });
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return; // usuario canceló
+      }
+    }
+  }
+  // Fallback: abrir en nueva ventana y print
+  const w = window.open("", "_blank");
+  w.document.write(html);
   w.document.close();
   setTimeout(() => w.print(), 600);
 }
@@ -258,7 +281,7 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.method}</span>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
           <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
-          <button onClick={() => printRecibo(p, patient, profile)} title="Generar recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"4px 6px", cursor:"pointer", color:T.p }}>
+          <button onClick={() => shareRecibo(p, patient, profile)} title="Generar recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"4px 6px", cursor:"pointer", color:T.p }}>
             <Printer size={12}/>
           </button>
           <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", padding:"4px 2px" }}><Trash2 size={13}/></button>
@@ -473,44 +496,16 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             )}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {(() => {
+            <button onClick={() => {
               const patient = patients.find(pt => pt.id === savedPayment.patientId);
-              const phone   = patient?.phone?.replace(/\D/g, "");
-              const nombre  = patient?.name?.split(" ")[0] || "paciente";
-              const doctor  = profile?.name || "Tu especialista";
-              const especialidad = profile?.specialty || "";
-              const folio   = savedPayment.folio || "—";
-              const monto   = Number(savedPayment.status === "parcial"
-                ? savedPayment.amountPaid || 0
-                : savedPayment.amount).toLocaleString("es-MX", { minimumFractionDigits:2 });
-              const estado  = savedPayment.status === "pagado" ? "✅ Pagado"
-                            : savedPayment.status === "parcial" ? "🔶 Pago parcial"
-                            : "⏳ Pendiente";
-              const saldo   = savedPayment.status === "parcial"
-                ? `\n💳 Saldo pendiente: $${Math.max(0, Number(savedPayment.amount) - Number(savedPayment.amountPaid||0)).toLocaleString("es-MX",{minimumFractionDigits:2})} MXN`
-                : "";
-              const msg = encodeURIComponent(
-                `Hola ${nombre} 👋\n\nTe comparto el resumen de tu pago:\n\n📋 Folio: ${folio}\n💰 Monto: $${monto} MXN\n📅 Fecha: ${fmtDate(savedPayment.date)}\n🏥 Concepto: ${savedPayment.concept}\n${estado}${saldo}\n\n— ${doctor}${especialidad ? ", " + especialidad : ""}`
-              );
-              const waUrl = phone ? `https://wa.me/52${phone}?text=${msg}` : null;
-              return (
-                <a href={waUrl || "#"}
-                  target={waUrl ? "_blank" : undefined}
-                  rel="noreferrer"
-                  onClick={!waUrl ? e => e.preventDefault() : undefined}
-                  style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                    padding:"11px", borderRadius:10,
-                    border:`1.5px solid ${waUrl ? "#25D366" : T.bdr}`,
-                    background:waUrl ? "#25D36618" : T.bdrL,
-                    fontFamily:T.fB, fontSize:13, fontWeight:600,
-                    color:waUrl ? "#25D366" : T.tl,
-                    cursor:waUrl ? "pointer" : "not-allowed",
-                    textDecoration:"none",
-                    opacity:waUrl ? 1 : 0.5 }}>
-                  <MessageCircle size={14}/> Compartir recibo
-                </a>
-              );
-            })()}
+              shareRecibo(savedPayment, patient, profile);
+            }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                padding:"11px", borderRadius:10, border:`1.5px solid ${T.p}`,
+                background:T.pA, fontFamily:T.fB, fontSize:13, fontWeight:600,
+                color:T.p, cursor:"pointer" }}>
+              <Share2 size={14}/> Compartir
+            </button>
             <button onClick={() => setSavedPayment(null)}
               style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
                 background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
