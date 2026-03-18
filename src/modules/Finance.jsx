@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Download, FileText, MessageCircle } from "lucide-react";
+import { DollarSign, Trash2, TrendingUp, AlertCircle, CheckCircle, Check, Plus, Printer, Share2, MessageCircle } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
@@ -543,126 +543,45 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             )}
           </div>
 
-          {/* Estado — 3 opciones */}
-          <div style={{ marginBottom:16 }}>
-            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
-              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Estado</label>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-              {[
-                { v:"pagado",   label:"Pagado",   icon:<CheckCircle size={13}/>, c:T.suc, bg:T.sucA },
-                { v:"parcial",  label:"Parcial",  icon:<AlertCircle size={13}/>, c:"#B8900A", bg:"rgba(184,144,10,0.1)" },
-                { v:"pendiente",label:"Pendiente",icon:<AlertCircle size={13}/>, c:T.war, bg:T.warA },
-              ].map(({v,label,icon,c,bg}) => {
-                const on = editPayment.status === v;
-                return (
-                  <button key={v} onClick={() => setEditPayment(ep => ({...ep, status:v, amountPaid: v==="parcial" ? (ep.amountPaid||"") : undefined}))}
-                    style={{ padding:"10px 6px", borderRadius:10, border:`2px solid ${on?c:T.bdr}`,
-                      background:on?bg:"transparent", fontFamily:T.fB, fontSize:12.5,
-                      fontWeight:on?700:400, color:on?c:T.tm, cursor:"pointer",
-                      transition:"all .13s", display:"flex", flexDirection:"column",
-                      alignItems:"center", gap:4 }}>
-                    <span style={{ color:on?c:T.tl }}>{icon}</span>
-                    {label}
-                  </button>
-                );
-              })}
+          {/* Info — solo lectura */}
+          {[
+            { label:"Estado",  value: editPayment.status === "parcial"
+                ? `Parcial · $${Number(editPayment.amountPaid||0).toLocaleString("es-MX")} pagado · $${Math.max(0,Number(editPayment.amount)-Number(editPayment.amountPaid||0)).toLocaleString("es-MX")} pendiente`
+                : editPayment.status,
+              color: editPayment.status==="pagado" ? T.suc : editPayment.status==="parcial" ? "#B8900A" : T.war },
+            { label:"Método",  value: editPayment.method,  color: T.t },
+            { label:"Concepto",value: editPayment.concept, color: T.t },
+          ].map(row => (
+            <div key={row.label} style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", padding:"11px 0", borderBottom:`1px solid ${T.bdrL}` }}>
+              <span style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.tl,
+                textTransform:"uppercase", letterSpacing:"0.06em" }}>{row.label}</span>
+              <span style={{ fontFamily:T.fB, fontSize:13, fontWeight:500, color:row.color,
+                textAlign:"right", maxWidth:"60%" }}>{row.value}</span>
             </div>
-            {/* Campo monto pagado si es parcial */}
-            {editPayment.status === "parcial" && (
-              <div style={{ marginTop:12, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8,
-                padding:"12px 14px", background:"rgba(184,144,10,0.06)", borderRadius:10,
-                border:"1px solid rgba(184,144,10,0.2)" }}>
-                <div>
-                  <label style={{ display:"block", fontSize:10, fontWeight:700, color:"#B8900A",
-                    textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
-                    Monto pagado
-                  </label>
-                  <input
-                    type="number"
-                    value={editPayment.amountPaid || ""}
-                    onChange={e => setEditPayment(ep => ({...ep, amountPaid: e.target.value}))}
-                    placeholder="0"
-                    style={{ width:"100%", padding:"8px 10px", border:`1.5px solid rgba(184,144,10,0.3)`,
-                      borderRadius:8, fontFamily:T.fB, fontSize:14, color:T.t,
-                      background:T.card, outline:"none", boxSizing:"border-box" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display:"block", fontSize:10, fontWeight:700, color:T.tl,
-                    textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
-                    Saldo pendiente
-                  </label>
-                  <div style={{ padding:"8px 10px", fontFamily:T.fB, fontSize:14,
-                    fontWeight:600, color:T.err }}>
-                    {fmtCur(Math.max(0, Number(editPayment.amount) - Number(editPayment.amountPaid||0)))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          ))}
 
-          {/* Método */}
-          <div style={{ marginBottom:16 }}>
-            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
-              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Método de pago</label>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-              {["Transferencia","Efectivo","Tarjeta","Otro"].map(m => {
-                const on = editPayment.method === m;
-                return (
-                  <button key={m} onClick={() => setEditPayment(ep => ({...ep, method:m}))}
-                    style={{ padding:"8px 12px", borderRadius:9, border:`1.5px solid ${on?T.p:T.bdr}`,
-                      background:on?T.pA:"transparent", fontFamily:T.fB, fontSize:13,
-                      fontWeight:on?600:400, color:on?T.p:T.tm, cursor:"pointer", transition:"all .13s",
-                      textAlign:"center" }}>
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Concepto */}
-          <div style={{ marginBottom:20 }}>
-            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
-              textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Concepto</label>
-            <input
-              value={editPayment.concept || ""}
-              onChange={e => setEditPayment(ep => ({...ep, concept:e.target.value}))}
-              style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
-                borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
-                background:T.card, outline:"none", boxSizing:"border-box" }}
-            />
-          </div>
-
-          {/* Acciones — Cancelar · Guardar */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <button onClick={() => setEditPayment(null)}
-              style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
-                background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
-                cursor:"pointer", fontWeight:500 }}>
-              Cancelar
+          {/* Acciones — Eliminar · Compartir */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:20 }}>
+            <button onClick={() => { del(editPayment.id); setEditPayment(null); }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                padding:"11px", borderRadius:10, border:`1.5px solid ${T.errA}`,
+                background:"transparent", fontFamily:T.fB, fontSize:13,
+                fontWeight:600, color:T.err, cursor:"pointer" }}>
+              <Trash2 size={14}/> Eliminar
             </button>
-            <button onClick={() => updatePayment(editPayment)}
+            <button onClick={() => {
+              const patient = patients.find(pt => pt.id === editPayment.patientId);
+              shareRecibo(editPayment, patient, profile);
+            }}
               style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                 padding:"11px", borderRadius:10, border:"none",
                 background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13,
                 fontWeight:600, cursor:"pointer" }}>
-              <Check size={14}/> Guardar
+              <Share2 size={14}/> Compartir
             </button>
           </div>
 
-          {/* Eliminar */}
-          <div style={{ marginTop:16, paddingTop:14, borderTop:`1px dashed ${T.bdrL}` }}>
-            <button onClick={() => { del(editPayment.id); setEditPayment(null); }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                width:"100%", padding:"7px", borderRadius:9, border:`1px solid ${T.errA}`,
-                background:"transparent", color:T.err, fontFamily:T.fB, fontSize:11.5,
-                fontWeight:600, cursor:"pointer", opacity:0.5, transition:"all .15s" }}
-              onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity="0.5"; e.currentTarget.style.background="transparent"; }}>
-              <Trash2 size={12}/> Eliminar pago
-            </button>
-          </div>
         </Modal>
       )}
     </div>
