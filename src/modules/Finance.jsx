@@ -183,6 +183,7 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   }, [autoOpen]);
   const [filterPt,     setFilterPt]     = useState("");
   const [editPayment,  setEditPayment]  = useState(null); // pago abierto en popup
+  const [savedPayment, setSavedPayment] = useState(null); // confirmación tras guardar
   const [filterStatus, setFilterStatus] = useState(""); // "" | "pagado" | "pendiente"
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
@@ -224,6 +225,7 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const updatePayment = (updated) => {
     setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
     setEditPayment(null);
+    setSavedPayment(updated); // mostrar confirmación con PDF
   };
   const toggle = id => setPayments(prev => prev.map(p => p.id===id ? {...p, status:p.status==="pagado"?"pendiente":"pagado"} : p));
 
@@ -395,6 +397,50 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
       </Modal>
 
       {/* ── Edit payment modal ─────────────────────────────────────────── */}
+      {/* ── Modal de confirmación ─────────────────────────────────────── */}
+      {savedPayment && (
+        <Modal open={!!savedPayment} onClose={() => setSavedPayment(null)} title="Pago guardado" width={400}>
+          <div style={{ textAlign:"center", padding:"8px 0 20px" }}>
+            <div style={{ width:56, height:56, borderRadius:"50%", background:T.sucA,
+              display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+              <CheckCircle size={26} color={T.suc} strokeWidth={1.5}/>
+            </div>
+            <div style={{ fontFamily:T.fH, fontSize:22, color:T.t, marginBottom:4 }}>
+              {savedPayment.patientName?.split(" ").slice(0,2).join(" ")}
+            </div>
+            <div style={{ fontFamily:T.fH, fontSize:32, fontWeight:500, color:T.suc, marginBottom:4 }}>
+              {fmtCur(savedPayment.amount)}
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:4 }}>
+              {fmtDate(savedPayment.date)}
+            </div>
+            {savedPayment.folio && (
+              <div style={{ fontFamily:"monospace", fontSize:11, color:T.p, fontWeight:700 }}>
+                {savedPayment.folio}
+              </div>
+            )}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <button onClick={() => {
+              const patient = patients.find(pt => pt.id === savedPayment.patientId);
+              printRecibo(savedPayment, patient, profile);
+            }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                padding:"11px", borderRadius:10, border:`1.5px solid ${T.p}`,
+                background:T.pA, fontFamily:T.fB, fontSize:13, fontWeight:600,
+                color:T.p, cursor:"pointer" }}>
+              <Printer size={14}/> Generar recibo
+            </button>
+            <button onClick={() => setSavedPayment(null)}
+              style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
+                background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
+                cursor:"pointer" }}>
+              Cerrar
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {editPayment && (
         <Modal open={!!editPayment} onClose={() => setEditPayment(null)}
           title={`Pago — ${editPayment.patientName?.split(" ").slice(0,2).join(" ")}`}
@@ -513,29 +559,17 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             />
           </div>
 
-          {/* Acciones — 3 botones del mismo ancho */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-            <button onClick={() => {
-              const patient = patients.find(pt => pt.id === editPayment.patientId);
-              printRecibo(editPayment, patient, profile);
-            }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                padding:"10px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
-                background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
-                cursor:"pointer", transition:"all .13s" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
-              <Printer size={14}/> PDF
-            </button>
+          {/* Acciones — Cancelar · Guardar */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             <button onClick={() => setEditPayment(null)}
-              style={{ padding:"10px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
+              style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
                 background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
                 cursor:"pointer", fontWeight:500 }}>
               Cancelar
             </button>
             <button onClick={() => updatePayment(editPayment)}
               style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                padding:"10px", borderRadius:10, border:"none",
+                padding:"11px", borderRadius:10, border:"none",
                 background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13,
                 fontWeight:600, cursor:"pointer" }}>
               <Check size={14}/> Guardar
