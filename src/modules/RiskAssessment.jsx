@@ -291,7 +291,7 @@ function AssessmentForm({ patients, onSave, onClose }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Fecha" value={form.date} onChange={v => set("date", v)} type="date"/>
             <Select label="Tipo de evaluación" value={form.evaluatedBy} onChange={v => set("evaluatedBy", v)}
-              options={[{ value: "intake", label: "Evaluación inicial" }, { value: "session", label: "Durante sesión" }, { value: "crisis", label: "Intervención en crisis" }]}/>
+              options={[{ value: "intake", label: "Evaluación inicial" }, { value: "session", label: "Sesión" }, { value: "crisis", label: "Intervención en crisis" }]}/>
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>Intentos previos de suicidio</label>
@@ -444,7 +444,9 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
             <span style={{ fontSize: 11, color: T.tl }}>·</span>
             <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{fmtDate(a.date)}</span>
             <span style={{ fontSize: 11, color: T.tl }}>·</span>
-            <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, textTransform: "capitalize" }}>{a.evaluatedBy}</span>
+            <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
+              {{ session: "Sesión", intake: "Evaluación inicial", crisis: "Crisis" }[a.evaluatedBy] || a.evaluatedBy}
+            </span>
             <RiskBadge level={a.riskLevel}/>
           </div>
 
@@ -491,22 +493,40 @@ function AssessmentCard({ a, patient, profile, onDelete }) {
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
-          <button onClick={() => setExpanded(e => !e)} title={expanded ? "Contraer" : "Expandir"} style={{ background: T.bdrL, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: T.tm }}>
-            {expanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+      </div>
+
+      {/* Barra de acciones al fondo */}
+      <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", background: T.cardAlt, marginTop: 12 }}>
+        <button onClick={() => setExpanded(e => !e)}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+            padding: "9px 4px", background: "none", border: "none",
+            borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
+            fontFamily: T.fB, fontSize: 11, color: T.tm }}>
+          {expanded ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+          {expanded ? "Contraer" : "Expandir"}
+        </button>
+        <button onClick={() => printAssessmentRecord(a, patient, profile)}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+            padding: "9px 4px", background: "none", border: "none",
+            borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
+            fontFamily: T.fB, fontSize: 11, color: T.tm }}>
+          <Printer size={13}/> PDF
+        </button>
+        {a.safetyPlan && Object.values(a.safetyPlan).some(v => v) && (
+          <button onClick={() => printSafetyPlan(a, patient, profile)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+              padding: "9px 4px", background: "none", border: "none",
+              borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
+              fontFamily: T.fB, fontSize: 11, color: T.p }}>
+            <Shield size={13}/> Plan
           </button>
-          <button onClick={() => printAssessmentRecord(a, patient, profile)} title="Exportar evaluación" style={{ background: T.bdrL, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: T.tm }}>
-            <Printer size={14}/>
-          </button>
-          {a.safetyPlan && Object.values(a.safetyPlan).some(v => v) && (
-            <button onClick={() => printSafetyPlan(a, patient, profile)} title="Imprimir plan de seguridad" style={{ background: T.pA, border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: T.p }}>
-              <Shield size={14}/>
-            </button>
-          )}
-          <button onClick={() => onDelete(a.id)} style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 8 }}>
-            <Trash2 size={14}/>
-          </button>
-        </div>
+        )}
+        <button onClick={() => onDelete(a.id)}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+            padding: "9px 4px", background: "none", border: "none",
+            cursor: "pointer", fontFamily: T.fB, fontSize: 11, color: T.err }}>
+          <Trash2 size={13}/> Eliminar
+        </button>
       </div>
     </Card>
   );
@@ -552,20 +572,32 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
   return (
     <div>
       <PageHeader
-        title="Evaluación de Riesgo"
+        title="Riesgo"
         subtitle={`${riskAssessments.length} evaluación${riskAssessments.length !== 1 ? "es" : ""} registrada${riskAssessments.length !== 1 ? "s" : ""}${alertCount > 0 ? ` · ${alertCount} en nivel alto/inminente` : ""}`}
         action={<Btn onClick={() => setShowForm(true)}><Plus size={15}/> Nueva evaluación</Btn>}
       />
 
-      {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))", gap: 12, marginBottom: 28 }}>
-        {Object.entries(RISK_CONFIG).map(([k, rc]) => (
-          <Card key={k} style={{ padding: 16, cursor: "pointer", border: filterLevel === k ? `2px solid ${rc.color}` : `1px solid ${T.bdrL}` }}
-            onClick={() => setFilterLevel(prev => prev === k ? "todos" : k)}>
-            <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: rc.color, marginBottom: 2 }}>{byLevel[k] || 0}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 600, color: T.tm, textTransform: "uppercase", letterSpacing: "0.06em" }}>{rc.label}</div>
-          </Card>
-        ))}
+      {/* Summary cards — fila de 4 tapeables */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
+        {Object.entries(RISK_CONFIG).map(([k, rc]) => {
+          const active = filterLevel === k;
+          const count  = byLevel[k] || 0;
+          return (
+            <button key={k}
+              onClick={() => setFilterLevel(prev => prev === k ? "todos" : k)}
+              style={{ padding: "12px 8px", borderRadius: 14, textAlign: "center", cursor: "pointer",
+                background: active ? rc.bg : T.card,
+                border: `2px solid ${active ? rc.color+"60" : T.bdrL}`,
+                boxShadow: active ? `0 0 0 3px ${rc.color}15` : T.sh,
+                transition: "all .13s" }}>
+              <div style={{ fontFamily: T.fH, fontSize: 24, fontWeight: 500,
+                color: active ? rc.color : T.t, lineHeight: 1, marginBottom: 4 }}>{count}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 9, fontWeight: 700,
+                color: active ? rc.color : T.tl,
+                textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{rc.label}</div>
+            </button>
+          );
+        })}
       </div>
 
       <Tabs
