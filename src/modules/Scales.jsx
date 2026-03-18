@@ -1015,26 +1015,56 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
   };
 
   const del = (id) => setScaleResults(prev => prev.filter(r => r.id !== id));
+  const [showAllScales, setShowAllScales] = useState(false);
 
   return (
     <div>
       <PageHeader
         title="Escalas Psicométricas"
-        subtitle={`${scaleResults.length} aplicación${scaleResults.length !== 1 ? "es" : ""} registrada${scaleResults.length !== 1 ? "s" : ""}`}
+        subtitle={`${scaleResults.length} ${scaleResults.length !== 1 ? "aplicaciones" : "aplicación"} registrada${scaleResults.length !== 1 ? "s" : ""}`}
         action={<Btn onClick={() => setShowForm(true)}><Plus size={15}/> Aplicar escala</Btn>}
       />
 
-      {/* Scale summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 12, marginBottom: 28 }}>
-        {Object.values(SCALES).map(scale => (
-          <Card key={scale.id} style={{ padding: 16, cursor: "pointer", border: filterScale === scale.id ? `2px solid ${scale.color}` : `1px solid ${T.bdrL}` }}
-            onClick={() => setFilterScale(prev => prev === scale.id ? "todos" : scale.id)}>
-            <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: scale.color, marginBottom: 2 }}>{countByScale[scale.id] || 0}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: scale.color }}>{scale.name}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{scale.domain}</div>
-          </Card>
-        ))}
-      </div>
+      {/* Scale summary cards — compactas, ocultar las de 0 */}
+      {(() => {
+        const withData    = Object.values(SCALES).filter(s => (countByScale[s.id] || 0) > 0);
+        const withoutData = Object.values(SCALES).filter(s => (countByScale[s.id] || 0) === 0);
+        const showAll = showAllScales; const setShowAll = setShowAllScales;
+        const visible = showAll ? Object.values(SCALES) : (withData.length > 0 ? withData : Object.values(SCALES));
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px,1fr))", gap: 8 }}>
+              {visible.map(scale => {
+                const count  = countByScale[scale.id] || 0;
+                const active = filterScale === scale.id;
+                return (
+                  <button key={scale.id}
+                    onClick={() => setFilterScale(prev => prev === scale.id ? "todos" : scale.id)}
+                    style={{ padding: "10px 8px", borderRadius: 12, textAlign: "center", cursor: "pointer",
+                      background: active ? scale.bg || T.pA : T.card,
+                      border: `2px solid ${active ? scale.color : T.bdrL}`,
+                      transition: "all .13s" }}>
+                    <div style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500,
+                      color: active ? scale.color : (count > 0 ? scale.color : T.tl), lineHeight: 1, marginBottom: 3 }}>{count}</div>
+                    <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700,
+                      color: active ? scale.color : (count > 0 ? scale.color : T.tl), whiteSpace: "nowrap" }}>{scale.name}</div>
+                    <div style={{ fontFamily: T.fB, fontSize: 9, color: T.tl, marginTop: 1,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scale.domain}</div>
+                  </button>
+                );
+              })}
+            </div>
+            {withoutData.length > 0 && (
+              <button onClick={() => setShowAll(s => !s)}
+                style={{ marginTop: 8, padding: "5px 12px", borderRadius: 9999,
+                  border: `1px solid ${T.bdrL}`, background: "transparent",
+                  fontFamily: T.fB, fontSize: 11, color: T.tl, cursor: "pointer" }}>
+                {showAll ? "Ocultar sin datos" : `+ ${withoutData.length} escalas sin aplicaciones`}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       <Tabs
         tabs={[{ id: "results", label: "Resultados" }, { id: "patients", label: "Por paciente" }]}
