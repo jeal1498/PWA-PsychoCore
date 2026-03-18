@@ -358,18 +358,19 @@ function AssessmentForm({ patients, onSave, onClose }) {
 
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Factores protectores</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {PROTECTIVE_FACTORS.map(f => {
                 const selected = form.protectiveFactors.includes(f);
                 return (
                   <button key={f} onClick={() => toggleFactor(f)}
-                    style={{ padding: "8px 12px", borderRadius: 9, textAlign: "left",
+                    style={{ padding: "6px 12px", borderRadius: 9999, textAlign: "center",
                       border: `1.5px solid ${selected ? T.suc : T.bdr}`,
                       background: selected ? T.sucA : T.card,
                       color: selected ? T.suc : T.tm,
                       fontFamily: T.fB, fontSize: 12, fontWeight: selected ? 700 : 400,
                       cursor: "pointer", transition: "all .15s",
-                      display: "flex", alignItems: "center", gap: 5 }}>
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      whiteSpace: "nowrap" }}>
                     {selected && <Check size={10} strokeWidth={2.5}/>}{f}
                   </button>
                 );
