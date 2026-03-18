@@ -339,40 +339,49 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
         })}
       </div>
 
-      {/* Filtros — año · mes · día · paciente */}
-      <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center", flexWrap:"wrap" }}>
-        {/* Año */}
-        <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(""); setFilterDay(""); }}
-          style={{ padding:"9px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
-            fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
-          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-        {/* Mes */}
-        <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDay(""); }}
-          style={{ padding:"9px 10px", border:`1.5px solid ${filterMonth ? T.p : T.bdr}`,
-            borderRadius:10, fontFamily:T.fB, fontSize:13,
-            color:filterMonth ? T.p : T.t, fontWeight:filterMonth ? 600 : 400,
-            background:filterMonth ? T.pA : T.card, cursor:"pointer", outline:"none" }}>
-          <option value="">Todo el año</option>
-          {MONTHS_LIST.map((m,i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
-        </select>
-        {/* Día — solo si hay mes */}
-        {filterMonth && (
-          <input type="number" min="1" max="31"
-            value={filterDay}
-            onChange={e => setFilterDay(e.target.value)}
-            placeholder="Día"
-            style={{ width:60, padding:"9px 8px", border:`1.5px solid ${filterDay ? T.p : T.bdr}`,
+      {/* Filtros — fecha centrada + paciente abajo */}
+      <div style={{ marginBottom:8 }}>
+        {/* Fila 1: año · mes · día — centrados */}
+        <div style={{ display:"flex", gap:8, justifyContent:"center", marginBottom:8 }}>
+          {/* Año */}
+          <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(""); setFilterDay(""); }}
+            style={{ padding:"9px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+              fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, cursor:"pointer", outline:"none" }}>
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          {/* Mes */}
+          <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDay(""); }}
+            style={{ padding:"9px 10px", border:`1.5px solid ${filterMonth ? T.p : T.bdr}`,
               borderRadius:10, fontFamily:T.fB, fontSize:13,
-              color:filterDay ? T.p : T.t, fontWeight:filterDay ? 600 : 400,
-              background:filterDay ? T.pA : T.card, outline:"none", textAlign:"center" }}
-          />
-        )}
-        {/* Paciente */}
+              color:filterMonth ? T.p : T.t, fontWeight:filterMonth ? 600 : 400,
+              background:filterMonth ? T.pA : T.card, cursor:"pointer", outline:"none" }}>
+            <option value="">Todo el año</option>
+            {MONTHS_LIST.map((m,i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
+          </select>
+          {/* Día — select con días del mes */}
+          <select value={filterDay} onChange={e => setFilterDay(e.target.value)}
+            disabled={!filterMonth}
+            style={{ padding:"9px 10px", border:`1.5px solid ${filterDay ? T.p : T.bdr}`,
+              borderRadius:10, fontFamily:T.fB, fontSize:13,
+              color:filterDay ? T.p : (filterMonth ? T.t : T.tl),
+              fontWeight:filterDay ? 600 : 400,
+              background:filterDay ? T.pA : T.card,
+              cursor:filterMonth ? "pointer" : "not-allowed",
+              outline:"none", opacity:filterMonth ? 1 : 0.5 }}>
+            <option value="">Día</option>
+            {filterMonth && Array.from(
+              { length: new Date(Number(filterYear), Number(filterMonth), 0).getDate() },
+              (_, i) => i + 1
+            ).map(d => (
+              <option key={d} value={String(d)}>{d}</option>
+            ))}
+          </select>
+        </div>
+        {/* Fila 2: paciente — ancho completo */}
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
-          style={{ flex:1, minWidth:130, padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
+          style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
             borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
-            background:T.card, cursor:"pointer", outline:"none" }}>
+            background:T.card, cursor:"pointer", outline:"none", boxSizing:"border-box" }}>
           <option value="">Todos los pacientes</option>
           {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
         </select>
