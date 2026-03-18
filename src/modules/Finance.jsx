@@ -186,16 +186,30 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const [editPayment,  setEditPayment]  = useState(null); // pago abierto en popup
   const [savedPayment, setSavedPayment] = useState(null); // confirmación tras guardar
   const [filterStatus, setFilterStatus] = useState(""); // "" | "pagado" | "pendiente"
-  const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
+  // filterPeriod: "YYYY-MM" para mes específico, "YYYY" para año completo
+  const now = new Date();
+  const [filterPeriod, setFilterPeriod] = useState(
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`
+  );
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
-  // Available years derived from data + current
-  const years = useMemo(() => {
+  // Opciones de período: año completo + meses por año
+  const periodOptions = useMemo(() => {
     const ys = new Set([String(new Date().getFullYear())]);
     payments.forEach(p => { if (p.date) ys.add(p.date.slice(0, 4)); });
-    return [...ys].sort().reverse();
+    const years = [...ys].sort().reverse();
+    const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const opts = [];
+    years.forEach(y => {
+      opts.push({ value: y, label: `Todo ${y}` });
+      for (let m = 1; m <= 12; m++) {
+        const val = `${y}-${String(m).padStart(2,"0")}`;
+        opts.push({ value: val, label: `${MONTHS[m-1]} ${y}` });
+      }
+    });
+    return opts;
   }, [payments]);
 
   const filtered = useMemo(() =>
@@ -203,12 +217,13 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
       .filter(p =>
         (!filterPt     || p.patientId === filterPt) &&
         (!filterStatus || p.status    === filterStatus) &&
-        p.date.startsWith(filterYear)
+        p.date.startsWith(filterPeriod)
       )
       .sort((a,b) => b.date.localeCompare(a.date)),
-    [payments, filterPt, filterStatus, filterYear]);
+    [payments, filterPt, filterStatus, filterPeriod]);
 
   const monthStr    = fmt(todayDate).slice(0,7);
+  // KPI "Este mes" siempre muestra el mes actual sin importar el filtro
   const monthIncome = payments.filter(p => p.status==="pagado" && p.date.startsWith(monthStr)).reduce((s,p)=>s+Number(p.amount),0);
   const totalPaid   = filtered.filter(p => p.status==="pagado").reduce((s,p)=>s+Number(p.amount),0);
   const totalPend   = filtered.filter(p => p.status==="pendiente").reduce((s,p)=>s+Number(p.amount),0);
@@ -339,16 +354,16 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
           <option value="">Todos los pacientes</option>
           {patients.map(p => <option key={p.id} value={p.id}>{p.name.split(" ").slice(0,2).join(" ")}</option>)}
         </select>
-        <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
+        <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}
           style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
             fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer",
-            outline:"none", marginLeft:"auto" }}>
-          {years.map(y => <option key={y} value={y}>{y}</option>)}
+            outline:"none", minWidth:130 }}>
+          {periodOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:12 }}>
         {filtered.length} registro{filtered.length !== 1 ? "s" : ""} · {fmtCur(totalPaid)} cobrado
-        {filterStatus && <span style={{ marginLeft:6, color:filterStatus==="pagado"?T.p:T.war, fontWeight:600 }}>· Filtro: {filterStatus}</span>}
+        {filterStatus && <span style={{ marginLeft:6, color:filterStatus==="pagado"?T.p:T.war, fontWeight:600 }}>· {filterStatus}</span>}
       </div>
 
       {/* Table */}
