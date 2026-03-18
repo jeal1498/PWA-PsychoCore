@@ -408,9 +408,20 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
             <div style={{ fontFamily:T.fH, fontSize:22, color:T.t, marginBottom:4 }}>
               {savedPayment.patientName?.split(" ").slice(0,2).join(" ")}
             </div>
-            <div style={{ fontFamily:T.fH, fontSize:32, fontWeight:500, color:T.suc, marginBottom:4 }}>
-              {fmtCur(savedPayment.amount)}
-            </div>
+            {savedPayment.status === "parcial" ? (
+              <div style={{ marginBottom:8 }}>
+                <div style={{ fontFamily:T.fH, fontSize:32, fontWeight:500, color:"#B8900A" }}>
+                  {fmtCur(savedPayment.amountPaid)} pagado
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:13, color:T.err, fontWeight:600 }}>
+                  {fmtCur(Math.max(0, Number(savedPayment.amount) - Number(savedPayment.amountPaid||0)))} pendiente
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontFamily:T.fH, fontSize:32, fontWeight:500, color:T.suc, marginBottom:4 }}>
+                {fmtCur(savedPayment.amount)}
+              </div>
+            )}
             <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:4 }}>
               {fmtDate(savedPayment.date)}
             </div>
