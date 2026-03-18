@@ -919,7 +919,14 @@ function PatientSummary({ patient, results, profile }) {
   const [expanded, setExpanded] = useState(false);
   const byScale = useMemo(() => {
     const map = {};
-    results.forEach(r => { if (!map[r.scaleId]) map[r.scaleId] = []; map[r.scaleId].push(r); });
+    results.forEach(r => {
+      const key = (r.scaleId || "").toUpperCase().replace("-","").replace(".","").replace("V1","").replace("_","");
+      // Mapear a clave exacta de SCALES
+      const SCALE_MAP = { PHQ9:"PHQ9", GAD7:"GAD7", BAI:"BAI", PCL5:"PCL5", DASS21:"DASS21", ASRS:"ASRS", ISI:"ISI", AUDIT:"AUDIT", ORS:"ORS", SRS:"SRS" };
+      const normalized = Object.keys(SCALE_MAP).find(k => key.includes(k)) || r.scaleId;
+      if (!map[normalized]) map[normalized] = [];
+      map[normalized].push({ ...r, scaleId: normalized });
+    });
     return map;
   }, [results]);
 
@@ -996,20 +1003,28 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
 
   const filtered = useMemo(() =>
     scaleResults
-      .filter(r => (!filterPt || r.patientId === filterPt) && (filterScale === "todos" || r.scaleId === filterScale))
+      .filter(r => (!filterPt || r.patientId === filterPt) && (filterScale === "todos" || normalizeScaleId(r.scaleId) === filterScale))
       .sort((a, b) => b.date.localeCompare(a.date)),
     [scaleResults, filterPt, filterScale]
   );
 
   // Summary counts per scale
+  const normalizeScaleId = (id) => {
+    if (!id) return id;
+    const key = id.toUpperCase().replace(/[-._]/g,"").replace("V1","").replace("1","");
+    const SCALE_KEYS = Object.keys(SCALES);
+    return SCALE_KEYS.find(k => key.includes(k) || k.includes(key)) || id;
+  };
+
   const countByScale = useMemo(() =>
-    Object.fromEntries(Object.keys(SCALES).map(k => [k, scaleResults.filter(r => r.scaleId === k).length])),
+    Object.fromEntries(Object.keys(SCALES).map(k => [k, scaleResults.filter(r => normalizeScaleId(r.scaleId) === k).length])),
     [scaleResults]
   );
 
   // Patients with at least one result
   const patientsWithResults = useMemo(() => {
-    const ids = new Set(scaleResults.map(r => r.patientId));
+    const normalizedResults = scaleResults.map(r => ({ ...r, scaleId: normalizeScaleId(r.scaleId) }));
+    const ids = new Set(normalizedResults.map(r => r.patientId));
     return patients.filter(p => ids.has(p.id));
   }, [scaleResults, patients]);
 
