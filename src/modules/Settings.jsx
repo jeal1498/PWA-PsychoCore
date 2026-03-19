@@ -836,6 +836,29 @@ function ServicesTab({ services, setServices }) {
                   </div>
                 )}
               </div>
+
+              {/* Barra de acciones */}
+              {editingPrice?.svcId !== svc.id && (
+                <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
+                  <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 5, padding: "9px 4px", background: "none", border: "none",
+                      borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
+                      fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.tm, transition: "background .13s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                    ✏️ Editar precio
+                  </button>
+                  <button onClick={() => del(svc.id)}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 5, padding: "9px 4px", background: "none", border: "none",
+                      cursor: "pointer", fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.err, transition: "background .13s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                    <Trash2 size={12}/> Eliminar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </Card>
