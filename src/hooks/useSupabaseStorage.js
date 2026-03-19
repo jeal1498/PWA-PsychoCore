@@ -18,35 +18,6 @@ const TABLE_MAP = {
   pc_services:         "pc_services",
 };
 
-// ── Caché de sesión compartida ────────────────────────────────────────────────
-// _sessionTimedOut permite distinguir "timeout" de "usuario no logueado".
-let _sessionPromise  = null;
-let _sessionTimedOut = false;
-
-function getCachedSession() {
-  if (!_sessionPromise) {
-    _sessionTimedOut = false;
-    const timeout = new Promise(resolve =>
-      setTimeout(() => { _sessionTimedOut = true; resolve(null); }, 8000)
-    );
-    _sessionPromise = Promise.race([
-      supabase.auth.getSession()
-        .then(({ data: { session } }) => session)
-        .catch(() => null),
-      timeout,
-    ]);
-  }
-  return _sessionPromise;
-}
-
-supabase.auth.onAuthStateChange((event) => {
-  if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-    _sessionPromise  = null;
-    _sessionTimedOut = false;
-  }
-});
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
 export function useSupabaseStorage(key, initialValue) {
   const [value,    setValue_] = useState(initialValue);
   const [loaded,   setLoaded] = useState(false);
@@ -79,24 +50,23 @@ export function useSupabaseStorage(key, initialValue) {
   }, [key, table]);
 
   // ── Carga inicial ─────────────────────────────────────────────────────────
+  // Usa getSession() directamente sin timeout — el dataTimedOut de
+  // AppStateContext se encarga de desbloquear la UI si la red es muy lenta.
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const session = await getCachedSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (cancelled) return;
 
         if (session?.user) {
-          // Sesión llegó a tiempo — cargar datos
           userIdRef.current = session.user.id;
           await loadFromSupabase(session.user.id);
-        } else if (!_sessionTimedOut) {
-          // getSession() devolvió null rápido → usuario no logueado → OK marcar cargado
+        } else {
+          // Sin sesión → marcar como cargado con valor inicial
           setLoaded(true);
         }
-        // Si fue timeout (_sessionTimedOut === true): NO marcar cargado.
-        // El listener de onAuthStateChange se encargará cuando llegue la sesión.
       } catch (e) {
         console.warn(`[storage] Error en carga inicial ${key}:`, e);
         if (!cancelled) setLoaded(true);
@@ -107,27 +77,28 @@ export function useSupabaseStorage(key, initialValue) {
     return () => { cancelled = true; };
   }, [key, table, loadFromSupabase]);
 
-  // ── Re-lectura cuando la sesión llega tarde ───────────────────────────────
-  // Cubre el caso: timeout en carga inicial → onAuthStateChange llega después
+  // ── Reaccionar a cambios de auth (login, logout, token refresh) ───────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "INITIAL_SESSION") return; // ya manejado por getSession() arriba
+
       if (session?.user) {
         const uid = session.user.id;
         userIdRef.current = uid;
 
         if (!dataFetched.current) {
-          // No tenemos datos reales → cargar ahora (incluye el caso timeout)
-          firstLoad.current = true; // evitar que el save se dispare por este set
+          firstLoad.current = true;
           await loadFromSupabase(uid);
         }
       } else {
-        userIdRef.current  = null;
+        userIdRef.current   = null;
         dataFetched.current = false;
-        setLoaded(true); // usuario salió → marcar cargado con datos vacíos
+        setValue_(initialValue);
+        setLoaded(true);
       }
     });
     return () => subscription.unsubscribe();
-  }, [loadFromSupabase]);
+  }, [loadFromSupabase, initialValue]);
 
   // ── Guardado en Supabase (debounced 800ms) ────────────────────────────────
   useEffect(() => {
