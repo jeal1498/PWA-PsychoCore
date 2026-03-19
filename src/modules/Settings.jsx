@@ -663,7 +663,7 @@ function ServicesTab({ services, setServices }) {
   // Estado de edición de precio con vigencia
   const [editingPrice, setEditingPrice] = useState(null); // { svcId, field, newValue, from }
 
-  const canAdd = (form.type === "paquete" || form.name.trim()) && form.price;
+  const canAdd = (form.type === "paquete" || form.name.trim()) && (form.price || form.priceVirtual);
   const fmtCur = n => "$" + Number(n).toLocaleString("es-MX");
 
   const add = (overrides = {}) => {
