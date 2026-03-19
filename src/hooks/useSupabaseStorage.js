@@ -1,5 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
+//
+// PATRÓN CORRECTO SUPABASE:
+// Un solo useEffect con onAuthStateChange — NO se llama getSession() por separado.
+// INITIAL_SESSION dispara inmediatamente al suscribirse con la sesión almacenada.
+// Esto elimina la race condition entre getSession() y onAuthStateChange.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -19,16 +24,20 @@ const TABLE_MAP = {
 };
 
 export function useSupabaseStorage(key, initialValue) {
-  const [value,    setValue_] = useState(initialValue);
-  const [loaded,   setLoaded] = useState(false);
-  const userIdRef    = useRef(null);
-  const saveTimerRef = useRef(null);
-  const firstLoad    = useRef(true);
-  const dataFetched  = useRef(false);
+  const [value,  setValue_] = useState(initialValue);
+  const [loaded, setLoaded] = useState(false);
+
+  const userIdRef      = useRef(null);
+  const saveTimerRef   = useRef(null);
+  const isFirstWrite   = useRef(true);
+  const dataFetched    = useRef(false);
+  // Guardar initialValue en ref para no ponerlo en deps del effect
+  // (evita que el effect se re-suscriba en cada render)
+  const initialValueRef = useRef(initialValue);
 
   const table = TABLE_MAP[key];
 
-  // ── Carga desde Supabase ──────────────────────────────────────────────────
+  // ── Carga datos de Supabase para el uid dado ──────────────────────────────
   const loadFromSupabase = useCallback(async (uid) => {
     if (!uid || !table) return;
     try {
@@ -49,61 +58,39 @@ export function useSupabaseStorage(key, initialValue) {
     }
   }, [key, table]);
 
-  // ── Carga inicial ─────────────────────────────────────────────────────────
-  // Usa getSession() directamente sin timeout — el dataTimedOut de
-  // AppStateContext se encarga de desbloquear la UI si la red es muy lenta.
+  // ── Auth listener — única fuente de verdad ────────────────────────────────
+  // onAuthStateChange dispara INITIAL_SESSION inmediatamente al suscribirse,
+  // con la sesión actual (incluso si viene de localStorage tras un reload).
+  // No necesitamos getSession() por separado.
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
         if (session?.user) {
-          userIdRef.current = session.user.id;
-          await loadFromSupabase(session.user.id);
+          const uid = session.user.id;
+          userIdRef.current = uid;
+
+          // Cargar solo si aún no tenemos datos reales
+          if (!dataFetched.current) {
+            isFirstWrite.current = true; // evitar que el save effect se dispare
+            await loadFromSupabase(uid);
+          }
         } else {
-          // Sin sesión → marcar como cargado con valor inicial
+          // Sin sesión (logout o sesión expirada sin refresh)
+          userIdRef.current  = null;
+          dataFetched.current = false;
+          setValue_(initialValueRef.current);
           setLoaded(true);
         }
-      } catch (e) {
-        console.warn(`[storage] Error en carga inicial ${key}:`, e);
-        if (!cancelled) setLoaded(true);
       }
-    }
+    );
 
-    load();
-    return () => { cancelled = true; };
-  }, [key, table, loadFromSupabase]);
-
-  // ── Reaccionar a cambios de auth (login, logout, token refresh) ───────────
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "INITIAL_SESSION") return; // ya manejado por getSession() arriba
-
-      if (session?.user) {
-        const uid = session.user.id;
-        userIdRef.current = uid;
-
-        if (!dataFetched.current) {
-          firstLoad.current = true;
-          await loadFromSupabase(uid);
-        }
-      } else {
-        userIdRef.current   = null;
-        dataFetched.current = false;
-        setValue_(initialValue);
-        setLoaded(true);
-      }
-    });
     return () => subscription.unsubscribe();
-  }, [loadFromSupabase, initialValue]);
+  }, [loadFromSupabase]); // initialValue NO está en deps — usamos la ref
 
   // ── Guardado en Supabase (debounced 800ms) ────────────────────────────────
   useEffect(() => {
     if (!loaded) return;
-    if (firstLoad.current) { firstLoad.current = false; return; }
+    if (isFirstWrite.current) { isFirstWrite.current = false; return; }
     if (!userIdRef.current) return;
 
     clearTimeout(saveTimerRef.current);
@@ -112,7 +99,10 @@ export function useSupabaseStorage(key, initialValue) {
       if (!uid) return;
       await supabase
         .from(table)
-        .upsert({ psychologist_id: uid, data: value }, { onConflict: "psychologist_id" });
+        .upsert(
+          { psychologist_id: uid, data: value },
+          { onConflict: "psychologist_id" }
+        );
     }, 800);
 
     return () => clearTimeout(saveTimerRef.current);
