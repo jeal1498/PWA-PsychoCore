@@ -953,42 +953,36 @@ function ServicesTab({ services, setServices }) {
 
         {/* Precios — presencial y virtual siempre visibles, opcionales */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {/* Presencial */}
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>🏢 Presencial</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-                <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
-                  placeholder="900"
-                  style={{ flex: 1, padding: "10px 10px", border: `1.5px solid ${T.bdr}`,
-                    borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
-                    background: T.card, outline: "none" }} />
-              </div>
+              <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
+                placeholder="900"
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                  borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                  background: T.card, outline: "none", boxSizing: "border-box" }} />
             </div>
-            {form.type === "paquete"
-              ? (
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Núm. sesiones</label>
-                  <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
-                    placeholder="4"
-                    style={{ width: "100%", padding: "10px 10px", border: `1.5px solid ${T.bdr}`,
-                      borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
-                      background: T.card, outline: "none", boxSizing: "border-box" }} />
-                </div>
-              ) : (
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Virtual</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-                    <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
-                      placeholder="Opcional"
-                      style={{ flex: 1, padding: "10px 10px", border: `1.5px solid ${T.p}40`,
-                        borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
-                        background: T.pA, outline: "none" }} />
-                  </div>
-                </div>
-              )
-            }
+            {/* Virtual o Núm. sesiones */}
+            {form.type === "paquete" ? (
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Núm. sesiones</label>
+                <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
+                  placeholder="4"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                    background: T.card, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            ) : (
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Virtual</label>
+                <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
+                  placeholder="Opcional"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.p}40`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                    background: T.pA, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            )}
           </div>
         </div>
 
