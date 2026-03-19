@@ -577,7 +577,7 @@ function TaskResponseModal({ assignment, template, onClose }) {
   );
 }
 
-export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [] }) {
   const [filterPt,  setFilterPt]  = useState("");
   const [showAdd,   setShowAdd]   = useState(!!prefill);
   const [referral,  setReferral]  = useState(null);
@@ -610,6 +610,66 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
   const [aiError,      setAiError]      = useState("");
   const [showAiModal,  setShowAiModal]  = useState(false);
   const [taskError,    setTaskError]    = useState("");
+  const [showCobro,    setShowCobro]    = useState(false);
+  const [cobroData,    setCobroData]    = useState(null); // { sessionId, patientId, patientName, date }
+
+  // Service helpers
+  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro" };
+  const getServiceOptions = (patientId) => {
+    if (!services.length) return [];
+    return services.map(s => ({
+      id: s.id,
+      label: s.name || SERVICE_TYPE_LABEL[s.type] || s.type,
+      price: s.price, priceVirtual: s.priceVirtual, modality: s.modality,
+    }));
+  };
+  const [cobroForm, setCobroForm] = useState({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
+  const [showCobroModality, setShowCobroModality] = useState(false);
+
+  const handleCobroService = (serviceId) => {
+    const svc = services.find(s => s.id === serviceId);
+    if (!svc) { setCobroForm(f => ({ ...f, serviceId, modality:"", amount:"", concept:"" })); return; }
+    const label = svc.name || SERVICE_TYPE_LABEL[svc.type] || svc.type;
+    if (svc.modality === "ambas") {
+      setCobroForm(f => ({ ...f, serviceId, concept: label, modality:"", amount:"" }));
+      setShowCobroModality(true);
+    } else {
+      const price = svc.modality === "virtual" ? svc.priceVirtual : svc.price;
+      setCobroForm(f => ({ ...f, serviceId, concept: label, modality: svc.modality, amount: String(price || "") }));
+      setShowCobroModality(false);
+    }
+  };
+
+  const applyCobroModality = (mod) => {
+    const svc = services.find(s => s.id === cobroForm.serviceId);
+    if (!svc) return;
+    const price = mod === "virtual" ? svc.priceVirtual : svc.price;
+    setCobroForm(f => ({ ...f, modality: mod, amount: String(price || "") }));
+    setShowCobroModality(false);
+  };
+
+  const saveCobro = () => {
+    if (!cobroData || !cobroForm.amount) return;
+    const { uid: uidFn } = { uid: () => Math.random().toString(36).slice(2, 9) };
+    const existingPayments = payments || [];
+    const folio = "F" + String(existingPayments.length + 1).padStart(4, "0");
+    setPayments(prev => [...prev, {
+      id: "p" + Math.random().toString(36).slice(2, 9),
+      folio,
+      patientId: cobroData.patientId,
+      patientName: cobroData.patientName,
+      sessionId: cobroData.sessionId,
+      date: cobroData.date,
+      amount: Number(cobroForm.amount),
+      concept: cobroForm.concept || "Sesión",
+      method: cobroForm.method,
+      modality: cobroForm.modality,
+      status: "pagado",
+    }]);
+    setShowCobro(false);
+    setCobroData(null);
+    setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
+  };
 
   const handleAISummary = async () => {
     setAiLoading(true); setAiError(""); setShowAiModal(true);
@@ -669,6 +729,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
     const sessionId = "s" + uid();
     const finalNotes = isStructured ? compileNotes(form.noteFormat, form.structured) : form.notes;
     setSessions(prev => [...prev, { ...form, id:sessionId, patientName:pt?.name||"", notes:finalNotes, tags:form.tags.split(",").map(t=>t.trim()).filter(Boolean) }]);
+    // Offer cobro after saving session
+    if (setPayments) {
+      setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date });
+      const defaultSvc = services.find(s => s.type === "sesion");
+      if (defaultSvc) handleCobroService(defaultSvc.id);
+      setShowCobro(true);
+    }
     const hasRisk = quickRisk.suicidalIdeation !== "ninguna" || quickRisk.selfHarm !== "ninguna" || quickRisk.harmToOthers;
     if (hasRisk && setRiskAssessments) {
       const suggested = quickRisk.suicidalIdeation==="activa" ? "alto" : quickRisk.suicidalIdeation==="pasiva"||quickRisk.selfHarm==="activa" ? "moderado" : "bajo";
@@ -1078,6 +1145,49 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
           <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
+        </div>
+      </Modal>
+
+      {/* ── Modal cobro post-sesión ─────────────────────────────────────── */}
+      <Modal open={showCobro} onClose={() => setShowCobro(false)} title="Registrar cobro" width={420}>
+        <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
+          Sesión guardada. ¿Deseas registrar el cobro ahora?
+        </p>
+        {getServiceOptions().length > 0 ? (
+          <Select label="Servicio" value={cobroForm.serviceId} onChange={handleCobroService}
+            options={[{value:"",label:"Seleccionar servicio..."}, ...getServiceOptions().map(s => ({value:s.id, label:s.label}))]} />
+        ) : (
+          <Input label="Concepto" value={cobroForm.concept} onChange={v => setCobroForm(f => ({...f, concept:v}))} placeholder="Sesión individual" />
+        )}
+        {showCobroModality && (
+          <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
+            <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad?</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => applyCobroModality("presencial")}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:T.card, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.t, cursor:"pointer" }}>
+                🏢 Presencial
+              </button>
+              <button onClick={() => applyCobroModality("virtual")}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, cursor:"pointer" }}>
+                💻 Virtual
+              </button>
+            </div>
+          </div>
+        )}
+        {cobroForm.modality && !showCobroModality && (
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginBottom:8 }}>
+            {cobroForm.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
+            {" · "}<span style={{ color:T.p, cursor:"pointer", textDecoration:"underline" }} onClick={() => setShowCobroModality(true)}>Cambiar</span>
+          </div>
+        )}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Input label="Monto (MXN) *" value={cobroForm.amount} onChange={v => setCobroForm(f => ({...f, amount:v}))} type="number" placeholder="900" />
+          <Select label="Método" value={cobroForm.method} onChange={v => setCobroForm(f => ({...f, method:v}))}
+            options={["Transferencia","Efectivo","Tarjeta","MercadoPago","PayPal"].map(m => ({value:m,label:m}))} />
+        </div>
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+          <Btn variant="ghost" onClick={() => setShowCobro(false)}>Omitir</Btn>
+          <Btn onClick={saveCobro} disabled={!cobroForm.amount}><Check size={15}/> Guardar cobro</Btn>
         </div>
       </Modal>
 

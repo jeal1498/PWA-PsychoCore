@@ -263,24 +263,31 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
 
-  // Clinical types always available
+  // Build type options from services + clinical fallback
   const CLINICAL_TYPES = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
-  const SERVICE_TYPES_LABEL = {
-    sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja",
-    grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro"
-  };
-  // Merge: service names first, then clinical types not already covered
+  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
   const appointmentTypeOptions = (() => {
     if (!services.length) return CLINICAL_TYPES;
-    const fromServices = services
-      .filter(s => s.type !== "paquete")
-      .map(s => s.name || SERVICE_TYPES_LABEL[s.type] || s.type);
-    const extra = CLINICAL_TYPES.filter(t => !fromServices.some(s => s.toLowerCase().includes(t.toLowerCase())));
-    return [...new Set([...fromServices, ...extra])];
+    const fromSvc = services.filter(s => s.type !== "paquete").map(s => ({ label: s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId: s.id, modality: s.modality }));
+    const extra   = CLINICAL_TYPES.filter(t => !fromSvc.some(s => s.label.toLowerCase().includes(t.toLowerCase())));
+    return [...fromSvc, ...extra.map(t => ({ label: t, serviceId: null, modality: null }))];
   })();
 
-  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type: appointmentTypeOptions[0] || "Seguimiento", status:"pendiente" };
+  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type: appointmentTypeOptions[0]?.label || "Seguimiento", serviceId:"", modality:"", status:"pendiente" };
   const [form, setForm] = useState(blankForm);
+  const [showModalityPicker, setShowModalityPicker] = useState(false);
+
+  const handleTypeChange = (label) => {
+    const opt = appointmentTypeOptions.find(o => (o.label || o) === label);
+    const svc = opt?.serviceId ? services.find(s => s.id === opt.serviceId) : null;
+    if (svc?.modality === "ambas") {
+      setForm(f => ({ ...f, type: label, serviceId: svc.id, modality: "" }));
+      setShowModalityPicker(true);
+    } else {
+      setForm(f => ({ ...f, type: label, serviceId: svc?.id || "", modality: svc?.modality || "" }));
+      setShowModalityPicker(false);
+    }
+  };
 
   // Recurrence state
   const [recurring,     setRecurring]     = useState(false);
@@ -334,6 +341,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     }
 
     setForm(blankForm);
+    setShowModalityPicker(false);
     setRecurring(false);
     setRecFrequency("semanal");
     setRecOccurrences(8);
@@ -614,8 +622,30 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           <Input label="Fecha *" value={form.date} onChange={fld("date")} type="date"/>
           <Input label="Hora"    value={form.time} onChange={fld("time")} type="time"/>
         </div>
-        <Select label="Tipo de cita" value={form.type} onChange={fld("type")}
-          options={appointmentTypeOptions.map(t => ({value:t,label:t}))}/>
+        <Select label="Tipo de cita" value={form.type} onChange={handleTypeChange}
+          options={appointmentTypeOptions.map(o => ({ value: o.label || o, label: o.label || o }))}/>
+        {showModalityPicker && (
+          <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
+            <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad de la cita?</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => { setForm(f => ({ ...f, modality:"presencial" })); setShowModalityPicker(false); }}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:T.card, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.t, cursor:"pointer" }}>
+                🏢 Presencial
+              </button>
+              <button onClick={() => { setForm(f => ({ ...f, modality:"virtual" })); setShowModalityPicker(false); }}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, cursor:"pointer" }}>
+                💻 Virtual
+              </button>
+            </div>
+          </div>
+        )}
+        {form.modality && !showModalityPicker && (
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginTop:-6, marginBottom:8, paddingLeft:2 }}>
+            {form.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
+            {" · "}
+            <span style={{ color:T.p, cursor:"pointer", textDecoration:"underline" }} onClick={() => setShowModalityPicker(true)}>Cambiar</span>
+          </div>
+        )}
 
         {/* ── Recurrence section ─────────────────────────────────────── */}
         <div style={{ border:`1.5px solid ${recurring ? T.p : T.bdr}`, borderRadius:12, overflow:"hidden", marginBottom:16, transition:"border .15s" }}>
