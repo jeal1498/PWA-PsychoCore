@@ -753,158 +753,198 @@ function ServicesTab({ services, setServices }) {
       </p>
 
       {/* ── Lista de servicios ──────────────────────────────────────── */}
-      {services.length > 0 && (
-        <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
-          {services.map((svc, i) => (
-            <div key={svc.id}>
-              <div style={{ padding: "14px 16px" }}>
-                {/* Fila principal */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
-                    {SERVICE_TYPES[svc.type]?.icon || "⚡"}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Nombre del tipo */}
-                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 2 }}>
-                      {SERVICE_TYPES[svc.type]?.label}
-                      {svc.sessions ? ` · ${svc.sessions} sesiones` : ""}
-                    </div>
-                    {/* Descripción */}
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.4, marginBottom: 6 }}>
-                      {svc.name}
-                    </div>
-                    {/* Precios en una línea con label */}
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t }}>
-                      {svc.modality === "presencial" && (
-                        <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>
-                      )}
-                      {svc.modality === "virtual" && (
-                        <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>
-                      )}
-                      {svc.modality === "ambas" && (
-                        <span>
-                          Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong>
-                          {"    "}
-                          Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual || svc.price)}</strong>
-                        </span>
-                      )}
-                    </div>
-                  </div>
+      {(() => {
+        const nonPkg = services.filter(s => s.type !== "paquete");
+        const pkgs   = services.filter(s => s.type === "paquete").sort((a,b) => a.sessions - b.sessions);
 
+        // Panel de edición reutilizable
+        const EditPanel = ({ svc }) => (
+          <div style={{ margin: "8px 0 4px", padding: "14px", background: T.cardAlt, borderRadius: 10, border: `1.5px solid ${T.bdr}` }}>
+            <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm, marginBottom: 12 }}>
+              Actualizar precio — {svc.name}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: svc.modality === "ambas" ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 12 }}>
+              {(svc.modality === "presencial" || svc.modality === "ambas") && (
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 4 }}>🏢 Presencial</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
+                    <input type="number" value={editingPrice.newPrice}
+                      onChange={e => setEditingPrice(ep => ({ ...ep, newPrice: e.target.value }))}
+                      style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.bdr}`, borderRadius: 8,
+                        fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none" }} />
+                  </div>
                 </div>
-
-                {/* Panel de edición de precio */}
-                {editingPrice?.svcId === svc.id && (
-                  <div style={{ marginTop: 8, padding: "14px", background: T.cardAlt, borderRadius: 10,
-                    border: `1.5px solid ${T.bdr}` }}>
-                    <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm, marginBottom: 12 }}>
-                      Actualizar precio
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: svc.modality === "ambas" ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 12 }}>
-                      {(svc.modality === "presencial" || svc.modality === "ambas") && (
-                        <div>
-                          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 4 }}>🏢 Presencial</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-                            <input type="number" value={editingPrice.newPrice}
-                              onChange={e => setEditingPrice(ep => ({ ...ep, newPrice: e.target.value }))}
-                              style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.bdr}`, borderRadius: 8,
-                                fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none" }} />
-                          </div>
-                        </div>
-                      )}
-                      {svc.modality === "ambas" && (
-                        <div>
-                          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.p, marginBottom: 4 }}>💻 Virtual</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-                            <input type="number" value={editingPrice.newPriceVirtual || ""}
-                              onChange={e => setEditingPrice(ep => ({ ...ep, newPriceVirtual: e.target.value }))}
-                              style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.p}40`, borderRadius: 8,
-                                fontFamily: T.fB, fontSize: 13, color: T.t, background: T.pA, outline: "none" }} />
-                          </div>
-                        </div>
-                      )}
-                      {svc.modality === "virtual" && (
-                        <div>
-                          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.p, marginBottom: 4 }}>💻 Virtual</label>
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-                            <input type="number" value={editingPrice.newPrice}
-                              onChange={e => setEditingPrice(ep => ({ ...ep, newPrice: e.target.value }))}
-                              style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.p}40`, borderRadius: 8,
-                                fontFamily: T.fB, fontSize: 13, color: T.t, background: T.pA, outline: "none" }} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Vigencia */}
-                    <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
-                        ¿A partir de cuándo aplica?
-                      </label>
-                      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                        {[
-                          { label: "Hoy", val: today },
-                          { label: "Próximo mes", val: (() => { const d = new Date(); d.setMonth(d.getMonth()+1); d.setDate(1); return d.toISOString().slice(0,10); })() },
-                        ].map(opt => (
-                          <button key={opt.label} onClick={() => setEditingPrice(ep => ({ ...ep, from: opt.val }))}
-                            style={{ padding: "5px 12px", borderRadius: 9999, fontFamily: T.fB, fontSize: 11,
-                              border: `1.5px solid ${editingPrice.from === opt.val ? T.p : T.bdr}`,
-                              background: editingPrice.from === opt.val ? T.pA : "transparent",
-                              color: editingPrice.from === opt.val ? T.p : T.tm, cursor: "pointer" }}>
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                      <input type="date" value={editingPrice.from}
-                        onChange={e => setEditingPrice(ep => ({ ...ep, from: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", border: `1.5px solid ${T.bdr}`, borderRadius: 9,
-                          fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <button onClick={() => setEditingPrice(null)}
-                        style={{ padding: "9px", borderRadius: 9, border: `1.5px solid ${T.bdr}`,
-                          background: "transparent", fontFamily: T.fB, fontSize: 12, color: T.tm, cursor: "pointer" }}>
-                        Cancelar
-                      </button>
-                      <button onClick={applyPriceEdit}
-                        style={{ padding: "9px", borderRadius: 9, border: "none",
-                          background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                        Guardar
-                      </button>
-                    </div>
+              )}
+              {(svc.modality === "virtual" || svc.modality === "ambas") && (
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.p, marginBottom: 4 }}>💻 Virtual</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
+                    <input type="number" value={editingPrice.newPriceVirtual || ""}
+                      onChange={e => setEditingPrice(ep => ({ ...ep, newPriceVirtual: e.target.value }))}
+                      style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.p}40`, borderRadius: 8,
+                        fontFamily: T.fB, fontSize: 13, color: T.t, background: T.pA, outline: "none" }} />
                   </div>
-                )}
-              </div>
-
-              {/* Barra de acciones */}
-              {editingPrice?.svcId !== svc.id && (
-                <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
-                  <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 5, padding: "9px 4px", background: "none", border: "none",
-                      borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
-                      fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.tm, transition: "background .13s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
-                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                    ✏️ Editar precio
-                  </button>
-                  <button onClick={() => del(svc.id)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 5, padding: "9px 4px", background: "none", border: "none",
-                      cursor: "pointer", fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.err, transition: "background .13s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
-                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                    <Trash2 size={12}/> Eliminar
-                  </button>
                 </div>
               )}
             </div>
-          ))}
-        </Card>
-      )}
+            {/* Vigencia */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
+                ¿A partir de cuándo aplica?
+              </label>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                {[
+                  { label: "Hoy", val: today },
+                  { label: "Próximo mes", val: (() => { const d = new Date(); d.setMonth(d.getMonth()+1); d.setDate(1); return d.toISOString().slice(0,10); })() },
+                ].map(opt => (
+                  <button key={opt.label} onClick={() => setEditingPrice(ep => ({ ...ep, from: opt.val }))}
+                    style={{ padding: "5px 12px", borderRadius: 9999, fontFamily: T.fB, fontSize: 11,
+                      border: `1.5px solid ${editingPrice.from === opt.val ? T.p : T.bdr}`,
+                      background: editingPrice.from === opt.val ? T.pA : "transparent",
+                      color: editingPrice.from === opt.val ? T.p : T.tm, cursor: "pointer" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <input type="date" value={editingPrice.from}
+                onChange={e => setEditingPrice(ep => ({ ...ep, from: e.target.value }))}
+                style={{ width: "100%", padding: "8px 12px", border: `1.5px solid ${T.bdr}`, borderRadius: 9,
+                  fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button onClick={() => setEditingPrice(null)}
+                style={{ padding: "9px", borderRadius: 9, border: `1.5px solid ${T.bdr}`,
+                  background: "transparent", fontFamily: T.fB, fontSize: 12, color: T.tm, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={applyPriceEdit}
+                style={{ padding: "9px", borderRadius: 9, border: "none",
+                  background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                Guardar
+              </button>
+            </div>
+          </div>
+        );
+
+        return (
+          <>
+            {/* Servicios individuales (no paquetes) */}
+            {nonPkg.length > 0 && (
+              <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
+                {nonPkg.map((svc) => (
+                  <div key={svc.id}>
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA,
+                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+                          {SERVICE_TYPES[svc.type]?.icon || "⚡"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 2 }}>
+                            {SERVICE_TYPES[svc.type]?.label}
+                          </div>
+                          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.4, marginBottom: 6 }}>
+                            {svc.name}
+                          </div>
+                          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t }}>
+                            {svc.modality === "presencial" && <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>}
+                            {svc.modality === "virtual"    && <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>}
+                            {svc.modality === "ambas"      && <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong>{"    "}Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>}
+                          </div>
+                        </div>
+                      </div>
+                      {editingPrice?.svcId === svc.id && <EditPanel svc={svc} />}
+                    </div>
+                    {editingPrice?.svcId !== svc.id && (
+                      <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
+                        <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
+                          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            gap: 5, padding: "9px 4px", background: "none", border: "none",
+                            borderRight: `1px solid ${T.bdrL}`, cursor: "pointer",
+                            fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.tm, transition: "background .13s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                          ✏️ Editar precio
+                        </button>
+                        <button onClick={() => del(svc.id)}
+                          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            gap: 5, padding: "9px 4px", background: "none", border: "none",
+                            cursor: "pointer", fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.err, transition: "background .13s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                          <Trash2 size={12}/> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </Card>
+            )}
+
+            {/* Paquetes — card unificada */}
+            {pkgs.length > 0 && (
+              <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.bdrL}`,
+                  display: "flex", alignItems: "center", gap: 10, background: T.cardAlt }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
+                    📦
+                  </div>
+                  <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>
+                    Paquetes de sesiones
+                  </div>
+                </div>
+
+                {/* Fila por paquete */}
+                {pkgs.map((svc, i) => (
+                  <div key={svc.id}>
+                    <div style={{ padding: "12px 16px",
+                      borderBottom: i < pkgs.length - 1 || editingPrice?.svcId === svc.id ? `1px solid ${T.bdrL}` : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+                            <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>{svc.name}</span>
+                            <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{svc.sessions} ses</span>
+                          </div>
+                          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            {(svc.modality === "presencial" || svc.modality === "ambas") && (
+                              <span>🏢 <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>
+                            )}
+                            {(svc.modality === "virtual" || svc.modality === "ambas") && (
+                              <span>💻 <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Acciones inline */}
+                        {editingPrice?.svcId !== svc.id && (
+                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                            <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
+                              style={{ padding: "5px 10px", borderRadius: 8, border: `1.5px solid ${T.bdr}`,
+                                background: "transparent", fontFamily: T.fB, fontSize: 11, color: T.tm, cursor: "pointer" }}>
+                              ✏️
+                            </button>
+                            <button onClick={() => del(svc.id)}
+                              style={{ padding: "5px 10px", borderRadius: 8, border: `1.5px solid ${T.err}30`,
+                                background: T.errA, fontFamily: T.fB, fontSize: 11, color: T.err, cursor: "pointer" }}>
+                              <Trash2 size={11}/>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Panel de edición */}
+                      {editingPrice?.svcId === svc.id && <EditPanel svc={svc} />}
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Formulario nuevo servicio ───────────────────────────────── */}
       <Card style={{ padding: 20 }}>
