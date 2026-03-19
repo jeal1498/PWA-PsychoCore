@@ -267,6 +267,7 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
     { label: "Pagos",           val: allData?.payments?.length        || 0, icon: "💰" },
     { label: "Evaluaciones",    val: allData?.riskAssessments?.length || 0, icon: "⚠️" },
     { label: "Planes",          val: allData?.treatmentPlans?.length  || 0, icon: "📋" },
+    { label: "Servicios",       val: allData?.services?.length        || 0, icon: "💼" },
   ];
 
   return (
