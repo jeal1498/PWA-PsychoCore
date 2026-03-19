@@ -663,7 +663,7 @@ function ServicesTab({ services, setServices }) {
   // Estado de edición de precio con vigencia
   const [editingPrice, setEditingPrice] = useState(null); // { svcId, field, newValue, from }
 
-  const canAdd = form.name.trim() && form.price && (form.modality !== "ambas" || form.priceVirtual);
+  const canAdd = (form.type === "paquete" || form.name.trim()) && form.price;
   const fmtCur = n => "$" + Number(n).toLocaleString("es-MX");
 
   const add = (overrides = {}) => {
@@ -674,11 +674,11 @@ function ServicesTab({ services, setServices }) {
       id: "svc" + uid(),
       name: f.name.trim(),
       type: f.type,
-      modality: f.modality,
+      modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
       sessions: f.type === "paquete" ? Number(f.sessions) : null,
-      price: Number(f.price),
-      priceVirtual: f.modality === "ambas" ? Number(f.priceVirtual) : null,
-      priceHistory: [{ price: Number(f.price), priceVirtual: f.modality === "ambas" ? Number(f.priceVirtual) : null, from: now }],
+      price: Number(f.price) || 0,
+      priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
+      priceHistory: [{ price: Number(f.price) || 0, priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
     }]);
     setForm(blankForm);
   };
@@ -937,25 +937,8 @@ function ServicesTab({ services, setServices }) {
           </div>
         )}
 
-        {/* Modalidad y descripción — solo para tipos que no son paquete */}
-        {form.type !== "paquete" && <>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Modalidad</label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
-              {MODALITIES.map(m => {
-                const on = form.modality === m.id;
-                return (
-                  <button key={m.id} onClick={() => fld("modality")(m.id)}
-                    style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.acc : T.bdr}`,
-                      background: on ? T.accA : "transparent", fontFamily: T.fB, fontSize: 11,
-                      color: on ? T.acc : T.tm, fontWeight: on ? 700 : 400,
-                      cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
-                    {m.icon} {m.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {/* Descripción — solo para tipos que no son paquete */}
+        {form.type !== "paquete" && (
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
             <textarea value={form.name} onChange={e => fld("name")(e.target.value)}
@@ -966,50 +949,47 @@ function ServicesTab({ services, setServices }) {
                 background: T.card, outline: "none", boxSizing: "border-box",
                 resize: "none", lineHeight: 1.5 }} />
           </div>
-        </>}
+        )}
 
-        {/* Precio(s) */}
+        {/* Precios — presencial y virtual siempre visibles, opcionales */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ display: "grid",
-            gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr",
-            gap: 12, marginBottom: form.modality === "ambas" ? 10 : 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: form.type === "paquete" ? "1fr 1fr" : "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
-                {form.modality === "ambas" ? "🏢 Precio presencial" : "Precio (MXN)"}
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>🏢 Presencial</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
                 <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
                   placeholder="900"
-                  style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
-                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
+                  style={{ flex: 1, padding: "10px 10px", border: `1.5px solid ${T.bdr}`,
+                    borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
                     background: T.card, outline: "none" }} />
               </div>
             </div>
-            {form.type === "paquete" && (
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Núm. sesiones</label>
-                <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
-                  placeholder="4"
-                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
-                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
-                    background: T.card, outline: "none", boxSizing: "border-box" }} />
-              </div>
-            )}
+            {form.type === "paquete"
+              ? (
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Núm. sesiones</label>
+                  <input type="number" value={form.sessions} onChange={e => fld("sessions")(e.target.value)}
+                    placeholder="4"
+                    style={{ width: "100%", padding: "10px 10px", border: `1.5px solid ${T.bdr}`,
+                      borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                      background: T.card, outline: "none", boxSizing: "border-box" }} />
+                </div>
+              ) : (
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Virtual</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
+                    <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
+                      placeholder="Opcional"
+                      style={{ flex: 1, padding: "10px 10px", border: `1.5px solid ${T.p}40`,
+                        borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                        background: T.pA, outline: "none" }} />
+                  </div>
+                </div>
+              )
+            }
           </div>
-          {form.modality === "ambas" && (
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Precio virtual</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontFamily: T.fB, fontSize: 14, color: T.tm }}>$</span>
-                <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
-                  placeholder="800"
-                  style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${T.p}40`,
-                    borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t,
-                    background: T.pA, outline: "none" }} />
-              </div>
-            </div>
-          )}
         </div>
 
         <button onClick={() => add()} disabled={!canAdd}
