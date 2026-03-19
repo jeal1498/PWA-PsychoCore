@@ -48,11 +48,19 @@ export function useSupabaseStorage(key, initialValue) {
         .maybeSingle();
 
       if (!error && data?.data !== undefined && data.data !== null) {
+        // Datos reales encontrados — cargarlos y marcar que no hace falta
+        // guardar de vuelta inmediatamente (evita un upsert redundante)
+        isFirstWrite.current = true;
         setValue_(data.data);
         dataFetched.current = true;
+      } else {
+        // Tabla vacía o sin fila para este usuario — la primera edición
+        // del usuario SÍ debe guardarse, así que no bloqueamos el save effect
+        isFirstWrite.current = false;
       }
     } catch (e) {
       console.warn(`[storage] Error cargando ${key}:`, e);
+      isFirstWrite.current = false;
     } finally {
       setLoaded(true);
     }
@@ -71,7 +79,6 @@ export function useSupabaseStorage(key, initialValue) {
 
           // Cargar solo si aún no tenemos datos reales
           if (!dataFetched.current) {
-            isFirstWrite.current = true; // evitar que el save effect se dispare
             await loadFromSupabase(uid);
           }
         } else {
