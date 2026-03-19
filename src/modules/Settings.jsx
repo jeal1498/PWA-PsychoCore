@@ -136,7 +136,7 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
 
 
 // ── Tab: Datos ────────────────────────────────────────────────────────────────
-function DataTab({ allData, onRestore, patients, googleUser }) {
+function DataTab({ allData, onRestore, patients, googleUser, userId }) {
   const [msg,         setMsg]         = useState(null);
   const [importing,   setImporting]   = useState(false);
   const [showDelete,       setShowDelete]       = useState(false);
@@ -153,32 +153,40 @@ function DataTab({ allData, onRestore, patients, googleUser }) {
   const deleteAccount = async () => {
     if (deleteInput !== "ELIMINAR") return;
     setDeleting(true);
+
+    // Limpieza local — siempre ejecuta aunque Supabase falle
+    const clearLocalAndRedirect = () => {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith("pc_") || k.startsWith("sb-")) localStorage.removeItem(k);
+      });
+      window.location.href = window.location.origin;
+    };
+
+    // Timer de seguridad absoluto — después de 7s fuerza logout sin importar qué
+    const safetyTimer = setTimeout(clearLocalAndRedirect, 7000);
+
     try {
+      // Obtener uid
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
-      if (!uid) throw new Error("Sin sesión activa");
 
-      // Borrar todas las tablas del usuario en paralelo
-      const tables = [
-        "pc_patients", "pc_appointments", "pc_sessions", "pc_payments",
-        "pc_profile", "pc_risk_assessments", "pc_scale_results",
-        "pc_treatment_plans", "pc_inter_sessions", "pc_medications", "pc_services",
-      ];
-      await Promise.all(
-        tables.map(table => supabase.from(table).delete().eq("psychologist_id", uid))
-      );
+      if (uid) {
+        const tables = [
+          "pc_patients", "pc_appointments", "pc_sessions", "pc_payments",
+          "pc_profile", "pc_risk_assessments", "pc_scale_results",
+          "pc_treatment_plans", "pc_inter_sessions", "pc_medications", "pc_services",
+        ];
+        // Borrar en paralelo — ignorar errores individuales, no bloquear
+        await Promise.allSettled(
+          tables.map(t => supabase.from(t).delete().eq("psychologist_id", uid))
+        );
+      }
 
-      // Limpiar localStorage
-      Object.keys(localStorage).forEach(k => {
-        if (k.startsWith("pc_")) localStorage.removeItem(k);
-      });
-
-      // Cerrar sesión (Supabase no permite eliminar auth.users desde el cliente)
-      await signOut();
-      window.location.reload();
-    } catch (e) {
-      flash("Error al eliminar la cuenta: " + e.message, false);
-      setDeleting(false);
+      clearTimeout(safetyTimer);
+      clearLocalAndRedirect();
+    } catch {
+      clearTimeout(safetyTimer);
+      clearLocalAndRedirect();
     }
   };
 
@@ -1292,7 +1300,7 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
       {tab === "services"   && <ServicesTab   services={services} setServices={setServices} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
-      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} />}
+      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}
       {tab === "help"       && <HelpTab />}
     </div>
   );
