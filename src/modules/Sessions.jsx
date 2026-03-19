@@ -6,6 +6,7 @@ import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeade
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
+import { emit } from "../lib/eventBus.js"; // FASE 2
 
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
 
@@ -729,6 +730,8 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
     const sessionId = "s" + uid();
     const finalNotes = isStructured ? compileNotes(form.noteFormat, form.structured) : form.notes;
     setSessions(prev => [...prev, { ...form, id:sessionId, patientName:pt?.name||"", notes:finalNotes, tags:form.tags.split(",").map(t=>t.trim()).filter(Boolean) }]);
+    // FASE 2 — notificar al resto de la app que se creó una sesión
+    emit.sessionCreated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, date: form.date });
     // Offer cobro after saving session
     if (setPayments) {
       setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date });
@@ -740,8 +743,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
     if (hasRisk && setRiskAssessments) {
       const suggested = quickRisk.suicidalIdeation==="activa" ? "alto" : quickRisk.suicidalIdeation==="pasiva"||quickRisk.selfHarm==="activa" ? "moderado" : "bajo";
       setRiskAssessments(prev => [...prev, { id:"ra"+uid(), patientId:form.patientId, patientName:pt?.name||"", sessionId, date:form.date, evaluatedBy:"session", ...quickRisk, hasPlan:false, hasMeans:false, hasIntent:false, previousAttempts:0, protectiveFactors:[], riskLevel:suggested, clinicalNotes:"", safetyPlan:{warningSignals:"",copingStrategies:"",supportContacts:"",professionalContacts:"",environmentSafety:"",reasonsToLive:""} }]);
+      // FASE 2 — alerta de riesgo en tiempo real hacia Notifications
+      emit.riskElevated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, level: suggested });
     }
     // Crear asignaciones en Supabase para cada plantilla seleccionada
+    // FASE 2 — emitir tarea asignada para que Dashboard y Patients se enteren
+    if (form.tasksAssigned?.length > 0) {
+      emit.taskAssigned({ patientId: form.patientId, patientName: pt?.name||"", sessionId, count: form.tasksAssigned.length });
+    }
     if (pt?.phone && form.tasksAssigned?.length > 0) {
       const cleanPhone = pt.phone.replace(/\D/g, "");
       const assignPromises = form.tasksAssigned.map(tplId => {
