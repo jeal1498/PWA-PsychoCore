@@ -274,14 +274,11 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
 
   // Build type options from services + clinical fallback
-  const CLINICAL_TYPES = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
   const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
-  const appointmentTypeOptions = (() => {
-    if (!services.length) return CLINICAL_TYPES;
-    const fromSvc = services.filter(s => s.type !== "paquete").map(s => ({ label: s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId: s.id, modality: s.modality }));
-    const extra   = CLINICAL_TYPES.filter(t => !fromSvc.some(s => s.label.toLowerCase().includes(t.toLowerCase())));
-    return [...fromSvc, ...extra.map(t => ({ label: t, serviceId: null, modality: null }))];
-  })();
+  const CLINICAL_FALLBACK = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
+  const appointmentTypeOptions = services.length > 0
+    ? services.filter(s => s.type !== "paquete").map(s => ({ label: s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId: s.id, modality: s.modality }))
+    : CLINICAL_FALLBACK.map(t => ({ label: t, serviceId: null, modality: null }));
 
   const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type: appointmentTypeOptions[0]?.label || "Seguimiento", serviceId:"", modality:"", status:"pendiente" };
   const [form, setForm] = useState(blankForm);
@@ -638,14 +635,16 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
             <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad de la cita?</div>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => { setForm(f => ({ ...f, modality:"presencial" })); setShowModalityPicker(false); }}
-                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:T.card, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.t, cursor:"pointer" }}>
-                🏢 Presencial
-              </button>
-              <button onClick={() => { setForm(f => ({ ...f, modality:"virtual" })); setShowModalityPicker(false); }}
-                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, cursor:"pointer" }}>
-                💻 Virtual
-              </button>
+              {[{mod:"presencial",icon:"🏢",label:"Presencial"},{mod:"virtual",icon:"💻",label:"Virtual"}].map(({mod,icon,label}) => {
+                const sel = form.modality === mod;
+                return (
+                  <button key={mod} onClick={() => { setForm(f => ({ ...f, modality:mod })); setShowModalityPicker(false); }}
+                    style={{ flex:1, padding:"8px", borderRadius:9, cursor:"pointer", fontFamily:T.fB, fontSize:12, fontWeight:600, transition:"all .15s",
+                      border:`1.5px solid ${sel ? T.p : T.bdr}`, background:sel ? T.pA : T.card, color:sel ? T.p : T.t }}>
+                    {icon} {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
