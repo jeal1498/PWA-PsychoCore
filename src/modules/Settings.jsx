@@ -158,15 +158,15 @@ function DataTab({ allData, onRestore, patients, googleUser }) {
       const uid = session?.user?.id;
       if (!uid) throw new Error("Sin sesión activa");
 
-      // Borrar todas las tablas del usuario
+      // Borrar todas las tablas del usuario en paralelo
       const tables = [
         "pc_patients", "pc_appointments", "pc_sessions", "pc_payments",
         "pc_profile", "pc_risk_assessments", "pc_scale_results",
         "pc_treatment_plans", "pc_inter_sessions", "pc_medications", "pc_services",
       ];
-      for (const table of tables) {
-        await supabase.from(table).delete().eq("psychologist_id", uid);
-      }
+      await Promise.all(
+        tables.map(table => supabase.from(table).delete().eq("psychologist_id", uid))
+      );
 
       // Limpiar localStorage
       Object.keys(localStorage).forEach(k => {
