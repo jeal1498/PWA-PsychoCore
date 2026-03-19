@@ -302,8 +302,8 @@ export default function App() {
   // ── Render principal ─────────────────────────────────────────────────────
   return (
     <div style={{ display:"flex", height:"100vh", background:T.bg, fontFamily:T.fB }}>
-      {!isMobile && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open profile={profile} onClose={() => {}} riskAlert={riskAlert}/>}
-      {isMobile  && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} riskAlert={riskAlert}/>}
+      {!isMobile && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open profile={profile} onClose={() => {}} riskAlert={riskAlert} onSignOut={handleLock}/>}
+      {isMobile  && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} riskAlert={riskAlert} onSignOut={handleLock}/>}
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
 
