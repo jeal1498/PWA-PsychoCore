@@ -142,7 +142,12 @@ export default function App() {
     if (!dataLoaded || !user) return;
     const key = `pc_onboarding_done_${user.id}`;
     if (localStorage.getItem(key)) return;
-    if (patients.length === 0) setShowOnboarding(true);
+    // Solo mostrar onboarding si llevamos más de 5s cargados sin pacientes
+    // — evita que un timeout de red muestre el onboarding a usuarios existentes.
+    const t = setTimeout(() => {
+      if (patients.length === 0) setShowOnboarding(true);
+    }, 2000);
+    return () => clearTimeout(t);
   }, [dataLoaded, user, patients.length]);
 
   const handleOnboardingClose = () => {
