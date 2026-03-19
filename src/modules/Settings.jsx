@@ -1168,17 +1168,21 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
   return (
     <div>
       <PageHeader title="Ajustes" subtitle="Perfil, apariencia y datos" />
-      <div style={{ display:"flex", borderBottom:`1px solid ${T.bdr}`, marginBottom:24, gap:4 }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding:"10px 20px", border:"none", background:"none", cursor:"pointer",
-              fontFamily:T.fB, fontSize:14, fontWeight: tab===t.id ? 700 : 400,
-              color: tab===t.id ? T.p : T.tm,
-              borderBottom: tab===t.id ? `2px solid ${T.p}` : "2px solid transparent",
-              transition:"all .15s" }}>
-            {t.label}
-          </button>
-        ))}
+      <div style={{ overflowX:"auto", marginBottom:24,
+        borderBottom:`1px solid ${T.bdr}`,
+        scrollbarWidth:"none", msOverflowStyle:"none" }}>
+        <div style={{ display:"flex", gap:0, minWidth:"max-content" }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ padding:"10px 16px", border:"none", background:"none", cursor:"pointer",
+                fontFamily:T.fB, fontSize:13.5, fontWeight: tab===t.id ? 700 : 400,
+                color: tab===t.id ? T.p : T.tm, whiteSpace:"nowrap",
+                borderBottom: tab===t.id ? `2px solid ${T.p}` : "2px solid transparent",
+                transition:"all .15s" }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
