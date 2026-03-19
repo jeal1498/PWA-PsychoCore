@@ -35,7 +35,7 @@ export function AppStateProvider({ children }) {
   const [dataTimedOut, setDataTimedOut] = useState(false);
   useEffect(() => {
     if (dataReady) { setDataTimedOut(false); return; }
-    const t = setTimeout(() => setDataTimedOut(true), 3000);
+    const t = setTimeout(() => setDataTimedOut(true), 8000);
     return () => clearTimeout(t);
   }, [dataReady]);
 
