@@ -18,6 +18,7 @@ const TABLE_MAP = {
   pc_treatment_plans:  "pc_treatment_plans",
   pc_inter_sessions:   "pc_inter_sessions",
   pc_medications:      "pc_medications",
+  pc_services:         "pc_services",         // FIX F0-1: era undefined → datos se perdían en cada sesión
 };
 
 // ── Caché de sesión compartida entre todas las instancias del hook ──────────
