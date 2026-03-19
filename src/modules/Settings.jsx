@@ -937,34 +937,34 @@ function ServicesTab({ services, setServices }) {
           </div>
         )}
 
-        {/* Modalidad */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Modalidad</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
-            {MODALITIES.map(m => {
-              const on = form.modality === m.id;
-              return (
-                <button key={m.id} onClick={() => fld("modality")(m.id)}
-                  style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.acc : T.bdr}`,
-                    background: on ? T.accA : "transparent", fontFamily: T.fB, fontSize: 11,
-                    color: on ? T.acc : T.tm, fontWeight: on ? 700 : 400,
-                    cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
-                  {m.icon} {m.label}
-                </button>
-              );
-            })}
+        {/* Modalidad y descripción — solo para tipos que no son paquete */}
+        {form.type !== "paquete" && <>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Modalidad</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+              {MODALITIES.map(m => {
+                const on = form.modality === m.id;
+                return (
+                  <button key={m.id} onClick={() => fld("modality")(m.id)}
+                    style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.acc : T.bdr}`,
+                      background: on ? T.accA : "transparent", fontFamily: T.fB, fontSize: 11,
+                      color: on ? T.acc : T.tm, fontWeight: on ? 700 : 400,
+                      cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
+                    {m.icon} {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-
-        {/* Descripción */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
-          <input value={form.name} onChange={e => fld("name")(e.target.value)}
-            placeholder="Ej: Sesión de psicoterapia individual de 50 min..."
-            style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`,
-              borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t,
-              background: T.card, outline: "none", boxSizing: "border-box" }} />
-        </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
+            <input value={form.name} onChange={e => fld("name")(e.target.value)}
+              placeholder="Ej: Sesión de psicoterapia individual de 50 min..."
+              style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`,
+                borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t,
+                background: T.card, outline: "none", boxSizing: "border-box" }} />
+          </div>
+        </>}
 
         {/* Precio(s) */}
         <div style={{ marginBottom: 18 }}>
