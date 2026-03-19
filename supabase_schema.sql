@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS pc_medications (
   updated_at      timestamptz DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS pc_services (
+  psychologist_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  data            jsonb NOT NULL DEFAULT '[]',
+  updated_at      timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS pc_profile (
   psychologist_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   data            jsonb NOT NULL DEFAULT '{}',
@@ -129,6 +135,10 @@ CREATE TRIGGER trg_profile_updated_at
   BEFORE UPDATE ON pc_profile
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+CREATE TRIGGER trg_services_updated_at
+  BEFORE UPDATE ON pc_services
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
 -- ── Row Level Security (RLS) ───────────────────────────────────────────────
 -- Cada psicólogo solo puede ver y modificar sus propios datos.
 
@@ -143,6 +153,7 @@ ALTER TABLE pc_treatment_plans   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pc_inter_sessions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pc_medications       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pc_profile           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pc_services          ENABLE ROW LEVEL SECURITY;
 
 -- Policies: solo el dueño puede SELECT / INSERT / UPDATE / DELETE
 
@@ -153,7 +164,8 @@ BEGIN
   FOREACH tbl IN ARRAY ARRAY[
     'pc_patients','pc_appointments','pc_sessions','pc_payments',
     'pc_resources','pc_risk_assessments','pc_scale_results',
-    'pc_treatment_plans','pc_inter_sessions','pc_medications','pc_profile'
+    'pc_treatment_plans','pc_inter_sessions','pc_medications','pc_profile',
+    'pc_services'
   ] LOOP
     EXECUTE format('
       CREATE POLICY "owner_all_%s" ON %s
