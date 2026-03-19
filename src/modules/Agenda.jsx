@@ -259,6 +259,16 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   useEffect(() => {
     if (autoOpen === "add") setShowAdd(true);
   }, [autoOpen]);
+
+  // When modal opens, evaluate initial type for modality picker
+  useEffect(() => {
+    if (!showAdd) { setShowModalityPicker(false); return; }
+    const opt = appointmentTypeOptions.find(o => (o.label || o) === form.type);
+    const svc = opt?.serviceId ? services.find(s => s.id === opt.serviceId) : null;
+    if (svc?.modality === "ambas" && !form.modality) {
+      setShowModalityPicker(true);
+    }
+  }, [showAdd]);
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
