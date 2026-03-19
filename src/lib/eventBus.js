@@ -1,23 +1,41 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/lib/eventBus.js
-// FASE 2 — Canal de comunicación lateral entre módulos.
-// Usa mitt (300 bytes, cero dependencias transitivas).
+// FASE 2 — Event Bus vanilla (sin dependencias externas).
+// Reimplementa la API de mitt en ~15 líneas para evitar problemas
+// de instalación de paquetes en entornos sin terminal (Vercel + GitHub).
 //
 // PATRÓN DE USO:
-//   Emisor  → import { emit }  from "../lib/eventBus.js"  → emit.sessionCreated(...)
-//   Receptor → import { bus }  from "../lib/eventBus.js"  → bus.on("session:created", fn)
+//   Emisor   → import { emit }  from "../lib/eventBus.js"  → emit.sessionCreated(...)
+//   Receptor → import { bus }   from "../lib/eventBus.js"  → bus.on("session:created", fn)
 //
 // CATÁLOGO DE EVENTOS:
-//   session:created   { patientId, patientName, sessionId, date }
-//   risk:elevated     { patientId, patientName, sessionId, level }  level: "bajo"|"moderado"|"alto"
-//   task:assigned     { patientId, patientName, sessionId, count }
-//   payment:created   { patientId, patientName, sessionId, amount, method }
+//   session:created  { patientId, patientName, sessionId, date }
+//   risk:elevated    { patientId, patientName, sessionId, level }
+//   task:assigned    { patientId, patientName, sessionId, count }
+//   payment:created  { patientId, patientName, sessionId, amount, method }
 // ─────────────────────────────────────────────────────────────────────────────
-import mitt from "mitt";
 
-export const bus = mitt();
+function createBus() {
+  const listeners = {};
 
-// ── Helpers semánticos — los módulos usan estos en lugar de bus.emit directo ─
+  return {
+    on(event, fn) {
+      if (!listeners[event]) listeners[event] = [];
+      listeners[event].push(fn);
+    },
+    off(event, fn) {
+      if (!listeners[event]) return;
+      listeners[event] = listeners[event].filter(f => f !== fn);
+    },
+    emit(event, data) {
+      (listeners[event] || []).forEach(fn => fn(data));
+    },
+  };
+}
+
+export const bus = createBus();
+
+// ── Helpers semánticos ────────────────────────────────────────────────────────
 export const emit = {
   sessionCreated: (data) => bus.emit("session:created",  data),
   riskElevated:   (data) => bus.emit("risk:elevated",    data),
