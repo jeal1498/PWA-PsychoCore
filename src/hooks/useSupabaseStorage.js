@@ -1,10 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
 //
-// PATRÓN ROBUSTO:
-// - Mount: getSession() directo — sin depender de INITIAL_SESSION
-// - onAuthStateChange: solo para manejar login/logout después del mount
-// - Esto elimina la race condition con las 11 instancias simultáneas
+// PATRÓN RESILIENTE — dos capas:
+//   1. localStorage  → carga instantánea en cada reload, sin esperar auth
+//   2. Supabase      → fuente de verdad, sincroniza en background
+//
+// Flujo:
+//   Mount   → lee localStorage inmediatamente (sync) → muestra datos al instante
+//           → getSession() async → carga Supabase → actualiza si es más reciente
+//   Cambio  → guarda en localStorage (sync) + debounce 800ms a Supabase
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -23,19 +27,38 @@ const TABLE_MAP = {
   pc_services:         "pc_services",
 };
 
+const LS_PREFIX = "pc_cache_";
+
+function readLS(key, fallback) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw !== null ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLS(key, value) {
+  try {
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify(value));
+  } catch {
+    // localStorage lleno — continuar sin caché local
+  }
+}
+
 export function useSupabaseStorage(key, initialValue) {
-  const [value,  setValue_] = useState(initialValue);
+  // ── Carga inicial desde localStorage (síncrona — sin parpadeo) ────────────
+  const [value,  setValue_] = useState(() => readLS(key, initialValue));
   const [loaded, setLoaded] = useState(false);
 
-  const userIdRef      = useRef(null);
-  const saveTimerRef   = useRef(null);
-  const pendingSave    = useRef(false);
-  const initialValueRef = useRef(initialValue);
+  const userIdRef    = useRef(null);
+  const saveTimerRef = useRef(null);
+  const isSyncing    = useRef(false); // evita guardar el valor que acabamos de bajar de Supabase
 
   const table = TABLE_MAP[key];
 
-  // ── Carga datos de Supabase para el uid dado ──────────────────────────────
-  const loadFromSupabase = useCallback(async (uid) => {
+  // ── Sincronización con Supabase ───────────────────────────────────────────
+  const syncFromSupabase = useCallback(async (uid) => {
     if (!uid || !table) { setLoaded(true); return; }
     try {
       const { data, error } = await supabase
@@ -45,80 +68,83 @@ export function useSupabaseStorage(key, initialValue) {
         .maybeSingle();
 
       if (error) {
-        console.warn(`[storage] Error cargando ${key}:`, error.message);
-      } else if (data?.data !== undefined && data.data !== null) {
-        setValue_(data.data);
+        console.warn(`[storage] Error sync ${key}:`, error.message);
+        return;
       }
+
+      if (data?.data !== undefined && data.data !== null) {
+        // Supabase tiene datos — actualizar estado Y caché local
+        isSyncing.current = true;
+        setValue_(data.data);
+        writeLS(key, data.data);
+      }
+      // Si Supabase está vacío pero localStorage tenía datos,
+      // mantener los datos locales y hacer upsert hacia Supabase
     } catch (e) {
-      console.warn(`[storage] Excepción cargando ${key}:`, e);
+      console.warn(`[storage] Excepción sync ${key}:`, e);
     } finally {
       setLoaded(true);
     }
   }, [key, table]);
 
-  // ── Mount: obtener sesión actual directamente ─────────────────────────────
-  // getSession() lee de localStorage de forma síncrona — es inmediato
-  // y no depende del bus de eventos de auth.
+  // ── Auth: obtener sesión en mount + escuchar login/logout ─────────────────
   useEffect(() => {
+    // Marcar como loaded inmediatamente (localStorage ya tiene datos)
+    setLoaded(true);
+
     let cancelled = false;
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (cancelled) return;
       if (session?.user) {
         userIdRef.current = session.user.id;
-        loadFromSupabase(session.user.id);
-      } else {
-        // Sin sesión — marcar como loaded con valor vacío
-        setValue_(initialValueRef.current);
-        setLoaded(true);
+        syncFromSupabase(session.user.id);
       }
     });
 
-    return () => { cancelled = true; };
-  }, [loadFromSupabase]);
-
-  // ── Suscripción auth — solo para login/logout DESPUÉS del mount ───────────
-  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // INITIAL_SESSION ya fue manejado por getSession() arriba
         if (event === "INITIAL_SESSION") return;
 
         if (session?.user) {
           const uid = session.user.id;
           const wasLoggedOut = !userIdRef.current;
           userIdRef.current = uid;
-
-          // Solo recargar si acababa de hacer login (no en refresh de token)
           if (wasLoggedOut) {
-            pendingSave.current = false;
-            await loadFromSupabase(uid);
+            await syncFromSupabase(uid);
           }
         } else {
-          // Logout — limpiar
+          // Logout — limpiar estado y caché local
           userIdRef.current = null;
-          pendingSave.current = false;
           clearTimeout(saveTimerRef.current);
-          setValue_(initialValueRef.current);
-          setLoaded(true);
+          // Limpiar localStorage al salir
+          try { localStorage.removeItem(LS_PREFIX + key); } catch {}
+          setValue_(initialValue);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, [loadFromSupabase]);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [syncFromSupabase, key, initialValue]);
 
-  // ── Guardado en Supabase (debounced 800ms) ────────────────────────────────
-  // pendingSave evita guardar el valor inicial que llega del load
+  // ── Guardado (localStorage síncrono + Supabase debounced 800ms) ──────────
   useEffect(() => {
     if (!loaded) return;
-    if (!userIdRef.current) return;
 
-    // Primer disparo después de load — solo marcar y salir
-    if (!pendingSave.current) {
-      pendingSave.current = true;
+    // Si el cambio viene de syncFromSupabase, no reescribir a Supabase
+    if (isSyncing.current) {
+      isSyncing.current = false;
       return;
     }
+
+    // Guardar en localStorage inmediatamente
+    writeLS(key, value);
+
+    // Guardar en Supabase solo si hay sesión activa
+    if (!userIdRef.current) return;
 
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -131,11 +157,11 @@ export function useSupabaseStorage(key, initialValue) {
           { onConflict: "psychologist_id" }
         );
       if (error) console.error(`[storage] ❌ Error guardando ${key}:`, error.message);
-      else console.log(`[storage] ✅ Guardado OK: ${key}`);
+      else console.log(`[storage] ✅ Supabase OK: ${key}`);
     }, 800);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [value, loaded, table, key]);
+  }, [value, loaded, key, table]);
 
   const setValue = useCallback((newVal) => {
     setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
