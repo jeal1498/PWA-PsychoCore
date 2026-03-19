@@ -656,8 +656,10 @@ function ServicesTab({ services, setServices }) {
   ];
 
   const blankForm = { name: SERVICE_TYPES.sesion.desc, price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" };
-  const [selectedPkg, setSelectedPkg] = useState(null);
   const [form, setForm] = useState(blankForm);
+  const [pkgPrices, setPkgPrices] = useState(() =>
+    Object.fromEntries(SUGGESTED_PACKAGES.map(p => [p.sessions, String(p.price)]))
+  );
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
   // Estado de edición de precio con vigencia
@@ -670,50 +672,18 @@ function ServicesTab({ services, setServices }) {
     const f = { ...form, ...overrides };
     if (f.type !== "paquete" && !f.name.trim()) return;
     if (!f.price && !f.priceVirtual) return;
+    const effectivePrice = f.price || f.priceVirtual;
     const now = today;
-
-    setServices(prev => {
-      // Buscar duplicado: mismo type y mismo name (trim)
-      const dupIdx = prev.findIndex(
-        s => s.type === f.type && s.name.trim() === f.name.trim()
-      );
-
-      if (dupIdx !== -1) {
-        // Fusionar con el existente
-        const existing = prev[dupIdx];
-        const merged = {
-          ...existing,
-          modality: "ambas",
-          price:        f.price        ? Number(f.price)        : existing.price,
-          priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
-          priceHistory: [
-            ...(existing.priceHistory || []),
-            {
-              price:        f.price        ? Number(f.price)        : existing.price,
-              priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
-              from: now,
-            },
-          ],
-        };
-        const updated = [...prev];
-        updated[dupIdx] = merged;
-        return updated;
-      }
-
-      // Sin duplicado → agregar normalmente
-      const effectivePrice = f.price || f.priceVirtual;
-      return [...prev, {
-        id: "svc" + uid(),
-        name: f.name.trim(),
-        type: f.type,
-        modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
-        sessions: f.type === "paquete" ? Number(f.sessions) : null,
-        price: Number(f.price) || 0,
-        priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-        priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
-      }];
-    });
-
+    setServices(prev => [...prev, {
+      id: "svc" + uid(),
+      name: f.name.trim(),
+      type: f.type,
+      modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
+      sessions: f.type === "paquete" ? Number(f.sessions) : null,
+      price: Number(f.price) || 0,
+      priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
+      priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
+    }]);
     setForm(blankForm);
   };
 
@@ -936,37 +906,62 @@ function ServicesTab({ services, setServices }) {
               textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
               Paquetes sugeridos
             </div>
-            {/* Grid de 3 columnas */}
+            {/* Grid de 3 columnas — precio editable inline */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
               {SUGGESTED_PACKAGES.map(pkg => {
-                const on = selectedPkg === pkg.sessions;
+                const disc = pkg.sessions === 4 ? "10%" : pkg.sessions === 8 ? "15%" : "20%";
                 return (
-                  <button key={pkg.sessions} onClick={() => setSelectedPkg(on ? null : pkg.sessions)}
+                  <div key={pkg.sessions}
                     style={{ padding: "10px 8px", borderRadius: 10, textAlign: "center",
-                      border: `2px solid ${on ? T.p : T.bdr}`,
-                      background: on ? T.pA : T.card,
-                      cursor: "pointer", transition: "all .13s" }}>
+                      border: `2px solid ${T.bdr}`, background: T.card }}>
                     <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700,
-                      color: on ? T.p : T.t, marginBottom: 2 }}>{pkg.label}</div>
+                      color: T.t, marginBottom: 2 }}>{pkg.label}</div>
                     <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl,
-                      marginBottom: 6 }}>{pkg.sessions} ses · {pkg.sessions === 4 ? "10%" : pkg.sessions === 8 ? "15%" : "20%"} dto</div>
-                    <div style={{ fontFamily: T.fH, fontSize: 14, color: T.suc,
-                      fontWeight: 600 }}>{fmtCur(pkg.price)}</div>
-                  </button>
+                      marginBottom: 8 }}>{pkg.sessions} ses · {disc} dto</div>
+                    <input
+                      type="number"
+                      value={pkgPrices[pkg.sessions] ?? ""}
+                      onChange={e => setPkgPrices(prev => ({ ...prev, [pkg.sessions]: e.target.value }))}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8,
+                        border: `1.5px solid ${T.bdr}`, fontFamily: T.fH, fontSize: 14,
+                        fontWeight: 600, color: T.suc, background: T.card,
+                        outline: "none", textAlign: "center", boxSizing: "border-box" }} />
+                  </div>
                 );
               })}
             </div>
             <button
               onClick={() => {
-                const pkg = SUGGESTED_PACKAGES.find(p => p.sessions === selectedPkg);
-                if (pkg) { setForm(f => ({ ...f, name: pkg.label, sessions: String(pkg.sessions), price: String(pkg.price) })); setSelectedPkg(null); }
+                const now = today;
+                setServices(prev => {
+                  let updated = [...prev];
+                  SUGGESTED_PACKAGES.forEach(pkg => {
+                    const price = Number(pkgPrices[pkg.sessions]);
+                    if (!price) return;
+                    const dupIdx = updated.findIndex(s => s.type === "paquete" && s.sessions === pkg.sessions);
+                    const entry = {
+                      id: dupIdx >= 0 ? updated[dupIdx].id : "svc" + uid(),
+                      name: pkg.label,
+                      type: "paquete",
+                      modality: "presencial",
+                      sessions: pkg.sessions,
+                      price,
+                      priceVirtual: null,
+                      priceHistory: dupIdx >= 0
+                        ? [...(updated[dupIdx].priceHistory || []), { price, priceVirtual: null, from: now }]
+                        : [{ price, priceVirtual: null, from: now }],
+                    };
+                    if (dupIdx >= 0) updated[dupIdx] = entry;
+                    else updated = [...updated, entry];
+                  });
+                  return updated;
+                });
               }}
-              disabled={!selectedPkg}
               style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none",
-                background: selectedPkg ? T.p : T.bdrL, color: selectedPkg ? "#fff" : T.tl,
+                background: T.p, color: "#fff",
                 fontFamily: T.fB, fontSize: 13, fontWeight: 600,
-                cursor: selectedPkg ? "pointer" : "not-allowed", transition: "all .15s" }}>
-              Confirmar selección
+                cursor: "pointer", transition: "all .15s" }}>
+              Guardar paquetes
             </button>
           </div>
         )}
@@ -985,8 +980,8 @@ function ServicesTab({ services, setServices }) {
           </div>
         )}
 
-        {/* Precios — presencial y virtual siempre visibles, opcionales */}
-        <div style={{ marginBottom: 18 }}>
+        {/* Precios — solo visibles para tipos que no son paquete */}
+        {form.type !== "paquete" && <div style={{ marginBottom: 18 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {/* Presencial */}
             <div>
@@ -1018,16 +1013,16 @@ function ServicesTab({ services, setServices }) {
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
-        <button onClick={() => add()} disabled={!canAdd}
+        {form.type !== "paquete" && <button onClick={() => add()} disabled={!canAdd}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             width: "100%", padding: "11px", borderRadius: 10, border: "none",
             background: canAdd ? T.p : T.bdrL, color: canAdd ? "#fff" : T.tl,
             fontFamily: T.fB, fontSize: 13.5, fontWeight: 600,
             cursor: canAdd ? "pointer" : "not-allowed", transition: "all .15s" }}>
           <Plus size={15} /> Agregar servicio
-        </button>
+        </button>}
       </Card>
     </div>
   );
