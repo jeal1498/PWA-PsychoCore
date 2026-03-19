@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, Plus, Trash2, DollarSign, Package } from "lucide-react";
 import { T } from "../theme.js";
 import { Card, Input, Btn, PageHeader } from "../components/ui/index.jsx";
-import { trialDaysLeft, hasActiveAccess } from "../lib/supabase.js";
+import { trialDaysLeft, hasActiveAccess, signOut, supabase } from "../lib/supabase.js";
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
 function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
@@ -136,13 +136,52 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
 
 
 // ── Tab: Datos ────────────────────────────────────────────────────────────────
-function DataTab({ allData, onRestore, patients }) {
+function DataTab({ allData, onRestore, patients, googleUser }) {
   const [msg,         setMsg]         = useState(null);
   const [importing,   setImporting]   = useState(false);
+  const [showDelete,  setShowDelete]  = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting,    setDeleting]    = useState(false);
 
   const flash = (text, ok = true) => {
     setMsg({ text, ok });
     setTimeout(() => setMsg(null), 4000);
+  };
+
+  // ── Eliminar cuenta ────────────────────────────────────────────────────
+  const deleteAccount = async () => {
+    if (deleteInput !== "ELIMINAR") return;
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) throw new Error("Sin sesión activa");
+
+      // Borrar todas las tablas del usuario
+      const tables = [
+        "pc_patients", "pc_appointments", "pc_sessions", "pc_payments",
+        "pc_profile", "pc_risk_assessments", "pc_scale_results",
+        "pc_treatment_plans", "pc_inter_sessions", "pc_medications", "pc_services",
+      ];
+      for (const table of tables) {
+        await supabase.from(table).delete().eq("psychologist_id", uid);
+      }
+
+      // Borrar registro de psychologists
+      await supabase.from("psychologists").delete().eq("id", uid);
+
+      // Limpiar localStorage
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith("pc_")) localStorage.removeItem(k);
+      });
+
+      // Cerrar sesión (Supabase no permite eliminar auth.users desde el cliente)
+      await signOut();
+      window.location.reload();
+    } catch (e) {
+      flash("Error al eliminar la cuenta: " + e.message, false);
+      setDeleting(false);
+    }
   };
 
   // ── Exportar JSON completo ──────────────────────────────────────────────
@@ -276,6 +315,73 @@ function DataTab({ allData, onRestore, patients }) {
           {importing ? "Importando…" : "Importar desde archivo .json"}
         </button>
       </Card>
+
+      {/* ── Zona de peligro ─────────────────────────────────────────── */}
+      <Card style={{ padding: 24, marginBottom: 16, border: `1.5px solid ${T.err}40` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <Trash2 size={15} color={T.err}/>
+          <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.err }}>Eliminar cuenta</div>
+        </div>
+        <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 16 }}>
+          Elimina permanentemente todos tus datos clínicos y tu cuenta. Esta acción no se puede deshacer.
+        </p>
+        <button onClick={() => { setShowDelete(true); setDeleteInput(""); }}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
+            border: `1.5px solid ${T.err}`, background: T.errA, color: T.err,
+            fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <Trash2 size={15}/> Eliminar mi cuenta
+        </button>
+      </Card>
+
+      {/* Modal confirmación eliminar */}
+      {showDelete && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: T.bg, borderRadius: 18, padding: 28, maxWidth: 420, width: "100%",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.25)", border: `1px solid ${T.err}40` }}>
+            <div style={{ fontSize: 32, marginBottom: 12, textAlign: "center" }}>⚠️</div>
+            <div style={{ fontFamily: T.fB, fontSize: 17, fontWeight: 700, color: T.t, marginBottom: 8, textAlign: "center" }}>
+              ¿Eliminar cuenta permanentemente?
+            </div>
+            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 20, textAlign: "center" }}>
+              Se borrarán todos tus pacientes, sesiones, citas, pagos y datos clínicos. Esta acción es <strong>irreversible</strong>.
+            </p>
+            <div style={{ background: T.errA, borderRadius: 10, padding: "12px 14px", marginBottom: 20,
+              fontFamily: T.fB, fontSize: 12, color: T.err, lineHeight: 1.5 }}>
+              Escribe <strong>ELIMINAR</strong> para confirmar:
+            </div>
+            <input
+              value={deleteInput}
+              onChange={e => setDeleteInput(e.target.value)}
+              placeholder="ELIMINAR"
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${deleteInput === "ELIMINAR" ? T.err : T.bdr}`,
+                fontFamily: T.fB, fontSize: 14, color: T.t, background: T.bg, marginBottom: 16,
+                outline: "none", boxSizing: "border-box", transition: "border-color .15s" }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowDelete(false)} disabled={deleting}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`,
+                  background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600,
+                  cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={deleteAccount}
+                disabled={deleteInput !== "ELIMINAR" || deleting}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "none",
+                  background: deleteInput === "ELIMINAR" && !deleting ? T.err : T.errA,
+                  color: deleteInput === "ELIMINAR" && !deleting ? "#fff" : `${T.err}60`,
+                  fontFamily: T.fB, fontSize: 13, fontWeight: 700,
+                  cursor: deleteInput === "ELIMINAR" && !deleting ? "pointer" : "not-allowed",
+                  transition: "all .2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                {deleting
+                  ? <><RefreshCw size={14} style={{ animation: "spin .8s linear infinite" }}/> Eliminando…</>
+                  : <><Trash2 size={14}/> Eliminar todo</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Flash message */}
       {msg && (
@@ -1150,7 +1256,7 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
       {tab === "services"   && <ServicesTab   services={services} setServices={setServices} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
-      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} />}
+      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} />}
       {tab === "help"       && <HelpTab />}
     </div>
   );
