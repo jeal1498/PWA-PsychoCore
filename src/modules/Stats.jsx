@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { TrendingUp, Users, FileText, DollarSign, Activity, Award, UserCheck, Calendar, XCircle, BarChart2 } from "lucide-react";
+import { TrendingUp, Users, FileText, DollarSign, Activity, Award, UserCheck, Calendar, XCircle, BarChart2, ShieldAlert, ClipboardCheck } from "lucide-react";
 import { T, MONTHS_ES } from "../theme.js";
 import { fmtCur, fmt, todayDate } from "../utils.js";
 import { Card, PageHeader, Badge } from "../components/ui/index.jsx";
@@ -147,7 +147,7 @@ function SectionTitle({ icon:Icon, title, sub }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function Stats({ patients = [], appointments = [], sessions = [], payments = [], services = [] }) {
+export default function Stats({ patients = [], appointments = [], sessions = [], payments = [], services = [], riskAssessments = [], scaleResults = [] }) {
   const isMobile = useIsMobile();
   const now = new Date();
 
@@ -662,6 +662,94 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           }
         </Card>
 
+
+        {/* ══ SECCIÓN CLÍNICA — FASE 4 ══════════════════════════════════════ */}
+        {(riskAssessments.length > 0 || scaleResults.length > 0) && (
+          <>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <SectionTitle icon={ShieldAlert} title="Clínico" sub="Riesgo y escalas psicométricas"/>
+            </div>
+
+            {/* Distribución de niveles de riesgo */}
+            {riskAssessments.length > 0 && (() => {
+              // Solo el último registro por paciente
+              const latestByPt = {};
+              riskAssessments.forEach(r => {
+                if (!latestByPt[r.patientId] || r.date > latestByPt[r.patientId].date)
+                  latestByPt[r.patientId] = r;
+              });
+              const latest = Object.values(latestByPt);
+              const levels = [
+                { key:"inminente", label:"Inminente", color:"#B85050", bg:"rgba(184,80,80,0.12)"  },
+                { key:"alto",      label:"Alto",       color:"#D97706", bg:"rgba(217,119,6,0.12)"  },
+                { key:"moderado",  label:"Moderado",   color:"#B8900A", bg:"rgba(184,144,10,0.12)" },
+                { key:"bajo",      label:"Bajo",       color:T.suc,    bg:T.sucA                   },
+              ];
+              return (
+                <Card style={{ padding:24 }}>
+                  <h3 style={{ fontFamily:T.fH, fontSize:16, color:T.t, margin:"0 0 16px" }}>
+                    Distribución de riesgo <span style={{ fontSize:12, color:T.tl, fontFamily:T.fB }}>· último registro por paciente</span>
+                  </h3>
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {levels.map(lv => {
+                      const count = latest.filter(r => r.riskLevel === lv.key).length;
+                      const pct   = latest.length ? Math.round((count / latest.length) * 100) : 0;
+                      return (
+                        <div key={lv.key}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                            <span style={{ fontFamily:T.fB, fontSize:12.5, color:T.t }}>{lv.label}</span>
+                            <span style={{ fontFamily:T.fB, fontSize:12, color:lv.color, fontWeight:700 }}>{count} ({pct}%)</span>
+                          </div>
+                          <div style={{ height:8, borderRadius:9999, background:T.bdrL, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${pct}%`, background:lv.color, borderRadius:9999, transition:"width .6s ease" }}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ marginTop:14, padding:"8px 12px", background:T.cardAlt, borderRadius:10, fontFamily:T.fB, fontSize:11.5, color:T.tl }}>
+                    {latest.length} paciente{latest.length !== 1 ? "s" : ""} evaluado{latest.length !== 1 ? "s" : ""} · {riskAssessments.length} evaluación{riskAssessments.length !== 1 ? "es" : ""} en total
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {/* Escalas aplicadas */}
+            {scaleResults.length > 0 && (() => {
+              const byScale = {};
+              scaleResults.forEach(r => {
+                const k = r.scaleName || r.scaleId || "Sin nombre";
+                byScale[k] = (byScale[k] || 0) + 1;
+              });
+              const sorted = Object.entries(byScale).sort((a,b) => b[1]-a[1]).slice(0,6);
+              const maxVal  = sorted[0]?.[1] || 1;
+              return (
+                <Card style={{ padding:24 }}>
+                  <h3 style={{ fontFamily:T.fH, fontSize:16, color:T.t, margin:"0 0 16px" }}>
+                    Escalas más aplicadas
+                    <span style={{ fontSize:12, color:T.tl, fontFamily:T.fB }}> · {scaleResults.length} aplicación{scaleResults.length !== 1 ? "es" : ""} total</span>
+                  </h3>
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {sorted.map(([name, count]) => {
+                      const pct = Math.round((count / maxVal) * 100);
+                      return (
+                        <div key={name}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                            <span style={{ fontFamily:T.fB, fontSize:12.5, color:T.t, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"70%" }}>{name}</span>
+                            <span style={{ fontFamily:T.fB, fontSize:12, color:T.p, fontWeight:700, flexShrink:0 }}>{count}×</span>
+                          </div>
+                          <div style={{ height:7, borderRadius:9999, background:T.bdrL, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${pct}%`, background:T.p, borderRadius:9999, opacity:0.7, transition:"width .6s ease" }}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })()}
+          </>
+        )}
         {/* Resumen operativo */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 20px" }}>Resumen operativo</h3>
