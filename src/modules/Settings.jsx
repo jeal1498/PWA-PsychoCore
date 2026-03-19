@@ -670,18 +670,50 @@ function ServicesTab({ services, setServices }) {
     const f = { ...form, ...overrides };
     if (f.type !== "paquete" && !f.name.trim()) return;
     if (!f.price && !f.priceVirtual) return;
-    const effectivePrice = f.price || f.priceVirtual;
     const now = today;
-    setServices(prev => [...prev, {
-      id: "svc" + uid(),
-      name: f.name.trim(),
-      type: f.type,
-      modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
-      sessions: f.type === "paquete" ? Number(f.sessions) : null,
-      price: Number(f.price) || 0,
-      priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-      priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
-    }]);
+
+    setServices(prev => {
+      // Buscar duplicado: mismo type y mismo name (trim)
+      const dupIdx = prev.findIndex(
+        s => s.type === f.type && s.name.trim() === f.name.trim()
+      );
+
+      if (dupIdx !== -1) {
+        // Fusionar con el existente
+        const existing = prev[dupIdx];
+        const merged = {
+          ...existing,
+          modality: "ambas",
+          price:        f.price        ? Number(f.price)        : existing.price,
+          priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
+          priceHistory: [
+            ...(existing.priceHistory || []),
+            {
+              price:        f.price        ? Number(f.price)        : existing.price,
+              priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
+              from: now,
+            },
+          ],
+        };
+        const updated = [...prev];
+        updated[dupIdx] = merged;
+        return updated;
+      }
+
+      // Sin duplicado → agregar normalmente
+      const effectivePrice = f.price || f.priceVirtual;
+      return [...prev, {
+        id: "svc" + uid(),
+        name: f.name.trim(),
+        type: f.type,
+        modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
+        sessions: f.type === "paquete" ? Number(f.sessions) : null,
+        price: Number(f.price) || 0,
+        priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
+        priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
+      }];
+    });
+
     setForm(blankForm);
   };
 
