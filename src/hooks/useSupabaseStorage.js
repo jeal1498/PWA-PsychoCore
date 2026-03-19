@@ -2,12 +2,9 @@
 // src/hooks/useSupabaseStorage.js
 //
 // PATRÓN CORRECTO SUPABASE:
-// onAuthStateChange como única fuente de verdad.
-// INITIAL_SESSION dispara al suscribirse con la sesión almacenada.
-//
-// FIX: Manejo explícito de token expirado en INITIAL_SESSION.
-// Si el access token está expirado al recargar la página, Supabase rechaza
-// la query con 401. Se detecta y se espera TOKEN_REFRESHED para reintentar.
+// Un solo useEffect con onAuthStateChange — NO se llama getSession() por separado.
+// INITIAL_SESSION dispara inmediatamente al suscribirse con la sesión almacenada.
+// Esto elimina la race condition entre getSession() y onAuthStateChange.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -26,13 +23,6 @@ const TABLE_MAP = {
   pc_services:         "pc_services",
 };
 
-/** Retorna true si el access token ya expiró (o expira en los próximos 10s) */
-function isTokenExpired(session) {
-  if (!session?.expires_at) return false;
-  // expires_at viene en segundos (epoch)
-  return session.expires_at * 1000 < Date.now() + 10_000;
-}
-
 export function useSupabaseStorage(key, initialValue) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
@@ -41,6 +31,8 @@ export function useSupabaseStorage(key, initialValue) {
   const saveTimerRef   = useRef(null);
   const isFirstWrite   = useRef(true);
   const dataFetched    = useRef(false);
+  // Guardar initialValue en ref para no ponerlo en deps del effect
+  // (evita que el effect se re-suscriba en cada render)
   const initialValueRef = useRef(initialValue);
 
   const table = TABLE_MAP[key];
@@ -55,25 +47,21 @@ export function useSupabaseStorage(key, initialValue) {
         .eq("psychologist_id", uid)
         .maybeSingle();
 
-      if (error) {
-        // Error 401/403 = token expirado o RLS bloqueando.
-        // No marcar como fetched para que TOKEN_REFRESHED reintente.
-        console.warn(`[storage] Error cargando ${key}:`, error.message, `(code: ${error.code})`);
-        return; // ← NO setLoaded(true) aquí — esperamos TOKEN_REFRESHED
-      }
-
-      if (data?.data !== undefined && data.data !== null) {
+      if (!error && data?.data !== undefined && data.data !== null) {
         setValue_(data.data);
+        dataFetched.current = true;
       }
-      dataFetched.current = true;
     } catch (e) {
-      console.warn(`[storage] Excepción cargando ${key}:`, e);
-      return; // igual — no marcar loaded para reintentar
+      console.warn(`[storage] Error cargando ${key}:`, e);
+    } finally {
+      setLoaded(true);
     }
-    setLoaded(true);
   }, [key, table]);
 
   // ── Auth listener — única fuente de verdad ────────────────────────────────
+  // onAuthStateChange dispara INITIAL_SESSION inmediatamente al suscribirse,
+  // con la sesión actual (incluso si viene de localStorage tras un reload).
+  // No necesitamos getSession() por separado.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -81,21 +69,14 @@ export function useSupabaseStorage(key, initialValue) {
           const uid = session.user.id;
           userIdRef.current = uid;
 
-          // Si el token está expirado en INITIAL_SESSION, NO cargar todavía.
-          // TOKEN_REFRESHED disparará en < 1s con el token renovado.
-          if (event === "INITIAL_SESSION" && isTokenExpired(session)) {
-            console.info(`[storage:${key}] Token expirado en INITIAL_SESSION — esperando TOKEN_REFRESHED`);
-            return;
-          }
-
-          // Cargar solo si aún no tenemos datos confirmados de Supabase
+          // Cargar solo si aún no tenemos datos reales
           if (!dataFetched.current) {
-            isFirstWrite.current = true;
+            isFirstWrite.current = true; // evitar que el save effect se dispare
             await loadFromSupabase(uid);
           }
         } else {
-          // Sin sesión — logout o expiración sin refresh exitoso
-          userIdRef.current   = null;
+          // Sin sesión (logout o sesión expirada sin refresh)
+          userIdRef.current  = null;
           dataFetched.current = false;
           setValue_(initialValueRef.current);
           setLoaded(true);
@@ -104,7 +85,7 @@ export function useSupabaseStorage(key, initialValue) {
     );
 
     return () => subscription.unsubscribe();
-  }, [loadFromSupabase, key]);
+  }, [loadFromSupabase]); // initialValue NO está en deps — usamos la ref
 
   // ── Guardado en Supabase (debounced 800ms) ────────────────────────────────
   useEffect(() => {
@@ -122,7 +103,8 @@ export function useSupabaseStorage(key, initialValue) {
           { psychologist_id: uid, data: value },
           { onConflict: "psychologist_id" }
         );
-      if (error) console.error(`[storage] Error guardando ${key}:`, error.message, error);
+      if (error) console.error(`[storage] ❌ Error guardando ${key}:`, error);
+      else console.log(`[storage] ✅ Guardado OK: ${key}`);
     }, 800);
 
     return () => clearTimeout(saveTimerRef.current);
