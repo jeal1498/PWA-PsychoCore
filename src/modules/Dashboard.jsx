@@ -1,10 +1,13 @@
+import { useState, useEffect } from "react";
 import { T } from "../theme.js";
+import { getAllAssignments } from "../lib/supabase.js"; // FASE 3
+import { bus } from "../lib/eventBus.js";              // FASE 3
 import { todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import {
   Users, Calendar, TrendingUp, AlertCircle, Clock,
-  FileText, ChevronRight, ShieldAlert, DollarSign,
+  FileText, ChevronRight, ShieldAlert, DollarSign, ClipboardList,
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus } from "./Consent.jsx";
@@ -139,6 +142,28 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
       ))}
     </div>
   );
+}
+
+
+// ── FASE 3: Contador reactivo de tareas pendientes ───────────────────────────
+// Carga el total al montar y se actualiza en tiempo real via Event Bus
+// sin peticiones adicionales a Supabase.
+function usePendingTasks() {
+  const [count, setCount] = useState(null); // null = cargando
+
+  useEffect(() => {
+    getAllAssignments()
+      .then(all => setCount(all.filter(a => a.status === "pending").length))
+      .catch(() => setCount(0));
+  }, []);
+
+  useEffect(() => {
+    const onAssigned  = () => setCount(c => (c ?? 0) + 1);
+    bus.on("task:assigned",  onAssigned);
+    return () => { bus.off("task:assigned", onAssigned); };
+  }, []);
+
+  return count;
 }
 
 export default function Dashboard({
@@ -344,6 +369,8 @@ export default function Dashboard({
           icon={TrendingUp} color={T.suc} bg={T.sucA} onClick={() => onNavigate("finance")}/>
         <KpiCard label="Pagos pendientes" value={pendingPay}
           icon={AlertCircle} color={T.war} bg={T.warA} onClick={() => onNavigate("finance")}/>
+        <KpiCard label="Tareas pendientes" value={pendingTasks ?? "…"}
+          icon={ClipboardList} color={T.p} bg={T.pA} onClick={() => onNavigate("tasks")}/>
       </div>
 
       {/* 6. GRID SECUNDARIO */}

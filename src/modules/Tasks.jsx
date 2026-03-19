@@ -9,6 +9,7 @@ import { fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Select, Textarea, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { TEMPLATES_LIST, TASK_CATEGORIES, getTemplate } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getAllAssignments, deleteAssignment, getResponsesByAssignment } from "../lib/supabase.js";
+import { emit } from "../lib/eventBus.js"; // FASE 3
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
@@ -359,7 +360,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function Tasks({ patients }) {
+export default function Tasks({ patients, sessions = [], onNavigate }) {
   const [view,          setView]          = useState("dashboard"); // "dashboard" | "manage"
   const [assignments,   setAssignments]   = useState([]);
   const [loading,       setLoading]       = useState(false);
@@ -414,6 +415,8 @@ export default function Tasks({ patients }) {
         }),
         timeout,
       ]);
+      // FASE 3 — notificar al resto del sistema que se asignó una tarea manualmente
+      emit.taskAssigned({ patientId: patient.id, patientName: patient.name, sessionId: null, count: 1 });
       setShowAdd(false);
       setSelTemplate(null);
       setNotes("");
