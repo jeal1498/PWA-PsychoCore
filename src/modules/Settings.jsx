@@ -668,7 +668,9 @@ function ServicesTab({ services, setServices }) {
 
   const add = (overrides = {}) => {
     const f = { ...form, ...overrides };
-    if (!f.name.trim() || !f.price) return;
+    if (f.type !== "paquete" && !f.name.trim()) return;
+    if (!f.price && !f.priceVirtual) return;
+    const effectivePrice = f.price || f.priceVirtual;
     const now = today;
     setServices(prev => [...prev, {
       id: "svc" + uid(),
@@ -678,7 +680,7 @@ function ServicesTab({ services, setServices }) {
       sessions: f.type === "paquete" ? Number(f.sessions) : null,
       price: Number(f.price) || 0,
       priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-      priceHistory: [{ price: Number(f.price) || 0, priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
+      priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
     }]);
     setForm(blankForm);
   };
@@ -977,7 +979,7 @@ function ServicesTab({ services, setServices }) {
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Virtual</label>
                 <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
-                  placeholder="Opcional"
+                  placeholder=""
                   style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.p}40`,
                     borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
                     background: T.pA, outline: "none", boxSizing: "border-box" }} />
