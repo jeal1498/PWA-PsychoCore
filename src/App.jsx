@@ -247,6 +247,7 @@ export default function App() {
             if (data.treatmentPlans)  setTreatmentPlans(data.treatmentPlans);
             if (data.interSessions)   setInterSessions(data.interSessions);
             if (data.medications)     setMedications(data.medications);
+            if (data.services)        setServices(data.services);
           }}
         />
       );
