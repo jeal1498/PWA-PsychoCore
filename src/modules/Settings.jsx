@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, FlaskConical, Plus, Trash2, DollarSign, Package } from "lucide-react";
 import {
   SEED_PROFILE, SEED_PATIENTS, SEED_APPOINTMENTS, SEED_SESSIONS,
@@ -674,7 +674,7 @@ function ServicesTab({ services, setServices }) {
   const [pkgPricesV, setPkgPricesV] = useState(() => calcPkgPrices(basePrice, basePriceV).rowV);
 
   // Auto-actualizar precios de paquetes cuando cambia la sesión individual
-  React.useEffect(() => {
+  useEffect(() => {
     const fresh = calcPkgPrices(basePrice, basePriceV);
     setPkgPrices(fresh.row);
     setPkgPricesV(fresh.rowV);
