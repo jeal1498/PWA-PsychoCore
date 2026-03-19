@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, FlaskConical, Plus, Trash2, DollarSign, Package } from "lucide-react";
-import {
-  SEED_PROFILE, SEED_PATIENTS, SEED_APPOINTMENTS, SEED_SESSIONS,
-  SEED_PAYMENTS, SEED_RISK_ASSESSMENTS, SEED_SCALE_RESULTS,
-  SEED_TREATMENT_PLANS, SEED_INTER_SESSIONS, SEED_MEDICATIONS,
-} from "../devSeedData.js";
+import { Check, CheckCircle, AlertCircle, Download, Upload, FileJson, Users, RefreshCw, HelpCircle, MessageCircle, Mail, ChevronDown, ChevronUp, Plus, Trash2, DollarSign, Package } from "lucide-react";
 import { T } from "../theme.js";
 import { Card, Input, Btn, PageHeader } from "../components/ui/index.jsx";
 import { trialDaysLeft, hasActiveAccess } from "../lib/supabase.js";
@@ -279,39 +274,6 @@ function DataTab({ allData, onRestore, patients }) {
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.6 : 1, transition: "all .15s" }}>
           {importing ? <RefreshCw size={15} style={{ animation: "spin .8s linear infinite" }}/> : <Upload size={15}/>}
           {importing ? "Importando…" : "Importar desde archivo .json"}
-        </button>
-      </Card>
-
-      {/* ── Datos de prueba ────────────────────────────────────────── */}
-      <Card style={{ padding: 24, marginBottom: 16, border:`1.5px dashed ${T.bdr}` }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-          <FlaskConical size={15} color={T.p}/>
-          <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t }}>Datos de prueba</div>
-          <span style={{ padding:"2px 8px", borderRadius:9999, background:T.warA, color:T.war, fontFamily:T.fB, fontSize:10, fontWeight:700 }}>SOLO DESARROLLO</span>
-        </div>
-        <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 16 }}>
-          Carga 8 pacientes ficticios con sesiones, citas y pagos de ejemplo para evaluar el diseño visual. Reemplaza los datos actuales.
-        </p>
-        <button onClick={() => {
-          if (!confirm("¿Cargar datos de prueba? Esto reemplazará tus datos actuales.")) return;
-          onRestore({
-            profile:          SEED_PROFILE,
-            patients:         SEED_PATIENTS,
-            appointments:     SEED_APPOINTMENTS,
-            sessions:         SEED_SESSIONS,
-            payments:         SEED_PAYMENTS,
-            riskAssessments:  SEED_RISK_ASSESSMENTS,
-            scaleResults:     SEED_SCALE_RESULTS,
-            treatmentPlans:   SEED_TREATMENT_PLANS,
-            interSessions:    SEED_INTER_SESSIONS,
-            medications:      SEED_MEDICATIONS,
-          });
-          flash("Datos de prueba cargados correctamente — ¡recarga la app!");
-        }}
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 18px", borderRadius:10,
-            border:`1.5px solid ${T.p}`, background:T.pA, color:T.p,
-            fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer" }}>
-          <FlaskConical size={15}/> Cargar datos de prueba
         </button>
       </Card>
 
