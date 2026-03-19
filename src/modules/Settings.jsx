@@ -977,12 +977,12 @@ function ServicesTab({ services, setServices }) {
               </div>
             ) : (
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.p, marginBottom: 6 }}>💻 Virtual</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>💻 Virtual</label>
                 <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
-                  placeholder=""
-                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.p}40`,
+                  placeholder="900"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`,
                     borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
-                    background: T.pA, outline: "none", boxSizing: "border-box" }} />
+                    background: T.card, outline: "none", boxSizing: "border-box" }} />
               </div>
             )}
           </div>
