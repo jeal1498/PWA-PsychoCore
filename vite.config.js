@@ -38,6 +38,8 @@ export default defineConfig({
         ]
       },
       workbox: {
+        skipWaiting: true,      // Activa el nuevo SW inmediatamente sin esperar tabs cerradas
+        clientsClaim: true,     // Toma control de todas las tabs al activarse
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
