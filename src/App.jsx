@@ -218,7 +218,7 @@ export default function App() {
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
       case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
       case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;
-      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services}/>;
+      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults}/>;  {/* FASE 4 */}
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
@@ -336,7 +336,7 @@ export default function App() {
             </div>
           )}
           {!isMobile && <div style={{ flex:1 }}/>}
-          <GlobalSearch patients={patients} appointments={appointments} sessions={sessions} onNavigate={handleGlobalNav}/>
+          <GlobalSearch patients={patients} appointments={appointments} sessions={sessions} payments={payments} onNavigate={handleGlobalNav}/>
           <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
         </div>
 
