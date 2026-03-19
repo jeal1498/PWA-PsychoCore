@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import PatientPortal from "./modules/PatientPortal.jsx";
+import { AppStateProvider } from "./context/AppStateContext.jsx"; // FASE 1
 
 // PWA update handler
 import { registerSW } from "virtual:pwa-register";
@@ -19,6 +20,11 @@ const isPortal = /^\/p\/?$/.test(path);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    {isPortal ? <PatientPortal /> : <App />}
+    {/* FASE 1 — AppStateProvider envuelve solo la app principal.
+        PatientPortal es público y no necesita el estado del psicólogo. */}
+    {isPortal
+      ? <PatientPortal />
+      : <AppStateProvider><App /></AppStateProvider>
+    }
   </StrictMode>
 );

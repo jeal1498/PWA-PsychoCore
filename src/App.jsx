@@ -1,9 +1,14 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
+// ─────────────────────────────────────────────────────────────────────────────
+// src/App.jsx — FASE 1 refactorizado
+// Responsabilidad: Auth, UI shell, navegación y tema.
+// El estado de datos (pacientes, sesiones, etc.) vive en AppStateContext.
+// ─────────────────────────────────────────────────────────────────────────────
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { Menu, Brain } from "lucide-react";
 import { T } from "./theme.js";
-import { useIsMobile }         from "./hooks/useIsMobile.js";
-import { useSupabaseStorage }  from "./hooks/useSupabaseStorage.js";
-import { useNotifications }    from "./hooks/useNotifications.js";
+import { useIsMobile }      from "./hooks/useIsMobile.js";
+import { useNotifications } from "./hooks/useNotifications.js";
+import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
@@ -26,30 +31,50 @@ const TreatmentPlan = lazy(() => import("./modules/TreatmentPlan.jsx"));
 const Reports       = lazy(() => import("./modules/Reports.jsx"));
 const Tasks         = lazy(() => import("./modules/Tasks.jsx"));
 
-import { DEFAULT_PROFILE } from "./sampleData.js";
-
 export default function App() {
-  const [user,              setUser]              = useState(null);
-  const [authLoading,       setAuthLoading]       = useState(true);
-  const [psychologist,      setPsychologist]      = useState(null);
+  // ── Estado de contexto ───────────────────────────────────────────────────
+  // Todos los datos de negocio vienen del AppStateContext (Fase 1).
+  const {
+    patients,        setPatients,
+    appointments,    setAppointments,
+    sessions,        setSessions,
+    payments,        setPayments,
+    profile,         setProfile,
+    riskAssessments, setRiskAssessments,
+    scaleResults,    setScaleResults,
+    treatmentPlans,  setTreatmentPlans,
+    interSessions,   setInterSessions,
+    medications,     setMedications,
+    services,        setServices,
+    dataReady,
+    dataLoaded,
+    dataTimedOut,
+    allData,
+    mp,
+  } = useAppState();
+
+  // ── Estado local de App (auth + UI) ──────────────────────────────────────
+  const [user,               setUser]               = useState(null);
+  const [authLoading,        setAuthLoading]        = useState(true);
+  const [psychologist,       setPsychologist]       = useState(null);
   const [psychologistLoaded, setPsychologistLoaded] = useState(false);
   const [activeModule,  setActiveModule]  = useState("dashboard");
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
+  const [openAction,    setOpenAction]    = useState(null);
+
   // "auto" | "dark" | "light"
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
-  // systemDark como estado reactivo — se actualiza cuando el SO cambia el tema
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches
   );
   const darkMode = darkPref === "auto" ? systemDark : darkPref === "dark";
+
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
-    // Verificar sesión existente al montar (necesario en móvil donde
-    // onAuthStateChange puede no dispararse si el token ya existe)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
@@ -67,9 +92,8 @@ export default function App() {
       setAuthLoading(false);
     });
 
-    // Escuchar cambios posteriores (login, logout, refresh de token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "INITIAL_SESSION") return; // ya manejado por getSession arriba
+      if (event === "INITIAL_SESSION") return;
       if (session?.user) {
         setUser(session.user);
         try {
@@ -90,18 +114,16 @@ export default function App() {
       setAuthLoading(false);
     });
 
-    // Timeout de seguridad — si en 8s no resuelve, salimos del loading
     const timeout = setTimeout(() => setAuthLoading(false), 8000);
-
     return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
+  // ── Tema ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
     localStorage.setItem("pc_dark_pref", darkPref);
   }, [darkMode, darkPref]);
 
-  // Listen to system preference changes in real time
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
@@ -114,46 +136,13 @@ export default function App() {
     return () => mq.removeEventListener("change", handler);
   }, [darkPref]);
 
-  const [patients,     setPatients,     pLoaded]  = useSupabaseStorage("pc_patients",         []);
-  const [appointments, setAppointments, aLoaded]  = useSupabaseStorage("pc_appointments",     []);
-  const [sessions,     setSessions,     sLoaded]  = useSupabaseStorage("pc_sessions",         []);
-  const [payments,     setPayments,     pyLoaded] = useSupabaseStorage("pc_payments",         []);
-  const [profile,          setProfile,          prLoaded]  = useSupabaseStorage("pc_profile",           DEFAULT_PROFILE);
-  const [riskAssessments,  setRiskAssessments,  raLoaded]  = useSupabaseStorage("pc_risk_assessments",  []);
-  const [scaleResults,     setScaleResults,     scLoaded]  = useSupabaseStorage("pc_scale_results",     []);
-  const [treatmentPlans,   setTreatmentPlans,   tpLoaded]  = useSupabaseStorage("pc_treatment_plans",   []);
-  const [interSessions,    setInterSessions,    isLoaded]  = useSupabaseStorage("pc_inter_sessions",    []);
-  const [medications,      setMedications,      medLoaded] = useSupabaseStorage("pc_medications",       []);
-  const [services,         setServices]                        = useSupabaseStorage("pc_services",           []);
-
-  // Muestra la app en cuanto cargue el primer dato crítico (pacientes o perfil).
-  // El resto llega en segundo plano sin bloquear el render.
-  const dataReady = pLoaded || prLoaded;
-  const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
-
-  // Timeout de seguridad: si en 8s dataReady sigue false (red lenta, token
-  // expirado que tarda en refreshear), pasamos igual al dashboard con datos vacíos.
-  const [dataTimedOut, setDataTimedOut] = useState(false);
-  useEffect(() => {
-    if (dataReady) { setDataTimedOut(false); return; }
-    const t = setTimeout(() => setDataTimedOut(true), 3000);
-    return () => clearTimeout(t);
-  }, [dataReady]);
-
-  const allData = useMemo(() => ({ patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications }),
-    [patients, appointments, sessions, payments, profile, riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
-
-  // ── Onboarding: mostrar solo si es nuevo psicólogo ────────────────────────
+  // ── Onboarding ───────────────────────────────────────────────────────────
   const [showOnboarding, setShowOnboarding] = useState(false);
-
   useEffect(() => {
     if (!dataLoaded || !user) return;
     const key = `pc_onboarding_done_${user.id}`;
     if (localStorage.getItem(key)) return;
-    // Mostrar si no tiene pacientes (cuenta nueva)
-    if (patients.length === 0) {
-      setShowOnboarding(true);
-    }
+    if (patients.length === 0) setShowOnboarding(true);
   }, [dataLoaded, user, patients.length]);
 
   const handleOnboardingClose = () => {
@@ -161,41 +150,14 @@ export default function App() {
     setShowOnboarding(false);
   };
 
+  // ── Notificaciones ───────────────────────────────────────────────────────
   const { notifications, dismiss, dismissAll } = useNotifications(user ? appointments : []);
 
-  const handleGlobalNav = (module, data) => {
-    setActiveModule(module);
-    if (module === "patients" && data && patientsNavRef.current)
-      setTimeout(() => patientsNavRef.current?.(data), 80);
-  };
-
-  const handleStartSession = (appt) => {
-    setSessionPrefill({ patientId: appt.patientId, date: appt.date });
-    setActiveModule("sessions");
-    setOpenAction(null);
-  };
-
-  // "Nueva nota" desde accesos rápidos — prefill vacío abre el modal directamente
-  const handleNewSession = () => {
-    const today = new Date().toISOString().split("T")[0];
-    setSessionPrefill({ patientId: "", date: today, _empty: true });
-    setActiveModule("sessions");
-    setOpenAction(null);
-  };
-
-  const handleLock = async () => { await signOut(); setSidebarOpen(false); };
-
-  const riskAlert = riskAssessments.some(a => {
-    const latest = riskAssessments.filter(r => r.patientId === a.patientId).sort((x,y) => y.date.localeCompare(x.date))[0];
-    return latest?.id === a.id && (a.riskLevel === "alto" || a.riskLevel === "inminente");
-  });
-
-  const [openAction, setOpenAction] = useState(null);
-
+  // ── Navegación ───────────────────────────────────────────────────────────
   const navTo = (mod) => {
     setActiveModule(mod);
     setOpenAction(null);
-    setSessionPrefill(null); // always clear so Sessions shows the list
+    setSessionPrefill(null);
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
@@ -206,7 +168,13 @@ export default function App() {
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
-  // Handle Android/browser back button — navigate to dashboard instead of leaving
+  const handleGlobalNav = (module, data) => {
+    setActiveModule(module);
+    if (module === "patients" && data && patientsNavRef.current)
+      setTimeout(() => patientsNavRef.current?.(data), 80);
+  };
+
+  // Android / browser back button
   useEffect(() => {
     const handlePop = () => {
       setActiveModule("dashboard");
@@ -217,6 +185,71 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  // ── Handlers de sesión ───────────────────────────────────────────────────
+  const handleStartSession = (appt) => {
+    setSessionPrefill({ patientId: appt.patientId, date: appt.date });
+    setActiveModule("sessions");
+    setOpenAction(null);
+  };
+
+  const handleNewSession = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setSessionPrefill({ patientId: "", date: today, _empty: true });
+    setActiveModule("sessions");
+    setOpenAction(null);
+  };
+
+  const handleLock = async () => { await signOut(); setSidebarOpen(false); };
+
+  // ── Alerta de riesgo para sidebar ────────────────────────────────────────
+  const riskAlert = riskAssessments.some(a => {
+    const latest = riskAssessments
+      .filter(r => r.patientId === a.patientId)
+      .sort((x, y) => y.date.localeCompare(x.date))[0];
+    return latest?.id === a.id && (a.riskLevel === "alto" || a.riskLevel === "inminente");
+  });
+
+  // ── Render de módulos ────────────────────────────────────────────────────
+  const renderModule = () => {
+    switch (activeModule) {
+      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
+      case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
+      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
+      case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
+      case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
+      case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;
+      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services}/>;
+      case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
+      case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
+      case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
+      case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
+      case "settings":    return (
+        <Settings profile={profile} setProfile={setProfile}
+          darkMode={darkPref} setDarkMode={setDarkPref}
+          setPatients={setPatients} patients={patients}
+          googleUser={user}
+          psychologist={psychologist}
+          allData={allData}
+          services={services} setServices={setServices}
+          onRestore={(data) => {
+            if (data.patients)        setPatients(data.patients);
+            if (data.appointments)    setAppointments(data.appointments);
+            if (data.sessions)        setSessions(data.sessions);
+            if (data.payments)        setPayments(data.payments);
+            if (data.profile)         setProfile(data.profile);
+            if (data.riskAssessments) setRiskAssessments(data.riskAssessments);
+            if (data.scaleResults)    setScaleResults(data.scaleResults);
+            if (data.treatmentPlans)  setTreatmentPlans(data.treatmentPlans);
+            if (data.interSessions)   setInterSessions(data.interSessions);
+            if (data.medications)     setMedications(data.medications);
+          }}
+        />
+      );
+      default: return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
+    }
+  };
+
+  // ── Guards de renderizado ────────────────────────────────────────────────
   if (authLoading) return (
     <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.2)", borderTopColor:"#fff", animation:"spin .8s linear infinite" }}/>
@@ -226,7 +259,6 @@ export default function App() {
 
   if (!user) return <LockScreen />;
 
-  // ── Trial expirado ───────────────────────────────────────────────────────
   if (psychologistLoaded && psychologist && !hasActiveAccess(psychologist)) {
     return (
       <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:T.fB }}>
@@ -262,47 +294,7 @@ export default function App() {
     </div>
   );
 
-  const mp = { patients, setPatients, appointments, setAppointments, sessions, setSessions, payments, setPayments, riskAssessments, setRiskAssessments, scaleResults, setScaleResults, treatmentPlans, setTreatmentPlans, interSessions, setInterSessions, medications, setMedications, services, setServices };
-
-  const renderModule = () => {
-    switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
-      case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
-      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
-      case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
-      case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
-      case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;  {/* FIX F0-3: recibía solo patients → sin sesiones ni navegación */}
-      case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services}/>;  {/* FIX F0-2: services faltaban → gráficos de facturación incorrectos */}
-      case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
-      case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
-      case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
-      case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
-      case "settings":    return (
-        <Settings profile={profile} setProfile={setProfile}
-          darkMode={darkPref} setDarkMode={setDarkPref}
-          setPatients={setPatients} patients={patients}
-          googleUser={user}
-          psychologist={psychologist}
-          allData={allData}
-          services={services} setServices={setServices}
-          onRestore={(data) => {
-            if (data.patients)        setPatients(data.patients);
-            if (data.appointments)    setAppointments(data.appointments);
-            if (data.sessions)        setSessions(data.sessions);
-            if (data.payments)        setPayments(data.payments);
-            if (data.profile)         setProfile(data.profile);
-            if (data.riskAssessments) setRiskAssessments(data.riskAssessments);
-            if (data.scaleResults)    setScaleResults(data.scaleResults);
-            if (data.treatmentPlans)  setTreatmentPlans(data.treatmentPlans);
-            if (data.interSessions)   setInterSessions(data.interSessions);
-            if (data.medications)     setMedications(data.medications);
-          }}
-        />
-      );
-      default: return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
-    }
-  };
-
+  // ── Render principal ─────────────────────────────────────────────────────
   return (
     <div style={{ display:"flex", height:"100vh", background:T.bg, fontFamily:T.fB }}>
       {!isMobile && <Sidebar active={activeModule} setActive={navTo} onLock={handleLock} open profile={profile} onClose={() => {}} riskAlert={riskAlert}/>}
@@ -310,7 +302,6 @@ export default function App() {
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
 
-        {/* ── Onboarding ───────────────────────────────────────────────────── */}
         {showOnboarding && (
           <Onboarding
             onClose={handleOnboardingClose}
@@ -318,7 +309,6 @@ export default function App() {
           />
         )}
 
-        {/* ── Banner de trial ────────────────────────────────────────────── */}
         {psychologist?.subscription_status === "trial" && trialDaysLeft(psychologist) <= 7 && trialDaysLeft(psychologist) > 0 && (
           <div style={{ background: trialDaysLeft(psychologist) <= 3 ? "#B85050" : "#B8900A", padding:"9px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexShrink:0 }}>
             <span style={{ fontFamily:T.fB, fontSize:13, color:"#fff" }}>
@@ -347,7 +337,6 @@ export default function App() {
           )}
           {!isMobile && <div style={{ flex:1 }}/>}
           <GlobalSearch patients={patients} appointments={appointments} sessions={sessions} onNavigate={handleGlobalNav}/>
-
           <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
         </div>
 
