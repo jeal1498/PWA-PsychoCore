@@ -303,31 +303,56 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
   const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1)); // "1"-"12" o ""
   const [filterDay,   setFilterDay]   = useState(""); // "1"-"31" o ""
-  const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"", method:"Transferencia", status:"pagado" });
-  const [modalidad, setModalidad] = useState("presencial"); // "presencial" | "virtual"
-
-  // Cuando cambia el concepto, auto-rellenar monto según el servicio seleccionado
-  const handleConceptChange = (conceptValue) => {
-    const svc = services.find(s => s.name === conceptValue);
-    if (svc) {
-      const precio = modalidad === "virtual" && svc.priceVirtual
-        ? svc.priceVirtual
-        : svc.price;
-      setForm(f => ({ ...f, concept: conceptValue, amount: precio ? String(precio) : f.amount }));
-    } else {
-      setForm(f => ({ ...f, concept: conceptValue }));
-    }
-  };
-
-  const handleModalidadChange = (newMod) => {
-    setModalidad(newMod);
-    const svc = services.find(s => s.name === form.concept);
-    if (svc) {
-      const precio = newMod === "virtual" && svc.priceVirtual ? svc.priceVirtual : svc.price;
-      if (precio) setForm(f => ({ ...f, amount: String(precio) }));
-    }
-  };
+  const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"", serviceId:"", modality:"", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+  const [showModalityPicker, setShowModalityPicker] = useState(false);
+
+  // Derived: options for concept select from services + fallback list
+  const SERVICE_TYPES_LABEL = {
+    sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica",
+    pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete de sesiones", otro:"Otro"
+  };
+  const conceptOptions = services.length > 0
+    ? [
+        ...services.map(s => ({
+          value: s.id,
+          label: s.type === "paquete"
+            ? `${s.name} (${s.sessions} ses)`
+            : s.name || SERVICE_TYPES_LABEL[s.type] || s.type,
+          svc: s,
+        })),
+        { value: "__otro__", label: "Otro", svc: null },
+      ]
+    : ["Sesión individual","Evaluación neuropsicológica","Primera consulta (90 min)","Pareja / Familia","Taller / Grupo","Otro"]
+        .map(c => ({ value: c, label: c, svc: null }));
+
+  // When user picks a concept
+  const handleConceptChange = (val) => {
+    if (!services.length || val === "__otro__") {
+      setForm(f => ({ ...f, concept: val === "__otro__" ? "Otro" : val, serviceId: "", modality: "", amount: "" }));
+      return;
+    }
+    const opt = conceptOptions.find(o => o.value === val);
+    const svc = opt?.svc;
+    if (!svc) { setForm(f => ({ ...f, concept: val, serviceId: "", modality: "", amount: "" })); return; }
+    const label = opt.label;
+    if (svc.modality === "ambas") {
+      // Let user pick modality
+      setForm(f => ({ ...f, concept: label, serviceId: svc.id, modality: "", amount: "" }));
+      setShowModalityPicker(true);
+    } else {
+      const price = svc.modality === "virtual" ? svc.priceVirtual : svc.price;
+      setForm(f => ({ ...f, concept: label, serviceId: svc.id, modality: svc.modality, amount: String(price || "") }));
+    }
+  };
+
+  const applyModality = (mod) => {
+    const svc = services.find(s => s.id === form.serviceId);
+    if (!svc) return;
+    const price = mod === "virtual" ? svc.priceVirtual : svc.price;
+    setForm(f => ({ ...f, modality: mod, amount: String(price || "") }));
+    setShowModalityPicker(false);
+  };
   const isMobile = useIsMobile();
 
   const MONTHS_LIST = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -359,24 +384,10 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
 
   const save = () => {
     if (!form.patientId || !form.amount) return;
-    const pt      = patients.find(p => p.id === form.patientId);
-    const folio   = nextFolio(payments);
-    const svc     = services.find(s => s.name === form.concept);
-    const concept = form.concept === "__otro__"
-      ? (form._conceptManual || "Otro")
-      : form.concept;
-    const record  = {
-      ...form,
-      concept,
-      _conceptManual: undefined,
-      modality: svc ? modalidad : undefined,
-      id: "pay" + uid(),
-      patientName: pt?.name || "",
-      folio,
-    };
-    setPayments(prev => [...prev, record]);
-    setForm({ patientId:"", date:fmt(todayDate), amount:"", concept:"", method:"Transferencia", status:"pagado" });
-    setModalidad("presencial");
+    const pt    = patients.find(p => p.id === form.patientId);
+    const folio = nextFolio(payments);
+    setPayments(prev => [...prev, { ...form, id:"pay"+uid(), patientName:pt?.name||"", folio }]);
+    setForm({ patientId:"", date:fmt(todayDate), amount:"", concept:"", serviceId:"", modality:"", method:"Transferencia", status:"pagado" }); setShowModalityPicker(false);
     setShowAdd(false);
   };
 
@@ -566,42 +577,38 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Registrar pago">
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]} />
-        <Input label="Fecha" value={form.date} onChange={fld("date")} type="date" />
-
-        {/* Concepto desde servicios configurados */}
-        <Select label="Concepto *" value={form.concept} onChange={handleConceptChange}
-          options={[
-            {value:"",label:"Seleccionar servicio..."},
-            ...services.map(s => ({
-              value: s.name,
-              label: `${s.name}${s.sessions ? ` · ${s.sessions} ses` : ""}`,
-            })),
-            {value:"__otro__", label:"Otro (escribir manualmente)"},
-          ]} />
-
-        {form.concept === "__otro__" && (
-          <Input label="Concepto manual" value={form._conceptManual||""} onChange={v => setForm(f => ({ ...f, _conceptManual: v, concept: "__otro__" }))} placeholder="Ej: Taller grupal..." />
-        )}
-
-        {/* Modalidad — solo si el servicio tiene ambas */}
-        {(() => {
-          const svc = services.find(s => s.name === form.concept);
-          return svc?.modality === "ambas" ? (
-            <div style={{ display:"flex", gap:8, marginBottom:4 }}>
-              {["presencial","virtual"].map(m => (
-                <button key={m} onClick={() => handleModalidadChange(m)}
-                  style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${modalidad===m ? T.p : T.bdr}`,
-                    background: modalidad===m ? T.pA : "transparent",
-                    fontFamily:T.fB, fontSize:12, fontWeight: modalidad===m ? 700 : 400,
-                    color: modalidad===m ? T.p : T.tm, cursor:"pointer", transition:"all .15s" }}>
-                  {m === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
-                </button>
-              ))}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Input label="Fecha" value={form.date} onChange={fld("date")} type="date" />
+          <Input label="Monto (MXN) *" value={form.amount} onChange={fld("amount")} type="number" placeholder="900" />
+        </div>
+        <Select label="Concepto" value={form.serviceId || form.concept} onChange={handleConceptChange}
+          options={[{value:"",label:"Seleccionar concepto..."}, ...conceptOptions]} />
+        {/* Selector de modalidad (presencial/virtual) cuando el servicio tiene ambas */}
+        {showModalityPicker && (
+          <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8, fontFamily:T.fB, fontSize:13, color:T.p }}>
+            <div style={{ fontWeight:600, marginBottom:8 }}>¿Qué modalidad fue la sesión?</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => applyModality("presencial")}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:T.card,
+                  fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.t, cursor:"pointer" }}>
+                🏢 Presencial
+              </button>
+              <button onClick={() => applyModality("virtual")}
+                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA,
+                  fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, cursor:"pointer" }}>
+                💻 Virtual
+              </button>
             </div>
-          ) : null;
-        })()}
-
-        <Input label="Monto (MXN) *" value={form.amount} onChange={fld("amount")} type="number" placeholder="900" />
+          </div>
+        )}
+        {form.modality && (
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginTop:-6, marginBottom:8, paddingLeft:2 }}>
+            Modalidad: {form.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
+            {" · "}
+            <span style={{ color:T.p, cursor:"pointer", textDecoration:"underline" }}
+              onClick={() => setShowModalityPicker(true)}>Cambiar</span>
+          </div>
+        )}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Select label="Método" value={form.method} onChange={fld("method")}
             options={["Transferencia","Efectivo","Tarjeta","MercadoPago","PayPal"].map(m=>({value:m,label:m}))} />

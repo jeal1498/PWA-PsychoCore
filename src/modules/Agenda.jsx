@@ -249,7 +249,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [] }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
@@ -263,7 +263,23 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
 
-  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type:"Seguimiento", status:"pendiente" };
+  // Clinical types always available
+  const CLINICAL_TYPES = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
+  const SERVICE_TYPES_LABEL = {
+    sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja",
+    grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro"
+  };
+  // Merge: service names first, then clinical types not already covered
+  const appointmentTypeOptions = (() => {
+    if (!services.length) return CLINICAL_TYPES;
+    const fromServices = services
+      .filter(s => s.type !== "paquete")
+      .map(s => s.name || SERVICE_TYPES_LABEL[s.type] || s.type);
+    const extra = CLINICAL_TYPES.filter(t => !fromServices.some(s => s.toLowerCase().includes(t.toLowerCase())));
+    return [...new Set([...fromServices, ...extra])];
+  })();
+
+  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type: appointmentTypeOptions[0] || "Seguimiento", status:"pendiente" };
   const [form, setForm] = useState(blankForm);
 
   // Recurrence state
@@ -598,8 +614,8 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           <Input label="Fecha *" value={form.date} onChange={fld("date")} type="date"/>
           <Input label="Hora"    value={form.time} onChange={fld("time")} type="time"/>
         </div>
-        <Select label="Tipo" value={form.type} onChange={fld("type")}
-          options={["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"].map(t => ({value:t,label:t}))}/>
+        <Select label="Tipo de cita" value={form.type} onChange={fld("type")}
+          options={appointmentTypeOptions.map(t => ({value:t,label:t}))}/>
 
         {/* ── Recurrence section ─────────────────────────────────────── */}
         <div style={{ border:`1.5px solid ${recurring ? T.p : T.bdr}`, borderRadius:12, overflow:"hidden", marginBottom:16, transition:"border .15s" }}>
