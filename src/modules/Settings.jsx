@@ -139,9 +139,10 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
 function DataTab({ allData, onRestore, patients, googleUser }) {
   const [msg,         setMsg]         = useState(null);
   const [importing,   setImporting]   = useState(false);
-  const [showDelete,  setShowDelete]  = useState(false);
-  const [deleteInput, setDeleteInput] = useState("");
-  const [deleting,    setDeleting]    = useState(false);
+  const [showDelete,       setShowDelete]       = useState(false);
+  const [showBackupWarning, setShowBackupWarning] = useState(false);
+  const [deleteInput,      setDeleteInput]       = useState("");
+  const [deleting,         setDeleting]          = useState(false);
 
   const flash = (text, ok = true) => {
     setMsg({ text, ok });
@@ -325,13 +326,51 @@ function DataTab({ allData, onRestore, patients, googleUser }) {
         <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.6, marginBottom: 16 }}>
           Elimina permanentemente todos tus datos clínicos y tu cuenta. Esta acción no se puede deshacer.
         </p>
-        <button onClick={() => { setShowDelete(true); setDeleteInput(""); }}
+        <button onClick={() => { setShowBackupWarning(true); }}
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10,
             border: `1.5px solid ${T.err}`, background: T.errA, color: T.err,
             fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           <Trash2 size={15}/> Eliminar mi cuenta
         </button>
       </Card>
+
+      {/* Modal advertencia — descargar backup primero */}
+      {showBackupWarning && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: T.bg, borderRadius: 18, padding: 28, maxWidth: 420, width: "100%",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.25)", border: `1px solid ${T.war}60` }}>
+            <div style={{ fontSize: 36, marginBottom: 12, textAlign: "center" }}>💾</div>
+            <div style={{ fontFamily: T.fB, fontSize: 17, fontWeight: 700, color: T.t, marginBottom: 10, textAlign: "center" }}>
+              Descarga tu información antes de continuar
+            </div>
+            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.65, marginBottom: 8, textAlign: "center" }}>
+              Al eliminar tu cuenta se perderán permanentemente todos tus pacientes, sesiones, citas, pagos y datos clínicos.
+            </p>
+            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.65, marginBottom: 20, textAlign: "center" }}>
+              Te recomendamos descargar un backup completo antes de proceder.
+            </p>
+            <button onClick={exportJSON}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "13px", borderRadius: 10, border: `1.5px solid ${T.p}`, background: T.pA,
+                color: T.p, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}>
+              <Download size={15}/> Descargar backup completo (.json)
+            </button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowBackupWarning(false)}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`,
+                  background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={() => { setShowBackupWarning(false); setShowDelete(true); setDeleteInput(""); }}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.err}`,
+                  background: T.errA, color: T.err, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Continuar sin backup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal confirmación eliminar */}
       {showDelete && (
