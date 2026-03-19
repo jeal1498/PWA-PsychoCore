@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
 //
-// PATRÓN CORRECTO SUPABASE:
-// Un solo useEffect con onAuthStateChange — NO se llama getSession() por separado.
-// INITIAL_SESSION dispara inmediatamente al suscribirse con la sesión almacenada.
-// Esto elimina la race condition entre getSession() y onAuthStateChange.
+// PATRÓN ROBUSTO:
+// - Mount: getSession() directo — sin depender de INITIAL_SESSION
+// - onAuthStateChange: solo para manejar login/logout después del mount
+// - Esto elimina la race condition con las 11 instancias simultáneas
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -29,17 +29,14 @@ export function useSupabaseStorage(key, initialValue) {
 
   const userIdRef      = useRef(null);
   const saveTimerRef   = useRef(null);
-  const isFirstWrite   = useRef(true);
-  const dataFetched    = useRef(false);
-  // Guardar initialValue en ref para no ponerlo en deps del effect
-  // (evita que el effect se re-suscriba en cada render)
+  const pendingSave    = useRef(false);
   const initialValueRef = useRef(initialValue);
 
   const table = TABLE_MAP[key];
 
   // ── Carga datos de Supabase para el uid dado ──────────────────────────────
   const loadFromSupabase = useCallback(async (uid) => {
-    if (!uid || !table) return;
+    if (!uid || !table) { setLoaded(true); return; }
     try {
       const { data, error } = await supabase
         .from(table)
@@ -47,44 +44,61 @@ export function useSupabaseStorage(key, initialValue) {
         .eq("psychologist_id", uid)
         .maybeSingle();
 
-      if (!error && data?.data !== undefined && data.data !== null) {
-        // Datos reales encontrados — cargarlos y marcar que no hace falta
-        // guardar de vuelta inmediatamente (evita un upsert redundante)
-        isFirstWrite.current = true;
+      if (error) {
+        console.warn(`[storage] Error cargando ${key}:`, error.message);
+      } else if (data?.data !== undefined && data.data !== null) {
         setValue_(data.data);
-        dataFetched.current = true;
-      } else {
-        // Tabla vacía o sin fila para este usuario — la primera edición
-        // del usuario SÍ debe guardarse, así que no bloqueamos el save effect
-        isFirstWrite.current = false;
       }
     } catch (e) {
-      console.warn(`[storage] Error cargando ${key}:`, e);
-      isFirstWrite.current = false;
+      console.warn(`[storage] Excepción cargando ${key}:`, e);
     } finally {
       setLoaded(true);
     }
   }, [key, table]);
 
-  // ── Auth listener — única fuente de verdad ────────────────────────────────
-  // onAuthStateChange dispara INITIAL_SESSION inmediatamente al suscribirse,
-  // con la sesión actual (incluso si viene de localStorage tras un reload).
-  // No necesitamos getSession() por separado.
+  // ── Mount: obtener sesión actual directamente ─────────────────────────────
+  // getSession() lee de localStorage de forma síncrona — es inmediato
+  // y no depende del bus de eventos de auth.
+  useEffect(() => {
+    let cancelled = false;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+      if (session?.user) {
+        userIdRef.current = session.user.id;
+        loadFromSupabase(session.user.id);
+      } else {
+        // Sin sesión — marcar como loaded con valor vacío
+        setValue_(initialValueRef.current);
+        setLoaded(true);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [loadFromSupabase]);
+
+  // ── Suscripción auth — solo para login/logout DESPUÉS del mount ───────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // INITIAL_SESSION ya fue manejado por getSession() arriba
+        if (event === "INITIAL_SESSION") return;
+
         if (session?.user) {
           const uid = session.user.id;
+          const wasLoggedOut = !userIdRef.current;
           userIdRef.current = uid;
 
-          // Cargar solo si aún no tenemos datos reales
-          if (!dataFetched.current) {
+          // Solo recargar si acababa de hacer login (no en refresh de token)
+          if (wasLoggedOut) {
+            pendingSave.current = false;
             await loadFromSupabase(uid);
           }
         } else {
-          // Sin sesión (logout o sesión expirada sin refresh)
-          userIdRef.current  = null;
-          dataFetched.current = false;
+          // Logout — limpiar
+          userIdRef.current = null;
+          pendingSave.current = false;
+          clearTimeout(saveTimerRef.current);
           setValue_(initialValueRef.current);
           setLoaded(true);
         }
@@ -92,13 +106,19 @@ export function useSupabaseStorage(key, initialValue) {
     );
 
     return () => subscription.unsubscribe();
-  }, [loadFromSupabase]); // initialValue NO está en deps — usamos la ref
+  }, [loadFromSupabase]);
 
   // ── Guardado en Supabase (debounced 800ms) ────────────────────────────────
+  // pendingSave evita guardar el valor inicial que llega del load
   useEffect(() => {
     if (!loaded) return;
-    if (isFirstWrite.current) { isFirstWrite.current = false; return; }
     if (!userIdRef.current) return;
+
+    // Primer disparo después de load — solo marcar y salir
+    if (!pendingSave.current) {
+      pendingSave.current = true;
+      return;
+    }
 
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -110,12 +130,12 @@ export function useSupabaseStorage(key, initialValue) {
           { psychologist_id: uid, data: value },
           { onConflict: "psychologist_id" }
         );
-      if (error) console.error(`[storage] ❌ Error guardando ${key}:`, error);
+      if (error) console.error(`[storage] ❌ Error guardando ${key}:`, error.message);
       else console.log(`[storage] ✅ Guardado OK: ${key}`);
     }, 800);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [value, loaded, table]);
+  }, [value, loaded, table, key]);
 
   const setValue = useCallback((newVal) => {
     setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
