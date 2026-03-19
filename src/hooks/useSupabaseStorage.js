@@ -141,15 +141,26 @@ export function useSupabaseStorage(key, initialValue) {
         writeLS(key, remote.data, remote.updated_at);
 
       } else if (remoteHasData && localHasData) {
-        if (localTs && remoteTs && localTs > remoteTs) {
-          // Caso C — local más reciente → subir
-          console.log(`[storage] ⬆️ Caso C — local más reciente, subiendo ${key}`);
+        // Determinar quién gana:
+        // 1. Si ambos tienen timestamps → gana el más reciente
+        // 2. Si falta algún timestamp   → gana el que tenga más registros
+        //    (en una app clínica siempre se agrega, raramente se borra)
+        const localLen  = Array.isArray(localData)   ? localData.length   : Object.keys(localData   || {}).length;
+        const remoteLen = Array.isArray(remote.data) ? remote.data.length : Object.keys(remote.data || {}).length;
+
+        const localWins = (localTs && remoteTs)
+          ? localTs > remoteTs      // ambos tienen timestamp → comparar fechas
+          : localLen >= remoteLen;  // sin timestamps → gana el que tiene más datos
+
+        if (localWins) {
+          // Caso C — local más reciente o con más datos → subir
+          console.log(`[storage] ⬆️ Caso C — local gana (${localLen} vs ${remoteLen}), subiendo ${key}`);
           await pushToSupabase(uid, localData);
           isSyncing.current = true;
           setValue_(localData);
         } else {
-          // Caso B extendido — Supabase más reciente (o sin timestamps) → bajar
-          console.log(`[storage] ⬇️ Caso B+ — Supabase más reciente, bajando ${key}`);
+          // Caso B+ — Supabase más reciente o con más datos → bajar
+          console.log(`[storage] ⬇️ Caso B+ — Supabase gana (${remoteLen} vs ${localLen}), bajando ${key}`);
           isSyncing.current = true;
           setValue_(remote.data);
           writeLS(key, remote.data, remote.updated_at);
