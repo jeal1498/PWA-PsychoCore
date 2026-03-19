@@ -740,7 +740,7 @@ function ServicesTab({ services, setServices }) {
                         <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>
                       )}
                       {svc.modality === "virtual" && (
-                        <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.price)}</strong></span>
+                        <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>
                       )}
                       {svc.modality === "ambas" && (
                         <span>
