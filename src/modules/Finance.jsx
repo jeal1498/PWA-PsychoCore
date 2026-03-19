@@ -289,7 +289,7 @@ function exportCSV(payments, year, profile) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Finance({ payments = [], setPayments, patients = [], profile, autoOpen }) {
+export default function Finance({ payments = [], setPayments, patients = [], profile, autoOpen, services = [] }) {
   const [showAdd,  setShowAdd]  = useState(false);
 
   useEffect(() => {
@@ -303,7 +303,30 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
   const [filterYear,  setFilterYear]  = useState(String(now.getFullYear()));
   const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1)); // "1"-"12" o ""
   const [filterDay,   setFilterDay]   = useState(""); // "1"-"31" o ""
-  const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
+  const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"", method:"Transferencia", status:"pagado" });
+  const [modalidad, setModalidad] = useState("presencial"); // "presencial" | "virtual"
+
+  // Cuando cambia el concepto, auto-rellenar monto según el servicio seleccionado
+  const handleConceptChange = (conceptValue) => {
+    const svc = services.find(s => s.name === conceptValue);
+    if (svc) {
+      const precio = modalidad === "virtual" && svc.priceVirtual
+        ? svc.priceVirtual
+        : svc.price;
+      setForm(f => ({ ...f, concept: conceptValue, amount: precio ? String(precio) : f.amount }));
+    } else {
+      setForm(f => ({ ...f, concept: conceptValue }));
+    }
+  };
+
+  const handleModalidadChange = (newMod) => {
+    setModalidad(newMod);
+    const svc = services.find(s => s.name === form.concept);
+    if (svc) {
+      const precio = newMod === "virtual" && svc.priceVirtual ? svc.priceVirtual : svc.price;
+      if (precio) setForm(f => ({ ...f, amount: String(precio) }));
+    }
+  };
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
@@ -336,10 +359,24 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
 
   const save = () => {
     if (!form.patientId || !form.amount) return;
-    const pt    = patients.find(p => p.id === form.patientId);
-    const folio = nextFolio(payments);
-    setPayments(prev => [...prev, { ...form, id:"pay"+uid(), patientName:pt?.name||"", folio }]);
-    setForm({ patientId:"", date:fmt(todayDate), amount:"", concept:"Sesión individual", method:"Transferencia", status:"pagado" });
+    const pt      = patients.find(p => p.id === form.patientId);
+    const folio   = nextFolio(payments);
+    const svc     = services.find(s => s.name === form.concept);
+    const concept = form.concept === "__otro__"
+      ? (form._conceptManual || "Otro")
+      : form.concept;
+    const record  = {
+      ...form,
+      concept,
+      _conceptManual: undefined,
+      modality: svc ? modalidad : undefined,
+      id: "pay" + uid(),
+      patientName: pt?.name || "",
+      folio,
+    };
+    setPayments(prev => [...prev, record]);
+    setForm({ patientId:"", date:fmt(todayDate), amount:"", concept:"", method:"Transferencia", status:"pagado" });
+    setModalidad("presencial");
     setShowAdd(false);
   };
 
@@ -529,12 +566,42 @@ export default function Finance({ payments = [], setPayments, patients = [], pro
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Registrar pago">
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]} />
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Input label="Fecha" value={form.date} onChange={fld("date")} type="date" />
-          <Input label="Monto (MXN) *" value={form.amount} onChange={fld("amount")} type="number" placeholder="900" />
-        </div>
-        <Select label="Concepto" value={form.concept} onChange={fld("concept")}
-          options={["Sesión individual","Evaluación neuropsicológica","Primera consulta (90 min)","Pareja / Familia","Taller / Grupo","Otro"].map(c=>({value:c,label:c}))} />
+        <Input label="Fecha" value={form.date} onChange={fld("date")} type="date" />
+
+        {/* Concepto desde servicios configurados */}
+        <Select label="Concepto *" value={form.concept} onChange={handleConceptChange}
+          options={[
+            {value:"",label:"Seleccionar servicio..."},
+            ...services.map(s => ({
+              value: s.name,
+              label: `${s.name}${s.sessions ? ` · ${s.sessions} ses` : ""}`,
+            })),
+            {value:"__otro__", label:"Otro (escribir manualmente)"},
+          ]} />
+
+        {form.concept === "__otro__" && (
+          <Input label="Concepto manual" value={form._conceptManual||""} onChange={v => setForm(f => ({ ...f, _conceptManual: v, concept: "__otro__" }))} placeholder="Ej: Taller grupal..." />
+        )}
+
+        {/* Modalidad — solo si el servicio tiene ambas */}
+        {(() => {
+          const svc = services.find(s => s.name === form.concept);
+          return svc?.modality === "ambas" ? (
+            <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+              {["presencial","virtual"].map(m => (
+                <button key={m} onClick={() => handleModalidadChange(m)}
+                  style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${modalidad===m ? T.p : T.bdr}`,
+                    background: modalidad===m ? T.pA : "transparent",
+                    fontFamily:T.fB, fontSize:12, fontWeight: modalidad===m ? 700 : 400,
+                    color: modalidad===m ? T.p : T.tm, cursor:"pointer", transition:"all .15s" }}>
+                  {m === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
+                </button>
+              ))}
+            </div>
+          ) : null;
+        })()}
+
+        <Input label="Monto (MXN) *" value={form.amount} onChange={fld("amount")} type="number" placeholder="900" />
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Select label="Método" value={form.method} onChange={fld("method")}
             options={["Transferencia","Efectivo","Tarjeta","MercadoPago","PayPal"].map(m=>({value:m,label:m}))} />
