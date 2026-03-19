@@ -1163,14 +1163,18 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
             <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad?</div>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => applyCobroModality("presencial")}
-                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:T.card, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.t, cursor:"pointer" }}>
-                🏢 Presencial
-              </button>
-              <button onClick={() => applyCobroModality("virtual")}
-                style={{ flex:1, padding:"8px", borderRadius:9, border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, cursor:"pointer" }}>
-                💻 Virtual
-              </button>
+              {[{mod:"presencial", icon:"🏢", label:"Presencial"}, {mod:"virtual", icon:"💻", label:"Virtual"}].map(({mod, icon, label}) => {
+                const sel = cobroForm.modality === mod;
+                return (
+                  <button key={mod} onClick={() => applyCobroModality(mod)}
+                    style={{ flex:1, padding:"8px", borderRadius:9, cursor:"pointer", fontFamily:T.fB, fontSize:12, fontWeight:600, transition:"all .15s",
+                      border: `1.5px solid ${sel ? T.p : T.bdr}`,
+                      background: sel ? T.pA : T.card,
+                      color: sel ? T.p : T.t }}>
+                    {icon} {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
