@@ -1,11 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
-// Persiste datos en Supabase por psicólogo.
-// API: [value, setValue, isLoaded]
-//
-// FIX: Si getCachedSession() expira por timeout (red lenta en móvil),
-// el hook ahora escucha onAuthStateChange y re-lee los datos cuando
-// el token finalmente llega — en lugar de quedarse con el array vacío.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -21,16 +15,20 @@ const TABLE_MAP = {
   pc_treatment_plans:  "pc_treatment_plans",
   pc_inter_sessions:   "pc_inter_sessions",
   pc_medications:      "pc_medications",
-  pc_services:         "pc_services",   // FIX F0-1
+  pc_services:         "pc_services",
 };
 
-// ── Caché de sesión compartida entre todas las instancias del hook ──────────
-let _sessionPromise = null;
+// ── Caché de sesión compartida ────────────────────────────────────────────────
+// _sessionTimedOut permite distinguir "timeout" de "usuario no logueado".
+let _sessionPromise  = null;
+let _sessionTimedOut = false;
 
 function getCachedSession() {
   if (!_sessionPromise) {
-    // Timeout generoso (5s) — redes móviles lentas (H+, 3G) necesitan más tiempo
-    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 5000));
+    _sessionTimedOut = false;
+    const timeout = new Promise(resolve =>
+      setTimeout(() => { _sessionTimedOut = true; resolve(null); }, 8000)
+    );
     _sessionPromise = Promise.race([
       supabase.auth.getSession()
         .then(({ data: { session } }) => session)
@@ -43,23 +41,23 @@ function getCachedSession() {
 
 supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-    _sessionPromise = null;
+    _sessionPromise  = null;
+    _sessionTimedOut = false;
   }
 });
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────────────────────
 export function useSupabaseStorage(key, initialValue) {
   const [value,    setValue_] = useState(initialValue);
   const [loaded,   setLoaded] = useState(false);
   const userIdRef    = useRef(null);
   const saveTimerRef = useRef(null);
   const firstLoad    = useRef(true);
-  // Indica si ya cargamos datos reales de Supabase (para evitar re-read innecesario)
   const dataFetched  = useRef(false);
 
   const table = TABLE_MAP[key];
 
-  // ── Función de carga reutilizable ─────────────────────────────────────────
+  // ── Carga desde Supabase ──────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async (uid) => {
     if (!uid || !table) return;
     try {
@@ -90,12 +88,17 @@ export function useSupabaseStorage(key, initialValue) {
         if (cancelled) return;
 
         if (session?.user) {
+          // Sesión llegó a tiempo — cargar datos
           userIdRef.current = session.user.id;
           await loadFromSupabase(session.user.id);
+        } else if (!_sessionTimedOut) {
+          // getSession() devolvió null rápido → usuario no logueado → OK marcar cargado
+          setLoaded(true);
         }
+        // Si fue timeout (_sessionTimedOut === true): NO marcar cargado.
+        // El listener de onAuthStateChange se encargará cuando llegue la sesión.
       } catch (e) {
         console.warn(`[storage] Error en carga inicial ${key}:`, e);
-      } finally {
         if (!cancelled) setLoaded(true);
       }
     }
@@ -104,23 +107,23 @@ export function useSupabaseStorage(key, initialValue) {
     return () => { cancelled = true; };
   }, [key, table, loadFromSupabase]);
 
-  // ── Re-lectura cuando auth llega tarde (FIX red lenta) ───────────────────
-  // Si getCachedSession() expiró y el hook quedó vacío, este efecto
-  // re-dispara la carga cuando onAuthStateChange finalmente notifica al usuario.
+  // ── Re-lectura cuando la sesión llega tarde ───────────────────────────────
+  // Cubre el caso: timeout en carga inicial → onAuthStateChange llega después
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const uid = session.user.id;
         userIdRef.current = uid;
 
-        // Solo re-leer si aún no tenemos datos reales de Supabase
         if (!dataFetched.current) {
+          // No tenemos datos reales → cargar ahora (incluye el caso timeout)
           firstLoad.current = true; // evitar que el save se dispare por este set
           await loadFromSupabase(uid);
         }
       } else {
-        userIdRef.current = null;
+        userIdRef.current  = null;
         dataFetched.current = false;
+        setLoaded(true); // usuario salió → marcar cargado con datos vacíos
       }
     });
     return () => subscription.unsubscribe();
