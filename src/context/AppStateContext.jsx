@@ -22,13 +22,13 @@ export function AppStateProvider({ children }) {
   const [treatmentPlans,  setTreatmentPlans,  tpLoaded]  = useSupabaseStorage("pc_treatment_plans",  []);
   const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   []);
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      []);
-  const [services,        setServices]                   = useSupabaseStorage("pc_services",         []);
+  const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         []);
 
   // Muestra la app en cuanto cargue el primer dato crítico (pacientes o perfil).
   // El resto llega en segundo plano sin bloquear el render.
   const dataReady  = pLoaded || prLoaded;
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
-                  && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded;
+                  && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded && svLoaded;
 
   // Timeout de seguridad — si en 3s dataReady sigue false (red lenta,
   // token expirado), la app pasa igual al dashboard con datos vacíos.
@@ -43,8 +43,10 @@ export function AppStateProvider({ children }) {
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
     riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
+    services,
   }), [patients, appointments, sessions, payments, profile,
-       riskAssessments, scaleResults, treatmentPlans, interSessions, medications]);
+       riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
+       services]);
 
   // Objeto plano "mp" que los módulos reciben como spread props.
   // Permite migrar módulo a módulo sin reescribir sus firmas de una vez.
