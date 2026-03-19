@@ -715,7 +715,7 @@ function ServicesTab({ services, setServices }) {
         <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
           {services.map((svc, i) => (
             <div key={svc.id}>
-              <div style={{ padding: "14px 16px", borderBottom: i < services.length - 1 && !editingPrice?.svcId !== svc.id ? `1px solid ${T.bdrL}` : "none" }}>
+              <div style={{ padding: "14px 16px" }}>
                 {/* Fila principal */}
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA,
@@ -723,39 +723,33 @@ function ServicesTab({ services, setServices }) {
                     {SERVICE_TYPES[svc.type]?.icon || "⚡"}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Nombre = tipo */}
-                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>
+                    {/* Nombre del tipo */}
+                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 2 }}>
                       {SERVICE_TYPES[svc.type]?.label}
                       {svc.sessions ? ` · ${svc.sessions} sesiones` : ""}
                     </div>
                     {/* Descripción */}
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 6, lineHeight: 1.4 }}>
+                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.4, marginBottom: 6 }}>
                       {svc.name}
                     </div>
-                    {/* Precios por modalidad */}
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      {(svc.modality === "presencial" || svc.modality === "ambas") && (
-                        <span style={{ fontFamily: T.fB, fontSize: 12, color: T.suc, fontWeight: 600 }}>
-                          🏢 {fmtCur(svc.price)}
-                        </span>
+                    {/* Precios en una línea con label */}
+                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t }}>
+                      {svc.modality === "presencial" && (
+                        <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>
                       )}
-                      {(svc.modality === "virtual" || svc.modality === "ambas") && (
-                        <span style={{ fontFamily: T.fB, fontSize: 12, color: T.p, fontWeight: 600 }}>
-                          💻 {fmtCur(svc.modality === "virtual" ? svc.price : (svc.priceVirtual || svc.price))}
+                      {svc.modality === "virtual" && (
+                        <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.price)}</strong></span>
+                      )}
+                      {svc.modality === "ambas" && (
+                        <span>
+                          Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong>
+                          {"    "}
+                          Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual || svc.price)}</strong>
                         </span>
                       )}
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => del(svc.id)}
-                      style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 4 }}>
-                      <Trash2 size={14} />
-                    </button>
-                    <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                      style={{ background: "none", border: "none", color: T.tl, cursor: "pointer", padding: 4, fontSize: 13 }}>
-                      ✏️
-                    </button>
-                  </div>
+
                 </div>
 
                 {/* Panel de edición de precio */}
