@@ -168,9 +168,6 @@ function DataTab({ allData, onRestore, patients, googleUser }) {
         await supabase.from(table).delete().eq("psychologist_id", uid);
       }
 
-      // Borrar registro de psychologists
-      await supabase.from("psychologists").delete().eq("id", uid);
-
       // Limpiar localStorage
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith("pc_")) localStorage.removeItem(k);
