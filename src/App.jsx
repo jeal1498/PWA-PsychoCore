@@ -271,8 +271,8 @@ export default function App() {
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
       case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
-      case "tasks":       return <Tasks patients={patients}/>;
-      case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments}/>;
+      case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;  {/* FIX F0-3: recibía solo patients → sin sesiones ni navegación */}
+      case "stats":       return <Stats     patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services}/>;  {/* FIX F0-2: services faltaban → gráficos de facturación incorrectos */}
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
