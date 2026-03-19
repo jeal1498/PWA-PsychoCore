@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Users, Calendar, FileText, X, ArrowRight } from "lucide-react";
+import { Search, Users, Calendar, FileText, X, ArrowRight, DollarSign } from "lucide-react";
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
-export default function GlobalSearch({ patients, appointments, sessions, onNavigate }) {
+export default function GlobalSearch({ patients, appointments, sessions, payments = [], onNavigate }) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
@@ -64,8 +64,22 @@ export default function GlobalSearch({ patients, appointments, sessions, onNavig
       action: () => { onNavigate("sessions"); setOpen(false); setQuery(""); },
     }));
 
+    // Payments — FASE 4
+    payments.filter(p =>
+      (p.patientName||"").toLowerCase().includes(q) ||
+      (p.concept||"").toLowerCase().includes(q) ||
+      (p.method||"").toLowerCase().includes(q)
+    ).slice(0,2).forEach(p => out.push({
+      type: "payment", icon: DollarSign,
+      label: `${(p.patientName||"").split(" ").slice(0,2).join(" ")} · $${Number(p.amount||0).toLocaleString("es-MX")}`,
+      sub: `${p.concept || "Pago"} · ${p.method || ""} · ${p.status === "pagado" ? "Pagado" : "Pendiente"}`,
+      color: p.status === "pagado" ? T.suc : T.war,
+      bg:    p.status === "pagado" ? T.sucA : T.warA,
+      action: () => { onNavigate("finance"); setOpen(false); setQuery(""); },
+    }));
+
     return out;
-  }, [query, patients, appointments, sessions, onNavigate]);
+  }, [query, patients, appointments, sessions, payments, onNavigate]);
 
   if (!open) {
     return (
@@ -109,7 +123,7 @@ export default function GlobalSearch({ patients, appointments, sessions, onNavig
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar pacientes, citas, sesiones…"
+            placeholder="Buscar pacientes, citas, sesiones, pagos…"
             style={{ flex: 1, border: "none", outline: "none", fontFamily: T.fB, fontSize: 15, color: T.t, background: "transparent" }}
           />
           {query && (
