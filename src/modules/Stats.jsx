@@ -147,7 +147,7 @@ function SectionTitle({ icon:Icon, title, sub }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function Stats({ patients = [], appointments = [], sessions = [], payments = [] }) {
+export default function Stats({ patients = [], appointments = [], sessions = [], payments = [], services = [] }) {
   const isMobile = useIsMobile();
   const now = new Date();
 
@@ -230,6 +230,30 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   const totalIncome = payments.filter(p => p.status==="pagado").reduce((s,p) => s+Number(p.amount), 0);
   const avgPerSession = sessions.length > 0 ? Math.round(totalIncome / sessions.length) : 0;
   const pendingAmount = payments.filter(p => p.status==="pendiente").reduce((s,p) => s+Number(p.amount), 0);
+
+  // ── Income by service type ──
+  const incomeByService = useMemo(() => {
+    if (!services.length) return [];
+    const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro" };
+    const map = {};
+    payments.filter(p => p.status === "pagado").forEach(p => {
+      const key = p.concept || "Otro";
+      map[key] = (map[key] || 0) + Number(p.amount);
+    });
+    return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0, 6).map(([label, value]) => ({ label: label.length > 20 ? label.slice(0,18)+"…" : label, value }));
+  }, [payments, services]);
+
+  // ── Presencial vs Virtual breakdown ──
+  const modalityBreakdown = useMemo(() => {
+    const presencial = payments.filter(p => p.status === "pagado" && p.modality === "presencial").reduce((s,p) => s+Number(p.amount), 0);
+    const virtual    = payments.filter(p => p.status === "pagado" && p.modality === "virtual").reduce((s,p) => s+Number(p.amount), 0);
+    const sinDato    = payments.filter(p => p.status === "pagado" && !p.modality).reduce((s,p) => s+Number(p.amount), 0);
+    return [
+      { label:"Presencial", value:presencial, color:T.suc },
+      { label:"Virtual",    value:virtual,    color:T.p   },
+      ...(sinDato > 0 ? [{ label:"Sin dato", value:sinDato, color:T.tl }] : []),
+    ].filter(d => d.value > 0);
+  }, [payments]);
 
   // ── ① TASA DE ALTA ───────────────────────────────────────────────────────
   const totalPatients  = patients.length;
@@ -338,6 +362,53 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
             <span>Promedio: <strong style={{color:T.t}}>{fmtCur(Math.round(incomeByMonth.reduce((s,d)=>s+d.value,0)/6))}</strong>/mes</span>
           </div>
         </Card>
+
+        {/* Income by service type */}
+        {incomeByService.length > 0 && (
+          <Card style={{ padding:24 }}>
+            <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 4px" }}>Ingresos por servicio</h3>
+            <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>Solo pagos confirmados</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {incomeByService.map(({ label, value }) => {
+                const max = incomeByService[0]?.value || 1;
+                const pct = Math.round((value / max) * 100);
+                return (
+                  <div key={label}>
+                    <div style={{ display:"flex", justifyContent:"space-between", fontFamily:T.fB, fontSize:12, color:T.t, marginBottom:4 }}>
+                      <span style={{ color:T.tm }}>{label}</span>
+                      <strong>{fmtCur(value)}</strong>
+                    </div>
+                    <div style={{ height:6, borderRadius:99, background:T.bdrL, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`, borderRadius:99, background:T.p, transition:"width .4s" }}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* Presencial vs Virtual */}
+        {modalityBreakdown.length > 1 && (
+          <Card style={{ padding:24 }}>
+            <h3 style={{ fontFamily:T.fH, fontSize:20, color:T.t, margin:"0 0 4px" }}>Presencial vs Virtual</h3>
+            <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>Ingresos por modalidad</p>
+            <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+              <DonutChart slices={modalityBreakdown} size={100}/>
+              <div style={{ flex:1 }}>
+                {modalityBreakdown.map(d => (
+                  <div key={d.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom:`1px solid ${T.bdrL}` }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:d.color }}/>
+                      <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{d.label}</span>
+                    </div>
+                    <strong style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{fmtCur(d.value)}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Sessions chart */}
         <Card style={{ padding:24 }}>

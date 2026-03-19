@@ -574,7 +574,7 @@ function PatientTasksTab({ patient, sessions }) {
 }
 
 
-export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen }) {
+export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [] }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [showAdd,      setShowAdd]      = useState(false);
@@ -586,7 +586,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);
   const [newDx,        setNewDx]        = useState({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
-  const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+  const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
 
@@ -625,7 +625,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const save = () => {
     if (!form.name.trim()) return;
     setPatients(prev => [...prev, { ...form, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
-    setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
     setShowAdd(false);
   };
 
@@ -638,6 +638,14 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     setPatients(prev => prev.map(p => p.id === id ? { ...p, rate } : p));
     setSelected(prev => prev ? { ...prev, rate } : prev);
   };
+  const setServiceId = (id, serviceId) => {
+    // Also auto-set rate from service price
+    const svc = services.find(s => s.id === serviceId);
+    const rate = svc ? String(svc.price || "") : "";
+    setPatients(prev => prev.map(p => p.id === id ? { ...p, serviceId, rate } : p));
+    setSelected(prev => prev ? { ...prev, serviceId, rate } : prev);
+  };
+  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
   const togglePayment = id => setPayments(prev => prev.map(p => p.id === id ? { ...p, status: p.status === "pagado" ? "pendiente" : "pagado" } : p));
 
   // ── Detail ────────────────────────────────────────────────────────────────
@@ -713,24 +721,46 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               </div>
             )}
 
-            {/* Tarifa individual — discreta */}
-            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
-              background:T.cardAlt, borderRadius:9, marginBottom:10,
-              border:`1px solid ${T.bdrL}` }}>
-              <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tl,
-                textTransform:"uppercase", letterSpacing:"0.06em", flexShrink:0 }}>
-                Tarifa
-              </span>
-              <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm, flexShrink:0 }}>$</span>
-              <input
-                type="number"
-                value={selected.rate || ""}
-                onChange={e => setRate(selected.id, e.target.value)}
-                placeholder="—"
-                style={{ flex:1, border:"none", background:"transparent", fontFamily:T.fB,
-                  fontSize:13, color:T.t, outline:"none", minWidth:0 }}
-              />
-              <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl, flexShrink:0 }}>/ses</span>
+            {/* Servicio habitual — vinculado al catálogo */}
+            <div style={{ padding:"10px 12px", background:T.cardAlt, borderRadius:9, marginBottom:10, border:`1px solid ${T.bdrL}` }}>
+              <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+                Servicio habitual
+              </div>
+              {services.length > 0 ? (
+                <select
+                  value={selected.serviceId || ""}
+                  onChange={e => setServiceId(selected.id, e.target.value)}
+                  style={{ width:"100%", border:`1px solid ${T.bdr}`, borderRadius:8, padding:"6px 10px",
+                    fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}>
+                  <option value="">— Sin asignar —</option>
+                  {services.filter(s => s.type !== "paquete").map(s => {
+                    const label = s.name || SERVICE_TYPE_LABEL[s.type] || s.type;
+                    const price = s.modality === "ambas"
+                      ? `$${s.price} / $${s.priceVirtual}`
+                      : s.modality === "virtual" ? `$${s.priceVirtual}` : `$${s.price}`;
+                    return <option key={s.id} value={s.id}>{label} · {price}</option>;
+                  })}
+                </select>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>$</span>
+                  <input type="number" value={selected.rate || ""} onChange={e => setRate(selected.id, e.target.value)}
+                    placeholder="—"
+                    style={{ flex:1, border:"none", background:"transparent", fontFamily:T.fB, fontSize:13, color:T.t, outline:"none", minWidth:0 }} />
+                  <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>/ses</span>
+                </div>
+              )}
+              {selected.serviceId && (() => {
+                const svc = services.find(s => s.id === selected.serviceId);
+                if (!svc) return null;
+                return (
+                  <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginTop:5 }}>
+                    {svc.modality === "ambas" && `🏢 $${svc.price} · 💻 $${svc.priceVirtual}`}
+                    {svc.modality === "presencial" && `🏢 $${svc.price}`}
+                    {svc.modality === "virtual" && `💻 $${svc.priceVirtual}`}
+                  </div>
+                );
+              })()}
             </div>
 
             {selected.diagnosis && <div style={{ padding:12, background:T.pA, borderRadius:10, marginBottom:10 }}>
@@ -1132,7 +1162,26 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Select label="Estado inicial" value={form.status} onChange={fld("status")}
             options={Object.entries(STATUS_CONFIG).map(([k,v]) => ({value:k, label:v.label}))}/>
-          <Input label="Tarifa por sesión (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
+          {services.length > 0 ? (
+            <div>
+              <label style={{ display:"block", fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Servicio habitual</label>
+              <select value={form.serviceId || ""} onChange={e => {
+                  const svc = services.find(s => s.id === e.target.value);
+                  setForm(f => ({ ...f, serviceId: e.target.value, rate: svc ? String(svc.price || "") : f.rate }));
+                }}
+                style={{ width:"100%", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:"10px 12px",
+                  fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}>
+                <option value="">— Sin asignar —</option>
+                {services.filter(s => s.type !== "paquete").map(s => {
+                  const label = s.name || SERVICE_TYPE_LABEL[s.type] || s.type;
+                  const price = s.modality === "ambas" ? `$${s.price}/$${s.priceVirtual}` : s.modality === "virtual" ? `$${s.priceVirtual}` : `$${s.price}`;
+                  return <option key={s.id} value={s.id}>{label} · {price}</option>;
+                })}
+              </select>
+            </div>
+          ) : (
+            <Input label="Tarifa por sesión (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
+          )}
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
           <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
