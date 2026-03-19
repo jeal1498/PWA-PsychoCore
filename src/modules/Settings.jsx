@@ -938,16 +938,50 @@ function ServicesTab({ services, setServices }) {
 
         {/* Paquetes sugeridos */}
         {form.type === "paquete" && (() => {
-          const PkgRow = ({ label, icon, prices, setPrices }) => (
-            <div style={{ marginBottom: pkgPricesV ? 12 : 0 }}>
-              {pkgPricesV && (
-                <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl,
-                  textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
-                  display: "flex", alignItems: "center", gap: 4 }}>
-                  {icon} {label}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+          // Guarda solo la modalidad indicada (presencial o virtual)
+          const saveRow = (modality) => {
+            const now = today;
+            setServices(prev => {
+              let updated = [...prev];
+              DISCOUNTS.forEach(d => {
+                const priceP = modality === "presencial" ? (Number(pkgPrices[d.sessions])  || 0)    : 0;
+                const priceV = modality === "virtual"    ? (Number(pkgPricesV?.[d.sessions]) || null) : null;
+                if (!priceP && !priceV) return;
+                const dupIdx = updated.findIndex(s => s.type === "paquete" && s.sessions === d.sessions);
+                const existing = dupIdx >= 0 ? updated[dupIdx] : null;
+                // Merge con el existente si ya tiene la otra modalidad
+                const mergedP = modality === "presencial" ? priceP : (existing?.price        || 0);
+                const mergedV = modality === "virtual"    ? priceV : (existing?.priceVirtual || null);
+                const mergedMod = mergedP && mergedV ? "ambas" : mergedV ? "virtual" : "presencial";
+                const entry = {
+                  id: existing?.id || "svc" + uid(),
+                  name: d.label,
+                  type: "paquete",
+                  modality: mergedMod,
+                  sessions: d.sessions,
+                  price: mergedP,
+                  priceVirtual: mergedV,
+                  priceHistory: existing
+                    ? [...(existing.priceHistory || []), { price: mergedP, priceVirtual: mergedV, from: now }]
+                    : [{ price: mergedP, priceVirtual: mergedV, from: now }],
+                };
+                if (dupIdx >= 0) updated[dupIdx] = entry;
+                else updated = [...updated, entry];
+              });
+              return updated;
+            });
+          };
+
+          const PkgRow = ({ label, icon, modality, prices, setPrices }) => (
+            <div style={{ marginBottom: 12 }}>
+              {/* Label de fila — siempre visible */}
+              <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl,
+                textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+                display: "flex", alignItems: "center", gap: 4 }}>
+                {icon} {label}
+              </div>
+              {/* Grid de 3 cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 8 }}>
                 {DISCOUNTS.map((d, i) => {
                   const disc = d.sessions === 4 ? "10%" : d.sessions === 8 ? "15%" : "20%";
                   const isCenter = i === 1;
@@ -958,9 +992,12 @@ function ServicesTab({ services, setServices }) {
                         background: isCenter ? T.pA : T.card,
                         boxShadow: isCenter ? `0 0 0 1px ${T.p}40` : "none" }}>
                       <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
-                        color: isCenter ? T.p : T.t, marginBottom: 2 }}>{d.label}</div>
-                      <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl,
-                        marginBottom: 8 }}>{d.sessions} ses · {disc} dto</div>
+                        color: isCenter ? T.p : T.t, marginBottom: 4 }}>{d.label}</div>
+                      {/* Sesiones y descuento en líneas separadas */}
+                      <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl, lineHeight: 1.5, marginBottom: 8 }}>
+                        <div>{d.sessions} sesiones</div>
+                        <div>{disc} dto</div>
+                      </div>
                       <input
                         type="number"
                         value={prices[d.sessions] ?? ""}
@@ -974,41 +1011,21 @@ function ServicesTab({ services, setServices }) {
                   );
                 })}
               </div>
+              {/* Botón guardar propio de la fila */}
+              <button onClick={() => saveRow(modality)}
+                style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none",
+                  background: T.p, color: "#fff",
+                  fontFamily: T.fB, fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", transition: "all .15s" }}>
+                Guardar paquetes {label}
+              </button>
             </div>
           );
-
-          const handleSave = () => {
-            const now = today;
-            setServices(prev => {
-              let updated = [...prev];
-              DISCOUNTS.forEach(d => {
-                const priceP = Number(pkgPrices[d.sessions]) || 0;
-                const priceV = pkgPricesV ? (Number(pkgPricesV[d.sessions]) || null) : null;
-                if (!priceP && !priceV) return;
-                const modality = priceP && priceV ? "ambas" : priceV ? "virtual" : "presencial";
-                const dupIdx = updated.findIndex(s => s.type === "paquete" && s.sessions === d.sessions);
-                const entry = {
-                  id: dupIdx >= 0 ? updated[dupIdx].id : "svc" + uid(),
-                  name: d.label,
-                  type: "paquete",
-                  modality,
-                  sessions: d.sessions,
-                  price: priceP,
-                  priceVirtual: priceV,
-                  priceHistory: dupIdx >= 0
-                    ? [...(updated[dupIdx].priceHistory || []), { price: priceP, priceVirtual: priceV, from: now }]
-                    : [{ price: priceP, priceVirtual: priceV, from: now }],
-                };
-                if (dupIdx >= 0) updated[dupIdx] = entry;
-                else updated = [...updated, entry];
-              });
-              return updated;
-            });
-          };
 
           return (
             <div style={{ marginBottom: 14, padding: "12px 14px", background: T.cardAlt, borderRadius: 10,
               border: `1px solid ${T.bdrL}` }}>
+              {/* Header con Reset */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
                   textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1026,18 +1043,10 @@ function ServicesTab({ services, setServices }) {
                 </button>
               </div>
 
-              <PkgRow label="Presencial" icon="🏢" prices={pkgPrices} setPrices={setPkgPrices} />
+              <PkgRow label="Presencial" icon="🏢" modality="presencial" prices={pkgPrices}  setPrices={setPkgPrices} />
               {pkgPricesV && (
-                <PkgRow label="Virtual" icon="💻" prices={pkgPricesV} setPrices={setPkgPricesV} />
+                <PkgRow label="Virtual" icon="💻" modality="virtual" prices={pkgPricesV} setPrices={setPkgPricesV} />
               )}
-
-              <button onClick={handleSave}
-                style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 9, border: "none",
-                  background: T.p, color: "#fff",
-                  fontFamily: T.fB, fontSize: 13, fontWeight: 600,
-                  cursor: "pointer", transition: "all .15s" }}>
-                Guardar paquetes
-              </button>
             </div>
           );
         })()}
