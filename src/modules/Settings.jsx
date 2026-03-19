@@ -633,12 +633,12 @@ function ServicesTab({ services, setServices }) {
   const today = new Date().toISOString().slice(0, 10);
 
   const SERVICE_TYPES = {
-    sesion:     { label: "Sesión individual",   icon: "👤", desc: "Sesión de psicoterapia individual de 50 minutos" },
-    evaluacion: { label: "Evaluación",          icon: "📋", desc: "Evaluación neuropsicológica completa con reporte escrito" },
-    pareja:     { label: "Terapia de pareja",   icon: "👫", desc: "Sesión de terapia de pareja de 60 minutos" },
-    grupo:      { label: "Grupo / Taller",      icon: "👥", desc: "Sesión grupal o taller terapéutico" },
-    paquete:    { label: "Paquete de sesiones", icon: "📦", desc: "Paquete de sesiones con precio preferencial" },
-    otro:       { label: "Otro",                icon: "⚡", desc: "" },
+    sesion:     { label: "Sesión individual",   short: "Sesión",    icon: "👤", desc: "Sesión de psicoterapia individual de 50 minutos" },
+    evaluacion: { label: "Evaluación",          short: "Evaluación",icon: "📋", desc: "Evaluación neuropsicológica completa con reporte escrito" },
+    pareja:     { label: "Terapia de pareja",   short: "Pareja",    icon: "👫", desc: "Sesión de terapia de pareja de 60 minutos" },
+    grupo:      { label: "Grupo / Taller",      short: "Grupo",     icon: "👥", desc: "Sesión grupal o taller terapéutico" },
+    paquete:    { label: "Paquete de sesiones", short: "Paquete",   icon: "📦", desc: "Paquete de sesiones con precio preferencial" },
+    otro:       { label: "Otro",                short: "Otro",      icon: "⚡", desc: "" },
   };
 
   const MODALITIES = [
@@ -866,8 +866,7 @@ function ServicesTab({ services, setServices }) {
 
       {/* ── Formulario nuevo servicio ───────────────────────────────── */}
       <Card style={{ padding: 20 }}>
-        <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm,
-          textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.tm, marginBottom: 16 }}>
           Nuevo servicio
         </div>
 
@@ -883,11 +882,12 @@ function ServicesTab({ services, setServices }) {
                     name: (!f.name.trim() || Object.values(SERVICE_TYPES).some(t => t.desc === f.name))
                       ? (SERVICE_TYPES[k]?.desc || "") : f.name
                   }))}
-                  style={{ padding: "8px 6px", borderRadius: 9, border: `1.5px solid ${on ? T.p : T.bdr}`,
+                  style={{ padding: "9px 4px", borderRadius: 9, border: `1.5px solid ${on ? T.p : T.bdr}`,
                     background: on ? T.pA : "transparent", fontFamily: T.fB, fontSize: 11,
                     color: on ? T.p : T.tm, fontWeight: on ? 700 : 400,
-                    cursor: "pointer", textAlign: "center", transition: "all .13s" }}>
-                  {v.icon} {v.label}
+                    cursor: "pointer", textAlign: "center", transition: "all .13s",
+                    whiteSpace: "nowrap" }}>
+                  {v.icon} {v.short}
                 </button>
               );
             })}
@@ -958,11 +958,13 @@ function ServicesTab({ services, setServices }) {
           </div>
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
-            <input value={form.name} onChange={e => fld("name")(e.target.value)}
+            <textarea value={form.name} onChange={e => fld("name")(e.target.value)}
+              rows={2}
               placeholder="Ej: Sesión de psicoterapia individual de 50 min..."
               style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`,
-                borderRadius: 10, fontFamily: T.fB, fontSize: 13.5, color: T.t,
-                background: T.card, outline: "none", boxSizing: "border-box" }} />
+                borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t,
+                background: T.card, outline: "none", boxSizing: "border-box",
+                resize: "none", lineHeight: 1.5 }} />
           </div>
         </>}
 
