@@ -171,8 +171,9 @@ export default function Dashboard({
   riskAssessments = [], treatmentPlans = [],
   onNavigate, onQuickNav, onStartSession, onNewSession,
 }) {
-  const isMobile  = useIsMobile();
-  const todayStr  = fmt(todayDate);
+  const isMobile     = useIsMobile();
+  const pendingTasks = usePendingTasks(); // FASE 3
+  const todayStr     = fmt(todayDate);
   const monthStr  = todayStr.slice(0, 7);
 
   const todayAppts   = appointments.filter(a => a.date === todayStr)
