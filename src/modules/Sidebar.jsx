@@ -83,6 +83,8 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
 
         <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
           <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:12 }}/>
+
+          {/* Perfil → Ajustes */}
           <button onClick={() => handleNav("settings")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:4 }}
             onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.08)"}
@@ -97,12 +99,13 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
             <Settings size={14} color="rgba(255,255,255,0.4)"/>
           </button>
 
+          {/* Cerrar sesión — siempre visible */}
           <button onClick={onSignOut}
-            style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"9px 12px", borderRadius:10, border:"none", cursor:"pointer", background:"transparent", transition:"all .15s" }}
-            onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.06)"}
-            onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-            <LogOut size={14} color="rgba(255,255,255,0.35)"/>
-            <span style={{ fontFamily:T.fB, fontSize:12.5, color:"rgba(255,255,255,0.35)" }}>Cerrar sesión</span>
+            style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:"rgba(255,255,255,0.04)", transition:"all .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.background="rgba(255,255,255,0.10)"; e.currentTarget.style.color="#fff"; }}
+            onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.04)"; }}>
+            <LogOut size={14} color="rgba(255,255,255,0.55)"/>
+            <span style={{ fontFamily:T.fB, fontSize:13, color:"rgba(255,255,255,0.55)", fontWeight:500 }}>Cerrar sesión</span>
           </button>
 
         </div>
