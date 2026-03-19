@@ -647,20 +647,27 @@ function ServicesTab({ services, setServices }) {
     { id: "ambas",      label: "Ambas",      icon: "🔄" },
   ];
 
-  // Paquetes sugeridos — se calculan según tarifa de sesión individual si existe
-  const basePrice = services.find(s => s.type === "sesion")?.price || 900;
-  const SUGGESTED_PACKAGES = [
-    { sessions: 4,  label: "Paquete básico",     price: Math.round(basePrice * 4 * 0.9),  desc: "4 sesiones · 10% de descuento" },
-    { sessions: 8,  label: "Paquete estándar",   price: Math.round(basePrice * 8 * 0.85), desc: "8 sesiones · 15% de descuento" },
-    { sessions: 12, label: "Paquete intensivo",  price: Math.round(basePrice * 12 * 0.80), desc: "12 sesiones · 20% de descuento" },
-  ];
+  // Paquetes sugeridos — base calculada desde sesión individual (presencial y/o virtual)
+  const sesionSvc   = services.find(s => s.type === "sesion");
+  const basePrice   = sesionSvc?.price        || 900;
+  const basePriceV  = sesionSvc?.priceVirtual || null;
+  const DISCOUNTS   = [{ sessions: 4, label: "Paquete básico", pct: 0.9 }, { sessions: 8, label: "Paquete estándar", pct: 0.85 }, { sessions: 12, label: "Paquete intensivo", pct: 0.80 }];
+
+  const calcPkgPrices = (base, baseV) => {
+    const row = {};
+    DISCOUNTS.forEach(d => { row[d.sessions] = String(Math.round(base * d.sessions * d.pct)); });
+    const rowV = {};
+    if (baseV) DISCOUNTS.forEach(d => { rowV[d.sessions] = String(Math.round(baseV * d.sessions * d.pct)); });
+    return { row, rowV: baseV ? rowV : null };
+  };
 
   const blankForm = { name: SERVICE_TYPES.sesion.desc, price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" };
   const [form, setForm] = useState(blankForm);
-  const [pkgPrices, setPkgPrices] = useState(() =>
-    Object.fromEntries(SUGGESTED_PACKAGES.map(p => [p.sessions, String(p.price)]))
-  );
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+
+  const initPkgPrices = () => calcPkgPrices(basePrice, basePriceV);
+  const [pkgPrices,  setPkgPrices]  = useState(() => initPkgPrices().row);
+  const [pkgPricesV, setPkgPricesV] = useState(() => initPkgPrices().rowV);
 
   // Estado de edición de precio con vigencia
   const [editingPrice, setEditingPrice] = useState(null); // { svcId, field, newValue, from }
@@ -672,18 +679,38 @@ function ServicesTab({ services, setServices }) {
     const f = { ...form, ...overrides };
     if (f.type !== "paquete" && !f.name.trim()) return;
     if (!f.price && !f.priceVirtual) return;
-    const effectivePrice = f.price || f.priceVirtual;
     const now = today;
-    setServices(prev => [...prev, {
-      id: "svc" + uid(),
-      name: f.name.trim(),
-      type: f.type,
-      modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
-      sessions: f.type === "paquete" ? Number(f.sessions) : null,
-      price: Number(f.price) || 0,
-      priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-      priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
-    }]);
+    setServices(prev => {
+      const dupIdx = prev.findIndex(s => s.type === f.type && s.name.trim() === f.name.trim());
+      if (dupIdx !== -1) {
+        const existing = prev[dupIdx];
+        const merged = {
+          ...existing,
+          modality: "ambas",
+          price:        f.price        ? Number(f.price)        : existing.price,
+          priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
+          priceHistory: [...(existing.priceHistory || []), {
+            price:        f.price        ? Number(f.price)        : existing.price,
+            priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
+            from: now,
+          }],
+        };
+        const updated = [...prev];
+        updated[dupIdx] = merged;
+        return updated;
+      }
+      const effectivePrice = f.price || f.priceVirtual;
+      return [...prev, {
+        id: "svc" + uid(),
+        name: f.name.trim(),
+        type: f.type,
+        modality: f.price && f.priceVirtual ? "ambas" : f.priceVirtual ? "virtual" : "presencial",
+        sessions: f.type === "paquete" ? Number(f.sessions) : null,
+        price: Number(f.price) || 0,
+        priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
+        priceHistory: [{ price: Number(effectivePrice), priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null, from: now }],
+      }];
+    });
     setForm(blankForm);
   };
 
@@ -899,72 +926,115 @@ function ServicesTab({ services, setServices }) {
         </div>
 
         {/* Paquetes sugeridos */}
-        {form.type === "paquete" && (
-          <div style={{ marginBottom: 14, padding: "12px 14px", background: T.cardAlt, borderRadius: 10,
-            border: `1px solid ${T.bdrL}` }}>
-            <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
-              textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-              Paquetes sugeridos
+        {form.type === "paquete" && (() => {
+          const PkgRow = ({ label, icon, prices, setPrices, highlight }) => (
+            <div style={{ marginBottom: pkgPricesV ? 12 : 0 }}>
+              {pkgPricesV && (
+                <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl,
+                  textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6,
+                  display: "flex", alignItems: "center", gap: 4 }}>
+                  {icon} {label}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                {DISCOUNTS.map((d, i) => {
+                  const disc = d.sessions === 4 ? "10%" : d.sessions === 8 ? "15%" : "20%";
+                  const isCenter = i === 1;
+                  return (
+                    <div key={d.sessions}
+                      style={{ padding: "10px 6px", borderRadius: 10, textAlign: "center",
+                        border: `2px solid ${isCenter ? T.p : T.bdr}`,
+                        background: isCenter ? T.pA : T.card,
+                        boxShadow: isCenter ? `0 0 0 1px ${T.p}40` : "none" }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+                        color: isCenter ? T.p : T.t, marginBottom: 2 }}>{d.label}</div>
+                      <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl,
+                        marginBottom: 8 }}>{d.sessions} ses · {disc} dto</div>
+                      <input
+                        type="number"
+                        value={prices[d.sessions] ?? ""}
+                        onChange={e => setPrices(prev => ({ ...prev, [d.sessions]: e.target.value }))}
+                        style={{ width: "100%", padding: "6px 4px", borderRadius: 8,
+                          border: `1.5px solid ${isCenter ? T.p : T.bdr}`,
+                          fontFamily: T.fH, fontSize: 14, fontWeight: 600,
+                          color: T.suc, background: isCenter ? T.pA : T.card,
+                          outline: "none", textAlign: "center", boxSizing: "border-box" }} />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            {/* Grid de 3 columnas — precio editable inline */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
-              {SUGGESTED_PACKAGES.map(pkg => {
-                const disc = pkg.sessions === 4 ? "10%" : pkg.sessions === 8 ? "15%" : "20%";
-                return (
-                  <div key={pkg.sessions}
-                    style={{ padding: "10px 8px", borderRadius: 10, textAlign: "center",
-                      border: `2px solid ${T.bdr}`, background: T.card }}>
-                    <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700,
-                      color: T.t, marginBottom: 2 }}>{pkg.label}</div>
-                    <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl,
-                      marginBottom: 8 }}>{pkg.sessions} ses · {disc} dto</div>
-                    <input
-                      type="number"
-                      value={pkgPrices[pkg.sessions] ?? ""}
-                      onChange={e => setPkgPrices(prev => ({ ...prev, [pkg.sessions]: e.target.value }))}
-                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8,
-                        border: `1.5px solid ${T.bdr}`, fontFamily: T.fH, fontSize: 14,
-                        fontWeight: 600, color: T.suc, background: T.card,
-                        outline: "none", textAlign: "center", boxSizing: "border-box" }} />
-                  </div>
-                );
-              })}
+          );
+
+          const handleSave = () => {
+            const now = today;
+            setServices(prev => {
+              let updated = [...prev];
+              DISCOUNTS.forEach(d => {
+                const priceP = Number(pkgPrices[d.sessions]) || 0;
+                const priceV = pkgPricesV ? (Number(pkgPricesV[d.sessions]) || null) : null;
+                if (!priceP && !priceV) return;
+                const modality = priceP && priceV ? "ambas" : priceV ? "virtual" : "presencial";
+                const dupIdx = updated.findIndex(s => s.type === "paquete" && s.sessions === d.sessions);
+                const entry = {
+                  id: dupIdx >= 0 ? updated[dupIdx].id : "svc" + uid(),
+                  name: d.label,
+                  type: "paquete",
+                  modality,
+                  sessions: d.sessions,
+                  price: priceP,
+                  priceVirtual: priceV,
+                  priceHistory: dupIdx >= 0
+                    ? [...(updated[dupIdx].priceHistory || []), { price: priceP, priceVirtual: priceV, from: now }]
+                    : [{ price: priceP, priceVirtual: priceV, from: now }],
+                };
+                if (dupIdx >= 0) updated[dupIdx] = entry;
+                else updated = [...updated, entry];
+              });
+              return updated;
+            });
+          };
+
+          return (
+            <div style={{ marginBottom: 14, padding: "12px 14px", background: T.cardAlt, borderRadius: 10,
+              border: `1px solid ${T.bdrL}` }}>
+              {/* Header con Reset */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
+                  textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Paquetes sugeridos
+                </div>
+                <button onClick={() => {
+                    const fresh = calcPkgPrices(basePrice, basePriceV);
+                    setPkgPrices(fresh.row);
+                    setPkgPricesV(fresh.rowV);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px",
+                    borderRadius: 99, border: `1.5px solid ${T.bdr}`, background: "transparent",
+                    fontFamily: T.fB, fontSize: 11, color: T.tm, cursor: "pointer" }}>
+                  ↺ Reset
+                </button>
+              </div>
+
+              {/* Fila presencial */}
+              <PkgRow label="Presencial" icon="🏢" prices={pkgPrices} setPrices={setPkgPrices} />
+
+              {/* Fila virtual (solo si hay priceVirtual en sesión individual) */}
+              {pkgPricesV && (
+                <PkgRow label="Virtual" icon="💻" prices={pkgPricesV} setPrices={setPkgPricesV} />
+              )}
+
+              {/* Guardar */}
+              <button onClick={handleSave}
+                style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 9, border: "none",
+                  background: T.p, color: "#fff",
+                  fontFamily: T.fB, fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", transition: "all .15s" }}>
+                Guardar paquetes
+              </button>
             </div>
-            <button
-              onClick={() => {
-                const now = today;
-                setServices(prev => {
-                  let updated = [...prev];
-                  SUGGESTED_PACKAGES.forEach(pkg => {
-                    const price = Number(pkgPrices[pkg.sessions]);
-                    if (!price) return;
-                    const dupIdx = updated.findIndex(s => s.type === "paquete" && s.sessions === pkg.sessions);
-                    const entry = {
-                      id: dupIdx >= 0 ? updated[dupIdx].id : "svc" + uid(),
-                      name: pkg.label,
-                      type: "paquete",
-                      modality: "presencial",
-                      sessions: pkg.sessions,
-                      price,
-                      priceVirtual: null,
-                      priceHistory: dupIdx >= 0
-                        ? [...(updated[dupIdx].priceHistory || []), { price, priceVirtual: null, from: now }]
-                        : [{ price, priceVirtual: null, from: now }],
-                    };
-                    if (dupIdx >= 0) updated[dupIdx] = entry;
-                    else updated = [...updated, entry];
-                  });
-                  return updated;
-                });
-              }}
-              style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none",
-                background: T.p, color: "#fff",
-                fontFamily: T.fB, fontSize: 13, fontWeight: 600,
-                cursor: "pointer", transition: "all .15s" }}>
-              Guardar paquetes
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Descripción — solo para tipos que no son paquete */}
         {form.type !== "paquete" && (
@@ -980,7 +1050,7 @@ function ServicesTab({ services, setServices }) {
           </div>
         )}
 
-        {/* Precios — solo visibles para tipos que no son paquete */}
+        {/* Precios — ocultos para paquetes */}
         {form.type !== "paquete" && <div style={{ marginBottom: 18 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {/* Presencial */}
