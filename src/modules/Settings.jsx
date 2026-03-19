@@ -648,26 +648,37 @@ function ServicesTab({ services, setServices }) {
   ];
 
   // Paquetes sugeridos — base calculada desde sesión individual (presencial y/o virtual)
-  const sesionSvc   = services.find(s => s.type === "sesion");
-  const basePrice   = sesionSvc?.price        || 900;
-  const basePriceV  = sesionSvc?.priceVirtual || null;
-  const DISCOUNTS   = [{ sessions: 4, label: "Paquete básico", pct: 0.9 }, { sessions: 8, label: "Paquete estándar", pct: 0.85 }, { sessions: 12, label: "Paquete intensivo", pct: 0.80 }];
+  const sesionSvc  = services.find(s => s.type === "sesion");
+  const basePrice  = sesionSvc?.price        || 900;
+  const basePriceV = sesionSvc?.priceVirtual || null;
+  const DISCOUNTS  = [
+    { sessions: 4,  label: "Paquete básico",    pct: 0.9  },
+    { sessions: 8,  label: "Paquete estándar",  pct: 0.85 },
+    { sessions: 12, label: "Paquete intensivo", pct: 0.80 },
+  ];
 
   const calcPkgPrices = (base, baseV) => {
     const row = {};
     DISCOUNTS.forEach(d => { row[d.sessions] = String(Math.round(base * d.sessions * d.pct)); });
-    const rowV = {};
-    if (baseV) DISCOUNTS.forEach(d => { rowV[d.sessions] = String(Math.round(baseV * d.sessions * d.pct)); });
-    return { row, rowV: baseV ? rowV : null };
+    const rowV = baseV
+      ? (() => { const r = {}; DISCOUNTS.forEach(d => { r[d.sessions] = String(Math.round(baseV * d.sessions * d.pct)); }); return r; })()
+      : null;
+    return { row, rowV };
   };
 
   const blankForm = { name: SERVICE_TYPES.sesion.desc, price: "", priceVirtual: "", type: "sesion", sessions: "", modality: "presencial" };
   const [form, setForm] = useState(blankForm);
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
-  const initPkgPrices = () => calcPkgPrices(basePrice, basePriceV);
-  const [pkgPrices,  setPkgPrices]  = useState(() => initPkgPrices().row);
-  const [pkgPricesV, setPkgPricesV] = useState(() => initPkgPrices().rowV);
+  const [pkgPrices,  setPkgPrices]  = useState(() => calcPkgPrices(basePrice, basePriceV).row);
+  const [pkgPricesV, setPkgPricesV] = useState(() => calcPkgPrices(basePrice, basePriceV).rowV);
+
+  // Auto-actualizar precios de paquetes cuando cambia la sesión individual
+  React.useEffect(() => {
+    const fresh = calcPkgPrices(basePrice, basePriceV);
+    setPkgPrices(fresh.row);
+    setPkgPricesV(fresh.rowV);
+  }, [basePrice, basePriceV]);
 
   // Estado de edición de precio con vigencia
   const [editingPrice, setEditingPrice] = useState(null); // { svcId, field, newValue, from }
@@ -927,7 +938,7 @@ function ServicesTab({ services, setServices }) {
 
         {/* Paquetes sugeridos */}
         {form.type === "paquete" && (() => {
-          const PkgRow = ({ label, icon, prices, setPrices, highlight }) => (
+          const PkgRow = ({ label, icon, prices, setPrices }) => (
             <div style={{ marginBottom: pkgPricesV ? 12 : 0 }}>
               {pkgPricesV && (
                 <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl,
@@ -998,7 +1009,6 @@ function ServicesTab({ services, setServices }) {
           return (
             <div style={{ marginBottom: 14, padding: "12px 14px", background: T.cardAlt, borderRadius: 10,
               border: `1px solid ${T.bdrL}` }}>
-              {/* Header con Reset */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
                   textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1016,15 +1026,11 @@ function ServicesTab({ services, setServices }) {
                 </button>
               </div>
 
-              {/* Fila presencial */}
               <PkgRow label="Presencial" icon="🏢" prices={pkgPrices} setPrices={setPkgPrices} />
-
-              {/* Fila virtual (solo si hay priceVirtual en sesión individual) */}
               {pkgPricesV && (
                 <PkgRow label="Virtual" icon="💻" prices={pkgPricesV} setPrices={setPkgPricesV} />
               )}
 
-              {/* Guardar */}
               <button onClick={handleSave}
                 style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 9, border: "none",
                   background: T.p, color: "#fff",
