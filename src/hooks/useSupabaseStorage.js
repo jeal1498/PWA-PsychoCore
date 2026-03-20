@@ -128,13 +128,15 @@ export function useSupabaseStorage(key, initialValue) {
 
       if (!remoteHasData && localHasData) {
         // Caso A — Supabase vacío, local tiene datos → subir inmediatamente
+        // NO se toca isSyncing — estamos subiendo, no bajando.
+        // Si isSyncing quedara true y setValue_ no dispara re-render (mismo valor),
+        // el effect reactivo nunca lo resetearía y los próximos cambios no se guardarían.
         console.log(`[storage] ⬆️ Caso A — subiendo ${key} a Supabase`);
         await pushToSupabase(uid, localData);
-        isSyncing.current = true;
-        setValue_(localData);
 
       } else if (remoteHasData && !localHasData) {
         // Caso B — Supabase tiene datos, local vacío → bajar
+        // isSyncing=true evita que el effect reactivo re-suba inmediatamente.
         console.log(`[storage] ⬇️ Caso B — bajando ${key} desde Supabase`);
         isSyncing.current = true;
         setValue_(remote.data);
@@ -154,10 +156,9 @@ export function useSupabaseStorage(key, initialValue) {
 
         if (localWins) {
           // Caso C — local más reciente o con más datos → subir
+          // NO se toca isSyncing por la misma razón que Caso A.
           console.log(`[storage] ⬆️ Caso C — local gana (${localLen} vs ${remoteLen}), subiendo ${key}`);
           await pushToSupabase(uid, localData);
-          isSyncing.current = true;
-          setValue_(localData);
         } else {
           // Caso B+ — Supabase más reciente o con más datos → bajar
           console.log(`[storage] ⬇️ Caso B+ — Supabase gana (${remoteLen} vs ${localLen}), bajando ${key}`);
