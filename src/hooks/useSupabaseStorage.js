@@ -4,12 +4,13 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v3: agrega `initialLoadDone` ref — ningún save se dispara hasta que
-// el primer fetch de Supabase haya completado. Elimina la ventana donde
-// loaded=true con value=[] sobreescribía la fila en Supabase.
+// v4: estrategia "userModified" + eventos de sincronización.
+// - Save SOLO se dispara cuando la app llama a setValue().
+// - Emite sync:start / sync:done / sync:error al bus para el SyncToast.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
+import { bus }      from "../lib/eventBus.js";
 
 const TABLE_MAP = {
   pc_patients:         "pc_patients",
@@ -30,52 +31,53 @@ export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
-  const saveTimerRef     = useRef(null);
-  const isSyncing        = useRef(false);
-  const prevUserId       = useRef(null);
-  const initialLoadDone  = useRef(false); // guard: ningún save antes del primer fetch
+  const saveTimerRef = useRef(null);
+  const prevUserId   = useRef(null);
+  const userModified = useRef(false); // true SOLO cuando setValue() es llamado por la app
 
   const table = TABLE_MAP[key];
 
   // ── Upsert a Supabase ─────────────────────────────────────────────────────
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
+
+    bus.emit("sync:start", { key });
+
     const { error } = await supabase
       .from(table)
       .upsert(
         { psychologist_id: uid, data: dataToSave },
         { onConflict: "psychologist_id" }
       );
-    if (error) console.error(`[storage] ❌ ${key}:`, error.message);
-    else        console.log(`[storage] ✅ ${key}`);
+
+    if (error) {
+      console.error(`[storage] ❌ ${key}:`, error.message);
+      bus.emit("sync:error", { key, message: error.message });
+    } else {
+      console.log(`[storage] ✅ ${key}`);
+      bus.emit("sync:done", { key });
+    }
   }, [key, table]);
 
   // ── Carga inicial — se dispara cuando userId pasa de null a un valor ──────
   useEffect(() => {
     if (!userId) {
-      // Logout: resetear estado
       if (prevUserId.current) {
-        prevUserId.current      = null;
-        initialLoadDone.current = false;
+        prevUserId.current   = null;
+        userModified.current = false;
         clearTimeout(saveTimerRef.current);
-        isSyncing.current = true;
         setValue_(initialValue);
         setLoaded(false);
       }
       return;
     }
 
-    // Mismo usuario — no recargar
     if (userId === prevUserId.current) return;
 
-    prevUserId.current      = userId;
-    initialLoadDone.current = false; // resetear antes del fetch
+    prevUserId.current   = userId;
+    userModified.current = false;
 
-    if (!table) {
-      initialLoadDone.current = true;
-      setLoaded(true);
-      return;
-    }
+    if (!table) { setLoaded(true); return; }
 
     let cancelled = false;
     setLoaded(false);
@@ -96,16 +98,12 @@ export function useSupabaseStorage(key, initialValue, userId) {
         }
 
         if (data?.data !== null && data?.data !== undefined) {
-          isSyncing.current = true;
-          setValue_(data.data);
+          setValue_(data.data); // directo — no activa userModified
         }
       } catch (e) {
         if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
       } finally {
-        if (!cancelled) {
-          initialLoadDone.current = true; // ahora sí se permiten saves
-          setLoaded(true);
-        }
+        if (!cancelled) setLoaded(true);
       }
     })();
 
@@ -115,14 +113,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
   useEffect(() => {
-    if (!loaded)                  return; // esperar carga
-    if (!userId)                  return; // sin sesión
-    if (!initialLoadDone.current) return; // guard: no guardar antes del fetch inicial
-
-    if (isSyncing.current) {
-      isSyncing.current = false;
-      return;
-    }
+    if (!loaded)               return;
+    if (!userId)               return;
+    if (!userModified.current) return; // solo saves explícitos
 
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -132,7 +125,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
     return () => clearTimeout(saveTimerRef.current);
   }, [value, loaded, userId, pushToSupabase]);
 
+  // setValue pública — marca userModified antes de actualizar estado
   const setValue = useCallback((newVal) => {
+    userModified.current = true;
     setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
   }, []);
 
