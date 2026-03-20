@@ -4,10 +4,9 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// CAMBIO v2: el hook ya NO maneja su propio auth.
-// Recibe `userId` como parámetro desde AppStateContext, que es el único
-// lugar donde se resuelve la sesión. Esto elimina el race condition que
-// causaba que 11 getSession() simultáneos devolvieran null.
+// v3: agrega `initialLoadDone` ref — ningún save se dispara hasta que
+// el primer fetch de Supabase haya completado. Elimina la ventana donde
+// loaded=true con value=[] sobreescribía la fila en Supabase.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -31,9 +30,10 @@ export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
-  const saveTimerRef = useRef(null);
-  const isSyncing    = useRef(false);
-  const prevUserId   = useRef(null);
+  const saveTimerRef     = useRef(null);
+  const isSyncing        = useRef(false);
+  const prevUserId       = useRef(null);
+  const initialLoadDone  = useRef(false); // guard: ningún save antes del primer fetch
 
   const table = TABLE_MAP[key];
 
@@ -52,11 +52,11 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   // ── Carga inicial — se dispara cuando userId pasa de null a un valor ──────
   useEffect(() => {
-    // userId aún no disponible
     if (!userId) {
-      // Si había sesión previa y ahora hay logout, resetear
+      // Logout: resetear estado
       if (prevUserId.current) {
-        prevUserId.current = null;
+        prevUserId.current      = null;
+        initialLoadDone.current = false;
         clearTimeout(saveTimerRef.current);
         isSyncing.current = true;
         setValue_(initialValue);
@@ -68,9 +68,14 @@ export function useSupabaseStorage(key, initialValue, userId) {
     // Mismo usuario — no recargar
     if (userId === prevUserId.current) return;
 
-    prevUserId.current = userId;
+    prevUserId.current      = userId;
+    initialLoadDone.current = false; // resetear antes del fetch
 
-    if (!table) { setLoaded(true); return; }
+    if (!table) {
+      initialLoadDone.current = true;
+      setLoaded(true);
+      return;
+    }
 
     let cancelled = false;
     setLoaded(false);
@@ -87,7 +92,6 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
         if (error) {
           console.warn(`[storage] Error cargando ${key}:`, error.message);
-          setLoaded(true);
           return;
         }
 
@@ -98,7 +102,10 @@ export function useSupabaseStorage(key, initialValue, userId) {
       } catch (e) {
         if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          initialLoadDone.current = true; // ahora sí se permiten saves
+          setLoaded(true);
+        }
       }
     })();
 
@@ -108,8 +115,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
   useEffect(() => {
-    if (!loaded) return;
-    if (!userId)  return;
+    if (!loaded)                  return; // esperar carga
+    if (!userId)                  return; // sin sesión
+    if (!initialLoadDone.current) return; // guard: no guardar antes del fetch inicial
 
     if (isSyncing.current) {
       isSyncing.current = false;
