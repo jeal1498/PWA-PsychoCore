@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v3: fix auth race condition.
-// Antes: getSession() + skip INITIAL_SESSION → podía resolver null antes
-// de que la sesión OAuth estuviera lista → userId nunca se establecía.
-// Ahora: solo onAuthStateChange incluyendo INITIAL_SESSION, que es el
-// patrón oficial de Supabase para detectar la sesión al cargar la página.
+// v4: doble seguro para auth.
+// - getSession()        → captura sesión inmediata al recargar (localStorage)
+// - onAuthStateChange   → captura login/logout/token refresh posteriores
+// Ambos llaman setUserId — el que llegue primero gana, el segundo es no-op
+// si el valor es el mismo (React no re-renderiza con el mismo estado).
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -20,14 +20,24 @@ export function AppStateProvider({ children }) {
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    // onAuthStateChange con INITIAL_SESSION cubre tanto la carga inicial
-    // como login/logout posteriores. Es el patrón oficial de Supabase.
+    let mounted = true;
+
+    // 1. Leer sesión inmediatamente desde localStorage (cubre recarga de página)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) setUserId(session?.user?.id ?? null);
+    });
+
+    // 2. Escuchar cambios posteriores: login, logout, token refresh
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUserId(session?.user?.id ?? null);
+      (_event, session) => {
+        if (mounted) setUserId(session?.user?.id ?? null);
       }
     );
-    return () => subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // ── Datos — todos reciben el mismo userId ya resuelto ────────────────────
