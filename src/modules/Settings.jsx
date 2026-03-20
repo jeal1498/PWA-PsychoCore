@@ -143,6 +143,7 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
   const [showBackupWarning, setShowBackupWarning] = useState(false);
   const [deleteInput,      setDeleteInput]       = useState("");
   const [deleting,         setDeleting]          = useState(false);
+  const [deleteReport,     setDeleteReport]      = useState(null);
 
   const flash = (text, ok = true) => {
     setMsg({ text, ok });
@@ -154,21 +155,29 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
     if (deleteInput !== "ELIMINAR") return;
     setDeleting(true);
 
-    // Limpieza local — siempre ejecuta aunque Supabase falle
-    const clearLocalAndRedirect = () => {
+    const clearLocal = () => {
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith("pc_") || k.startsWith("sb-")) localStorage.removeItem(k);
       });
-      window.location.href = window.location.origin;
     };
 
-    // Timer de seguridad absoluto — después de 7s fuerza logout sin importar qué
-    const safetyTimer = setTimeout(clearLocalAndRedirect, 7000);
-
     try {
-      // Obtener uid
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
+
+      // Construir resumen ANTES de borrar
+      const report = {
+        pacientes:    allData?.patients?.length        || 0,
+        citas:        allData?.appointments?.length    || 0,
+        sesiones:     allData?.sessions?.length        || 0,
+        pagos:        allData?.payments?.length        || 0,
+        evaluaciones: allData?.riskAssessments?.length || 0,
+        escalas:      allData?.scaleResults?.length    || 0,
+        planes:       allData?.treatmentPlans?.length  || 0,
+        contactos:    allData?.interSessions?.length   || 0,
+        medicamentos: allData?.medications?.length     || 0,
+        servicios:    allData?.services?.length        || 0,
+      };
 
       if (uid) {
         const tables = [
@@ -176,17 +185,21 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
           "pc_profile", "pc_risk_assessments", "pc_scale_results",
           "pc_treatment_plans", "pc_inter_sessions", "pc_medications", "pc_services",
         ];
-        // Borrar en paralelo — ignorar errores individuales, no bloquear
+        // Esperar que TODOS los deletes terminen antes de continuar
         await Promise.allSettled(
           tables.map(t => supabase.from(t).delete().eq("psychologist_id", uid))
         );
+        await supabase.auth.signOut();
       }
 
-      clearTimeout(safetyTimer);
-      clearLocalAndRedirect();
+      clearLocal();
+      setDeleting(false);
+      setShowDelete(false);
+      setDeleteReport(report);
+
     } catch {
-      clearTimeout(safetyTimer);
-      clearLocalAndRedirect();
+      clearLocal();
+      window.location.href = window.location.origin;
     }
   };
 
@@ -267,7 +280,6 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
     { label: "Pagos",           val: allData?.payments?.length        || 0, icon: "💰" },
     { label: "Evaluaciones",    val: allData?.riskAssessments?.length || 0, icon: "⚠️" },
     { label: "Planes",          val: allData?.treatmentPlans?.length  || 0, icon: "📋" },
-    { label: "Servicios",       val: allData?.services?.length        || 0, icon: "💼" },
   ];
 
   return (
@@ -424,6 +436,51 @@ function DataTab({ allData, onRestore, patients, googleUser, userId }) {
                 }
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal resumen eliminación */}
+      {deleteReport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: T.bg, borderRadius: 18, padding: 28, maxWidth: 420, width: "100%",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.25)", border: `1px solid ${T.bdr}` }}>
+            <div style={{ fontSize: 40, marginBottom: 12, textAlign: "center" }}>✅</div>
+            <div style={{ fontFamily: T.fB, fontSize: 17, fontWeight: 700, color: T.t, marginBottom: 6, textAlign: "center" }}>
+              Cuenta eliminada
+            </div>
+            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, textAlign: "center", marginBottom: 20 }}>
+              Los siguientes datos fueron eliminados permanentemente de Supabase y de este dispositivo:
+            </p>
+            <div style={{ background: T.card, borderRadius: 12, padding: "14px 18px", marginBottom: 20 }}>
+              {[
+                ["🧑‍⚕️", "Pacientes",     deleteReport.pacientes],
+                ["📅", "Citas",          deleteReport.citas],
+                ["📝", "Sesiones",       deleteReport.sesiones],
+                ["💰", "Pagos",          deleteReport.pagos],
+                ["⚠️", "Evaluaciones",   deleteReport.evaluaciones],
+                ["📊", "Escalas",        deleteReport.escalas],
+                ["📋", "Planes",         deleteReport.planes],
+                ["📞", "Contactos",      deleteReport.contactos],
+                ["💊", "Medicamentos",   deleteReport.medicamentos],
+                ["💼", "Servicios",      deleteReport.servicios],
+              ].map(([icon, label, val]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between",
+                  alignItems: "center", padding: "5px 0",
+                  borderBottom: `1px solid ${T.bdr}40` }}>
+                  <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{icon} {label}</span>
+                  <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => { window.location.href = window.location.origin; }}
+              style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none",
+                background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 14,
+                fontWeight: 700, cursor: "pointer" }}>
+              Cerrar sesión
+            </button>
           </div>
         </div>
       )}
