@@ -61,8 +61,14 @@ export function useSupabaseStorage(key, initialValue) {
         return;
       }
 
-      isSyncing.current = true;
-      setValue_(data?.data ?? initialValue);
+      // Solo activar isSyncing si Supabase tiene datos reales.
+      // Si está vacío, setValue_ recibe el mismo initialValue → React no
+      // re-renderiza → isSyncing nunca se resetea → próximos cambios no se guardan.
+      if (data?.data !== null && data?.data !== undefined) {
+        isSyncing.current = true;
+        setValue_(data.data);
+      }
+      // Si Supabase vacío: mantener initialValue en estado, isSyncing=false
     } catch (e) {
       console.warn(`[storage] Excepción cargando ${key}:`, e);
     } finally {
