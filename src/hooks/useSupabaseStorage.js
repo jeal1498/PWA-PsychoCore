@@ -3,7 +3,11 @@
 //
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
-// Sin internet: la app muestra un spinner hasta recuperar conexión.
+//
+// CAMBIO v2: el hook ya NO maneja su propio auth.
+// Recibe `userId` como parámetro desde AppStateContext, que es el único
+// lugar donde se resuelve la sesión. Esto elimina el race condition que
+// causaba que 11 getSession() simultáneos devolvieran null.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -22,13 +26,14 @@ const TABLE_MAP = {
   pc_services:         "pc_services",
 };
 
-export function useSupabaseStorage(key, initialValue) {
+// userId: string | null — viene de AppStateContext (ya resuelto)
+export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
-  const userIdRef    = useRef(null);
   const saveTimerRef = useRef(null);
   const isSyncing    = useRef(false);
+  const prevUserId   = useRef(null);
 
   const table = TABLE_MAP[key];
 
@@ -41,99 +46,83 @@ export function useSupabaseStorage(key, initialValue) {
         { psychologist_id: uid, data: dataToSave },
         { onConflict: "psychologist_id" }
       );
-    if (error) console.error(`[storage] ❌ Error subiendo ${key}:`, error.message);
-    else        console.log(`[storage] ✅ Supabase OK: ${key}`);
+    if (error) console.error(`[storage] ❌ ${key}:`, error.message);
+    else        console.log(`[storage] ✅ ${key}`);
   }, [key, table]);
 
-  // ── Carga inicial desde Supabase ──────────────────────────────────────────
-  const loadFromSupabase = useCallback(async (uid) => {
-    if (!uid || !table) { setLoaded(true); return; }
-    try {
-      const { data, error } = await supabase
-        .from(table)
-        .select("data")
-        .eq("psychologist_id", uid)
-        .maybeSingle();
-
-      if (error) {
-        console.warn(`[storage] Error cargando ${key}:`, error.message);
-        setLoaded(true);
-        return;
-      }
-
-      // Solo activar isSyncing si Supabase tiene datos reales.
-      // Si está vacío, setValue_ recibe el mismo initialValue → React no
-      // re-renderiza → isSyncing nunca se resetea → próximos cambios no se guardan.
-      if (data?.data !== null && data?.data !== undefined) {
-        isSyncing.current = true;
-        setValue_(data.data);
-      }
-      // Si Supabase vacío: mantener initialValue en estado, isSyncing=false
-    } catch (e) {
-      console.warn(`[storage] Excepción cargando ${key}:`, e);
-    } finally {
-      setLoaded(true);
-    }
-  }, [key, table, initialValue]);
-
-  // ── Auth: sesión en mount + escuchar login/logout ─────────────────────────
+  // ── Carga inicial — se dispara cuando userId pasa de null a un valor ──────
   useEffect(() => {
+    // userId aún no disponible
+    if (!userId) {
+      // Si había sesión previa y ahora hay logout, resetear
+      if (prevUserId.current) {
+        prevUserId.current = null;
+        clearTimeout(saveTimerRef.current);
+        isSyncing.current = true;
+        setValue_(initialValue);
+        setLoaded(false);
+      }
+      return;
+    }
+
+    // Mismo usuario — no recargar
+    if (userId === prevUserId.current) return;
+
+    prevUserId.current = userId;
+
+    if (!table) { setLoaded(true); return; }
+
     let cancelled = false;
+    setLoaded(false);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (cancelled) return;
-      if (session?.user) {
-        userIdRef.current = session.user.id;
-        loadFromSupabase(session.user.id);
-      } else {
-        setLoaded(true);
-      }
-    });
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select("data")
+          .eq("psychologist_id", userId)
+          .maybeSingle();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "INITIAL_SESSION") return;
+        if (cancelled) return;
 
-        if (session?.user) {
-          const uid = session.user.id;
-          const wasLoggedOut = !userIdRef.current;
-          userIdRef.current = uid;
-          if (wasLoggedOut) await loadFromSupabase(uid);
-        } else {
-          userIdRef.current = null;
-          clearTimeout(saveTimerRef.current);
-          isSyncing.current = true;
-          setValue_(initialValue);
-          setLoaded(false);
+        if (error) {
+          console.warn(`[storage] Error cargando ${key}:`, error.message);
+          setLoaded(true);
+          return;
         }
+
+        if (data?.data !== null && data?.data !== undefined) {
+          isSyncing.current = true;
+          setValue_(data.data);
+        }
+      } catch (e) {
+        if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
-    );
+    })();
 
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [loadFromSupabase, initialValue]);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, key, table]);
 
-  // ── Guardado reactivo — debounced 800ms a Supabase ────────────────────────
+  // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
   useEffect(() => {
     if (!loaded) return;
+    if (!userId)  return;
 
-    // Si el cambio viene de una carga desde Supabase, no re-subir
     if (isSyncing.current) {
       isSyncing.current = false;
       return;
     }
 
-    if (!userIdRef.current) return;
-
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      pushToSupabase(userIdRef.current, value);
+      pushToSupabase(userId, value);
     }, 800);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [value, loaded, pushToSupabase]);
+  }, [value, loaded, userId, pushToSupabase]);
 
   const setValue = useCallback((newVal) => {
     setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
