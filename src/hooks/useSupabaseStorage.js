@@ -4,9 +4,9 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v4: estrategia "userModified" + eventos de sincronización.
-// - Save SOLO se dispara cuando la app llama a setValue().
-// - Emite sync:start / sync:done / sync:error al bus para el SyncToast.
+// v5: fix cleanup bug.
+// prevUserId.current se resetea en el cleanup del efecto de carga para que
+// si React re-ejecuta el efecto (StrictMode, remount), el fetch se repita.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -26,30 +26,26 @@ const TABLE_MAP = {
   pc_services:         "pc_services",
 };
 
-// userId: string | null — viene de AppStateContext (ya resuelto)
 export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
   const saveTimerRef = useRef(null);
   const prevUserId   = useRef(null);
-  const userModified = useRef(false); // true SOLO cuando setValue() es llamado por la app
+  const userModified = useRef(false);
 
   const table = TABLE_MAP[key];
 
   // ── Upsert a Supabase ─────────────────────────────────────────────────────
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
-
     bus.emit("sync:start", { key });
-
     const { error } = await supabase
       .from(table)
       .upsert(
         { psychologist_id: uid, data: dataToSave },
         { onConflict: "psychologist_id" }
       );
-
     if (error) {
       console.error(`[storage] ❌ ${key}:`, error.message);
       bus.emit("sync:error", { key, message: error.message });
@@ -59,7 +55,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
     }
   }, [key, table]);
 
-  // ── Carga inicial — se dispara cuando userId pasa de null a un valor ──────
+  // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) {
       if (prevUserId.current) {
@@ -72,14 +68,11 @@ export function useSupabaseStorage(key, initialValue, userId) {
       return;
     }
 
-    if (userId === prevUserId.current) return;
-
-    prevUserId.current   = userId;
-    userModified.current = false;
-
     if (!table) { setLoaded(true); return; }
 
     let cancelled = false;
+    prevUserId.current   = userId;
+    userModified.current = false;
     setLoaded(false);
 
     (async () => {
@@ -98,7 +91,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
         }
 
         if (data?.data !== null && data?.data !== undefined) {
-          setValue_(data.data); // directo — no activa userModified
+          setValue_(data.data);
         }
       } catch (e) {
         if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
@@ -107,7 +100,10 @@ export function useSupabaseStorage(key, initialValue, userId) {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      prevUserId.current = null; // ← reset para que el fetch se repita si React re-ejecuta
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, key, table]);
 
@@ -115,7 +111,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
   useEffect(() => {
     if (!loaded)               return;
     if (!userId)               return;
-    if (!userModified.current) return; // solo saves explícitos
+    if (!userModified.current) return;
 
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -125,7 +121,6 @@ export function useSupabaseStorage(key, initialValue, userId) {
     return () => clearTimeout(saveTimerRef.current);
   }, [value, loaded, userId, pushToSupabase]);
 
-  // setValue pública — marca userModified antes de actualizar estado
   const setValue = useCallback((newVal) => {
     userModified.current = true;
     setValue_(prev => typeof newVal === "function" ? newVal(prev) : newVal);
