@@ -1,8 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// CAMBIO v2: resuelve la sesión UNA sola vez aquí y pasa `userId` a cada
-// useSupabaseStorage. Elimina el race condition de 11 getSession() simultáneos.
+// v3: fix auth race condition.
+// Antes: getSession() + skip INITIAL_SESSION → podía resolver null antes
+// de que la sesión OAuth estuviera lista → userId nunca se establecía.
+// Ahora: solo onAuthStateChange incluyendo INITIAL_SESSION, que es el
+// patrón oficial de Supabase para detectar la sesión al cargar la página.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -11,26 +14,19 @@ import { DEFAULT_PROFILE }    from "../sampleData.js";
 
 const AppStateContext = createContext(null);
 
-// ── Provider ─────────────────────────────────────────────────────────────────
 export function AppStateProvider({ children }) {
 
   // ── Auth — fuente única de userId para todos los hooks ───────────────────
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    // Carga inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserId(session?.user?.id ?? null);
-    });
-
-    // Escuchar cambios (login / logout / token refresh)
+    // onAuthStateChange con INITIAL_SESSION cubre tanto la carga inicial
+    // como login/logout posteriores. Es el patrón oficial de Supabase.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "INITIAL_SESSION") return;
         setUserId(session?.user?.id ?? null);
       }
     );
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -47,12 +43,10 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], userId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
 
-  // Muestra la app en cuanto cargue el primer dato crítico (pacientes o perfil).
   const dataReady  = pLoaded || prLoaded;
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
                   && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded && svLoaded;
 
-  // Timeout de seguridad — si en 8s dataReady sigue false, mostrar igual
   const [dataTimedOut, setDataTimedOut] = useState(false);
   useEffect(() => {
     if (dataReady) { setDataTimedOut(false); return; }
@@ -60,7 +54,6 @@ export function AppStateProvider({ children }) {
     return () => clearTimeout(t);
   }, [dataReady]);
 
-  // Snapshot completo para exportar/backup (Settings lo usa)
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
     riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
@@ -69,7 +62,6 @@ export function AppStateProvider({ children }) {
        riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
        services]);
 
-  // Objeto plano "mp" para spread props en módulos
   const mp = useMemo(() => ({
     patients, setPatients,
     appointments, setAppointments,
@@ -111,7 +103,6 @@ export function AppStateProvider({ children }) {
   );
 }
 
-// ── Hook de consumo ───────────────────────────────────────────────────────────
 export function useAppState() {
   const ctx = useContext(AppStateContext);
   if (!ctx) throw new Error("useAppState must be used within AppStateProvider");
