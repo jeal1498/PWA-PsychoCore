@@ -16,6 +16,7 @@ import Onboarding       from "./components/Onboarding.jsx";
 import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
+import SyncToast       from "./components/SyncToast.jsx";
 
 // Lazy loading — cada módulo se descarga solo cuando el usuario lo abre por primera vez
 const Dashboard     = lazy(() => import("./modules/Dashboard.jsx"));
@@ -357,6 +358,7 @@ export default function App() {
           </Suspense>
         </main>
       </div>
+      <SyncToast />
     </div>
   );
 }
