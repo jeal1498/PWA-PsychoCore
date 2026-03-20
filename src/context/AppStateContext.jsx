@@ -1,37 +1,58 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
-// FASE 1 — Centraliza los 11 useSupabaseStorage que antes vivían en App.jsx.
-// Expone useAppState() para que cualquier módulo consuma el estado sin
-// prop drilling. App.jsx queda limpio: solo maneja auth, UI y navegación.
+//
+// CAMBIO v2: resuelve la sesión UNA sola vez aquí y pasa `userId` a cada
+// useSupabaseStorage. Elimina el race condition de 11 getSession() simultáneos.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
+import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
 
 const AppStateContext = createContext(null);
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 export function AppStateProvider({ children }) {
-  const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         []);
-  const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     []);
-  const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         []);
-  const [payments,        setPayments,        pyLoaded]  = useSupabaseStorage("pc_payments",         []);
-  const [profile,         setProfile,         prLoaded]  = useSupabaseStorage("pc_profile",          DEFAULT_PROFILE);
-  const [riskAssessments, setRiskAssessments, raLoaded]  = useSupabaseStorage("pc_risk_assessments", []);
-  const [scaleResults,    setScaleResults,    scLoaded]  = useSupabaseStorage("pc_scale_results",    []);
-  const [treatmentPlans,  setTreatmentPlans,  tpLoaded]  = useSupabaseStorage("pc_treatment_plans",  []);
-  const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   []);
-  const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      []);
-  const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         []);
+
+  // ── Auth — fuente única de userId para todos los hooks ───────────────────
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    // Carga inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id ?? null);
+    });
+
+    // Escuchar cambios (login / logout / token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "INITIAL_SESSION") return;
+        setUserId(session?.user?.id ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ── Datos — todos reciben el mismo userId ya resuelto ────────────────────
+  const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], userId);
+  const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], userId);
+  const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], userId);
+  const [payments,        setPayments,        pyLoaded]  = useSupabaseStorage("pc_payments",         [], userId);
+  const [profile,         setProfile,         prLoaded]  = useSupabaseStorage("pc_profile",          DEFAULT_PROFILE, userId);
+  const [riskAssessments, setRiskAssessments, raLoaded]  = useSupabaseStorage("pc_risk_assessments", [], userId);
+  const [scaleResults,    setScaleResults,    scLoaded]  = useSupabaseStorage("pc_scale_results",    [], userId);
+  const [treatmentPlans,  setTreatmentPlans,  tpLoaded]  = useSupabaseStorage("pc_treatment_plans",  [], userId);
+  const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   [], userId);
+  const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], userId);
+  const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
 
   // Muestra la app en cuanto cargue el primer dato crítico (pacientes o perfil).
-  // El resto llega en segundo plano sin bloquear el render.
   const dataReady  = pLoaded || prLoaded;
   const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
                   && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded && svLoaded;
 
-  // Timeout de seguridad — si en 3s dataReady sigue false (red lenta,
-  // token expirado), la app pasa igual al dashboard con datos vacíos.
+  // Timeout de seguridad — si en 8s dataReady sigue false, mostrar igual
   const [dataTimedOut, setDataTimedOut] = useState(false);
   useEffect(() => {
     if (dataReady) { setDataTimedOut(false); return; }
@@ -48,8 +69,7 @@ export function AppStateProvider({ children }) {
        riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
        services]);
 
-  // Objeto plano "mp" que los módulos reciben como spread props.
-  // Permite migrar módulo a módulo sin reescribir sus firmas de una vez.
+  // Objeto plano "mp" para spread props en módulos
   const mp = useMemo(() => ({
     patients, setPatients,
     appointments, setAppointments,
@@ -66,7 +86,6 @@ export function AppStateProvider({ children }) {
        interSessions, medications, services]);
 
   const value = useMemo(() => ({
-    // Estado individual (para consumo selectivo)
     patients,        setPatients,
     appointments,    setAppointments,
     sessions,        setSessions,
@@ -78,11 +97,9 @@ export function AppStateProvider({ children }) {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
-    // Flags de carga
     dataReady,
     dataLoaded,
     dataTimedOut,
-    // Helpers compuestos
     allData,
     mp,
   }), [mp, allData, profile, dataReady, dataLoaded, dataTimedOut]);
@@ -94,9 +111,9 @@ export function AppStateProvider({ children }) {
   );
 }
 
-// ── Hook de acceso ────────────────────────────────────────────────────────────
+// ── Hook de consumo ───────────────────────────────────────────────────────────
 export function useAppState() {
   const ctx = useContext(AppStateContext);
-  if (!ctx) throw new Error("[PsychoCore] useAppState debe usarse dentro de <AppStateProvider>");
+  if (!ctx) throw new Error("useAppState must be used within AppStateProvider");
   return ctx;
 }
