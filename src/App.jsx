@@ -59,7 +59,11 @@ export default function App() {
   const [authLoading,        setAuthLoading]        = useState(true);
   const [psychologist,       setPsychologist]       = useState(null);
   const [psychologistLoaded, setPsychologistLoaded] = useState(false);
-  const [activeModule,  setActiveModule]  = useState("dashboard");
+  // Recupera el último módulo visitado para que el refresh arranque
+  // cargando solo los datos que esa vista necesita (Route-Aware Loading).
+  const [activeModule,  setActiveModule]  = useState(
+    () => localStorage.getItem("pc_last_module") || "dashboard"
+  );
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
@@ -118,6 +122,13 @@ export default function App() {
     const timeout = setTimeout(() => setAuthLoading(false), 8000);
     return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
+
+  // ── Persistir módulo activo ──────────────────────────────────────────────
+  // Guarda el módulo en localStorage cada vez que el usuario navega.
+  // AppStateContext lo lee al montar para saber qué tabla cargar primero.
+  useEffect(() => {
+    localStorage.setItem("pc_last_module", activeModule);
+  }, [activeModule]);
 
   // ── Tema ─────────────────────────────────────────────────────────────────
   useEffect(() => {
