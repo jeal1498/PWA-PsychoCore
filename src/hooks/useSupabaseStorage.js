@@ -4,35 +4,34 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v8: Escenario B (logout) ahora llama setLoaded(true).
+// v9: Robustez infalible confirmada — setLoaded(true) garantizado en todos
+//     los caminos de ejecución.
 //
-// PROBLEMA RESUELTO (v7 → v8):
-//   Al hacer logout, el hook entraba en Escenario B y llamaba setLoaded(false).
-//   Como dataLoaded en AppStateContext es un AND de los 11 loaded, esto dejaba
-//   dataLoaded=false permanentemente tras cerrar sesión, bloqueando cualquier
-//   transición limpia a la pantalla de login / estado sin sesión.
+// GARANTÍAS DE setLoaded(true):
+//   · userId=null, prevUserId=null  (Escenario A) → setLoaded(true) inmediato.
+//   · userId=null, prevUserId≠null  (Escenario B) → setLoaded(true) tras reset.
+//   · tabla no registrada en TABLE_MAP              → setLoaded(true) inmediato.
+//   · fetch exitoso sin datos                       → finally → setLoaded(true).
+//   · fetch exitoso con datos                       → finally → setLoaded(true).
+//   · error de Supabase (RLS, red, etc.)            → finally → setLoaded(true).
+//   · excepción inesperada en el bloque catch       → finally → setLoaded(true).
 //
-// SOLUCIÓN:
-//   Escenario B ahora llama setLoaded(true) igual que Escenario A.
-//   El reset de los datos (setValue_(initialValue)) ya es suficiente para
-//   limpiar la UI. El loaded=true desbloquea el semáforo dataLoaded y permite
-//   que la app navegue correctamente tras el logout.
+//   El `return` dentro del `if (error)` no evita el finally — solo sale del
+//   bloque try, y el finally se ejecuta igualmente antes de que la IIFE termine.
+//   Esto significa que NINGÚN path puede dejar loaded=false indefinidamente,
+//   lo cual es esencial para que essentialDataLoaded (y dataLoaded) en
+//   AppStateContext puedan resolverse correctamente.
 //
 // ESCENARIO A — Montaje / sin sesión:
-//   userId=null, prevUserId=null → setLoaded(true) → libera el bloqueo.
+//   userId=null, prevUserId=null → setLoaded(true) → libera el semáforo global.
 //
 // ESCENARIO B — Logout real:
-//   userId=null, prevUserId="abc123" → reset + setLoaded(true) → UI limpia + desbloqueada.
+//   userId=null, prevUserId≠null → reset datos + setLoaded(true) → UI limpia.
 //
 // FLUJO PARA USUARIO AUTENTICADO (React 18 batching):
 //   getSession() resuelve con sesión válida → setUserId("id") + setAuthReady(true)
 //   se batchean en un solo render → effectiveUserId salta null→"id" directamente
 //   → Escenario A nunca se ejecuta → el hook va directo al path de fetch.
-//
-// COMPATIBILIDAD CON STRICTMODE:
-//   El fetch se re-ejecuta naturalmente cuando userId cambia o cuando React
-//   re-invoca el efecto con el mismo userId, ya que el path de fetch no
-//   consulta prevUserId (solo lo consulta el path de userId=null).
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
