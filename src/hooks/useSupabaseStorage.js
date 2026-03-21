@@ -4,27 +4,25 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v7: fix deadlock en usuarios no autenticados.
+// v8: Escenario B (logout) ahora llama setLoaded(true).
 //
-// PROBLEMA RESUELTO (v6 → v7):
-//   Cuando getSession() resuelve con session=null, effectiveUserId pasa de
-//   null a null. Las deps del efecto [userId, key, table] no cambian, así que
-//   el efecto no se re-ejecuta. loaded queda en false para siempre y
-//   dataLoaded (AND de 11 loaded) nunca llega a true → pantalla "Cargando..."
-//   indefinida para cualquier usuario no autenticado.
+// PROBLEMA RESUELTO (v7 → v8):
+//   Al hacer logout, el hook entraba en Escenario B y llamaba setLoaded(false).
+//   Como dataLoaded en AppStateContext es un AND de los 11 loaded, esto dejaba
+//   dataLoaded=false permanentemente tras cerrar sesión, bloqueando cualquier
+//   transición limpia a la pantalla de login / estado sin sesión.
 //
 // SOLUCIÓN:
-//   En Escenario A (montaje inicial / sin sesión), el hook llama setLoaded(true)
-//   para anunciar al AppStateContext que terminó de procesar su estado "sin
-//   usuario". Esto desbloquea el semáforo dataLoaded.
-//   En Escenario B (logout real) se mantiene setLoaded(false) para que la UI
-//   distinga "datos limpiados por logout" vs "datos listos".
+//   Escenario B ahora llama setLoaded(true) igual que Escenario A.
+//   El reset de los datos (setValue_(initialValue)) ya es suficiente para
+//   limpiar la UI. El loaded=true desbloquea el semáforo dataLoaded y permite
+//   que la app navegue correctamente tras el logout.
 //
 // ESCENARIO A — Montaje / sin sesión:
 //   userId=null, prevUserId=null → setLoaded(true) → libera el bloqueo.
 //
 // ESCENARIO B — Logout real:
-//   userId=null, prevUserId="abc123" → reset + setLoaded(false) → UI limpia.
+//   userId=null, prevUserId="abc123" → reset + setLoaded(true) → UI limpia + desbloqueada.
 //
 // FLUJO PARA USUARIO AUTENTICADO (React 18 batching):
 //   getSession() resuelve con sesión válida → setUserId("id") + setAuthReady(true)
@@ -95,12 +93,14 @@ export function useSupabaseStorage(key, initialValue, userId) {
         //   userId=null Y prevUserId.current tenía un ID válido.
         //   → El usuario SÍ tenía sesión activa y ahora no la tiene.
         //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
-        //   → setLoaded(false): la UI puede detectar este estado como "sesión cerrada".
+        //   → setLoaded(true): IMPRESCINDIBLE para no bloquear dataLoaded.
+        //     Si quedara en false, el AND de 11 hooks nunca llegaría a true y
+        //     la app quedaría congelada tras el logout.
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
-        setLoaded(false);
+        setLoaded(true);
       } else {
         // ESCENARIO A — Montaje inicial / sin sesión activa:
         //   userId=null Y prevUserId.current=null.
