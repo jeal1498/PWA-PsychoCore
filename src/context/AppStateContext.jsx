@@ -1,48 +1,45 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v9: Carga Bajo Demanda orientada a ruta (Route-Aware On-Demand Loading).
+// v10: Carga Bajo Demanda orientada a módulo (Module-Aware On-Demand Loading).
 //
-// PROBLEMA (v8):
-//   essentialDataLoaded siempre esperaba pLoaded && aLoaded sin importar en
-//   qué ruta se hiciera el refresh. Si el usuario refrescaba en /pagos, aún
-//   tenía que esperar a que cargaran Pacientes + Agenda antes de ver su módulo.
+// PROBLEMA (v9):
+//   El mecanismo usaba window.location.pathname para detectar la ruta de
+//   arranque. Pero PsychoCore NO usa URL routing — la ruta siempre es "/"
+//   sin importar el módulo activo. pathname nunca daba información útil.
 //
-// SOLUCIÓN — semáforo dinámico por ruta de arranque:
+// SOLUCIÓN — leer el último módulo desde localStorage:
 //
-//   BOOT_SEGMENT
-//     El primer segmento de window.location.pathname capturado UNA SOLA VEZ
-//     al montar el Provider. Se congela en un ref y nunca cambia. Representa
-//     "la ruta donde el usuario estaba cuando presionó F5 (o llegó por URL)".
+//   App.jsx persiste activeModule en localStorage["pc_last_module"] cada vez
+//   que el usuario navega. Al refrescar, AppStateContext lee ese valor y
+//   determina qué tablas son bloqueantes para ESE módulo específico.
 //
-//   ROUTE_ESSENTIALS
-//     Mapa de segmento → array de claves de loader mínimas para esa ruta.
-//     Personalizable: ajusta los nombres de segmento a tus rutas reales.
-//     Ruta desconocida → fallback a ['pLoaded'] (solo Pacientes).
+//   MODULE_ESSENTIALS
+//     Mapa de nombre de módulo → array de loaders mínimos bloqueantes.
+//     Las claves coinciden EXACTAMENTE con los valores de activeModule en App.
+//     Módulo desconocido → fallback a ['pLoaded'] (solo Pacientes).
+//
+//   bootModule
+//     localStorage["pc_last_module"] capturado UNA SOLA VEZ al montar.
+//     Congelado en useRef — nunca se recalcula en re-renders.
 //
 //   essentialDataLoaded  (BLOQUEANTE para la pantalla de carga global)
-//     authReady && AND( loaders requeridos por BOOT_SEGMENT )
-//     Solo espera lo que la ruta activa necesita para ser funcional.
+//     authReady && AND( loaders de MODULE_ESSENTIALS[bootModule] )
 //
 //   dataLoaded  (ALIAS de essentialDataLoaded — compatibilidad hacia atrás)
 //
-//   Loaders individuales  (para spinners internos por módulo)
-//     Todos exportados en value. Cada módulo muestra su propio spinner
-//     si su loader todavía es false, sin bloquear la navegación global.
-//
 // EJEMPLOS DE FLUJO AL REFRESCAR:
 //
-//   Refresh en /dashboard  → espera pLoaded + aLoaded  → ~300 ms
-//   Refresh en /pacientes  → espera pLoaded            → ~200 ms
-//   Refresh en /pagos      → espera pyLoaded           → ~200 ms
-//   Refresh en /perfil     → espera prLoaded           → ~200 ms
-//   En todos los casos las otras tablas cargan en segundo plano.
+//   Último módulo: "dashboard"  → espera pLoaded + aLoaded   → ~300 ms
+//   Último módulo: "patients"   → espera pLoaded             → ~200 ms
+//   Último módulo: "finance"    → espera pyLoaded + svLoaded → ~200 ms
+//   Último módulo: "sessions"   → espera sLoaded + pLoaded   → ~250 ms
+//   En todos los casos las tablas restantes cargan en segundo plano.
 //
-// PERSONALIZACIÓN (ajusta ROUTE_ESSENTIALS a tus rutas):
-//   Si tu ruta es /notas en lugar de /sesiones, cambia la clave 'sesiones'
-//   por 'notas'. Los valores son claves del loaderMap definido más abajo.
+// PRIMER ARRANQUE (sin pc_last_module en localStorage):
+//   bootModule = "dashboard" por defecto → espera pLoaded + aLoaded.
 //
-// GARANTÍAS HEREDADAS (v6-v8):
+// GARANTÍAS HEREDADAS (v6-v9):
 //   · initAuth con try/catch/finally → authReady=true siempre, incluso con error.
 //   · effectiveUserId=null mientras authReady=false → hooks idle en arranque.
 //   · onAuthStateChange cubre login, logout y token refresh posteriores.
@@ -53,59 +50,64 @@ import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
 
-// ── Mapa de ruta → loaders mínimos bloqueantes ────────────────────────────
-// Clave   : primer segmento de pathname (lo que va después del primer "/")
-// Valor   : array de claves del loaderMap que DEBEN ser true para desbloquear
-//           la pantalla de carga cuando se refresca en esa ruta.
-//
-// ⚠️  PERSONALIZA ESTO según los nombres reales de tus rutas en el router.
-//     Ejemplo: si tu ruta de pagos es /finanzas, cambia 'pagos' por 'finanzas'.
-const ROUTE_ESSENTIALS = {
-  // Rutas principales
-  ''              : ['pLoaded', 'aLoaded'],  // / → Dashboard
-  'dashboard'     : ['pLoaded', 'aLoaded'],
-  // Módulos de pacientes
-  'pacientes'     : ['pLoaded'],
-  'paciente'      : ['pLoaded'],
+// ── Mapa de módulo → loaders mínimos bloqueantes ──────────────────────────
+// Claves   : valores exactos de activeModule usados en App.jsx
+// Valores  : array de claves del loaderMap que DEBEN ser true para que
+//            la pantalla de carga global ceda paso al módulo en cuestión.
+const MODULE_ESSENTIALS = {
+  // Vista principal
+  "dashboard"  : ["pLoaded", "aLoaded"],
+
+  // Pacientes
+  "patients"   : ["pLoaded"],
+
   // Agenda / citas
-  'agenda'        : ['aLoaded', 'pLoaded'],
-  'citas'         : ['aLoaded', 'pLoaded'],
-  // Sesiones / notas clínicas
-  'sesiones'      : ['sLoaded', 'pLoaded'],
-  'notas'         : ['sLoaded', 'pLoaded'],
-  // Pagos / finanzas
-  'pagos'         : ['pyLoaded'],
-  'finanzas'      : ['pyLoaded'],
-  // Perfil del psicólogo
-  'perfil'        : ['prLoaded'],
-  'profile'       : ['prLoaded'],
-  // Módulos clínicos secundarios
-  'riesgo'        : ['raLoaded', 'pLoaded'],
-  'escalas'       : ['scLoaded', 'pLoaded'],
-  'planes'        : ['tpLoaded', 'pLoaded'],
-  'intersesiones' : ['isLoaded', 'pLoaded'],
-  'medicamentos'  : ['medLoaded', 'pLoaded'],
-  // Servicios / tarifas
-  'servicios'     : ['svLoaded'],
-  'tarifas'       : ['svLoaded'],
+  "agenda"     : ["aLoaded", "pLoaded"],
+
+  // Notas clínicas / sesiones
+  "sessions"   : ["sLoaded", "pLoaded"],
+
+  // Finanzas / pagos
+  "finance"    : ["pyLoaded", "svLoaded"],
+
+  // Tareas
+  "tasks"      : ["sLoaded", "pLoaded"],
+
+  // Estadísticas (necesita varios, pero solo bloquea con lo mínimo útil)
+  "stats"      : ["pLoaded", "aLoaded"],
+
+  // Evaluación de riesgo
+  "risk"       : ["raLoaded", "pLoaded"],
+
+  // Escalas psicológicas
+  "scales"     : ["scLoaded", "pLoaded"],
+
+  // Planes de tratamiento
+  "treatment"  : ["tpLoaded", "pLoaded"],
+
+  // Reportes
+  "reports"    : ["pLoaded", "sLoaded"],
+
+  // Configuración / perfil
+  "settings"   : ["prLoaded"],
 };
 
-// Fallback si la ruta no está en el mapa (ej. rutas nuevas aún no registradas)
-const FALLBACK_ESSENTIALS = ['pLoaded'];
+// Fallback para módulos no listados (ej. módulos nuevos aún no registrados)
+const FALLBACK_ESSENTIALS = ["pLoaded"];
 
 const AppStateContext = createContext(null);
 
 export function AppStateProvider({ children }) {
 
-  // ── Ruta de arranque — congelada al montar, nunca cambia ─────────────────
-  // Capturamos el segmento de ruta UNA SOLA VEZ: el momento en que el usuario
-  // llegó a la app (refresh, apertura directa por URL, vuelta desde background).
+  // ── Módulo de arranque — congelado al montar, nunca cambia ───────────────
+  // Lee el último módulo visitado que App.jsx guardó en localStorage.
   // useRef garantiza que el valor no se recalcula en re-renders posteriores.
-  const bootSegment = useRef(
-    window.location.pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? ''
+  // Si no hay valor (primer arranque), usa "dashboard" como defecto.
+  const bootModule = useRef(
+    localStorage.getItem("pc_last_module") ?? "dashboard"
   ).current;
 
-  const requiredLoaderKeys = ROUTE_ESSENTIALS[bootSegment] ?? FALLBACK_ESSENTIALS;
+  const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
@@ -156,14 +158,14 @@ export function AppStateProvider({ children }) {
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
   // ── Semáforos de carga ───────────────────────────────────────────────────
-  // loaderMap: permite resolver las claves de ROUTE_ESSENTIALS a booleans reales.
+  // loaderMap: permite resolver las claves de MODULE_ESSENTIALS a booleans reales.
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
   };
 
   // essentialDataLoaded: BLOQUEANTE para la pantalla de carga global.
-  //   Espera authReady + SOLO los loaders de la ruta donde se hizo el refresh.
+  //   Espera authReady + SOLO los loaders del módulo donde se hizo el refresh.
   //   Todos los demás cargan en segundo plano sin bloquear la UI.
   const essentialDataLoaded =
     authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
