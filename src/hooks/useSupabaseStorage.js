@@ -4,9 +4,30 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v5: fix cleanup bug.
-// prevUserId.current se resetea en el cleanup del efecto de carga para que
-// si React re-ejecuta el efecto (StrictMode, remount), el fetch se repita.
+// v6: fix race condition + logout detection.
+//
+// PROBLEMA RESUELTO (bug introducido en v5):
+//   La función de limpieza del efecto ejecutaba `prevUserId.current = null`
+//   ANTES de que corriera el nuevo efecto con userId=null. Esto destruía la
+//   "evidencia" del logout real: el guard `if (prevUserId.current)` siempre
+//   veía null y el reset nunca ocurría. Al hacer logout, los datos viejos
+//   permanecían en pantalla.
+//
+// SOLUCIÓN:
+//   Se eliminó `prevUserId.current = null` del cleanup.
+//   El guard ahora distingue correctamente entre dos escenarios:
+//
+//   a) Montaje inicial / idle por authReady=false:
+//      userId=null, prevUserId.current=null → no-op, retorno silencioso.
+//
+//   b) Logout real:
+//      userId=null, prevUserId.current="abc123" → reset de estado ✓
+//      (El cleanup NO borró prevUserId, así que la evidencia está intacta.)
+//
+// COMPATIBILIDAD CON STRICTMODE:
+//   El fetch se re-ejecuta naturalmente cuando userId cambia o cuando React
+//   re-invoca el efecto con el mismo userId, ya que el path de fetch no
+//   consulta prevUserId (solo lo consulta el path de userId=null).
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -58,13 +79,30 @@ export function useSupabaseStorage(key, initialValue, userId) {
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) {
-      if (prevUserId.current) {
+      // Distinguir entre dos escenarios muy distintos:
+      //
+      // ESCENARIO A — Montaje inicial o idle por authReady=false:
+      //   userId=null Y prevUserId.current=null
+      //   → El hook aún no ha servido a ningún usuario.
+      //   → No hacer NADA: no borrar estado, no cambiar loaded.
+      //   → Retorno silencioso; esperar a que authReady active el userId real.
+      //
+      // ESCENARIO B — Logout real:
+      //   userId=null Y prevUserId.current tenía un ID válido
+      //   → El usuario SÍ tenía sesión y ahora no la tiene.
+      //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
+      //
+      // NOTA: el cleanup del efecto anterior NO resetea prevUserId.current,
+      // por eso la "evidencia" del logout real está intacta cuando llegamos aquí.
+      if (prevUserId.current !== null) {
+        // Escenario B: logout real confirmado.
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(false);
       }
+      // Escenario A: no-op silencioso.
       return;
     }
 
@@ -102,7 +140,15 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
     return () => {
       cancelled = true;
-      prevUserId.current = null; // ← reset para que el fetch se repita si React re-ejecuta
+      // IMPORTANTE: NO reseteamos prevUserId.current aquí.
+      //
+      // Si lo hiciéramos (como hacía v5), el guard de logout nunca podría
+      // distinguir "logout real" de "montaje inicial": ambos llegarían con
+      // prevUserId.current=null y el reset nunca ocurriría.
+      //
+      // StrictMode: el fetch se re-ejecuta igualmente porque el path de
+      // fetch (userId no nulo) no consulta prevUserId; siempre arranca un
+      // nuevo fetch cuando el efecto corre con un userId válido.
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, key, table]);
