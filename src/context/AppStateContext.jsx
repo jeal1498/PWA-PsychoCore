@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v6: authReady gate + initAuth robusto con try/catch/finally.
+// v7: dataReady / dataLoaded gateados en authReady.
 //
 // PROBLEMA ORIGINAL (v5):
 //   Con registerType:"autoUpdate" + skipWaiting + clientsClaim, el SW puede
@@ -98,8 +98,8 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  const dataReady  = pLoaded || prLoaded;
-  const dataLoaded = pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
+  const dataReady  = authReady && (pLoaded || prLoaded);
+  const dataLoaded = authReady && pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
                   && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded && svLoaded;
 
   // El timer de timeout solo tiene sentido después de que authReady=true y
