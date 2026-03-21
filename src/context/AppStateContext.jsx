@@ -1,28 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v5: authReady gate — elimina la race condition entre SW autoUpdate y auth.
+// v6: authReady gate + initAuth robusto con try/catch/finally.
 //
-// PROBLEMA RESUELTO:
+// PROBLEMA ORIGINAL (v5):
 //   Con registerType:"autoUpdate" + skipWaiting + clientsClaim, el SW puede
 //   recargar la página antes de que Supabase haya hidratado el token de sesión.
-//   onAuthStateChange dispara INITIAL_SESSION casi sincrónicamente (lee
-//   localStorage), pero el cliente Supabase aún no tiene los headers de auth
-//   listos para las peticiones. Si los hooks reciben el userId en ese instante,
-//   sus fetches fallan por RLS y consolidan un estado vacío.
+//   onAuthStateChange dispara INITIAL_SESSION casi sincrónicamente, pero el
+//   cliente Supabase aún no tiene los headers de auth listos. Los fetches de
+//   los hooks fallan por RLS y consolidan un estado vacío.
 //
-// SOLUCIÓN:
-//   authReady actúa como semáforo. Se activa SOLO después de que getSession()
-//   resuelve, momento en el que el cliente Supabase garantiza que el token
-//   está hidratado y las peticiones RLS tendrán éxito.
-//   Los hooks reciben `null` mientras authReady = false, permanecen en idle
-//   sin borrar ni fetchear nada, y arrancan solo cuando el auth está listo.
+// MEJORA EN v6:
+//   initAuth usa async/await con try/catch/finally para garantizar que
+//   setAuthReady(true) se ejecuta SIEMPRE, incluso si getSession() lanza una
+//   excepción (timeout de red, error de configuración, etc.). Sin el finally,
+//   un error inesperado dejaría authReady=false permanentemente y la app
+//   nunca arrancaría.
 //
 // FLUJO GARANTIZADO:
 //   1. Mount   → userId=null, authReady=false → hooks idle (effectiveUserId=null)
-//   2. getSession() resuelve → userId=real, authReady=true → hooks fetchen ✓
-//   3. Login posterior → onAuthStateChange → userId=real (authReady ya=true) ✓
-//   4. Logout → onAuthStateChange → userId=null (authReady=true) → hooks reset ✓
+//   2. initAuth resuelve (éxito o error) → authReady=true → hooks arrancan
+//   3. Con sesión: effectiveUserId="id" → hooks fetchen datos ✓
+//   4. Sin sesión: effectiveUserId=null → hooks reportan loaded=true (Escenario A)
+//   5. Login posterior → onAuthStateChange → userId=real → hooks fetchen ✓
+//   6. Logout → onAuthStateChange → userId=null → hooks resetean (Escenario B) ✓
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -35,25 +36,39 @@ export function AppStateProvider({ children }) {
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
-  // authReady: false hasta que getSession() haya respondido.
-  // Nunca vuelve a false; representa "la hidratación inicial ya terminó".
+  // authReady: false hasta que initAuth haya terminado (con éxito o error).
+  // Nunca vuelve a false; representa "la hidratación inicial ya concluyó".
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    // 1. getSession() es la ÚNICA fuente que activa authReady.
-    //    Garantiza que el cliente Supabase tiene el token correctamente
-    //    establecido antes de que cualquier hook intente un fetch.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      setUserId(session?.user?.id ?? null);
-      setAuthReady(true); // ← semáforo verde; jamás vuelve a false
-    });
+    // initAuth: async/await con try/catch/finally para garantizar que
+    // setAuthReady(true) se llama pase lo que pase. Un error inesperado en
+    // getSession() (timeout, red caída) sin el finally dejaría authReady=false
+    // y la app nunca arrancaría.
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          setUserId(session?.user?.id ?? null);
+        }
+      } catch (err) {
+        console.error("[auth] Error en getSession:", err);
+        // userId permanece null; la app arrancará en estado "sin sesión"
+      } finally {
+        // Semáforo verde: siempre se activa, incluso tras un error.
+        // Garantiza que los hooks reciban su effectiveUserId y puedan
+        // reportar loaded=true para desbloquear la UI.
+        if (mounted) setAuthReady(true);
+      }
+    };
 
-    // 2. Cambios POSTERIORES a la hidratación inicial: login, logout,
-    //    token refresh. Para estos eventos authReady ya es true, por lo que
-    //    los hooks reaccionan de inmediato al nuevo userId.
+    initAuth();
+
+    // Cambios POSTERIORES a la hidratación inicial: login, logout, token refresh.
+    // Para estos eventos authReady ya es true, por lo que los hooks reaccionan
+    // de inmediato al nuevo userId.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (mounted) setUserId(session?.user?.id ?? null);
@@ -136,7 +151,7 @@ export function AppStateProvider({ children }) {
     dataReady,
     dataLoaded,
     dataTimedOut,
-    authReady,       // expuesto para que la UI pueda mostrar un estado "checking auth"
+    authReady,       // expuesto para que la UI muestre un estado "verificando sesión"
     allData,
     mp,
   }), [mp, allData, profile, dataReady, dataLoaded, dataTimedOut, authReady]);
