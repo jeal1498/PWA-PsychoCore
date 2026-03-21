@@ -4,8 +4,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL  = "https://zzujedxzgntvbqrieflu.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6dWplZHh6Z250dmJxcmllZmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDQxMDIsImV4cCI6MjA4OTIyMDEwMn0.44IoYvJpk0SUmip1jgrGwyDrAHaT1PXbKrsi1voO9cY";
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // ── Cliente oficial (usado para Auth) ─────────────────────────────────────────
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
