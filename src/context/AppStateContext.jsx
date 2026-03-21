@@ -1,29 +1,43 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v7: dataReady / dataLoaded gateados en authReady.
+// v8: Arquitectura de Carga Bajo Demanda (On-Demand Loading).
 //
-// PROBLEMA ORIGINAL (v5):
-//   Con registerType:"autoUpdate" + skipWaiting + clientsClaim, el SW puede
-//   recargar la página antes de que Supabase haya hidratado el token de sesión.
-//   onAuthStateChange dispara INITIAL_SESSION casi sincrónicamente, pero el
-//   cliente Supabase aún no tiene los headers de auth listos. Los fetches de
-//   los hooks fallan por RLS y consolidan un estado vacío.
+// PROBLEMA (v7):
+//   dataLoaded era el AND de los 11 hooks. En redes lentas, la pantalla de
+//   carga bloqueaba hasta que la última tabla terminara, aunque el Dashboard
+//   solo necesite Pacientes y Agenda para ser funcional.
 //
-// MEJORA EN v6:
-//   initAuth usa async/await con try/catch/finally para garantizar que
-//   setAuthReady(true) se ejecuta SIEMPRE, incluso si getSession() lanza una
-//   excepción (timeout de red, error de configuración, etc.). Sin el finally,
-//   un error inesperado dejaría authReady=false permanentemente y la app
-//   nunca arrancaría.
+// SOLUCIÓN — dos semáforos independientes:
 //
-// FLUJO GARANTIZADO:
-//   1. Mount   → userId=null, authReady=false → hooks idle (effectiveUserId=null)
-//   2. initAuth resuelve (éxito o error) → authReady=true → hooks arrancan
-//   3. Con sesión: effectiveUserId="id" → hooks fetchen datos ✓
-//   4. Sin sesión: effectiveUserId=null → hooks reportan loaded=true (Escenario A)
-//   5. Login posterior → onAuthStateChange → userId=real → hooks fetchen ✓
-//   6. Logout → onAuthStateChange → userId=null → hooks resetean (Escenario B) ✓
+//   essentialDataLoaded  (BLOQUEANTE para la UI)
+//     authReady && pLoaded && aLoaded
+//     Solo Pacientes + Agenda necesarios para mostrar el Dashboard.
+//     Tiempo típico: ~300-600 ms en lugar de 1-3 s.
+//
+//   dataLoaded  (ALIAS de essentialDataLoaded — compatibilidad hacia atrás)
+//     Los componentes que ya leen `dataLoaded` siguen funcionando sin cambios.
+//
+//   Loaders individuales  (para spinners internos por módulo)
+//     sLoaded, pyLoaded, prLoaded, raLoaded, scLoaded, tpLoaded,
+//     isLoaded, medLoaded, svLoaded — exportados en el value del Provider.
+//     Cada módulo secundario los usa para mostrar su propio spinner sin
+//     bloquear la navegación global.
+//
+// FLUJO AL REFRESCAR:
+//   1. Mount          → authReady=false → pantalla verde (Auth)
+//   2. getSession()   → authReady=true  → 11 hooks arrancan en paralelo
+//   3. pLoaded+aLoaded → essentialDataLoaded=true → ¡entra al Dashboard!
+//   4. Las 9 tablas restantes terminan en segundo plano silenciosamente.
+//
+// FLUJO DE MÓDULO SECUNDARIO (ej. Pagos):
+//   El módulo lee `pyLoaded` del contexto. Si false → spinner interno propio.
+//   Cuando pyLoaded=true → renderiza datos. Sin re-mostrar la pantalla global.
+//
+// GARANTÍAS HEREDADAS (v6-v7):
+//   · initAuth con try/catch/finally → authReady=true siempre, incluso con error.
+//   · effectiveUserId=null mientras authReady=false → hooks idle en arranque.
+//   · onAuthStateChange cubre login, logout y token refresh posteriores.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -98,9 +112,17 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  const dataReady  = authReady && (pLoaded || prLoaded);
-  const dataLoaded = authReady && pLoaded && aLoaded && sLoaded && pyLoaded && prLoaded
-                  && raLoaded && scLoaded && tpLoaded && isLoaded && medLoaded && svLoaded;
+  // ── Semáforos de carga ───────────────────────────────────────────────────
+  // essentialDataLoaded: BLOQUEANTE para la pantalla de carga global.
+  //   Solo requiere Pacientes + Agenda — las dos tablas mínimas para que el
+  //   Dashboard sea funcional. El usuario entra al app en ~300-600 ms típicos.
+  const essentialDataLoaded = authReady && pLoaded && aLoaded;
+
+  // dataLoaded: alias de essentialDataLoaded para compatibilidad hacia atrás.
+  //   Todos los componentes que ya leen `dataLoaded` siguen funcionando sin
+  //   ningún cambio. Las 9 tablas secundarias cargan en segundo plano.
+  const dataReady  = essentialDataLoaded;
+  const dataLoaded = essentialDataLoaded;
 
   // El timer de timeout solo tiene sentido después de que authReady=true y
   // los hooks hayan arrancado. Sin este guard, el timeout contaría desde el
@@ -148,13 +170,32 @@ export function AppStateProvider({ children }) {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
+    // Semáforos globales
     dataReady,
     dataLoaded,
+    essentialDataLoaded,
     dataTimedOut,
-    authReady,       // expuesto para que la UI muestre un estado "verificando sesión"
+    authReady,
+    // Loaders individuales — para spinners internos en módulos secundarios.
+    // Uso en módulo: const { pyLoaded } = useAppState();
+    // if (!pyLoaded) return <Spinner />;
+    pLoaded,
+    aLoaded,
+    sLoaded,
+    pyLoaded,
+    prLoaded,
+    raLoaded,
+    scLoaded,
+    tpLoaded,
+    isLoaded,
+    medLoaded,
+    svLoaded,
+    // Objetos agrupados
     allData,
     mp,
-  }), [mp, allData, profile, dataReady, dataLoaded, dataTimedOut, authReady]);
+  }), [mp, allData, profile, dataReady, dataLoaded, essentialDataLoaded, dataTimedOut, authReady,
+       pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded, raLoaded, scLoaded, tpLoaded, isLoaded,
+       medLoaded, svLoaded]);
 
   return (
     <AppStateContext.Provider value={value}>
