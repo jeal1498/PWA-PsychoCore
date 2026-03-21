@@ -1,88 +1,132 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v8: Arquitectura de Carga Bajo Demanda (On-Demand Loading).
+// v9: Carga Bajo Demanda orientada a ruta (Route-Aware On-Demand Loading).
 //
-// PROBLEMA (v7):
-//   dataLoaded era el AND de los 11 hooks. En redes lentas, la pantalla de
-//   carga bloqueaba hasta que la última tabla terminara, aunque el Dashboard
-//   solo necesite Pacientes y Agenda para ser funcional.
+// PROBLEMA (v8):
+//   essentialDataLoaded siempre esperaba pLoaded && aLoaded sin importar en
+//   qué ruta se hiciera el refresh. Si el usuario refrescaba en /pagos, aún
+//   tenía que esperar a que cargaran Pacientes + Agenda antes de ver su módulo.
 //
-// SOLUCIÓN — dos semáforos independientes:
+// SOLUCIÓN — semáforo dinámico por ruta de arranque:
 //
-//   essentialDataLoaded  (BLOQUEANTE para la UI)
-//     authReady && pLoaded && aLoaded
-//     Solo Pacientes + Agenda necesarios para mostrar el Dashboard.
-//     Tiempo típico: ~300-600 ms en lugar de 1-3 s.
+//   BOOT_SEGMENT
+//     El primer segmento de window.location.pathname capturado UNA SOLA VEZ
+//     al montar el Provider. Se congela en un ref y nunca cambia. Representa
+//     "la ruta donde el usuario estaba cuando presionó F5 (o llegó por URL)".
+//
+//   ROUTE_ESSENTIALS
+//     Mapa de segmento → array de claves de loader mínimas para esa ruta.
+//     Personalizable: ajusta los nombres de segmento a tus rutas reales.
+//     Ruta desconocida → fallback a ['pLoaded'] (solo Pacientes).
+//
+//   essentialDataLoaded  (BLOQUEANTE para la pantalla de carga global)
+//     authReady && AND( loaders requeridos por BOOT_SEGMENT )
+//     Solo espera lo que la ruta activa necesita para ser funcional.
 //
 //   dataLoaded  (ALIAS de essentialDataLoaded — compatibilidad hacia atrás)
-//     Los componentes que ya leen `dataLoaded` siguen funcionando sin cambios.
 //
 //   Loaders individuales  (para spinners internos por módulo)
-//     sLoaded, pyLoaded, prLoaded, raLoaded, scLoaded, tpLoaded,
-//     isLoaded, medLoaded, svLoaded — exportados en el value del Provider.
-//     Cada módulo secundario los usa para mostrar su propio spinner sin
-//     bloquear la navegación global.
+//     Todos exportados en value. Cada módulo muestra su propio spinner
+//     si su loader todavía es false, sin bloquear la navegación global.
 //
-// FLUJO AL REFRESCAR:
-//   1. Mount          → authReady=false → pantalla verde (Auth)
-//   2. getSession()   → authReady=true  → 11 hooks arrancan en paralelo
-//   3. pLoaded+aLoaded → essentialDataLoaded=true → ¡entra al Dashboard!
-//   4. Las 9 tablas restantes terminan en segundo plano silenciosamente.
+// EJEMPLOS DE FLUJO AL REFRESCAR:
 //
-// FLUJO DE MÓDULO SECUNDARIO (ej. Pagos):
-//   El módulo lee `pyLoaded` del contexto. Si false → spinner interno propio.
-//   Cuando pyLoaded=true → renderiza datos. Sin re-mostrar la pantalla global.
+//   Refresh en /dashboard  → espera pLoaded + aLoaded  → ~300 ms
+//   Refresh en /pacientes  → espera pLoaded            → ~200 ms
+//   Refresh en /pagos      → espera pyLoaded           → ~200 ms
+//   Refresh en /perfil     → espera prLoaded           → ~200 ms
+//   En todos los casos las otras tablas cargan en segundo plano.
 //
-// GARANTÍAS HEREDADAS (v6-v7):
+// PERSONALIZACIÓN (ajusta ROUTE_ESSENTIALS a tus rutas):
+//   Si tu ruta es /notas en lugar de /sesiones, cambia la clave 'sesiones'
+//   por 'notas'. Los valores son claves del loaderMap definido más abajo.
+//
+// GARANTÍAS HEREDADAS (v6-v8):
 //   · initAuth con try/catch/finally → authReady=true siempre, incluso con error.
 //   · effectiveUserId=null mientras authReady=false → hooks idle en arranque.
 //   · onAuthStateChange cubre login, logout y token refresh posteriores.
+//   · useSupabaseStorage garantiza setLoaded(true) en TODOS los paths.
 // ─────────────────────────────────────────────────────────────────────────────
-import { createContext, useContext, useMemo, useState, useEffect } from "react";
+import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
+
+// ── Mapa de ruta → loaders mínimos bloqueantes ────────────────────────────
+// Clave   : primer segmento de pathname (lo que va después del primer "/")
+// Valor   : array de claves del loaderMap que DEBEN ser true para desbloquear
+//           la pantalla de carga cuando se refresca en esa ruta.
+//
+// ⚠️  PERSONALIZA ESTO según los nombres reales de tus rutas en el router.
+//     Ejemplo: si tu ruta de pagos es /finanzas, cambia 'pagos' por 'finanzas'.
+const ROUTE_ESSENTIALS = {
+  // Rutas principales
+  ''              : ['pLoaded', 'aLoaded'],  // / → Dashboard
+  'dashboard'     : ['pLoaded', 'aLoaded'],
+  // Módulos de pacientes
+  'pacientes'     : ['pLoaded'],
+  'paciente'      : ['pLoaded'],
+  // Agenda / citas
+  'agenda'        : ['aLoaded', 'pLoaded'],
+  'citas'         : ['aLoaded', 'pLoaded'],
+  // Sesiones / notas clínicas
+  'sesiones'      : ['sLoaded', 'pLoaded'],
+  'notas'         : ['sLoaded', 'pLoaded'],
+  // Pagos / finanzas
+  'pagos'         : ['pyLoaded'],
+  'finanzas'      : ['pyLoaded'],
+  // Perfil del psicólogo
+  'perfil'        : ['prLoaded'],
+  'profile'       : ['prLoaded'],
+  // Módulos clínicos secundarios
+  'riesgo'        : ['raLoaded', 'pLoaded'],
+  'escalas'       : ['scLoaded', 'pLoaded'],
+  'planes'        : ['tpLoaded', 'pLoaded'],
+  'intersesiones' : ['isLoaded', 'pLoaded'],
+  'medicamentos'  : ['medLoaded', 'pLoaded'],
+  // Servicios / tarifas
+  'servicios'     : ['svLoaded'],
+  'tarifas'       : ['svLoaded'],
+};
+
+// Fallback si la ruta no está en el mapa (ej. rutas nuevas aún no registradas)
+const FALLBACK_ESSENTIALS = ['pLoaded'];
 
 const AppStateContext = createContext(null);
 
 export function AppStateProvider({ children }) {
 
+  // ── Ruta de arranque — congelada al montar, nunca cambia ─────────────────
+  // Capturamos el segmento de ruta UNA SOLA VEZ: el momento en que el usuario
+  // llegó a la app (refresh, apertura directa por URL, vuelta desde background).
+  // useRef garantiza que el valor no se recalcula en re-renders posteriores.
+  const bootSegment = useRef(
+    window.location.pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? ''
+  ).current;
+
+  const requiredLoaderKeys = ROUTE_ESSENTIALS[bootSegment] ?? FALLBACK_ESSENTIALS;
+
   // ── Auth ─────────────────────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
-  // authReady: false hasta que initAuth haya terminado (con éxito o error).
-  // Nunca vuelve a false; representa "la hidratación inicial ya concluyó".
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    // initAuth: async/await con try/catch/finally para garantizar que
-    // setAuthReady(true) se llama pase lo que pase. Un error inesperado en
-    // getSession() (timeout, red caída) sin el finally dejaría authReady=false
-    // y la app nunca arrancaría.
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (mounted) {
-          setUserId(session?.user?.id ?? null);
-        }
+        if (mounted) setUserId(session?.user?.id ?? null);
       } catch (err) {
         console.error("[auth] Error en getSession:", err);
-        // userId permanece null; la app arrancará en estado "sin sesión"
       } finally {
-        // Semáforo verde: siempre se activa, incluso tras un error.
-        // Garantiza que los hooks reciban su effectiveUserId y puedan
-        // reportar loaded=true para desbloquear la UI.
         if (mounted) setAuthReady(true);
       }
     };
 
     initAuth();
 
-    // Cambios POSTERIORES a la hidratación inicial: login, logout, token refresh.
-    // Para estos eventos authReady ya es true, por lo que los hooks reaccionan
-    // de inmediato al nuevo userId.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (mounted) setUserId(session?.user?.id ?? null);
@@ -96,10 +140,9 @@ export function AppStateProvider({ children }) {
   }, []);
 
   // effectiveUserId — null mientras authReady=false, bloquea los 11 hooks.
-  // Una vez authReady=true, pasa el userId real (o null si no hay sesión).
   const effectiveUserId = authReady ? userId : null;
 
-  // ── Datos — todos reciben el mismo effectiveUserId ya resuelto ───────────
+  // ── Datos — los 11 hooks arrancan en paralelo en cuanto authReady=true ───
   const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], effectiveUserId);
   const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], effectiveUserId);
   const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], effectiveUserId);
@@ -113,27 +156,31 @@ export function AppStateProvider({ children }) {
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
   // ── Semáforos de carga ───────────────────────────────────────────────────
-  // essentialDataLoaded: BLOQUEANTE para la pantalla de carga global.
-  //   Solo requiere Pacientes + Agenda — las dos tablas mínimas para que el
-  //   Dashboard sea funcional. El usuario entra al app en ~300-600 ms típicos.
-  const essentialDataLoaded = authReady && pLoaded && aLoaded;
+  // loaderMap: permite resolver las claves de ROUTE_ESSENTIALS a booleans reales.
+  const loaderMap = {
+    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+  };
 
-  // dataLoaded: alias de essentialDataLoaded para compatibilidad hacia atrás.
-  //   Todos los componentes que ya leen `dataLoaded` siguen funcionando sin
-  //   ningún cambio. Las 9 tablas secundarias cargan en segundo plano.
+  // essentialDataLoaded: BLOQUEANTE para la pantalla de carga global.
+  //   Espera authReady + SOLO los loaders de la ruta donde se hizo el refresh.
+  //   Todos los demás cargan en segundo plano sin bloquear la UI.
+  const essentialDataLoaded =
+    authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
+
+  // Alias para compatibilidad con componentes que ya leen dataLoaded/dataReady.
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // El timer de timeout solo tiene sentido después de que authReady=true y
-  // los hooks hayan arrancado. Sin este guard, el timeout contaría desde el
-  // mount y podría marcar un false-positive antes de que los hooks empiecen.
+  // Timeout de seguridad: si después de 8 s los esenciales no cargaron,
+  // dataTimedOut=true permite que la UI muestre un mensaje de error/reintento.
   const [dataTimedOut, setDataTimedOut] = useState(false);
   useEffect(() => {
-    if (!authReady) return; // esperar a que los hooks hayan arrancado
-    if (dataReady)  { setDataTimedOut(false); return; }
+    if (!authReady)          return;
+    if (essentialDataLoaded) { setDataTimedOut(false); return; }
     const t = setTimeout(() => setDataTimedOut(true), 8000);
     return () => clearTimeout(t);
-  }, [dataReady, authReady]);
+  }, [essentialDataLoaded, authReady]);
 
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
@@ -159,6 +206,7 @@ export function AppStateProvider({ children }) {
        interSessions, medications, services]);
 
   const value = useMemo(() => ({
+    // ── Datos y setters ──────────────────────────────────────────────────
     patients,        setPatients,
     appointments,    setAppointments,
     sessions,        setSessions,
@@ -170,15 +218,15 @@ export function AppStateProvider({ children }) {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
-    // Semáforos globales
+    // ── Semáforos globales ───────────────────────────────────────────────
     dataReady,
-    dataLoaded,
+    dataLoaded,           // alias de essentialDataLoaded — retrocompatible
     essentialDataLoaded,
     dataTimedOut,
     authReady,
-    // Loaders individuales — para spinners internos en módulos secundarios.
-    // Uso en módulo: const { pyLoaded } = useAppState();
-    // if (!pyLoaded) return <Spinner />;
+    // ── Loaders individuales — para spinners internos en módulos ─────────
+    // Uso: const { pyLoaded } = useAppState();
+    //      if (!pyLoaded) return <Spinner />;
     pLoaded,
     aLoaded,
     sLoaded,
@@ -190,12 +238,15 @@ export function AppStateProvider({ children }) {
     isLoaded,
     medLoaded,
     svLoaded,
-    // Objetos agrupados
+    // ── Objetos agrupados ────────────────────────────────────────────────
     allData,
     mp,
-  }), [mp, allData, profile, dataReady, dataLoaded, essentialDataLoaded, dataTimedOut, authReady,
-       pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded, raLoaded, scLoaded, tpLoaded, isLoaded,
-       medLoaded, svLoaded]);
+  }), [
+    mp, allData, profile,
+    dataReady, dataLoaded, essentialDataLoaded, dataTimedOut, authReady,
+    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+  ]);
 
   return (
     <AppStateContext.Provider value={value}>
