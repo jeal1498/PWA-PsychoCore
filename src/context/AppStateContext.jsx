@@ -1,49 +1,48 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v10: Carga Bajo Demanda orientada a módulo (Module-Aware On-Demand Loading).
+// v11: Timeout como latch — fix al bug de pantalla de carga infinita.
 //
-// PROBLEMA (v9):
-//   El mecanismo usaba window.location.pathname para detectar la ruta de
-//   arranque. Pero PsychoCore NO usa URL routing — la ruta siempre es "/"
-//   sin importar el módulo activo. pathname nunca daba información útil.
+// BUG (v10) — carrera en el ciclo de vida que reiniciaba el timer infinitamente:
 //
-// SOLUCIÓN — leer el último módulo desde localStorage:
+//   1. Mount: authReady=false, effectiveUserId=null.
+//   2. Escenario A: todos los hooks corren con userId=null → setLoaded(true) × 11.
+//   3. initAuth resuelve: setAuthReady(true) + setUserId(realId) — batcheados.
+//   4. Un render con authReady=true + TODOS los loaders aún en true (Escenario A
+//      aún no fue limpiado) → essentialDataLoaded = TRUE brevemente.
+//   5. El timeout effect detecta essentialDataLoaded=true →
+//      llama setDataTimedOut(false) + no arranca ningún timer.       ← BUG
+//   6. Los hooks re-corren con userId real → setLoaded(false) × 11.
+//   7. essentialDataLoaded = false → nuevo timer de 8 s arranca.
+//   8. Si los fetches son lentos pero terminan en < 8 s → OK.
+//      Si la red cuelga → timer dispara después de 8 s → OK.
+//      PERO si cualquier fetch efímero causa otro flicker de
+//      essentialDataLoaded antes de los 8 s → timer se reinicia → colgado.
 //
-//   App.jsx persiste activeModule en localStorage["pc_last_module"] cada vez
-//   que el usuario navega. Al refrescar, AppStateContext lee ese valor y
-//   determina qué tablas son bloqueantes para ESE módulo específico.
+// FIX — dataTimedOut como latch (una vez true, nunca vuelve a false):
 //
-//   MODULE_ESSENTIALS
-//     Mapa de nombre de módulo → array de loaders mínimos bloqueantes.
-//     Las claves coinciden EXACTAMENTE con los valores de activeModule en App.
-//     Módulo desconocido → fallback a ['pLoaded'] (solo Pacientes).
+//   Se agrega un ref `timedOutRef` que actúa como cerrojo:
+//   · El timeout effect ya NO llama setDataTimedOut(false) jamás.
+//   · Una vez que dataTimedOut=true, el effect sale inmediatamente (return early).
+//   · Esto garantiza que en ≤ 8 s desde que authReady=true, la app SIEMPRE
+//     desbloquea la pantalla de carga, sin importar cuántos flickers ocurran.
 //
-//   bootModule
-//     localStorage["pc_last_module"] capturado UNA SOLA VEZ al montar.
-//     Congelado en useRef — nunca se recalcula en re-renders.
+// ARQUITECTURA DE CARGA (heredada de v10 — sin cambios):
 //
-//   essentialDataLoaded  (BLOQUEANTE para la pantalla de carga global)
-//     authReady && AND( loaders de MODULE_ESSENTIALS[bootModule] )
-//
-//   dataLoaded  (ALIAS de essentialDataLoaded — compatibilidad hacia atrás)
-//
-// EJEMPLOS DE FLUJO AL REFRESCAR:
+//   Module-Aware On-Demand Loading: lee pc_last_module de localStorage para
+//   determinar qué tablas son bloqueantes en el arranque.
 //
 //   Último módulo: "dashboard"  → espera pLoaded + aLoaded   → ~300 ms
 //   Último módulo: "patients"   → espera pLoaded             → ~200 ms
 //   Último módulo: "finance"    → espera pyLoaded + svLoaded → ~200 ms
 //   Último módulo: "sessions"   → espera sLoaded + pLoaded   → ~250 ms
-//   En todos los casos las tablas restantes cargan en segundo plano.
 //
-// PRIMER ARRANQUE (sin pc_last_module en localStorage):
-//   bootModule = "dashboard" por defecto → espera pLoaded + aLoaded.
-//
-// GARANTÍAS HEREDADAS (v6-v9):
+// GARANTÍAS (acumuladas v6-v11):
 //   · initAuth con try/catch/finally → authReady=true siempre, incluso con error.
 //   · effectiveUserId=null mientras authReady=false → hooks idle en arranque.
 //   · onAuthStateChange cubre login, logout y token refresh posteriores.
 //   · useSupabaseStorage garantiza setLoaded(true) en TODOS los paths.
+//   · dataTimedOut es un latch → la pantalla de carga nunca puede colgarse.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -174,13 +173,31 @@ export function AppStateProvider({ children }) {
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // Timeout de seguridad: si después de 8 s los esenciales no cargaron,
-  // dataTimedOut=true permite que la UI muestre un mensaje de error/reintento.
+  // Timeout de seguridad — LATCH: una vez true, nunca vuelve a false.
+  //
+  // timedOutRef es el cerrojo de estado real. El useState solo existe para
+  // forzar el re-render cuando el latch se activa.
+  //
+  // SIN este latch (v10): si essentialDataLoaded oscila true→false antes de
+  // que el timer dispare, el effect se limpia y reinicia el contador. Con
+  // una red colgada y flickers del Escenario A, el timer se reiniciaba
+  // infinitamente y la pantalla de carga nunca desaparecía.
+  //
+  // CON el latch (v11): el primer disparo es permanente. En ≤ 8 s desde que
+  // authReady=true la app SIEMPRE desbloquea la pantalla de carga.
+  const timedOutRef              = useRef(false);
   const [dataTimedOut, setDataTimedOut] = useState(false);
+
   useEffect(() => {
-    if (!authReady)          return;
-    if (essentialDataLoaded) { setDataTimedOut(false); return; }
-    const t = setTimeout(() => setDataTimedOut(true), 8000);
+    if (!authReady)           return; // Esperar a que los hooks hayan arrancado
+    if (timedOutRef.current)  return; // Latch ya activado — no reiniciar timer
+    if (essentialDataLoaded)  return; // Datos listos — no se necesita timeout
+
+    const t = setTimeout(() => {
+      timedOutRef.current = true;     // Cerrar el latch primero (sync)
+      setDataTimedOut(true);          // Luego forzar re-render
+    }, 8000);
+
     return () => clearTimeout(t);
   }, [essentialDataLoaded, authReady]);
 
