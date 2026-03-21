@@ -4,25 +4,32 @@
 // MODO SUPABASE PURO — sin localStorage.
 // Fuente de verdad única: Supabase.
 //
-// v6: fix race condition + logout detection.
+// v7: fix deadlock en usuarios no autenticados.
 //
-// PROBLEMA RESUELTO (bug introducido en v5):
-//   La función de limpieza del efecto ejecutaba `prevUserId.current = null`
-//   ANTES de que corriera el nuevo efecto con userId=null. Esto destruía la
-//   "evidencia" del logout real: el guard `if (prevUserId.current)` siempre
-//   veía null y el reset nunca ocurría. Al hacer logout, los datos viejos
-//   permanecían en pantalla.
+// PROBLEMA RESUELTO (v6 → v7):
+//   Cuando getSession() resuelve con session=null, effectiveUserId pasa de
+//   null a null. Las deps del efecto [userId, key, table] no cambian, así que
+//   el efecto no se re-ejecuta. loaded queda en false para siempre y
+//   dataLoaded (AND de 11 loaded) nunca llega a true → pantalla "Cargando..."
+//   indefinida para cualquier usuario no autenticado.
 //
 // SOLUCIÓN:
-//   Se eliminó `prevUserId.current = null` del cleanup.
-//   El guard ahora distingue correctamente entre dos escenarios:
+//   En Escenario A (montaje inicial / sin sesión), el hook llama setLoaded(true)
+//   para anunciar al AppStateContext que terminó de procesar su estado "sin
+//   usuario". Esto desbloquea el semáforo dataLoaded.
+//   En Escenario B (logout real) se mantiene setLoaded(false) para que la UI
+//   distinga "datos limpiados por logout" vs "datos listos".
 //
-//   a) Montaje inicial / idle por authReady=false:
-//      userId=null, prevUserId.current=null → no-op, retorno silencioso.
+// ESCENARIO A — Montaje / sin sesión:
+//   userId=null, prevUserId=null → setLoaded(true) → libera el bloqueo.
 //
-//   b) Logout real:
-//      userId=null, prevUserId.current="abc123" → reset de estado ✓
-//      (El cleanup NO borró prevUserId, así que la evidencia está intacta.)
+// ESCENARIO B — Logout real:
+//   userId=null, prevUserId="abc123" → reset + setLoaded(false) → UI limpia.
+//
+// FLUJO PARA USUARIO AUTENTICADO (React 18 batching):
+//   getSession() resuelve con sesión válida → setUserId("id") + setAuthReady(true)
+//   se batchean en un solo render → effectiveUserId salta null→"id" directamente
+//   → Escenario A nunca se ejecuta → el hook va directo al path de fetch.
 //
 // COMPATIBILIDAD CON STRICTMODE:
 //   El fetch se re-ejecuta naturalmente cuando userId cambia o cuando React
@@ -79,30 +86,33 @@ export function useSupabaseStorage(key, initialValue, userId) {
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) {
-      // Distinguir entre dos escenarios muy distintos:
-      //
-      // ESCENARIO A — Montaje inicial o idle por authReady=false:
-      //   userId=null Y prevUserId.current=null
-      //   → El hook aún no ha servido a ningún usuario.
-      //   → No hacer NADA: no borrar estado, no cambiar loaded.
-      //   → Retorno silencioso; esperar a que authReady active el userId real.
-      //
-      // ESCENARIO B — Logout real:
-      //   userId=null Y prevUserId.current tenía un ID válido
-      //   → El usuario SÍ tenía sesión y ahora no la tiene.
-      //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
-      //
-      // NOTA: el cleanup del efecto anterior NO resetea prevUserId.current,
+      // Distinguir entre dos escenarios con comportamientos opuestos.
+      // CLAVE: el cleanup del efecto anterior NO resetea prevUserId.current,
       // por eso la "evidencia" del logout real está intacta cuando llegamos aquí.
+
       if (prevUserId.current !== null) {
-        // Escenario B: logout real confirmado.
+        // ESCENARIO B — Logout real confirmado:
+        //   userId=null Y prevUserId.current tenía un ID válido.
+        //   → El usuario SÍ tenía sesión activa y ahora no la tiene.
+        //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
+        //   → setLoaded(false): la UI puede detectar este estado como "sesión cerrada".
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(false);
+      } else {
+        // ESCENARIO A — Montaje inicial / sin sesión activa:
+        //   userId=null Y prevUserId.current=null.
+        //   → El hook nunca ha servido a ningún usuario todavía.
+        //   → setLoaded(true): IMPRESCINDIBLE para evitar deadlock.
+        //     Si getSession() resuelve con session=null, effectiveUserId queda
+        //     en null, las deps [userId, key, table] no cambian, el efecto no
+        //     vuelve a ejecutarse, y loaded quedaría en false para siempre.
+        //     dataLoaded (AND de 11 hooks) nunca llegaría a true → pantalla
+        //     "Cargando..." indefinida para cualquier usuario no autenticado.
+        setLoaded(true);
       }
-      // Escenario A: no-op silencioso.
       return;
     }
 
@@ -144,7 +154,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
       //
       // Si lo hiciéramos (como hacía v5), el guard de logout nunca podría
       // distinguir "logout real" de "montaje inicial": ambos llegarían con
-      // prevUserId.current=null y el reset nunca ocurriría.
+      // prevUserId.current=null y el reset (Escenario B) nunca ocurriría.
       //
       // StrictMode: el fetch se re-ejecuta igualmente porque el path de
       // fetch (userId no nulo) no consulta prevUserId; siempre arranca un
