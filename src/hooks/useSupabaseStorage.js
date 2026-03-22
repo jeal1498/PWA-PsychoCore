@@ -161,15 +161,12 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
     return () => {
       cancelled = true;
+      // Resetear fetchedForRef en cleanup para que StrictMode (que ejecuta
+      // efectos dos veces) no bloquee el segundo fetch con el guard.
+      fetchedForRef.current = null;
       // IMPORTANTE: NO reseteamos prevUserId.current aquí.
-      //
-      // Si lo hiciéramos (como hacía v5), el guard de logout nunca podría
-      // distinguir "logout real" de "montaje inicial": ambos llegarían con
-      // prevUserId.current=null y el reset (Escenario B) nunca ocurriría.
-      //
-      // StrictMode: el fetch se re-ejecuta igualmente porque el path de
-      // fetch (userId no nulo) no consulta prevUserId; siempre arranca un
-      // nuevo fetch cuando el efecto corre con un userId válido.
+      // Si lo hiciéramos, el guard de logout nunca distinguiría
+      // "logout real" de "montaje inicial".
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, key, table]);
