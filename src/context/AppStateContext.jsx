@@ -26,7 +26,8 @@ export function AppStateProvider({ children }) {
   const bootModule = "dashboard";
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  const [userId,    setUserId]    = useState(null);
+  // Inicializar userId como null siempre (sin leer localStorage)
+  const [userId, setUserId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
@@ -77,30 +78,13 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  // Exponer para depuración
+  // Variables globales para depuración
   if (typeof window !== "undefined") {
     window.__debugPatients = patients;
     window.__debugPatientsLoaded = pLoaded;
-    window.__debugAppointments = appointments;
     window.__debugAuthReady = authReady;
     window.__debugUserId = userId;
     window.__debugEffectiveUserId = effectiveUserId;
-    window.__debugState = {
-      patients, pLoaded,
-      appointments, aLoaded,
-      sessions, sLoaded,
-      payments, pyLoaded,
-      profile, prLoaded,
-      riskAssessments, raLoaded,
-      scaleResults, scLoaded,
-      treatmentPlans, tpLoaded,
-      interSessions, isLoaded,
-      medications, medLoaded,
-      services, svLoaded,
-      authReady,
-      userId,
-      effectiveUserId,
-    };
   }
 
   const loaderMap = {
@@ -111,7 +95,7 @@ export function AppStateProvider({ children }) {
   const essentialDataLoaded =
     authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
 
-  const dataReady  = essentialDataLoaded;
+  const dataReady = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
   const timedOutRef = useRef(false);
