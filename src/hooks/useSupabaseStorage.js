@@ -1,10 +1,11 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/hooks/useSupabaseStorage.js
-// v11: Eliminada dependencia `initialValue` para evitar cancelaciones.
-// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
 import { bus }      from "../lib/eventBus.js";
+
+// Exponer supabase globalmente para pruebas
+if (typeof window !== "undefined") {
+  window.__supabase = supabase;
+}
 
 const TABLE_MAP = {
   pc_patients:         "pc_patients",
@@ -30,6 +31,8 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   const table = TABLE_MAP[key];
 
+  console.log(`[hook:${key}] render con userId=${userId}, loaded=${loaded}`);
+
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
     bus.emit("sync:start", { key });
@@ -49,26 +52,30 @@ export function useSupabaseStorage(key, initialValue, userId) {
   }, [key, table]);
 
   useEffect(() => {
+    console.log(`[storage:${key}] useEffect: userId=${userId}, prevUserId=${prevUserId.current}, table=${table}`);
+
     if (!userId) {
       if (prevUserId.current !== null) {
-        // Logout real
+        console.log(`[storage:${key}] Logout: reset`);
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
       } else {
-        // Montaje sin sesión
+        console.log(`[storage:${key}] Sin userId, loaded=true`);
         setLoaded(true);
       }
       return;
     }
 
     if (!table) {
+      console.log(`[storage:${key}] Sin tabla, loaded=true`);
       setLoaded(true);
       return;
     }
 
+    console.log(`[storage:${key}] Iniciando fetch para userId=${userId}`);
     let cancelled = false;
     prevUserId.current   = userId;
     userModified.current = false;
@@ -82,27 +89,35 @@ export function useSupabaseStorage(key, initialValue, userId) {
           .eq("psychologist_id", userId)
           .maybeSingle();
 
-        if (cancelled) return;
-
-        if (error) {
-          console.warn(`[storage] Error cargando ${key}:`, error.message);
+        if (cancelled) {
+          console.log(`[storage:${key}] Fetch cancelado`);
           return;
         }
 
+        if (error) {
+          console.warn(`[storage:${key}] Error cargando:`, error.message);
+          return;
+        }
+
+        console.log(`[storage:${key}] Datos recibidos:`, data);
         if (data?.data !== null && data?.data !== undefined) {
           setValue_(data.data);
         }
       } catch (e) {
-        if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
+        if (!cancelled) console.warn(`[storage:${key}] Excepción:`, e);
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          setLoaded(true);
+          console.log(`[storage:${key}] Fetch completado, loaded=true`);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
+      console.log(`[storage:${key}] Cleanup: cancelando fetch`);
     };
-  }, [userId, key, table]); // ✅ initialValue NO está
+  }, [userId, key, table]);
 
   useEffect(() => {
     if (!loaded)               return;
