@@ -26,7 +26,6 @@ export function AppStateProvider({ children }) {
   const bootModule = "dashboard";
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  // Inicializar userId como null siempre (sin leer localStorage)
   const [userId, setUserId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -78,7 +77,7 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  // Variables globales para depuración
+  // Exponer para depuración
   if (typeof window !== "undefined") {
     window.__debugPatients = patients;
     window.__debugPatientsLoaded = pLoaded;
