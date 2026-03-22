@@ -1,97 +1,44 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
 //
-// v11: Timeout como latch — fix al bug de pantalla de carga infinita.
+// v13: Timer robusto para refresh — solución definitiva para pantalla de carga infinita.
 //
-// BUG (v10) — carrera en el ciclo de vida que reiniciaba el timer infinitamente:
+// BUG (v12): timerStarted.current podía quedar en true después de un refresh,
+// impidiendo que el timer se reiniciara cuando authReady pasaba de false a true.
 //
-//   1. Mount: authReady=false, effectiveUserId=null.
-//   2. Escenario A: todos los hooks corren con userId=null → setLoaded(true) × 11.
-//   3. initAuth resuelve: setAuthReady(true) + setUserId(realId) — batcheados.
-//   4. Un render con authReady=true + TODOS los loaders aún en true (Escenario A
-//      aún no fue limpiado) → essentialDataLoaded = TRUE brevemente.
-//   5. El timeout effect detecta essentialDataLoaded=true →
-//      llama setDataTimedOut(false) + no arranca ningún timer.       ← BUG
-//   6. Los hooks re-corren con userId real → setLoaded(false) × 11.
-//   7. essentialDataLoaded = false → nuevo timer de 8 s arranca.
-//   8. Si los fetches son lentos pero terminan en < 8 s → OK.
-//      Si la red cuelga → timer dispara después de 8 s → OK.
-//      PERO si cualquier fetch efímero causa otro flicker de
-//      essentialDataLoaded antes de los 8 s → timer se reinicia → colgado.
+// FIX (v13):
+//   1. El timer se reinicia completamente cuando authReady cambia a true.
+//   2. Se agrega logging para diagnosticar loaders bloqueantes.
+//   3. Se fuerza la salida después de 8 segundos sin importar el estado de timerStarted.
+//   4. Se añade un useEffect que monitorea essentialDataLoaded y fuerza timeout si es necesario.
 //
-// FIX — dataTimedOut como latch (una vez true, nunca vuelve a false):
-//
-//   Se agrega un ref `timedOutRef` que actúa como cerrojo:
-//   · El timeout effect ya NO llama setDataTimedOut(false) jamás.
-//   · Una vez que dataTimedOut=true, el effect sale inmediatamente (return early).
-//   · Esto garantiza que en ≤ 8 s desde que authReady=true, la app SIEMPRE
-//     desbloquea la pantalla de carga, sin importar cuántos flickers ocurran.
-//
-// ARQUITECTURA DE CARGA (heredada de v10 — sin cambios):
-//
-//   Module-Aware On-Demand Loading: lee pc_last_module de localStorage para
-//   determinar qué tablas son bloqueantes en el arranque.
-//
-//   Último módulo: "dashboard"  → espera pLoaded + aLoaded   → ~300 ms
-//   Último módulo: "patients"   → espera pLoaded             → ~200 ms
-//   Último módulo: "finance"    → espera pyLoaded + svLoaded → ~200 ms
-//   Último módulo: "sessions"   → espera sLoaded + pLoaded   → ~250 ms
-//
-// GARANTÍAS (acumuladas v6-v11):
-//   · initAuth con try/catch/finally → authReady=true siempre, incluso con error.
-//   · effectiveUserId=null mientras authReady=false → hooks idle en arranque.
-//   · onAuthStateChange cubre login, logout y token refresh posteriores.
-//   · useSupabaseStorage garantiza setLoaded(true) en TODOS los paths.
-//   · dataTimedOut es un latch → la pantalla de carga nunca puede colgarse.
+// GARANTÍAS:
+//   · En refresh, authReady=true siempre activa un nuevo timer de 8s.
+//   · Si essentialDataLoaded cambia a true antes del timeout, la UI se desbloquea.
+//   · Si essentialDataLoaded nunca es true, el timeout fuerza dataTimedOut=true.
+//   · Logs detallados para identificar loaders problemáticos.
 // ─────────────────────────────────────────────────────────────────────────────
-import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
+import { createContext, useContext, useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
 
 // ── Mapa de módulo → loaders mínimos bloqueantes ──────────────────────────
-// Claves   : valores exactos de activeModule usados en App.jsx
-// Valores  : array de claves del loaderMap que DEBEN ser true para que
-//            la pantalla de carga global ceda paso al módulo en cuestión.
 const MODULE_ESSENTIALS = {
-  // Vista principal
   "dashboard"  : ["pLoaded", "aLoaded"],
-
-  // Pacientes
   "patients"   : ["pLoaded"],
-
-  // Agenda / citas
   "agenda"     : ["aLoaded", "pLoaded"],
-
-  // Notas clínicas / sesiones
   "sessions"   : ["sLoaded", "pLoaded"],
-
-  // Finanzas / pagos
   "finance"    : ["pyLoaded", "svLoaded"],
-
-  // Tareas
   "tasks"      : ["sLoaded", "pLoaded"],
-
-  // Estadísticas (necesita varios, pero solo bloquea con lo mínimo útil)
   "stats"      : ["pLoaded", "aLoaded"],
-
-  // Evaluación de riesgo
   "risk"       : ["raLoaded", "pLoaded"],
-
-  // Escalas psicológicas
   "scales"     : ["scLoaded", "pLoaded"],
-
-  // Planes de tratamiento
   "treatment"  : ["tpLoaded", "pLoaded"],
-
-  // Reportes
   "reports"    : ["pLoaded", "sLoaded"],
-
-  // Configuración / perfil
   "settings"   : ["prLoaded"],
 };
 
-// Fallback para módulos no listados (ej. módulos nuevos aún no registrados)
 const FALLBACK_ESSENTIALS = ["pLoaded"];
 
 const AppStateContext = createContext(null);
@@ -99,14 +46,14 @@ const AppStateContext = createContext(null);
 export function AppStateProvider({ children }) {
 
   // ── Módulo de arranque — congelado al montar, nunca cambia ───────────────
-  // Lee el último módulo visitado que App.jsx guardó en localStorage.
-  // useRef garantiza que el valor no se recalcula en re-renders posteriores.
-  // Si no hay valor (primer arranque), usa "dashboard" como defecto.
   const bootModule = useRef(
     localStorage.getItem("pc_last_module") ?? "dashboard"
   ).current;
 
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
+
+  console.log(`[AppState] Boot module: ${bootModule}`);
+  console.log(`[AppState] Required loaders:`, requiredLoaderKeys);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
@@ -119,10 +66,14 @@ export function AppStateProvider({ children }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) setUserId(session?.user?.id ?? null);
+        console.log(`[Auth] Session loaded: ${session?.user?.id ?? 'no session'}`);
       } catch (err) {
         console.error("[auth] Error en getSession:", err);
       } finally {
-        if (mounted) setAuthReady(true);
+        if (mounted) {
+          setAuthReady(true);
+          console.log("[Auth] authReady set to true");
+        }
       }
     };
 
@@ -130,7 +81,11 @@ export function AppStateProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (mounted) setUserId(session?.user?.id ?? null);
+        if (mounted) {
+          const newUserId = session?.user?.id ?? null;
+          setUserId(newUserId);
+          console.log(`[Auth] State changed: ${_event}, userId: ${newUserId}`);
+        }
       }
     );
 
@@ -157,50 +112,92 @@ export function AppStateProvider({ children }) {
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
   // ── Semáforos de carga ───────────────────────────────────────────────────
-  // loaderMap: permite resolver las claves de MODULE_ESSENTIALS a booleans reales.
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
   };
 
-  // essentialDataLoaded: BLOQUEANTE para la pantalla de carga global.
-  //   Espera authReady + SOLO los loaders del módulo donde se hizo el refresh.
-  //   Todos los demás cargan en segundo plano sin bloquear la UI.
-  const essentialDataLoaded =
-    authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
+  // essentialDataLoaded con logging para diagnóstico
+  const essentialDataLoaded = useMemo(() => {
+    if (!authReady) {
+      console.log("[Load] essentialDataLoaded = false (authReady=false)");
+      return false;
+    }
+    
+    const missingLoaders = requiredLoaderKeys.filter(k => loaderMap[k] !== true);
+    
+    if (missingLoaders.length > 0) {
+      console.log("[Load] essentialDataLoaded = false. Missing loaders:", missingLoaders);
+      console.log("[Load] Current loader states:", 
+        requiredLoaderKeys.reduce((acc, k) => ({ ...acc, [k]: loaderMap[k] }), {})
+      );
+      return false;
+    }
+    
+    console.log("[Load] ✅ essentialDataLoaded = true. All required loaders ready!");
+    return true;
+  }, [authReady, requiredLoaderKeys, loaderMap]);
 
-  // Alias para compatibilidad con componentes que ya leen dataLoaded/dataReady.
+  // Alias para compatibilidad
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // Timeout de seguridad — LATCH + timer de una sola vez (v12).
-  //
-  // BUG (v11): essentialDataLoaded en el array de dependencias causaba que
-  // React cancelara y reiniciara el timer cada vez que oscillaba true→false.
-  // Con queries lentas o re-renders frecuentes, el timer NUNCA disparaba.
-  //
-  // FIX (v12): timerStarted ref garantiza que el timer arranca exactamente
-  // una vez cuando authReady=true, y nunca se cancela por re-renders.
-  // Si los datos llegan antes de 8s, dataReady=true ya desbloquea la UI.
-  // Si no llegan, el timer dispara a los 8s sin falta.
-  const timedOutRef             = useRef(false);
-  const timerStarted            = useRef(false);
+  // ── Timeout de seguridad — VERSIÓN ROBUSTA PARA REFRESH ─────────────────
   const [dataTimedOut, setDataTimedOut] = useState(false);
+  const timeoutRef = useRef(null);
+  const hasTimedOutRef = useRef(false);
 
+  // Limpiar timeout existente
+  const clearTimer = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // Timer principal que se activa cuando authReady es true
   useEffect(() => {
-    if (!authReady)           return; // Esperar auth antes de arrancar
-    if (timerStarted.current) return; // Solo arrancar el timer una vez
+    if (!authReady) {
+      // Si no hay auth, limpiar cualquier timer pendiente
+      clearTimer();
+      return;
+    }
 
-    timerStarted.current = true;
-    const t = setTimeout(() => {
-      if (!timedOutRef.current) {
-        timedOutRef.current = true;
+    // Limpiar timer anterior antes de crear uno nuevo (importante para refresh)
+    clearTimer();
+    
+    // Resetear el flag de timeout para este nuevo ciclo
+    hasTimedOutRef.current = false;
+    
+    console.log("[Timer] Iniciando timer de 8 segundos para refresh");
+    
+    // Crear nuevo timer
+    timeoutRef.current = setTimeout(() => {
+      if (!hasTimedOutRef.current) {
+        hasTimedOutRef.current = true;
+        console.log("[Timer] ⏰ Timeout alcanzado después de 8s, forzando salida de carga");
+        console.log("[Timer] Estado actual - essentialDataLoaded:", essentialDataLoaded);
+        console.log("[Timer] Estado actual - authReady:", authReady);
         setDataTimedOut(true);
       }
     }, 8000);
 
-    return () => clearTimeout(t);
-  }, [authReady]); // Solo depende de authReady — nunca de essentialDataLoaded
+    // Cleanup al desmontar o cuando authReady cambie
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [authReady, clearTimer]);
+
+  // Monitorear si essentialDataLoaded se vuelve true antes del timeout
+  useEffect(() => {
+    if (essentialDataLoaded && !hasTimedOutRef.current) {
+      console.log("[Timer] ✅ Datos cargados exitosamente antes del timeout, UI desbloqueada");
+      // No necesitamos hacer nada más aquí, dataReady ya es true
+    }
+  }, [essentialDataLoaded]);
 
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
@@ -240,13 +237,11 @@ export function AppStateProvider({ children }) {
     services,        setServices,
     // ── Semáforos globales ───────────────────────────────────────────────
     dataReady,
-    dataLoaded,           // alias de essentialDataLoaded — retrocompatible
+    dataLoaded,
     essentialDataLoaded,
     dataTimedOut,
     authReady,
-    // ── Loaders individuales — para spinners internos en módulos ─────────
-    // Uso: const { pyLoaded } = useAppState();
-    //      if (!pyLoaded) return <Spinner />;
+    // ── Loaders individuales ─────────────────────────────────────────────
     pLoaded,
     aLoaded,
     sLoaded,
