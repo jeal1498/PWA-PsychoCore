@@ -114,7 +114,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
       cancelled = true;
       console.log(`[storage:${key}] Cleanup: cancelando fetch`);
     };
-  }, [userId, key, table, initialValue]); // ⚠️ initialValue agregado temporalmente
+  }, [userId, key, table]); // ✅ initialValue eliminado
 
   useEffect(() => {
     if (!loaded)               return;
