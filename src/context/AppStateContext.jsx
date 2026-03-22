@@ -138,7 +138,13 @@ export function AppStateProvider({ children }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
-          setUserId(session?.user?.id ?? null);
+          // Solo actualizar userId si getSession devuelve un usuario real.
+          // Si devuelve null (red lenta, timing), NO pisar el userId que
+          // ya viene de getLocalSession() — eso causaba que los 11 hooks
+          // resetearan sus datos a [] en cada reload.
+          if (session?.user?.id) {
+            setUserId(session.user.id);
+          }
           setAuthReady(true);
         }
       } catch (err) {
