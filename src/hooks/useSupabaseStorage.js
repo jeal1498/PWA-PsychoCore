@@ -1,37 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
-//
-// MODO SUPABASE PURO — sin localStorage.
-// Fuente de verdad única: Supabase.
-//
-// v9: Robustez infalible confirmada — setLoaded(true) garantizado en todos
-//     los caminos de ejecución.
-//
-// GARANTÍAS DE setLoaded(true):
-//   · userId=null, prevUserId=null  (Escenario A) → setLoaded(true) inmediato.
-//   · userId=null, prevUserId≠null  (Escenario B) → setLoaded(true) tras reset.
-//   · tabla no registrada en TABLE_MAP              → setLoaded(true) inmediato.
-//   · fetch exitoso sin datos                       → finally → setLoaded(true).
-//   · fetch exitoso con datos                       → finally → setLoaded(true).
-//   · error de Supabase (RLS, red, etc.)            → finally → setLoaded(true).
-//   · excepción inesperada en el bloque catch       → finally → setLoaded(true).
-//
-//   El `return` dentro del `if (error)` no evita el finally — solo sale del
-//   bloque try, y el finally se ejecuta igualmente antes de que la IIFE termine.
-//   Esto significa que NINGÚN path puede dejar loaded=false indefinidamente,
-//   lo cual es esencial para que essentialDataLoaded (y dataLoaded) en
-//   AppStateContext puedan resolverse correctamente.
-//
-// ESCENARIO A — Montaje / sin sesión:
-//   userId=null, prevUserId=null → setLoaded(true) → libera el semáforo global.
-//
-// ESCENARIO B — Logout real:
-//   userId=null, prevUserId≠null → reset datos + setLoaded(true) → UI limpia.
-//
-// FLUJO PARA USUARIO AUTENTICADO (React 18 batching):
-//   getSession() resuelve con sesión válida → setUserId("id") + setAuthReady(true)
-//   se batchean en un solo render → effectiveUserId salta null→"id" directamente
-//   → Escenario A nunca se ejecuta → el hook va directo al path de fetch.
+// v10-diagnostic: logs extendidos para ver el flujo de carga después de refresh
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -61,6 +30,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   const table = TABLE_MAP[key];
 
+  // ── Log inicial para ver cómo se monta el hook
+  console.log(`[hook:${key}] Hook ejecutado con userId=${userId}, loaded inicial=${loaded}`);
+
   // ── Upsert a Supabase ─────────────────────────────────────────────────────
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
@@ -80,47 +52,40 @@ export function useSupabaseStorage(key, initialValue, userId) {
     }
   }, [key, table]);
 
-  // ── Carga inicial ─────────────────────────────────────────────────────────
+  // ── Carga inicial con logs detallados ─────────────────────────────────────────
   useEffect(() => {
-    if (!userId) {
-      // Distinguir entre dos escenarios con comportamientos opuestos.
-      // CLAVE: el cleanup del efecto anterior NO resetea prevUserId.current,
-      // por eso la "evidencia" del logout real está intacta cuando llegamos aquí.
+    console.log(`[storage:${key}] useEffect: userId=${userId}, prevUserId=${prevUserId.current}, table=${table}`);
 
+    if (!userId) {
       if (prevUserId.current !== null) {
-        // ESCENARIO B — Logout real confirmado:
-        //   userId=null Y prevUserId.current tenía un ID válido.
-        //   → El usuario SÍ tenía sesión activa y ahora no la tiene.
-        //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
-        //   → setLoaded(true): IMPRESCINDIBLE para no bloquear dataLoaded.
-        //     Si quedara en false, el AND de 11 hooks nunca llegaría a true y
-        //     la app quedaría congelada tras el logout.
+        console.log(`[storage:${key}] ESCENARIO B: logout/refresh detectado, reseteando estado`);
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
+        console.log(`[storage:${key}] loaded set to true (logout/reset)`);
       } else {
-        // ESCENARIO A — Montaje inicial / sin sesión activa:
-        //   userId=null Y prevUserId.current=null.
-        //   → El hook nunca ha servido a ningún usuario todavía.
-        //   → setLoaded(true): IMPRESCINDIBLE para evitar deadlock.
-        //     Si getSession() resuelve con session=null, effectiveUserId queda
-        //     en null, las deps [userId, key, table] no cambian, el efecto no
-        //     vuelve a ejecutarse, y loaded quedaría en false para siempre.
-        //     dataLoaded (AND de 11 hooks) nunca llegaría a true → pantalla
-        //     "Cargando..." indefinida para cualquier usuario no autenticado.
+        console.log(`[storage:${key}] ESCENARIO A: montaje sin userId, loaded=true`);
         setLoaded(true);
       }
       return;
     }
 
-    if (!table) { setLoaded(true); return; }
+    if (!table) {
+      console.log(`[storage:${key}] No table mapping, loaded=true`);
+      setLoaded(true);
+      return;
+    }
+
+    // Tenemos userId y tabla
+    console.log(`[storage:${key}] INICIANDO FETCH para userId=${userId}`);
 
     let cancelled = false;
     prevUserId.current   = userId;
     userModified.current = false;
     setLoaded(false);
+    console.log(`[storage:${key}] loaded set to false (iniciando fetch)`);
 
     (async () => {
       try {
@@ -130,31 +95,40 @@ export function useSupabaseStorage(key, initialValue, userId) {
           .eq("psychologist_id", userId)
           .maybeSingle();
 
-        if (cancelled) return;
-
-        if (error) {
-          console.warn(`[storage] Error cargando ${key}:`, error.message);
+        if (cancelled) {
+          console.log(`[storage:${key}] Fetch cancelado (cancelled=true)`);
           return;
         }
 
+        if (error) {
+          console.warn(`[storage:${key}] Error cargando:`, error.message);
+          return;
+        }
+
+        console.log(`[storage:${key}] Datos recibidos:`, data);
+
         if (data?.data !== null && data?.data !== undefined) {
+          console.log(`[storage:${key}] Asignando datos a value (${typeof data.data})`);
           setValue_(data.data);
+        } else {
+          console.log(`[storage:${key}] No se encontraron datos, usando initialValue`);
         }
       } catch (e) {
-        if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
+        if (!cancelled) console.warn(`[storage:${key}] Excepción en fetch:`, e);
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          setLoaded(true);
+          console.log(`[storage:${key}] FINALMENTE: loaded establecido a true`);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
-      // IMPORTANTE: NO reseteamos prevUserId.current aquí.
-      // Si lo hiciéramos, el guard de logout nunca distinguiría
-      // "logout real" de "montaje inicial".
+      console.log(`[storage:${key}] Cleanup: fetch cancelado, prevUserId no se resetea`);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key, table]);
+  }, [userId, key, table, initialValue]);
 
   // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
   useEffect(() => {
