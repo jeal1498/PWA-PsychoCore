@@ -1,12 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
-// v13-diagnostic: logs para seguir el flujo de auth y loaders
+// v14: Sin localStorage para auth — solo Supabase como fuente de verdad.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
 
+// Mapa de módulo → loaders mínimos bloqueantes
 const MODULE_ESSENTIALS = {
   "dashboard"  : ["pLoaded", "aLoaded"],
   "patients"   : ["pLoaded"],
@@ -28,35 +29,17 @@ const AppStateContext = createContext(null);
 
 export function AppStateProvider({ children }) {
 
-  // ── Módulo de arranque ───────────────────────────────────────────────
+  // ── Módulo de arranque — solo lee localStorage para preferencia de UI ──
+  // (esto no afecta los datos, solo qué loaders esperar)
   const bootModule = useRef(
     localStorage.getItem("pc_last_module") ?? "dashboard"
   ).current;
 
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  console.log(`[AppState] Boot module: ${bootModule}`);
-  console.log(`[AppState] Required loaders:`, requiredLoaderKeys);
-
-  // ── Auth — lectura síncrona y logs ───────────────────────────────────
-  const getLocalSession = () => {
-    try {
-      const key = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
-      if (!key) return null;
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      return parsed?.user?.id ?? null;
-    } catch { return null; }
-  };
-
-  const initialUserId = getLocalSession();
-  console.log(`[Auth] userId inicial desde localStorage: ${initialUserId}`);
-
-  const [userId,    setUserId]    = useState(() => initialUserId);
-  const [authReady, setAuthReady] = useState(() => initialUserId !== null);
-
-  console.log(`[Auth] Estado inicial: userId=${userId}, authReady=${authReady}`);
+  // ── Auth: estado puro desde Supabase, sin localStorage ─────────────────
+  const [userId,    setUserId]    = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -65,16 +48,11 @@ export function AppStateProvider({ children }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
-          if (session?.user?.id) {
-            console.log(`[Auth] getSession devolvió userId: ${session.user.id}`);
-            setUserId(session.user.id);
-          } else {
-            console.log(`[Auth] getSession devolvió sin sesión`);
-          }
+          setUserId(session?.user?.id ?? null);
           setAuthReady(true);
         }
       } catch (err) {
-        console.warn("[auth] getSession error:", err.message);
+        console.warn("[auth] Error en getSession:", err.message);
         if (mounted) setAuthReady(true);
       }
     };
@@ -84,7 +62,7 @@ export function AppStateProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        console.log(`[Auth] onAuthStateChange: event=${event}, userId=${session?.user?.id ?? null}`);
+        // Solo reaccionamos a eventos que cambian el usuario
         if (!["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
         const newId = session?.user?.id ?? null;
         setUserId(prev => prev === newId ? prev : newId);
@@ -98,11 +76,10 @@ export function AppStateProvider({ children }) {
     };
   }, []);
 
-  // effectiveUserId
+  // effectiveUserId — null mientras authReady=false
   const effectiveUserId = authReady ? userId : null;
-  console.log(`[AppState] effectiveUserId: ${effectiveUserId} (authReady=${authReady}, userId=${userId})`);
 
-  // ── Datos — los 11 hooks ────────────────────────────────────────────
+  // ── Datos — los 11 hooks arrancan en paralelo ──────────────────────────
   const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], effectiveUserId);
   const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], effectiveUserId);
   const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], effectiveUserId);
@@ -115,7 +92,7 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  // ── Semáforos de carga ──────────────────────────────────────────────
+  // ── Semáforos de carga ─────────────────────────────────────────────────
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
@@ -124,27 +101,18 @@ export function AppStateProvider({ children }) {
   const essentialDataLoaded =
     authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
 
-  console.log(`[Load] essentialDataLoaded = ${essentialDataLoaded}`);
-  if (!essentialDataLoaded && authReady) {
-    const missing = requiredLoaderKeys.filter(k => !loaderMap[k]);
-    console.log(`[Load] Faltan: ${missing.join(", ")}`);
-    console.log(`[Load] Loaders actuales:`, requiredLoaderKeys.map(k => ({[k]: loaderMap[k]})));
-  }
-
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // ── Timeout de seguridad (10s desde montaje) ────────────────────────
+  // ── Timeout de seguridad (10s desde montaje) ──────────────────────────
   const timedOutRef = useRef(false);
   const [dataTimedOut, setDataTimedOut] = useState(false);
 
   useEffect(() => {
-    console.log("[Timer] Iniciando timer de 10s (desde montaje)");
     const t = setTimeout(() => {
       if (!timedOutRef.current) {
         timedOutRef.current = true;
         setDataTimedOut(true);
-        console.log("[Timer] ⏰ Timeout alcanzado después de 10s, forzando salida");
       }
     }, 10000);
     return () => clearTimeout(t);
