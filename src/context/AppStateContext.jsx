@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
-// v14: Sin localStorage para auth — solo Supabase como fuente de verdad.
+// v15: Sin localStorage — fuente única: Supabase.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -29,15 +29,11 @@ const AppStateContext = createContext(null);
 
 export function AppStateProvider({ children }) {
 
-  // ── Módulo de arranque — solo lee localStorage para preferencia de UI ──
-  // (esto no afecta los datos, solo qué loaders esperar)
-  const bootModule = useRef(
-    localStorage.getItem("pc_last_module") ?? "dashboard"
-  ).current;
-
+  // Módulo de arranque fijo: dashboard. No se lee de localStorage.
+  const bootModule = "dashboard";
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  // ── Auth: estado puro desde Supabase, sin localStorage ─────────────────
+  // ── Auth: solo Supabase ──────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -62,7 +58,6 @@ export function AppStateProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        // Solo reaccionamos a eventos que cambian el usuario
         if (!["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
         const newId = session?.user?.id ?? null;
         setUserId(prev => prev === newId ? prev : newId);
@@ -76,10 +71,9 @@ export function AppStateProvider({ children }) {
     };
   }, []);
 
-  // effectiveUserId — null mientras authReady=false
   const effectiveUserId = authReady ? userId : null;
 
-  // ── Datos — los 11 hooks arrancan en paralelo ──────────────────────────
+  // ── Datos ──────────────────────────────────────────────────────────────
   const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], effectiveUserId);
   const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], effectiveUserId);
   const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], effectiveUserId);
@@ -92,7 +86,6 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  // ── Semáforos de carga ─────────────────────────────────────────────────
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
@@ -104,7 +97,7 @@ export function AppStateProvider({ children }) {
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // ── Timeout de seguridad (10s desde montaje) ──────────────────────────
+  // Timeout de seguridad (10s desde montaje)
   const timedOutRef = useRef(false);
   const [dataTimedOut, setDataTimedOut] = useState(false);
 
