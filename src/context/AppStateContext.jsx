@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/context/AppStateContext.jsx
-// v15: Sin localStorage — fuente única: Supabase.
+// v16: Sin localStorage + variables globales para depuración (__debugPatients,
+// __debugPatientsLoaded, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
@@ -86,6 +87,32 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
+  // ── Variables globales para depuración (accesibles desde consola Eruda) ──
+  if (typeof window !== "undefined") {
+    window.__debugPatients = patients;
+    window.__debugPatientsLoaded = pLoaded;
+    window.__debugAppointments = appointments;
+    window.__debugAuthReady = authReady;
+    window.__debugUserId = userId;
+    // También podemos exponer el estado completo si es necesario
+    window.__debugState = {
+      patients, pLoaded,
+      appointments, aLoaded,
+      sessions, sLoaded,
+      payments, pyLoaded,
+      profile, prLoaded,
+      riskAssessments, raLoaded,
+      scaleResults, scLoaded,
+      treatmentPlans, tpLoaded,
+      interSessions, isLoaded,
+      medications, medLoaded,
+      services, svLoaded,
+      authReady,
+      userId,
+    };
+  }
+
+  // ── Semáforos de carga ─────────────────────────────────────────────────
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
