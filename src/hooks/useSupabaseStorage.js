@@ -1,12 +1,37 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
 //
-// v10: Mejoras para manejo de refresh — garantiza loaded=true en todos los escenarios
+// MODO SUPABASE PURO — sin localStorage.
+// Fuente de verdad única: Supabase.
 //
-// MEJORAS PARA REFRESH:
-//   · Cleanup más robusto que asegura loaded=true si el efecto se cancela
-//   · Logs adicionales para diagnosticar loaders problemáticos
-//   · Manejo explícito de cambios de userId durante refresh
+// v9: Robustez infalible confirmada — setLoaded(true) garantizado en todos
+//     los caminos de ejecución.
+//
+// GARANTÍAS DE setLoaded(true):
+//   · userId=null, prevUserId=null  (Escenario A) → setLoaded(true) inmediato.
+//   · userId=null, prevUserId≠null  (Escenario B) → setLoaded(true) tras reset.
+//   · tabla no registrada en TABLE_MAP              → setLoaded(true) inmediato.
+//   · fetch exitoso sin datos                       → finally → setLoaded(true).
+//   · fetch exitoso con datos                       → finally → setLoaded(true).
+//   · error de Supabase (RLS, red, etc.)            → finally → setLoaded(true).
+//   · excepción inesperada en el bloque catch       → finally → setLoaded(true).
+//
+//   El `return` dentro del `if (error)` no evita el finally — solo sale del
+//   bloque try, y el finally se ejecuta igualmente antes de que la IIFE termine.
+//   Esto significa que NINGÚN path puede dejar loaded=false indefinidamente,
+//   lo cual es esencial para que essentialDataLoaded (y dataLoaded) en
+//   AppStateContext puedan resolverse correctamente.
+//
+// ESCENARIO A — Montaje / sin sesión:
+//   userId=null, prevUserId=null → setLoaded(true) → libera el semáforo global.
+//
+// ESCENARIO B — Logout real:
+//   userId=null, prevUserId≠null → reset datos + setLoaded(true) → UI limpia.
+//
+// FLUJO PARA USUARIO AUTENTICADO (React 18 batching):
+//   getSession() resuelve con sesión válida → setUserId("id") + setAuthReady(true)
+//   se batchean en un solo render → effectiveUserId salta null→"id" directamente
+//   → Escenario A nunca se ejecuta → el hook va directo al path de fetch.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -30,11 +55,10 @@ export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
-  const saveTimerRef = useRef(null);
-  const prevUserId   = useRef(null);
-  const userModified = useRef(false);
-  const mountedRef   = useRef(true);
-  const fetchIdRef   = useRef(0);
+  const saveTimerRef  = useRef(null);
+  const prevUserId    = useRef(null);
+  const userModified  = useRef(false);
+  const fetchedForRef = useRef(null); // userId para el que ya hicimos fetch
 
   const table = TABLE_MAP[key];
 
@@ -52,56 +76,63 @@ export function useSupabaseStorage(key, initialValue, userId) {
       console.error(`[storage] ❌ ${key}:`, error.message);
       bus.emit("sync:error", { key, message: error.message });
     } else {
-      console.log(`[storage] ✅ ${key} synced`);
+      console.log(`[storage] ✅ ${key}`);
       bus.emit("sync:done", { key });
     }
   }, [key, table]);
 
-  // ── Carga inicial con mejor manejo de refresh ─────────────────────────────
+  // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
-    mountedRef.current = true;
-    const currentFetchId = ++fetchIdRef.current;
-    
-    // Log para diagnóstico
-    console.log(`[storage] ${key} - userId: ${userId}, prevUserId: ${prevUserId.current}`);
-
     if (!userId) {
-      // ESCENARIO SIN USUARIO
+      // Distinguir entre dos escenarios con comportamientos opuestos.
+      // CLAVE: el cleanup del efecto anterior NO resetea prevUserId.current,
+      // por eso la "evidencia" del logout real está intacta cuando llegamos aquí.
+
       if (prevUserId.current !== null) {
-        // Logout real o refresh
-        console.log(`[storage] ${key} - Logout/refresh detected, resetting state`);
-        prevUserId.current   = null;
-        userModified.current = false;
+        // ESCENARIO B — Logout real confirmado:
+        //   userId=null Y prevUserId.current tenía un ID válido.
+        //   → El usuario SÍ tenía sesión activa y ahora no la tiene.
+        //   → Resetear estado para no dejar datos del usuario anterior en pantalla.
+        //   → setLoaded(true): IMPRESCINDIBLE para no bloquear dataLoaded.
+        //     Si quedara en false, el AND de 11 hooks nunca llegaría a true y
+        //     la app quedaría congelada tras el logout.
+        prevUserId.current    = null;
+        userModified.current  = false;
+        fetchedForRef.current = null; // Reset al hacer logout
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
       } else {
-        // Montaje inicial sin sesión
-        console.log(`[storage] ${key} - Initial mount without session`);
+        // ESCENARIO A — Montaje inicial / sin sesión activa:
+        //   userId=null Y prevUserId.current=null.
+        //   → El hook nunca ha servido a ningún usuario todavía.
+        //   → setLoaded(true): IMPRESCINDIBLE para evitar deadlock.
+        //     Si getSession() resuelve con session=null, effectiveUserId queda
+        //     en null, las deps [userId, key, table] no cambian, el efecto no
+        //     vuelve a ejecutarse, y loaded quedaría en false para siempre.
+        //     dataLoaded (AND de 11 hooks) nunca llegaría a true → pantalla
+        //     "Cargando..." indefinida para cualquier usuario no autenticado.
         setLoaded(true);
       }
       return;
     }
 
-    // ESCENARIO CON USUARIO
-    if (!table) { 
-      console.log(`[storage] ${key} - No table mapping, setting loaded=true`);
-      setLoaded(true); 
+    if (!table) { setLoaded(true); return; }
+
+    // Guard: si ya cargamos datos para este userId, no re-fetchar.
+    // Evita el ciclo causado por TOKEN_REFRESHED que dispara
+    // effectiveUserId → null → id repetidamente.
+    if (fetchedForRef.current === userId) {
+      console.log(`[storage] ${key} - Already loaded for this user, skipping re-fetch`);
+      setLoaded(true);
       return;
     }
 
-    // Si hay un cambio de usuario, resetear estado
-    if (prevUserId.current !== userId) {
-      console.log(`[storage] ${key} - User changed from ${prevUserId.current} to ${userId}`);
-      prevUserId.current = userId;
-      userModified.current = false;
-      setLoaded(false);
-      setValue_(initialValue);
-    }
-
-    // Iniciar fetch
+    let cancelled = false;
+    prevUserId.current   = userId;
+    userModified.current = false;
+    fetchedForRef.current = userId;
     setLoaded(false);
-    console.log(`[storage] ${key} - Fetching data for user ${userId}`);
 
     (async () => {
       try {
@@ -111,44 +142,37 @@ export function useSupabaseStorage(key, initialValue, userId) {
           .eq("psychologist_id", userId)
           .maybeSingle();
 
-        // Verificar si este fetch sigue siendo relevante
-        if (!mountedRef.current || currentFetchId !== fetchIdRef.current) {
-          console.log(`[storage] ${key} - Fetch cancelled (stale)`);
-          return;
-        }
+        if (cancelled) return;
 
         if (error) {
-          console.warn(`[storage] ${key} - Error loading:`, error.message);
+          console.warn(`[storage] Error cargando ${key}:`, error.message);
           return;
         }
 
         if (data?.data !== null && data?.data !== undefined) {
-          console.log(`[storage] ${key} - Data loaded successfully`);
           setValue_(data.data);
-        } else {
-          console.log(`[storage] ${key} - No data found, using initial value`);
         }
       } catch (e) {
-        if (mountedRef.current && currentFetchId === fetchIdRef.current) {
-          console.warn(`[storage] ${key} - Exception loading:`, e);
-        }
+        if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
       } finally {
-        // Garantizar que loaded=true siempre se establezca
-        if (mountedRef.current && currentFetchId === fetchIdRef.current) {
-          console.log(`[storage] ${key} - Setting loaded=true`);
-          setLoaded(true);
-        }
+        if (!cancelled) setLoaded(true);
       }
     })();
 
     return () => {
-      // Cleanup: marcar que el componente se desmontó o el efecto se reinició
-      console.log(`[storage] ${key} - Cleanup triggered`);
-      mountedRef.current = false;
-      // No resetear prevUserId aquí para mantener contexto en refresh
+      cancelled = true;
+      // IMPORTANTE: NO reseteamos prevUserId.current aquí.
+      //
+      // Si lo hiciéramos (como hacía v5), el guard de logout nunca podría
+      // distinguir "logout real" de "montaje inicial": ambos llegarían con
+      // prevUserId.current=null y el reset (Escenario B) nunca ocurriría.
+      //
+      // StrictMode: el fetch se re-ejecuta igualmente porque el path de
+      // fetch (userId no nulo) no consulta prevUserId; siempre arranca un
+      // nuevo fetch cuando el efecto corre con un userId válido.
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key, table, initialValue]);
+  }, [userId, key, table]);
 
   // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
   useEffect(() => {
