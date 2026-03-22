@@ -157,14 +157,12 @@ export function AppStateProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        // Ignorar INITIAL_SESSION — ya lo maneja getSession() arriba
-        if (event === "INITIAL_SESSION") return;
+        // Solo nos importan login y logout reales.
+        // TOKEN_REFRESHED, USER_UPDATED y demás eventos intermedios
+        // causaban ciclos SIGNED_OUT→SIGNED_IN que reseteaban los 11 hooks.
+        if (!["SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
         const newId = session?.user?.id ?? null;
-        // Solo actualizar si el userId cambió — evita re-mounts por token refresh
-        setUserId(prev => {
-          if (prev === newId) return prev;
-          return newId;
-        });
+        setUserId(prev => prev === newId ? prev : newId);
         setAuthReady(true);
       }
     );
