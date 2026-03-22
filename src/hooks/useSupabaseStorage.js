@@ -55,10 +55,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
   const [value,  setValue_] = useState(initialValue);
   const [loaded, setLoaded] = useState(false);
 
-  const saveTimerRef  = useRef(null);
-  const prevUserId    = useRef(null);
-  const userModified  = useRef(false);
-  const fetchedForRef = useRef(null); // userId para el que ya hicimos fetch
+  const saveTimerRef = useRef(null);
+  const prevUserId   = useRef(null);
+  const userModified = useRef(false);
 
   const table = TABLE_MAP[key];
 
@@ -96,9 +95,8 @@ export function useSupabaseStorage(key, initialValue, userId) {
         //   → setLoaded(true): IMPRESCINDIBLE para no bloquear dataLoaded.
         //     Si quedara en false, el AND de 11 hooks nunca llegaría a true y
         //     la app quedaría congelada tras el logout.
-        prevUserId.current    = null;
-        userModified.current  = false;
-        fetchedForRef.current = null; // Reset al hacer logout
+        prevUserId.current   = null;
+        userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
@@ -119,19 +117,9 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
     if (!table) { setLoaded(true); return; }
 
-    // Guard: si ya cargamos datos para este userId, no re-fetchar.
-    // Evita el ciclo causado por TOKEN_REFRESHED que dispara
-    // effectiveUserId → null → id repetidamente.
-    if (fetchedForRef.current === userId) {
-      console.log(`[storage] ${key} - Already loaded for this user, skipping re-fetch`);
-      setLoaded(true);
-      return;
-    }
-
     let cancelled = false;
     prevUserId.current   = userId;
     userModified.current = false;
-    fetchedForRef.current = userId;
     setLoaded(false);
 
     (async () => {
@@ -161,9 +149,6 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
     return () => {
       cancelled = true;
-      // Resetear fetchedForRef en cleanup para que StrictMode (que ejecuta
-      // efectos dos veces) no bloquee el segundo fetch con el guard.
-      fetchedForRef.current = null;
       // IMPORTANTE: NO reseteamos prevUserId.current aquí.
       // Si lo hiciéramos, el guard de logout nunca distinguiría
       // "logout real" de "montaje inicial".
