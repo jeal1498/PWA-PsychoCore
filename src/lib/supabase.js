@@ -65,18 +65,19 @@ export function trialDaysLeft(psychologist) {
 // El portal del paciente (PatientPortal) no tiene sesión activa — en ese
 // caso cae al anon key, que es suficiente porque el portal solo consulta
 // por phone sin acceder a datos de otros psicólogos.
+// Cache del token para evitar llamadas repetidas a getSession()
+// que disparan re-renders y cancelan los debounced saves.
+let _cachedToken = null;
+supabase.auth.onAuthStateChange((_event, session) => {
+  _cachedToken = session?.access_token ?? null;
+});
+
 async function getAuthToken() {
-  // Timeout de 2s — si getSession() se cuelga, caer al anon key
-  // para no bloquear operaciones de tareas
+  if (_cachedToken) return _cachedToken;
   try {
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), 2000)
-    );
-    const { data: { session } } = await Promise.race([
-      supabase.auth.getSession(),
-      timeout,
-    ]);
-    return session?.access_token || SUPABASE_ANON;
+    const { data: { session } } = await supabase.auth.getSession();
+    _cachedToken = session?.access_token ?? null;
+    return _cachedToken || SUPABASE_ANON;
   } catch {
     return SUPABASE_ANON;
   }
