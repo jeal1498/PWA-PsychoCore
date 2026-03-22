@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
 import { bus }      from "../lib/eventBus.js";
 
-// Exponer supabase globalmente para pruebas
 if (typeof window !== "undefined") {
   window.__supabase = supabase;
 }
@@ -30,8 +29,6 @@ export function useSupabaseStorage(key, initialValue, userId) {
   const userModified = useRef(false);
 
   const table = TABLE_MAP[key];
-
-  console.log(`[hook:${key}] render con userId=${userId}, loaded=${loaded}`);
 
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
@@ -117,7 +114,7 @@ export function useSupabaseStorage(key, initialValue, userId) {
       cancelled = true;
       console.log(`[storage:${key}] Cleanup: cancelando fetch`);
     };
-  }, [userId, key, table]);
+  }, [userId, key, table, initialValue]); // ⚠️ initialValue agregado temporalmente
 
   useEffect(() => {
     if (!loaded)               return;
