@@ -5,7 +5,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  ?? "https://mxcmfhxnjcwoueqwvzyb.supabase.co";
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "sb_publishable_KXQamBNwQMUd5AuLMJxfWw_zBeYJEKr";
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14Y21maHhuamN3b3VlcXd2enliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMjk1NDAsImV4cCI6MjA4OTcwNTU0MH0.gHuDbZPUXSE6ocz0KWPq8G5zdwEzcd4ia2N6kp1x4JU";
 
 // ── Cliente oficial (usado para Auth) ─────────────────────────────────────────
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
