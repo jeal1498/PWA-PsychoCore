@@ -173,33 +173,34 @@ export function AppStateProvider({ children }) {
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // Timeout de seguridad — LATCH: una vez true, nunca vuelve a false.
+  // Timeout de seguridad — LATCH + timer de una sola vez (v12).
   //
-  // timedOutRef es el cerrojo de estado real. El useState solo existe para
-  // forzar el re-render cuando el latch se activa.
+  // BUG (v11): essentialDataLoaded en el array de dependencias causaba que
+  // React cancelara y reiniciara el timer cada vez que oscillaba true→false.
+  // Con queries lentas o re-renders frecuentes, el timer NUNCA disparaba.
   //
-  // SIN este latch (v10): si essentialDataLoaded oscila true→false antes de
-  // que el timer dispare, el effect se limpia y reinicia el contador. Con
-  // una red colgada y flickers del Escenario A, el timer se reiniciaba
-  // infinitamente y la pantalla de carga nunca desaparecía.
-  //
-  // CON el latch (v11): el primer disparo es permanente. En ≤ 8 s desde que
-  // authReady=true la app SIEMPRE desbloquea la pantalla de carga.
-  const timedOutRef              = useRef(false);
+  // FIX (v12): timerStarted ref garantiza que el timer arranca exactamente
+  // una vez cuando authReady=true, y nunca se cancela por re-renders.
+  // Si los datos llegan antes de 8s, dataReady=true ya desbloquea la UI.
+  // Si no llegan, el timer dispara a los 8s sin falta.
+  const timedOutRef             = useRef(false);
+  const timerStarted            = useRef(false);
   const [dataTimedOut, setDataTimedOut] = useState(false);
 
   useEffect(() => {
-    if (!authReady)           return; // Esperar a que los hooks hayan arrancado
-    if (timedOutRef.current)  return; // Latch ya activado — no reiniciar timer
-    if (essentialDataLoaded)  return; // Datos listos — no se necesita timeout
+    if (!authReady)           return; // Esperar auth antes de arrancar
+    if (timerStarted.current) return; // Solo arrancar el timer una vez
 
+    timerStarted.current = true;
     const t = setTimeout(() => {
-      timedOutRef.current = true;     // Cerrar el latch primero (sync)
-      setDataTimedOut(true);          // Luego forzar re-render
+      if (!timedOutRef.current) {
+        timedOutRef.current = true;
+        setDataTimedOut(true);
+      }
     }, 8000);
 
     return () => clearTimeout(t);
-  }, [essentialDataLoaded, authReady]);
+  }, [authReady]); // Solo depende de authReady — nunca de essentialDataLoaded
 
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
