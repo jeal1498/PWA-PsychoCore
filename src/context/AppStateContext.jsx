@@ -136,18 +136,13 @@ export function AppStateProvider({ children }) {
 
     const initAuth = async () => {
       try {
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("getSession timeout")), 5000)
-        );
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+        const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
           setUserId(session?.user?.id ?? null);
           setAuthReady(true);
         }
       } catch (err) {
-        console.warn("[auth] getSession error/timeout:", err.message);
-      } finally {
+        console.warn("[auth] getSession error:", err.message);
         if (mounted) setAuthReady(true);
       }
     };
@@ -157,10 +152,12 @@ export function AppStateProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        // Solo nos importan login y logout reales.
-        // TOKEN_REFRESHED, USER_UPDATED y demás eventos intermedios
-        // causaban ciclos SIGNED_OUT→SIGNED_IN que reseteaban los 11 hooks.
-        if (!["SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
+        // Eventos relevantes:
+        // INITIAL_SESSION — dispara en refresh de página con sesión existente
+        // SIGNED_IN       — login nuevo
+        // SIGNED_OUT      — logout
+        // TOKEN_REFRESHED / USER_UPDATED — ignorar, no cambia el userId
+        if (!["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
         const newId = session?.user?.id ?? null;
         setUserId(prev => prev === newId ? prev : newId);
         setAuthReady(true);
