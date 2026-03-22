@@ -1,14 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/context/AppStateContext.jsx
-// v16: Sin localStorage + variables globales para depuración (__debugPatients,
-// __debugPatientsLoaded, etc.)
-// ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
 
-// Mapa de módulo → loaders mínimos bloqueantes
 const MODULE_ESSENTIALS = {
   "dashboard"  : ["pLoaded", "aLoaded"],
   "patients"   : ["pLoaded"],
@@ -29,12 +23,9 @@ const FALLBACK_ESSENTIALS = ["pLoaded"];
 const AppStateContext = createContext(null);
 
 export function AppStateProvider({ children }) {
-
-  // Módulo de arranque fijo: dashboard. No se lee de localStorage.
   const bootModule = "dashboard";
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  // ── Auth: solo Supabase ──────────────────────────────────────────────────
   const [userId,    setUserId]    = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -74,7 +65,6 @@ export function AppStateProvider({ children }) {
 
   const effectiveUserId = authReady ? userId : null;
 
-  // ── Datos ──────────────────────────────────────────────────────────────
   const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], effectiveUserId);
   const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], effectiveUserId);
   const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], effectiveUserId);
@@ -87,14 +77,14 @@ export function AppStateProvider({ children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
 
-  // ── Variables globales para depuración (accesibles desde consola Eruda) ──
+  // Exponer para depuración
   if (typeof window !== "undefined") {
     window.__debugPatients = patients;
     window.__debugPatientsLoaded = pLoaded;
     window.__debugAppointments = appointments;
     window.__debugAuthReady = authReady;
     window.__debugUserId = userId;
-    // También podemos exponer el estado completo si es necesario
+    window.__debugEffectiveUserId = effectiveUserId;
     window.__debugState = {
       patients, pLoaded,
       appointments, aLoaded,
@@ -109,10 +99,10 @@ export function AppStateProvider({ children }) {
       services, svLoaded,
       authReady,
       userId,
+      effectiveUserId,
     };
   }
 
-  // ── Semáforos de carga ─────────────────────────────────────────────────
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
@@ -124,7 +114,6 @@ export function AppStateProvider({ children }) {
   const dataReady  = essentialDataLoaded;
   const dataLoaded = essentialDataLoaded;
 
-  // Timeout de seguridad (10s desde montaje)
   const timedOutRef = useRef(false);
   const [dataTimedOut, setDataTimedOut] = useState(false);
 
