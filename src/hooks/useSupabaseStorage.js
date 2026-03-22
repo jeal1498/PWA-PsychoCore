@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
-// v10-diagnostic: logs extendidos para ver el flujo de carga después de refresh
+// v11: Eliminada dependencia `initialValue` para evitar cancelaciones en cada render.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -30,9 +30,6 @@ export function useSupabaseStorage(key, initialValue, userId) {
 
   const table = TABLE_MAP[key];
 
-  // ── Log inicial para ver cómo se monta el hook
-  console.log(`[hook:${key}] Hook ejecutado con userId=${userId}, loaded inicial=${loaded}`);
-
   // ── Upsert a Supabase ─────────────────────────────────────────────────────
   const pushToSupabase = useCallback(async (uid, dataToSave) => {
     if (!uid || !table) return;
@@ -52,40 +49,32 @@ export function useSupabaseStorage(key, initialValue, userId) {
     }
   }, [key, table]);
 
-  // ── Carga inicial con logs detallados ─────────────────────────────────────────
+  // ── Carga inicial (sin `initialValue` en dependencias) ──────────────────
   useEffect(() => {
-    console.log(`[storage:${key}] useEffect: userId=${userId}, prevUserId=${prevUserId.current}, table=${table}`);
-
     if (!userId) {
       if (prevUserId.current !== null) {
-        console.log(`[storage:${key}] ESCENARIO B: logout/refresh detectado, reseteando estado`);
+        // Logout real
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
-        console.log(`[storage:${key}] loaded set to true (logout/reset)`);
       } else {
-        console.log(`[storage:${key}] ESCENARIO A: montaje sin userId, loaded=true`);
+        // Montaje sin sesión
         setLoaded(true);
       }
       return;
     }
 
     if (!table) {
-      console.log(`[storage:${key}] No table mapping, loaded=true`);
       setLoaded(true);
       return;
     }
-
-    // Tenemos userId y tabla
-    console.log(`[storage:${key}] INICIANDO FETCH para userId=${userId}`);
 
     let cancelled = false;
     prevUserId.current   = userId;
     userModified.current = false;
     setLoaded(false);
-    console.log(`[storage:${key}] loaded set to false (iniciando fetch)`);
 
     (async () => {
       try {
@@ -95,42 +84,29 @@ export function useSupabaseStorage(key, initialValue, userId) {
           .eq("psychologist_id", userId)
           .maybeSingle();
 
-        if (cancelled) {
-          console.log(`[storage:${key}] Fetch cancelado (cancelled=true)`);
-          return;
-        }
+        if (cancelled) return;
 
         if (error) {
-          console.warn(`[storage:${key}] Error cargando:`, error.message);
+          console.warn(`[storage] Error cargando ${key}:`, error.message);
           return;
         }
 
-        console.log(`[storage:${key}] Datos recibidos:`, data);
-
         if (data?.data !== null && data?.data !== undefined) {
-          console.log(`[storage:${key}] Asignando datos a value (${typeof data.data})`);
           setValue_(data.data);
-        } else {
-          console.log(`[storage:${key}] No se encontraron datos, usando initialValue`);
         }
       } catch (e) {
-        if (!cancelled) console.warn(`[storage:${key}] Excepción en fetch:`, e);
+        if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
       } finally {
-        if (!cancelled) {
-          setLoaded(true);
-          console.log(`[storage:${key}] FINALMENTE: loaded establecido a true`);
-        }
+        if (!cancelled) setLoaded(true);
       }
     })();
 
     return () => {
       cancelled = true;
-      console.log(`[storage:${key}] Cleanup: fetch cancelado, prevUserId no se resetea`);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key, table, initialValue]);
+  }, [userId, key, table]); // ✅ initialValue NO está aquí
 
-  // ── Guardado reactivo — debounced 800ms ───────────────────────────────────
+  // ── Guardado reactivo ────────────────────────────────────────────────────
   useEffect(() => {
     if (!loaded)               return;
     if (!userId)               return;
