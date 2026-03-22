@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/hooks/useSupabaseStorage.js
-// v11-diagnostic: muestra los datos recibidos para ver si están vacíos
+// v11: Eliminada dependencia `initialValue` para evitar cancelaciones.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
@@ -51,12 +51,14 @@ export function useSupabaseStorage(key, initialValue, userId) {
   useEffect(() => {
     if (!userId) {
       if (prevUserId.current !== null) {
+        // Logout real
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
       } else {
+        // Montaje sin sesión
         setLoaded(true);
       }
       return;
@@ -87,14 +89,8 @@ export function useSupabaseStorage(key, initialValue, userId) {
           return;
         }
 
-        // 👇 Mostrar qué devuelve Supabase
-        console.log(`[storage] ${key} → datos recibidos:`, data);
-
         if (data?.data !== null && data?.data !== undefined) {
           setValue_(data.data);
-          console.log(`[storage] ${key} → valor asignado (${Array.isArray(data.data) ? data.data.length : 'objeto'} elementos)`);
-        } else {
-          console.log(`[storage] ${key} → no hay datos, usando initialValue`);
         }
       } catch (e) {
         if (!cancelled) console.warn(`[storage] Excepción cargando ${key}:`, e);
