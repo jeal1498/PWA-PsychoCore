@@ -108,26 +108,45 @@ export function AppStateProvider({ children }) {
 
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
-  const [userId,    setUserId]    = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  // ── Auth — lectura sincrónica para arranque instantáneo ─────────────────
+  //
+  // Supabase guarda la sesión en localStorage bajo la clave
+  // "sb-<ref>-auth-token". Leerla de forma sincrónica permite que
+  // effectiveUserId ya tenga el userId real en el primer render,
+  // sin esperar a que getSession() resuelva (que añade ~500ms).
+  //
+  // getSession() sigue corriendo en background para validar/refrescar
+  // el token con el servidor y actualizar si hay cambios.
+  const getLocalSession = () => {
+    try {
+      const key = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
+      if (!key) return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.user?.id ?? null;
+    } catch { return null; }
+  };
+
+  const [userId,    setUserId]    = useState(() => getLocalSession());
+  const [authReady, setAuthReady] = useState(() => getLocalSession() !== null);
 
   useEffect(() => {
     let mounted = true;
 
     const initAuth = async () => {
       try {
-        // Timeout de 5s — si getSession() se cuelga (frecuente en OAuth redirect),
-        // forzar authReady=true para que el timer de datos pueda arrancar.
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("getSession timeout")), 5000)
         );
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
-        if (mounted) setUserId(session?.user?.id ?? null);
+        if (mounted) {
+          setUserId(session?.user?.id ?? null);
+          setAuthReady(true);
+        }
       } catch (err) {
         console.warn("[auth] getSession error/timeout:", err.message);
-        // En timeout, intentar recuperar sesión del listener onAuthStateChange
       } finally {
         if (mounted) setAuthReady(true);
       }
@@ -136,11 +155,17 @@ export function AppStateProvider({ children }) {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (mounted) {
-          setUserId(session?.user?.id ?? null);
-          setAuthReady(true); // Garantiza authReady=true tras OAuth redirect
-        }
+      (event, session) => {
+        if (!mounted) return;
+        // Ignorar INITIAL_SESSION — ya lo maneja getSession() arriba
+        if (event === "INITIAL_SESSION") return;
+        const newId = session?.user?.id ?? null;
+        // Solo actualizar si el userId cambió — evita re-mounts por token refresh
+        setUserId(prev => {
+          if (prev === newId) return prev;
+          return newId;
+        });
+        setAuthReady(true);
       }
     );
 
