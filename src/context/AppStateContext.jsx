@@ -176,6 +176,27 @@ export function AppStateProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    // onAuthStateChange se registra PRIMERO para no perder ningún evento
+    // que llegue mientras getSession() está en vuelo.
+    // TOKEN_REFRESHED es crítico en PWA: Supabase renueva el token silenciosamente
+    // y ese evento puede ser la única señal de que hay sesión activa en cold-start.
+    const SESSION_EVENTS = [
+      "INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT",
+      "TOKEN_REFRESHED", "USER_UPDATED",
+    ];
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+        if (!SESSION_EVENTS.includes(event)) return;
+        const newId = session?.user?.id ?? null;
+        setUserId(prev => prev === newId ? prev : newId);
+        setAuthReady(true);
+      }
+    );
+
+    // getSession() como respaldo: cubre el caso donde INITIAL_SESSION
+    // ya se disparó antes de que el componente montara.
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -190,16 +211,6 @@ export function AppStateProvider({ children }) {
     };
 
     initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        if (!["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) return;
-        const newId = session?.user?.id ?? null;
-        setUserId(prev => prev === newId ? prev : newId);
-        setAuthReady(true);
-      }
-    );
 
     return () => {
       mounted = false;
