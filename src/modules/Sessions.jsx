@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
-import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles, X, ShieldCheck, Download, FileCheck, ChevronRight } from "lucide-react";
+import { printNotaEvolucion, printConsentimientoInformado, printPlanSeguridad, printReferralLetter } from "../utils/pdfUtils.js";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
@@ -65,9 +66,10 @@ function blankStructured(formatId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PDF — note (structured-aware)
+// PDF — note (structured-aware) → MOVIDA a pdfUtils.js (printNotaEvolucion)
+// Se conserva este wrapper local para compatibilidad interna si fuera necesario.
 // ─────────────────────────────────────────────────────────────────────────────
-function printNote(session, patients) {
+function _legacyPrintNote_UNUSED(session, patients, riskAssessments = []) {
   const pt = patients.find(p => p.id === session.patientId);
   const fd = NOTE_FORMATS[session.noteFormat] || NOTE_FORMATS.libre;
   const w  = window.open("", "_blank");
@@ -83,6 +85,37 @@ function printNote(session, patients) {
   const fmtBadge = fd.id !== "libre"
     ? `<span style="padding:3px 12px;border-radius:9999px;background:${fd.bg};color:${fd.color};font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif">${fd.label}</span>`
     : "";
+
+  // ── ETAPA 3: Detección de indicadores de crisis para sección obligatoria PDF ─
+  // PRIVACIDAD: privateNotes NUNCA se incluyen. Solo la evaluación de riesgo
+  // se agrega cuando hubo indicadores de crisis (valor legal para el terapeuta).
+  const sessionRisk = (riskAssessments || []).find(ra => ra.sessionId === session.id);
+  const hasCrisisIndicators = sessionRisk && (
+    sessionRisk.suicidalIdeation === "activa" ||
+    sessionRisk.suicidalIdeation === "pasiva" ||
+    sessionRisk.selfHarm === "activa" ||
+    sessionRisk.harmToOthers
+  );
+  const RISK_CLR = { alto:"#C4622A", moderado:"#B8900A", bajo:"#4E8B5F", inminente:"#B85050" };
+  const riskSectionHTML = hasCrisisIndicators ? `
+    <div style="margin:28px 0;padding:20px 22px;background:rgba(184,80,80,0.05);border:2px solid rgba(184,80,80,0.25);border-radius:12px;page-break-inside:avoid">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#B85050;margin-bottom:14px">
+        ⚠️ Evaluación de Riesgo — Sección Obligatoria (Protección Legal del Terapeuta)
+      </div>
+      <div style="display:inline-flex;align-items:center;padding:3px 12px;border-radius:9999px;background:${(RISK_CLR[sessionRisk.riskLevel]||'#B8900A')}22;color:${(RISK_CLR[sessionRisk.riskLevel]||'#B8900A')};font-size:11px;font-weight:700;border:1px solid ${(RISK_CLR[sessionRisk.riskLevel]||'#B8900A')}44;margin-bottom:14px">
+        Nivel ${(sessionRisk.riskLevel||'—').toUpperCase()}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
+        <tr><td style="padding:5px 0;color:#5A7270;width:46%">Ideación suicida</td><td style="font-weight:600;color:#1A2B28;text-transform:capitalize">${sessionRisk.suicidalIdeation||'Ninguna'}</td></tr>
+        <tr><td style="padding:5px 0;color:#5A7270">Autolesiones</td><td style="font-weight:600;color:#1A2B28;text-transform:capitalize">${sessionRisk.selfHarm||'Ninguna'}</td></tr>
+        <tr><td style="padding:5px 0;color:#5A7270">Riesgo a terceros</td><td style="font-weight:600;color:#1A2B28">${sessionRisk.harmToOthers?'Sí':'No'}</td></tr>
+        ${sessionRisk.clinicalNotes?`<tr><td style="padding:5px 0;color:#5A7270;vertical-align:top">Notas clínicas de riesgo</td><td style="font-size:12.5px;line-height:1.6;color:#1A2B28">${sessionRisk.clinicalNotes}</td></tr>`:""}
+      </table>
+      <div style="font-size:11px;color:#9BAFAD;border-top:1px solid #EDF1F0;padding-top:10px">
+        Plan de seguridad: ${sessionRisk.safetyPlan?.warningSignals?"✓ Elaborado en esta sesión":"⚠ Pendiente de elaborar"} ·
+        Nota: Las Notas de Supervisión Privadas del terapeuta NO están incluidas en este documento.
+      </div>
+    </div>` : "";
 
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Nota — ${session.patientName}</title>
@@ -117,17 +150,19 @@ footer{margin-top:48px;padding-top:20px;border-top:1px solid #D8E2E0;font-size:1
   ${pt?.diagnosis ? `<div class="field"><label>Diagnóstico</label><p>${pt.diagnosis}</p></div>` : ""}
 </div>
 ${structuredHTML}
+${riskSectionHTML}
 ${(session.tags||[]).length ? `<div class="tags">${session.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>` : ""}
-<footer><span>PsychoCore</span><span>Documento confidencial</span></footer>
+<footer><span>PsychoCore</span><span>Confidencial · Notas de supervisión privadas excluidas de este documento</span></footer>
 </body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 500);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PDF — referral letter (unchanged)
+// PDF — referral letter → MOVIDA a pdfUtils.js (printReferralLetter)
+// Wrapper local preservado para no romper referencias internas si existieran.
 // ─────────────────────────────────────────────────────────────────────────────
-function printReferral(patient, session, profile, formData) {
+function _legacyPrintReferral_UNUSED(patient, session, profile, formData) {
   const w = window.open("","_blank");
   const today = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
@@ -582,7 +617,7 @@ function TaskResponseModal({ assignment, template, onClose }) {
 // CLINICAL REFERENCE PANEL — Fase 1: Cerebro Clínico
 // Columna lateral sticky (desktop) / Acordeón colapsable (mobile < 768px)
 // ─────────────────────────────────────────────────────────────────────────────
-function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile }) {
+function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile, riskAssessments = [], patients = [] }) {
   const [accordionOpen, setAccordionOpen] = useState(false);
 
   // ── Última nota de sesión del paciente (por fecha desc) ─────────────────────
@@ -611,6 +646,11 @@ function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile 
 
   if (!patientId) return null;
 
+  // ── ETAPA 3: Detectar riesgo activo persistido en el perfil del paciente ─────
+  const patientObj = patients.find(p => p.id === patientId);
+  const hasActiveRiskAlert = !!(patientObj?.activeRiskAlert);
+  const activeRiskData = patientObj?.activeRiskAlert || null;
+
   const GOAL_STATUS_CFG = {
     "activo":      { color: T.p,   bg: T.pA,   label: "Activo"      },
     "en progreso": { color: T.war, bg: T.warA,  label: "En progreso" },
@@ -621,6 +661,26 @@ function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile 
   // ── Contenido compartido del panel ──────────────────────────────────────────
   const panelContent = (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+      {/* ETAPA 3 — Banner de riesgo activo: visible antes de iniciar la sesión */}
+      {hasActiveRiskAlert && (
+        <div style={{
+          display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px",
+          background:"rgba(184,80,80,0.08)", border:"2px solid rgba(184,80,80,0.35)",
+          borderRadius:12, animation:"pulseRisk 2s ease-in-out infinite"
+        }}>
+          <ShieldAlert size={18} color="#B85050" style={{ flexShrink:0, marginTop:1 }}/>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:"#B85050", marginBottom:3 }}>
+              ⚠ Paciente con Riesgo Activo
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:11, color:"#B85050", lineHeight:1.5, opacity:0.9 }}>
+              Nivel {(activeRiskData?.level||"—").toUpperCase()} desde {activeRiskData?.date ? new Date(activeRiskData.date).toLocaleDateString("es-MX",{day:"numeric",month:"short"}) : "—"}.
+              Revisa el módulo Riesgo antes de iniciar.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Última sesión */}
       <div>
@@ -752,7 +812,192 @@ function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
+// HELPER — Folio correlativo por paciente (para portada de documentos PDF)
+// Orden cronológico: la sesión más antigua del paciente es la #1.
+// ─────────────────────────────────────────────────────────────────────────────
+function getSessionFolio(session, allSessions) {
+  const patientSessions = [...allSessions]
+    .filter(s => s.patientId === session.patientId)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const idx = patientSessions.findIndex(s => s.id === session.id);
+  return idx >= 0 ? idx + 1 : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ExportMenu — Menú flotante de exportación PDF por sesión
+// Diseño: cards con icon+label+descripción, hover colorido, badge de riesgo
+// ─────────────────────────────────────────────────────────────────────────────
+function ExportMenu({ session, patient, profile, riskAssessments, allSessions, noteFormats, onClose }) {
+  const folio       = getSessionFolio(session, allSessions);
+  const folioLabel  = folio ? `S-${String(folio).padStart(4, "0")}` : null;
+  const sessionRisk = riskAssessments?.find(ra => ra.sessionId === session.id);
+  const hasRisk     = !!(sessionRisk && (
+    sessionRisk.suicidalIdeation !== "ninguna" ||
+    sessionRisk.selfHarm         !== "ninguna" ||
+    sessionRisk.harmToOthers
+  ));
+  const riskLevel = sessionRisk?.riskLevel || "moderado";
+  const RISK_LABEL = { alto:"Alto", moderado:"Moderado", bajo:"Bajo", inminente:"Inminente" };
+
+  const items = [
+    {
+      icon:    FileText,
+      label:   "Nota de Evolución",
+      desc:    folioLabel ? `Folio ${folioLabel} · Formato ${session.noteFormat?.toUpperCase() || "Libre"}` : `Formato ${session.noteFormat?.toUpperCase() || "Libre"}`,
+      accent:  "#3A6B6E",
+      accentA: "rgba(58,107,110,0.10)",
+      border:  "rgba(58,107,110,0.22)",
+      badge:   null,
+      action:  () => { printNotaEvolucion(session, patient, profile, riskAssessments, folio, noteFormats); onClose(); },
+    },
+    {
+      icon:    FileCheck,
+      label:   "Consentimiento Informado",
+      desc:    "Pre-llenado con datos del paciente",
+      accent:  "#6B5B9E",
+      accentA: "rgba(107,91,158,0.10)",
+      border:  "rgba(107,91,158,0.22)",
+      badge:   null,
+      action:  () => { printConsentimientoInformado(patient, profile); onClose(); },
+    },
+    ...(hasRisk ? [{
+      icon:    ShieldCheck,
+      label:   "Plan de Seguridad",
+      desc:    `Para entregar al paciente antes de salir`,
+      accent:  "#B85050",
+      accentA: "rgba(184,80,80,0.09)",
+      border:  "rgba(184,80,80,0.28)",
+      badge:   `Riesgo ${RISK_LABEL[riskLevel] || riskLevel}`,
+      badgeClr:"#B85050",
+      action:  () => { printPlanSeguridad(sessionRisk?.safetyPlan, patient, profile, riskLevel); onClose(); },
+    }] : []),
+  ];
+
+  // Cerrar con Escape
+  const menuRef = useRef(null);
+
+  return (
+    <>
+      {/* Overlay transparente para cerrar al hacer clic fuera */}
+      <div
+        style={{ position:"fixed", inset:0, zIndex:199 }}
+        onClick={onClose}
+      />
+      <div
+        ref={menuRef}
+        style={{
+          position:"absolute", zIndex:200, bottom:"calc(100% + 6px)", right:0,
+          width:296, background:T.card,
+          borderRadius:16, border:`1.5px solid ${T.bdr}`,
+          boxShadow:"0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08)",
+          overflow:"hidden",
+        }}>
+        {/* Header del menú */}
+        <div style={{
+          padding:"11px 16px 10px",
+          background:T.pA,
+          borderBottom:`1px solid ${T.bdrL}`,
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+        }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <Download size={12} color={T.p}/>
+            <span style={{
+              fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.p,
+              textTransform:"uppercase", letterSpacing:"0.08em",
+            }}>
+              Exportar documento
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background:"none", border:"none", cursor:"pointer",
+              color:T.tl, width:22, height:22, borderRadius:6,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              transition:"background .12s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
+            onMouseLeave={e => e.currentTarget.style.background = "none"}>
+            <X size={13}/>
+          </button>
+        </div>
+
+        {/* Cards de acción */}
+        <div style={{ padding:"8px 8px 4px" }}>
+          {items.map((item, idx) => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              style={{
+                width:"100%", display:"flex", alignItems:"center", gap:12,
+                padding:"11px 12px", background:"none",
+                border:`1.5px solid transparent`,
+                borderRadius:11, cursor:"pointer", textAlign:"left",
+                transition:"all .14s", marginBottom:4,
+                fontFamily:T.fB,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = item.accentA;
+                e.currentTarget.style.borderColor = item.border;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "none";
+                e.currentTarget.style.borderColor = "transparent";
+              }}>
+              {/* Icon bubble */}
+              <div style={{
+                width:38, height:38, borderRadius:10, flexShrink:0,
+                background: item.accentA,
+                border:`1.5px solid ${item.border}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <item.icon size={17} color={item.accent} strokeWidth={1.8}/>
+              </div>
+
+              {/* Text */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
+                  <span style={{ fontSize:13.5, fontWeight:700, color:T.t, lineHeight:1.3 }}>
+                    {item.label}
+                  </span>
+                  {item.badge && (
+                    <span style={{
+                      padding:"1px 7px", borderRadius:9999, flexShrink:0,
+                      background:`${item.badgeClr}16`, color:item.badgeClr,
+                      border:`1px solid ${item.badgeClr}35`,
+                      fontSize:9.5, fontWeight:700, letterSpacing:"0.04em",
+                    }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize:11, color:T.tl, lineHeight:1.4 }}>{item.desc}</span>
+              </div>
+
+              <ChevronRight size={14} color={T.tl} style={{ flexShrink:0 }}/>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer — aviso si no hay riesgo */}
+        {!hasRisk && (
+          <div style={{
+            margin:"0 8px 8px",
+            padding:"8px 12px",
+            background:T.bdrL, borderRadius:8,
+            fontFamily:T.fB, fontSize:11, color:T.tl, lineHeight:1.5,
+            display:"flex", alignItems:"flex-start", gap:6,
+          }}>
+            <ShieldCheck size={13} color={T.tl} style={{ flexShrink:0, marginTop:1 }}/>
+            <span>Plan de Seguridad disponible cuando hay indicadores de riesgo activos en la sesión.</span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
@@ -770,7 +1015,17 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
   const [refForm,   setRefForm]   = useState({ reason:"", specialist:"", notes:"" });
   const [riskOpen,  setRiskOpen]  = useState(false);
   const [quickRisk, setQuickRisk] = useState(BLANK_RISK);
-  const [showTpl,   setShowTpl]   = useState(false);
+  const [showTpl,          setShowTpl]          = useState(false);
+  const [exportMenuId,     setExportMenuId]      = useState(null); // Etapa 4: id de sesión con menú export abierto
+
+  // ── ETAPA 3: Plan de Seguridad Wizard ────────────────────────────────────
+  const [showSafetyWizard,  setShowSafetyWizard]  = useState(false);
+  const [pendingRiskSave,   setPendingRiskSave]   = useState(null); // datos del riesgo detectado al guardar
+  const [safetyPlanDraft,   setSafetyPlanDraft]   = useState({
+    warningSignals:"", copingStrategies:"",
+    familyContact:"", familyPhone:"", professionalContact:"", professionalPhone:"",
+    reasonsToLive:"", environmentSafety:""
+  });
 
   // ── Tareas del paciente seleccionado ─────────────────────────────────────
   const [patientTasks,     setPatientTasks]     = useState([]);
@@ -1003,7 +1258,10 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
 
     // FASE 2 ── Finance Sync: abrir modal de cobro con monto precargado ───────
     if (setPayments) {
-      setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date, _agendaSynced: appointmentClosed });
+      setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date, _agendaSynced: appointmentClosed,
+        _session: { ...form, id: sessionId, patientName: pt?.name||"", notes: finalNotes, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean) },
+        _patient: pt || null,
+      });
       preloadCobroForPatient(pt);
       setShowCobro(true);
     } else {
@@ -1014,18 +1272,47 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       );
     }
 
+    // ── ETAPA 3: Protocolo de Riesgo y Alerta Clínica ──────────────────────────
     const hasRisk = quickRisk.suicidalIdeation !== "ninguna" || quickRisk.selfHarm !== "ninguna" || quickRisk.harmToOthers;
+    // Crisis crítica = requiere Wizard de Plan de Seguridad obligatorio
+    const isCrisis = quickRisk.suicidalIdeation === "activa" ||
+                     quickRisk.suicidalIdeation === "pasiva" ||
+                     quickRisk.selfHarm === "activa";
+
     if (hasRisk && setRiskAssessments) {
       const suggested = quickRisk.suicidalIdeation==="activa" ? "alto"
         : quickRisk.suicidalIdeation==="pasiva" || quickRisk.selfHarm==="activa" ? "moderado"
         : "bajo";
-      setRiskAssessments(prev => [...prev, { id:"ra"+uid(), patientId:form.patientId, patientName:pt?.name||"", sessionId, date:form.date, evaluatedBy:"session", ...quickRisk, hasPlan:false, hasMeans:false, hasIntent:false, previousAttempts:0, protectiveFactors:[], riskLevel:suggested, clinicalNotes:"", safetyPlan:{warningSignals:"",copingStrategies:"",supportContacts:"",professionalContacts:"",environmentSafety:"",reasonsToLive:""} }]);
-      // FASE 2 — disparar alerta si ideación es "activa" o "pasiva" (riesgo elevado real)
-      if (quickRisk.suicidalIdeation === "activa" || quickRisk.suicidalIdeation === "pasiva") {
-        emit.riskElevated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, level: suggested });
-      } else {
-        // también notificar para otros riesgos (autolesiones, terceros)
-        emit.riskElevated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, level: suggested });
+
+      const newRaId = "ra"+uid();
+      setRiskAssessments(prev => [...prev, {
+        id: newRaId, patientId:form.patientId, patientName:pt?.name||"", sessionId,
+        date: form.date, evaluatedBy:"session", ...quickRisk,
+        hasPlan:false, hasMeans:false, hasIntent:false, previousAttempts:0,
+        protectiveFactors:[], riskLevel:suggested, clinicalNotes:"",
+        safetyPlan:{ warningSignals:"",copingStrategies:"",supportContacts:"",
+          professionalContacts:"",environmentSafety:"",reasonsToLive:"" }
+      }]);
+
+      // ETAPA 3 — Persistencia de alerta en el objeto del paciente (Supabase via AppStateContext)
+      // El campo activeRiskAlert se guarda junto al paciente → survives reload/re-open.
+      // Se elimina solo cuando el terapeuta pulsa "Riesgo Mitigado" en Patients.jsx.
+      if (isCrisis && setPatients) {
+        setPatients(prev => prev.map(p => p.id === form.patientId
+          ? { ...p, activeRiskAlert: { level: suggested, date: form.date, sessionId, raId: newRaId } }
+          : p
+        ));
+      }
+
+      // FASE 2 — Event Bus: notificar a Dashboard / otros módulos
+      emit.riskElevated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, level: suggested });
+
+      // ETAPA 3 — Si es crisis: guardar datos y abrir Wizard antes de cerrar modal
+      if (isCrisis) {
+        setPendingRiskSave({ patientId: form.patientId, patientName: pt?.name||"", sessionId, raId: newRaId, level: suggested, date: form.date });
+        setSafetyPlanDraft({ warningSignals:"",copingStrategies:"",familyContact:"",familyPhone:"",professionalContact:"",professionalPhone:"",reasonsToLive:"",environmentSafety:"" });
+        setShowSafetyWizard(true);
+        // NO cerramos el modal principal todavía — el Wizard toma el control
       }
     }
     // Crear asignaciones en Supabase para cada plantilla seleccionada
@@ -1122,7 +1409,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           {toast.msg}
         </div>
       )}
-      <style>{`@keyframes fadeSlideUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
+      <style>{`@keyframes fadeSlideUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}} @keyframes pulseRisk{0%,100%{box-shadow:0 0 0 0 rgba(184,80,80,0.4)}50%{box-shadow:0 0 0 6px rgba(184,80,80,0.0)}}`}</style>
 
       <div style={{ marginBottom:20 }}>
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
@@ -1192,10 +1479,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
               </div>
 
               {/* Barra de acciones — separada con línea */}
-              <div style={{ borderTop:`1px solid ${T.bdrL}`, display:"flex", alignItems:"center", background:T.cardAlt }}>
+              <div style={{ borderTop:`1px solid ${T.bdrL}`, display:"flex", alignItems:"center", background:T.cardAlt, position:"relative" }}>
                 {[
                   { label:"Derivar",  icon:Send,    onClick:() => openReferral(s),          color:T.tm },
-                  { label:"PDF",      icon:Printer, onClick:() => printNote(s, patients),   color:T.tm },
+                  { label:"PDF",      icon:FileText, onClick:() => {
+                      const folio = getSessionFolio(s, sessions);
+                      printNotaEvolucion(s, patients.find(p => p.id === s.patientId), profile, riskAssessments, folio, NOTE_FORMATS);
+                    }, color:T.p },
                   { label:"Eliminar", icon:Trash2,  onClick:() => del(s.id),               color:T.err },
                 ].map(a => (
                   <button key={a.label} onClick={a.onClick}
@@ -1209,6 +1499,31 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
                     <a.icon size={13}/>{a.label}
                   </button>
                 ))}
+                {/* Exportar — menú desplegable */}
+                <button
+                  onClick={() => setExportMenuId(prev => prev === s.id ? null : s.id)}
+                  style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                    gap:5, padding:"9px 4px", background: exportMenuId === s.id ? T.pA : "none",
+                    border:"none", cursor:"pointer",
+                    fontFamily:T.fB, fontSize:11, fontWeight:500,
+                    color: exportMenuId === s.id ? T.p : T.tm,
+                    transition:"background .13s" }}
+                  onMouseEnter={e => { if (exportMenuId !== s.id) e.currentTarget.style.background=T.bdrL; }}
+                  onMouseLeave={e => { if (exportMenuId !== s.id) e.currentTarget.style.background="none"; }}>
+                  <Download size={13}/>Exportar
+                </button>
+                {/* Menú de exportación desplegable */}
+                {exportMenuId === s.id && (
+                  <ExportMenu
+                    session={s}
+                    patient={patients.find(p => p.id === s.patientId)}
+                    profile={profile}
+                    riskAssessments={riskAssessments}
+                    allSessions={sessions}
+                    noteFormats={NOTE_FORMATS}
+                    onClose={() => setExportMenuId(null)}
+                  />
+                )}
               </div>
             </Card>
           );
@@ -1225,6 +1540,8 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
             patientId={form.patientId}
             sessions={sessions}
             treatmentPlans={treatmentPlans}
+            riskAssessments={riskAssessments}
+            patients={patients}
             isMobile
           />
         )}
@@ -1468,9 +1785,21 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           )}
         </div>
 
-        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
-          <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
+        <div style={{ display:"flex", gap:10, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
+          {/* Etapa 4: botón de consentimiento informado rápido desde el formulario */}
+          {form.patientId && (
+            <button onClick={() => printConsentimientoInformado(patients.find(p => p.id === form.patientId), profile)}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px",
+                borderRadius:9, border:`1.5px solid rgba(107,91,158,0.35)`,
+                background:"rgba(107,91,158,0.06)", cursor:"pointer",
+                fontFamily:T.fB, fontSize:12, color:"#6B5B9E", fontWeight:600 }}>
+              <FileCheck size={13}/> Consentimiento Informado
+            </button>
+          )}
+          <div style={{ display:"flex", gap:10, marginLeft:"auto" }}>
+            <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
+            <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
+          </div>
         </div>
           </div>{/* ── fin columna formulario ── */}
 
@@ -1480,12 +1809,245 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
               patientId={form.patientId}
               sessions={sessions}
               treatmentPlans={treatmentPlans}
+              riskAssessments={riskAssessments}
+              patients={patients}
               isMobile={false}
             />
           )}
 
         </div>{/* ── fin grid wrapper ── */}
       </Modal>
+
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ETAPA 3 — Mini-Wizard de Plan de Seguridad
+          Se abre automáticamente cuando se detecta crisis al guardar la nota.
+          Propósito: documentar el plan de seguridad INMEDIATAMENTE tras la sesión.
+          Flujo: 3 pasos → (1) Señales de Advertencia (2) Estrategias (3) Contactos
+          Al completar → guarda en riskAssessments y genera PDF para el paciente.
+      ══════════════════════════════════════════════════════════════════════ */}
+      {showSafetyWizard && pendingRiskSave && (() => {
+        const RISK_CFG_LOCAL = {
+          alto:      { label:"Alto",     color:"#C4622A", bg:"rgba(196,98,42,0.10)"  },
+          moderado:  { label:"Moderado", color:"#B8900A", bg:"rgba(184,144,10,0.10)" },
+          bajo:      { label:"Bajo",     color:T.suc,     bg:T.sucA                  },
+          inminente: { label:"Inminente",color:T.err,     bg:T.errA                  },
+        };
+        const rc = RISK_CFG_LOCAL[pendingRiskSave.level] || RISK_CFG_LOCAL.moderado;
+        const ptObj = patients.find(p => p.id === pendingRiskSave.patientId);
+        const spld = k => v => setSafetyPlanDraft(d => ({...d,[k]:v}));
+
+        const saveSafetyPlan = (andClose) => {
+          if (!setRiskAssessments) return;
+          // Composición de safetyPlan en formato compatible con RiskAssessment.jsx
+          const sp = {
+            warningSignals:    safetyPlanDraft.warningSignals,
+            copingStrategies:  safetyPlanDraft.copingStrategies,
+            supportContacts:   safetyPlanDraft.familyContact
+              ? `${safetyPlanDraft.familyContact} — ${safetyPlanDraft.familyPhone}` : "",
+            professionalContacts: safetyPlanDraft.professionalContact
+              ? `${safetyPlanDraft.professionalContact} — ${safetyPlanDraft.professionalPhone}` : "",
+            reasonsToLive:     safetyPlanDraft.reasonsToLive,
+            environmentSafety: safetyPlanDraft.environmentSafety,
+          };
+          setRiskAssessments(prev => prev.map(ra =>
+            ra.id === pendingRiskSave.raId ? { ...ra, safetyPlan: sp, hasPlan: true } : ra
+          ));
+          if (andClose) { setShowSafetyWizard(false); setPendingRiskSave(null); }
+        };
+
+        const printSafetyPlanFromWizard = () => {
+          saveSafetyPlan(false);
+          const spForPdf = {
+            warningSignals:      safetyPlanDraft.warningSignals,
+            copingStrategies:    safetyPlanDraft.copingStrategies,
+            reasonsToLive:       safetyPlanDraft.reasonsToLive,
+            environmentSafety:   safetyPlanDraft.environmentSafety,
+            familyContact:       safetyPlanDraft.familyContact,
+            familyPhone:         safetyPlanDraft.familyPhone,
+            professionalContact: safetyPlanDraft.professionalContact,
+            professionalPhone:   safetyPlanDraft.professionalPhone,
+          };
+          printPlanSeguridad(spForPdf, ptObj, profile, pendingRiskSave.level);
+        };
+        // ── legacy inline conservado pero nunca alcanzado ── ↓ cierre de función se mantiene para no romper AST
+        const _legacy = () => {
+          const today = new Date().toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"});
+          const w = window.open("","_blank");
+          w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Plan de Seguridad — ${pendingRiskSave.patientName}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;max-width:720px;margin:40px auto;color:#1A2B28;font-size:13px;line-height:1.65}
+.header{border-bottom:3px solid #3A6B6E;padding-bottom:20px;margin-bottom:32px;display:flex;justify-content:space-between;align-items:flex-start}
+.header h1{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:#3A6B6E;margin-bottom:4px}
+.header p{font-size:12px;color:#5A7270}
+.risk-badge{padding:6px 16px;border-radius:9999px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:${rc.bg};color:${rc.color};border:1.5px solid ${rc.color}44}
+.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
+.info-box{background:#F9F8F5;padding:14px;border-radius:10px}
+.info-box label{display:block;font-size:10px;font-weight:700;color:#9BAFAD;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.info-box p{font-size:14px;font-weight:500}
+.warning{background:rgba(184,80,80,0.06);border:1px solid rgba(184,80,80,0.25);border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:12px;color:#B85050;font-weight:500}
+.section{margin-bottom:22px}
+.section-title{font-size:10px;font-weight:700;color:#9BAFAD;text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #EDF1F0}
+.section-body{background:#F9F8F5;padding:16px;border-radius:10px;border-left:4px solid #3A6B6E;font-size:13px;line-height:1.7;color:#1A2B28;white-space:pre-wrap;min-height:40px}
+.contacts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.contact-card{background:#F9F8F5;padding:14px 16px;border-radius:10px;border-left:4px solid #3A6B6E}
+.contact-card.urgency{border-left-color:#B85050}
+.contact-card label{font-size:10px;font-weight:700;color:#9BAFAD;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px}
+.contact-card strong{font-size:14px;display:block;margin-bottom:3px}
+.sig-area{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.sig-line{border-top:1px solid #1A2B28;padding-top:8px;margin-top:48px;font-size:12px;color:#5A7270}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid #D8E2E0;font-size:11px;color:#9BAFAD;display:flex;justify-content:space-between}
+@media print{body{margin:0}}
+</style></head><body>
+<div class="header">
+  <div><h1>Plan de Seguridad Personal</h1><p>${profile?.clinic||"Consultorio Psicológico"}${profile?.name?" · "+profile.name:""}${profile?.cedula?" · Céd. "+profile.cedula:""}</p></div>
+  <div class="risk-badge">Riesgo ${rc.label}</div>
+</div>
+<div class="info-grid">
+  <div class="info-box"><label>Paciente</label><p>${pendingRiskSave.patientName||"—"}</p></div>
+  <div class="info-box"><label>Fecha</label><p>${today}</p></div>
+  <div class="info-box"><label>Terapeuta</label><p>${profile?.name||"—"}</p></div>
+</div>
+<div class="warning">⚠️ Este plan fue elaborado ante la presencia de indicadores de riesgo. Úsalo cuando notes las señales de advertencia. Ante una crisis, contacta a las personas indicadas abajo o acude a urgencias.</div>
+<div class="section">
+  <div class="section-title">1. Señales de advertencia — Cuándo usar este plan</div>
+  <div class="section-body">${safetyPlanDraft.warningSignals||"No especificado"}</div>
+</div>
+<div class="section">
+  <div class="section-title">2. Estrategias de afrontamiento personal</div>
+  <div class="section-body">${safetyPlanDraft.copingStrategies||"No especificado"}</div>
+</div>
+${safetyPlanDraft.reasonsToLive ? `<div class="section"><div class="section-title">3. Razones para vivir / Motivos de esperanza</div><div class="section-body">${safetyPlanDraft.reasonsToLive}</div></div>` : ""}
+<div class="section">
+  <div class="section-title">4. Red de apoyo en crisis</div>
+  <div class="contacts">
+    ${safetyPlanDraft.familyContact ? `<div class="contact-card"><label>Contacto familiar / personal</label><strong>${safetyPlanDraft.familyContact}</strong><span>${safetyPlanDraft.familyPhone||"Sin teléfono"}</span></div>` : ""}
+    ${safetyPlanDraft.professionalContact ? `<div class="contact-card urgency"><label>Profesional de salud mental / crisis</label><strong>${safetyPlanDraft.professionalContact}</strong><span>${safetyPlanDraft.professionalPhone||""}</span></div>` : ""}
+    <div class="contact-card urgency"><label>Línea de crisis (México)</label><strong>SAPTEL: 55 5259-8121</strong><span>24 horas, los 365 días</span></div>
+    <div class="contact-card urgency"><label>Emergencias</label><strong>911</strong><span>Urgencias médicas y seguridad</span></div>
+  </div>
+</div>
+${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-title">5. Seguridad del entorno</div><div class="section-body">${safetyPlanDraft.environmentSafety}</div></div>` : ""}
+<div class="sig-area">
+  <div><div class="sig-line">Firma del paciente / Acuerdo verbal</div></div>
+  <div><div class="sig-line">${profile?.name||"Terapeuta"} · ${profile?.cedula?"Céd. "+profile.cedula:""}</div></div>
+</div>
+<footer><span>PsychoCore · Documento generado ${today}</span><span>Este plan es confidencial y de uso personal del paciente</span></footer>
+</body></html>`);
+          w.document.close(); setTimeout(()=>w.print(),500);
+        };
+
+        return (
+          <Modal open onClose={() => { setShowSafetyWizard(false); setPendingRiskSave(null); }} title="Plan de Seguridad — Elaborar ahora" width={560}>
+            {/* Banner de alerta */}
+            <div style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 16px",
+              background:rc.bg, border:`2px solid ${rc.color}44`, borderRadius:12, marginBottom:20 }}>
+              <ShieldAlert size={22} color={rc.color} style={{ flexShrink:0, marginTop:2 }}/>
+              <div>
+                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:rc.color, marginBottom:4 }}>
+                  Crisis detectada — Riesgo {rc.label}
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:12, color:rc.color, lineHeight:1.55, opacity:0.9 }}>
+                  Se registró un indicador de riesgo para <strong>{pendingRiskSave.patientName}</strong>.
+                  Completa el Plan de Seguridad ahora para entregárselo al paciente antes de que salga de sesión.
+                  Este plan también quedará en el expediente clínico.
+                </div>
+              </div>
+            </div>
+
+            {/* Paso 1: Señales de advertencia */}
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                letterSpacing:"0.07em", marginBottom:6 }}>
+                1 · Señales de advertencia — ¿Cuándo usar este plan?
+              </label>
+              <textarea value={safetyPlanDraft.warningSignals}
+                onChange={e => spld("warningSignals")(e.target.value)} rows={3}
+                placeholder="Ej. Cuando me aíslo de todos, cuando siento que nada tiene sentido, cuando el dolor se vuelve insoportable..."
+                style={{ width:"100%", padding:"12px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+                  fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, resize:"vertical",
+                  outline:"none", boxSizing:"border-box", lineHeight:1.65 }}/>
+            </div>
+
+            {/* Paso 2: Estrategias de afrontamiento */}
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                letterSpacing:"0.07em", marginBottom:6 }}>
+                2 · Estrategias de afrontamiento personal
+              </label>
+              <textarea value={safetyPlanDraft.copingStrategies}
+                onChange={e => spld("copingStrategies")(e.target.value)} rows={3}
+                placeholder="Ej. Respiración profunda, llamar a un amigo, salir a caminar, escuchar música, distracción con actividades..."
+                style={{ width:"100%", padding:"12px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+                  fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, resize:"vertical",
+                  outline:"none", boxSizing:"border-box", lineHeight:1.65 }}/>
+            </div>
+
+            {/* Paso 3: Contactos */}
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                letterSpacing:"0.07em", marginBottom:10 }}>
+                3 · Red de apoyo en crisis
+              </label>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                <div>
+                  <label style={{ display:"block", fontSize:11, color:T.tl, marginBottom:5 }}>Familiar / persona de confianza</label>
+                  <input value={safetyPlanDraft.familyContact} onChange={e => spld("familyContact")(e.target.value)}
+                    placeholder="Nombre" style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box", marginBottom:6 }}/>
+                  <input value={safetyPlanDraft.familyPhone} onChange={e => spld("familyPhone")(e.target.value)}
+                    placeholder="Teléfono" style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+                <div>
+                  <label style={{ display:"block", fontSize:11, color:T.tl, marginBottom:5 }}>Profesional / servicio de crisis</label>
+                  <input value={safetyPlanDraft.professionalContact} onChange={e => spld("professionalContact")(e.target.value)}
+                    placeholder="Nombre o servicio" style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box", marginBottom:6 }}/>
+                  <input value={safetyPlanDraft.professionalPhone} onChange={e => spld("professionalPhone")(e.target.value)}
+                    placeholder="Teléfono o extensión" style={{ width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+              </div>
+              {/* Líneas de crisis fijas — contexto México */}
+              <div style={{ padding:"10px 12px", background:"rgba(184,80,80,0.06)", borderRadius:9,
+                border:"1px solid rgba(184,80,80,0.2)", fontFamily:T.fB, fontSize:11.5, color:"#B85050" }}>
+                🆘 Pre-incluidos: <strong>SAPTEL 55 5259-8121</strong> (24h, gratuito) · <strong>911</strong> emergencias
+              </div>
+            </div>
+
+            {/* Razones para vivir (opcional) */}
+            <div style={{ marginBottom:20 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+                letterSpacing:"0.07em", marginBottom:6 }}>
+                4 · Razones para vivir <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
+              </label>
+              <textarea value={safetyPlanDraft.reasonsToLive}
+                onChange={e => spld("reasonsToLive")(e.target.value)} rows={2}
+                placeholder="Ej. Mi familia, mi mascota, mis sueños, querer ver crecer a mis hijos..."
+                style={{ width:"100%", padding:"12px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+                  fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, resize:"vertical",
+                  outline:"none", boxSizing:"border-box", lineHeight:1.65 }}/>
+            </div>
+
+            <div style={{ display:"flex", gap:10, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
+              <button onClick={printSafetyPlanFromWizard}
+                style={{ display:"flex", alignItems:"center", gap:7, padding:"10px 18px",
+                  borderRadius:10, border:`1.5px solid rgba(184,80,80,0.5)`,
+                  background:"rgba(184,80,80,0.08)", color:"#B85050",
+                  fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                <Printer size={14}/> Imprimir PDF para paciente
+              </button>
+              <div style={{ display:"flex", gap:8 }}>
+                <Btn variant="ghost" onClick={() => { setShowSafetyWizard(false); setPendingRiskSave(null); }}>
+                  Omitir por ahora
+                </Btn>
+                <Btn onClick={() => saveSafetyPlan(true)}>
+                  <Check size={14}/> Guardar plan
+                </Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ── Modal cobro post-sesión ─────────────────────────────────────── */}
       <Modal open={showCobro} onClose={skipCobro} title="Registrar cobro" width={420}>
@@ -1505,8 +2067,142 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
             </div>
           </div>
         )}
-        <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
-          ¿Deseas registrar el cobro ahora? El monto fue precargado según el perfil del paciente.
+        {/* ── Etapa 4: Sección de documentos para el paciente ──────────────── */}
+        {cobroData?._session && (() => {
+          const savedSession = cobroData._session;
+          const savedPatient = cobroData._patient;
+          const sessionRisk  = riskAssessments?.find(ra => ra.sessionId === savedSession.id);
+          const hasRisk      = !!(sessionRisk && (
+            sessionRisk.suicidalIdeation !== "ninguna" ||
+            sessionRisk.selfHarm !== "ninguna" ||
+            sessionRisk.harmToOthers
+          ));
+
+          const docItems = [
+            {
+              icon:   FileText,
+              label:  "Nota de Evolución",
+              hint:   `Formato ${savedSession.noteFormat?.toUpperCase() || "Libre"}`,
+              accent: "#3A6B6E",
+              accentA:"rgba(58,107,110,0.09)",
+              border: "rgba(58,107,110,0.22)",
+              action: () => {
+                const folio = getSessionFolio(savedSession, [...sessions, savedSession]);
+                printNotaEvolucion(savedSession, savedPatient, profile, riskAssessments, folio, NOTE_FORMATS);
+              },
+            },
+            {
+              icon:   FileCheck,
+              label:  "Consentimiento",
+              hint:   "Primera sesión",
+              accent: "#6B5B9E",
+              accentA:"rgba(107,91,158,0.09)",
+              border: "rgba(107,91,158,0.22)",
+              action: () => printConsentimientoInformado(savedPatient, profile),
+            },
+            ...(hasRisk ? [{
+              icon:   ShieldCheck,
+              label:  "Plan de Seguridad",
+              hint:   `Riesgo ${sessionRisk.riskLevel || "activo"}`,
+              accent: "#B85050",
+              accentA:"rgba(184,80,80,0.09)",
+              border: "rgba(184,80,80,0.28)",
+              urgent: true,
+              action: () => printPlanSeguridad(sessionRisk.safetyPlan, savedPatient, profile, sessionRisk.riskLevel),
+            }] : []),
+          ];
+
+          return (
+            <div style={{
+              marginBottom:20,
+              border:`1.5px solid ${T.bdr}`,
+              borderRadius:14, overflow:"hidden",
+            }}>
+              {/* Header de la sección */}
+              <div style={{
+                padding:"10px 16px",
+                background:`linear-gradient(135deg, ${T.pA} 0%, rgba(196,137,90,0.07) 100%)`,
+                borderBottom:`1px solid ${T.bdrL}`,
+                display:"flex", alignItems:"center", gap:8,
+              }}>
+                <Download size={13} color={T.p}/>
+                <span style={{
+                  fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p,
+                  textTransform:"uppercase", letterSpacing:"0.07em",
+                }}>
+                  Documentos para el paciente
+                </span>
+                <span style={{
+                  marginLeft:"auto", fontFamily:T.fB, fontSize:10.5,
+                  color:T.tl, fontWeight:400,
+                }}>
+                  Genera antes de que salga de consulta
+                </span>
+              </div>
+
+              {/* Cards de documentos */}
+              <div style={{
+                padding:"10px 10px 8px",
+                background:T.card,
+                display:"flex", flexDirection:"column", gap:6,
+              }}>
+                {docItems.map(doc => (
+                  <button
+                    key={doc.label}
+                    onClick={doc.action}
+                    style={{
+                      display:"flex", alignItems:"center", gap:11,
+                      padding:"11px 14px",
+                      background: doc.urgent ? doc.accentA : T.cardAlt,
+                      border:`1.5px solid ${doc.urgent ? doc.border : T.bdrL}`,
+                      borderRadius:10, cursor:"pointer", textAlign:"left",
+                      transition:"all .14s", fontFamily:T.fB,
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = doc.accentA;
+                      e.currentTarget.style.borderColor = doc.border;
+                      e.currentTarget.style.transform = "translateX(2px)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = doc.urgent ? doc.accentA : T.cardAlt;
+                      e.currentTarget.style.borderColor = doc.urgent ? doc.border : T.bdrL;
+                      e.currentTarget.style.transform = "translateX(0)";
+                    }}>
+                    <div style={{
+                      width:34, height:34, borderRadius:9, flexShrink:0,
+                      background:`${doc.accent}18`,
+                      border:`1.5px solid ${doc.accent}30`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                      <doc.icon size={16} color={doc.accent} strokeWidth={1.8}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:T.t, marginBottom:1 }}>
+                        {doc.label}
+                      </div>
+                      <div style={{ fontSize:11, color:doc.urgent ? doc.accent : T.tl }}>
+                        {doc.hint}
+                      </div>
+                    </div>
+                    <Printer size={14} color={doc.accent} style={{ flexShrink:0, opacity:0.7 }}/>
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer de la sección */}
+              <div style={{
+                padding:"8px 16px",
+                background:T.bdrL,
+                borderTop:`1px solid ${T.bdrL}`,
+                fontFamily:T.fB, fontSize:10.5, color:T.tl,
+                display:"flex", alignItems:"center", gap:5,
+              }}>
+                <Lock size={11} color={T.tl}/>
+                Notas de supervisión privadas excluidas de todos los documentos.
+              </div>
+            </div>
+          );
+        })()}
         </p>
         {getServiceOptions().length > 0 ? (
           <Select label="Servicio" value={cobroForm.serviceId} onChange={handleCobroService}
@@ -1612,7 +2308,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
             <Textarea label="Información clínica adicional" value={refForm.notes} onChange={rfld("notes")} placeholder="Tratamiento actual, observaciones para el especialista..." rows={3}/>
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
               <Btn variant="ghost" onClick={() => setReferral(null)}>Cancelar</Btn>
-              <Btn variant="accent" onClick={() => { printReferral(referral.patient, referral.session, profile, refForm); setReferral(null); }} disabled={!refForm.reason.trim()}>
+              <Btn variant="accent" onClick={() => { printReferralLetter(referral.patient, referral.session, profile, refForm); setReferral(null); }} disabled={!refForm.reason.trim()}>
                 <Printer size={14}/> Generar carta PDF
               </Btn>
             </div>
