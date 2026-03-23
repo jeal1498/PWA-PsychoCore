@@ -176,6 +176,10 @@ export function AppStateProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    // ── onAuthStateChange: ÚNICA fuente de verdad para auth ─────────────────
+    // setUserId y setAuthReady SOLO se llaman aquí, nunca en getSession().
+    // Supabase garantiza que INITIAL_SESSION se dispara siempre al montar,
+    // lo que cubre correctamente el caso de refresh con sesión activa.
     const SESSION_EVENTS = [
       "INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT",
       "TOKEN_REFRESHED", "USER_UPDATED",
@@ -183,39 +187,25 @@ export function AppStateProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("[DIAG] 🔔 onAuthStateChange →", event);
-        console.log("[DIAG] 👤 session del evento:", session);
+        console.log("[AUTH] event:", event);
+        console.log("[AUTH] session:", session);
         if (!mounted) return;
-        if (!SESSION_EVENTS.includes(event)) {
-          console.log("[DIAG] ⏭️  evento ignorado:", event);
-          return;
-        }
+        if (!SESSION_EVENTS.includes(event)) return;
         const newId = session?.user?.id ?? null;
-        console.log("[DIAG] 🆔 userId desde evento:", newId);
         setUserId(prev => prev === newId ? prev : newId);
-        setAuthReady(true);
-        console.log("[DIAG] ✅ authReady = true (vía onAuthStateChange)");
+        setAuthReady(true); // ✅ ÚNICO lugar donde se marca authReady
       }
     );
 
+    // ── getSession: solo informativo / diagnóstico ───────────────────────────
+    // NO modifica userId ni authReady. Su único rol es loguear el estado
+    // inicial de la sesión para debugging. El estado real lo maneja el listener.
     const initAuth = async () => {
-      console.log("[DIAG] 🔄 getSession() iniciando...");
       try {
-        const { data, error } = await supabase.auth.getSession();
-        console.log("[DIAG] 📦 getSession response:", data);
-        console.log("[DIAG] ❌ getSession error:", error);
-        const session = data?.session;
-        console.log("[DIAG] 👤 session.user:", session?.user ?? "null");
-        if (mounted) {
-          const uid = session?.user?.id ?? null;
-          console.log("[DIAG] 🆔 userId desde getSession:", uid);
-          setUserId(uid);
-          setAuthReady(true);
-          console.log("[DIAG] ✅ authReady = true (vía getSession)");
-        }
+        const { data } = await supabase.auth.getSession();
+        console.log("[AUTH] initial session:", data?.session);
       } catch (err) {
-        console.warn("[DIAG] 💥 Error en getSession:", err.message);
-        if (mounted) setAuthReady(true);
+        console.warn("[AUTH] getSession error:", err.message);
       }
     };
 
