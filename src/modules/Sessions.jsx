@@ -997,7 +997,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
   );
 }
 
- sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
