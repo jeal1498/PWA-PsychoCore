@@ -55,7 +55,10 @@ export default function App() {
     mp,
   } = useAppState();
 
-  // ── Estado local de App (auth + UI) ──────────────────────────────────────
+  // ── Log de diagnóstico ───────────────────────────────────────────────────
+  console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
+
+
   const [user,               setUser]               = useState(null);
   const [authLoading,        setAuthLoading]        = useState(true);
   const [psychologist,       setPsychologist]       = useState(null);
