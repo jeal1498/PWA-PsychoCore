@@ -192,20 +192,32 @@ export function AppStateProvider({ children }) {
         if (!mounted) return;
         if (!SESSION_EVENTS.includes(event)) return;
         const newId = session?.user?.id ?? null;
-        setUserId(prev => prev === newId ? prev : newId);
-        setAuthReady(true); // ✅ ÚNICO lugar donde se marca authReady
+        // Nunca sobrescribir un userId válido con null desde el listener:
+        // INITIAL_SESSION puede llegar con session=null en ciertos contextos
+        // de PWA aunque getSession() ya haya confirmado una sesión activa.
+        setUserId(prev => {
+          if (newId === null && prev !== null) return prev;
+          return newId;
+        });
+        setAuthReady(true);
       }
     );
 
-    // ── getSession: solo informativo / diagnóstico ───────────────────────────
-    // NO modifica userId ni authReady. Su único rol es loguear el estado
-    // inicial de la sesión para debugging. El estado real lo maneja el listener.
+    // ── getSession: fuente inicial confiable ─────────────────────────────────
+    // Establece el estado de sesión inmediatamente tras el refresh,
+    // antes de que onAuthStateChange tenga oportunidad de dispararse.
     const initAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
         console.log("[AUTH] initial session:", data?.session);
+        const initialUserId = data?.session?.user?.id ?? null;
+        if (mounted) {
+          setUserId(initialUserId);
+          setAuthReady(true);
+        }
       } catch (err) {
         console.warn("[AUTH] getSession error:", err.message);
+        if (mounted) setAuthReady(true);
       }
     };
 
