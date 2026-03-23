@@ -176,10 +176,6 @@ export function AppStateProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    // onAuthStateChange se registra PRIMERO para no perder ningún evento
-    // que llegue mientras getSession() está en vuelo.
-    // TOKEN_REFRESHED es crítico en PWA: Supabase renueva el token silenciosamente
-    // y ese evento puede ser la única señal de que hay sesión activa en cold-start.
     const SESSION_EVENTS = [
       "INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT",
       "TOKEN_REFRESHED", "USER_UPDATED",
@@ -187,25 +183,38 @@ export function AppStateProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("[DIAG] 🔔 onAuthStateChange →", event);
+        console.log("[DIAG] 👤 session del evento:", session);
         if (!mounted) return;
-        if (!SESSION_EVENTS.includes(event)) return;
+        if (!SESSION_EVENTS.includes(event)) {
+          console.log("[DIAG] ⏭️  evento ignorado:", event);
+          return;
+        }
         const newId = session?.user?.id ?? null;
+        console.log("[DIAG] 🆔 userId desde evento:", newId);
         setUserId(prev => prev === newId ? prev : newId);
         setAuthReady(true);
+        console.log("[DIAG] ✅ authReady = true (vía onAuthStateChange)");
       }
     );
 
-    // getSession() como respaldo: cubre el caso donde INITIAL_SESSION
-    // ya se disparó antes de que el componente montara.
     const initAuth = async () => {
+      console.log("[DIAG] 🔄 getSession() iniciando...");
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        console.log("[DIAG] 📦 getSession response:", data);
+        console.log("[DIAG] ❌ getSession error:", error);
+        const session = data?.session;
+        console.log("[DIAG] 👤 session.user:", session?.user ?? "null");
         if (mounted) {
-          setUserId(session?.user?.id ?? null);
+          const uid = session?.user?.id ?? null;
+          console.log("[DIAG] 🆔 userId desde getSession:", uid);
+          setUserId(uid);
           setAuthReady(true);
+          console.log("[DIAG] ✅ authReady = true (vía getSession)");
         }
       } catch (err) {
-        console.warn("[auth] Error en getSession:", err.message);
+        console.warn("[DIAG] 💥 Error en getSession:", err.message);
         if (mounted) setAuthReady(true);
       }
     };
