@@ -2203,7 +2203,6 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
             </div>
           );
         })()}
-        </p>
         {getServiceOptions().length > 0 ? (
           <Select label="Servicio" value={cobroForm.serviceId} onChange={handleCobroService}
             options={[{value:"",label:"Seleccionar servicio..."}, ...getServiceOptions().map(s => ({value:s.id, label:s.label}))]} />
