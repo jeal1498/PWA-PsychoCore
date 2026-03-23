@@ -752,7 +752,7 @@ function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [] }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
@@ -812,6 +812,35 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
   const [cobroForm, setCobroForm] = useState({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
   const [showCobroModality, setShowCobroModality] = useState(false);
 
+  // ── Toast de confirmación (Fase 2) ───────────────────────────────────────────
+  const [toast, setToast] = useState({ msg:"", type:"success", visible:false });
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type, visible:true });
+    setTimeout(() => setToast(t => ({ ...t, visible:false })), 4800);
+  };
+
+  // ── Folio correlativo numérico (mismo algoritmo que Finance.jsx) ─────────────
+  const nextFolio = () => {
+    const nums = (payments || []).map(p => Number(p.folio)).filter(n => !isNaN(n) && n > 0);
+    return nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  };
+
+  // ── Preload inteligente del servicio en modal cobro ──────────────────────────
+  // Prioridad: 1) defaultServiceId del paciente → 2) sessionCost del paciente
+  //            → 3) primer servicio tipo "sesion" → 4) primer servicio disponible
+  const preloadCobroForPatient = (pt) => {
+    if (pt?.defaultServiceId) {
+      const svc = services.find(s => s.id === pt.defaultServiceId);
+      if (svc) { handleCobroService(svc.id); return; }
+    }
+    if (pt?.sessionCost) {
+      setCobroForm(f => ({ ...f, amount: String(pt.sessionCost), concept:"Sesión individual" }));
+      return;
+    }
+    const fallback = services.find(s => s.type === "sesion") || services[0];
+    if (fallback) handleCobroService(fallback.id);
+  };
+
   const handleCobroService = (serviceId) => {
     const svc = services.find(s => s.id === serviceId);
     if (!svc) { setCobroForm(f => ({ ...f, serviceId, modality:"", amount:"", concept:"" })); return; }
@@ -836,25 +865,62 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
 
   const saveCobro = () => {
     if (!cobroData || !cobroForm.amount) return;
-    const { uid: uidFn } = { uid: () => Math.random().toString(36).slice(2, 9) };
-    const existingPayments = payments || [];
-    const folio = "F" + String(existingPayments.length + 1).padStart(4, "0");
-    setPayments(prev => [...prev, {
-      id: "p" + Math.random().toString(36).slice(2, 9),
+    const folio = nextFolio();
+    const payment = {
+      id: "p" + uid(),
       folio,
-      patientId: cobroData.patientId,
+      patientId:   cobroData.patientId,
       patientName: cobroData.patientName,
+      sessionId:   cobroData.sessionId,
+      date:        cobroData.date,
+      amount:      Number(cobroForm.amount),
+      concept:     cobroForm.concept || "Sesión",
+      method:      cobroForm.method,
+      modality:    cobroForm.modality,
+      status:      "pagado",
+    };
+    setPayments(prev => [...prev, payment]);
+
+    // FASE 2 — Event Bus: notificar al Dashboard para actualizar gráficas
+    emit.sessionFinalized({
+      patientId: cobroData.patientId,
       sessionId: cobroData.sessionId,
-      date: cobroData.date,
-      amount: Number(cobroForm.amount),
-      concept: cobroForm.concept || "Sesión",
-      method: cobroForm.method,
-      modality: cobroForm.modality,
-      status: "pagado",
-    }]);
+      amount:    payment.amount,
+      folio,
+      method:    payment.method,
+    });
+
     setShowCobro(false);
     setCobroData(null);
     setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
+
+    const agendaMsg = cobroData._agendaSynced ? " · 📅 Cita actualizada" : "";
+    showToast(`✓ Sesión guardada${agendaMsg} · 💰 Pago registrado (Folio ${folio})`);
+  };
+
+  // ── Omitir cobro → pago queda como "pendiente" en Finanzas ─────────────────
+  const skipCobro = () => {
+    if (!cobroData) { setShowCobro(false); return; }
+    const folio = nextFolio();
+    const pending = {
+      id:          "p" + uid(),
+      folio,
+      patientId:   cobroData.patientId,
+      patientName: cobroData.patientName,
+      sessionId:   cobroData.sessionId,
+      date:        cobroData.date,
+      amount:      0,
+      concept:     "Sesión (pendiente de cobro)",
+      method:      "",
+      modality:    "",
+      status:      "pendiente",
+    };
+    setPayments(prev => [...prev, pending]);
+    const agendaSkipMsg = cobroData?._agendaSynced ? " · 📅 Cita actualizada" : "";
+    setShowCobro(false);
+    setCobroData(null);
+    setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
+    showToast(`Sesión guardada${agendaSkipMsg} · ⏳ Cobro pendiente en Finanzas`, "warning");
   };
 
   const handleAISummary = async () => {
@@ -915,15 +981,39 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
     const sessionId = "s" + uid();
     const finalNotes = isStructured ? compileNotes(form.noteFormat, form.structured) : form.notes;
     setSessions(prev => [...prev, { ...form, id:sessionId, patientName:pt?.name||"", notes:finalNotes, tags:form.tags.split(",").map(t=>t.trim()).filter(Boolean) }]);
+
+    // FASE 2 ── Agenda Sync: cerrar automáticamente la cita del día ───────────
+    let appointmentClosed = false;
+    if (setAppointments && appointments.length > 0) {
+      const match = appointments.find(a =>
+        a.patientId === form.patientId &&
+        a.date      === form.date      &&
+        a.status    !== "completada"
+      );
+      if (match) {
+        setAppointments(prev =>
+          prev.map(a => a.id === match.id ? { ...a, status:"completada" } : a)
+        );
+        appointmentClosed = true;
+      }
+    }
+
     // FASE 2 — notificar al resto de la app que se creó una sesión
     emit.sessionCreated({ patientId: form.patientId, patientName: pt?.name||"", sessionId, date: form.date });
-    // Offer cobro after saving session
+
+    // FASE 2 ── Finance Sync: abrir modal de cobro con monto precargado ───────
     if (setPayments) {
-      setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date });
-      const defaultSvc = services.find(s => s.type === "sesion");
-      if (defaultSvc) handleCobroService(defaultSvc.id);
+      setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date, _agendaSynced: appointmentClosed });
+      preloadCobroForPatient(pt);
       setShowCobro(true);
+    } else {
+      // Sin módulo de cobro → toast inmediato
+      showToast(appointmentClosed
+        ? "✓ Sesión guardada · Cita marcada como completada"
+        : "✓ Sesión guardada correctamente"
+      );
     }
+
     const hasRisk = quickRisk.suicidalIdeation !== "ninguna" || quickRisk.selfHarm !== "ninguna" || quickRisk.harmToOthers;
     if (hasRisk && setRiskAssessments) {
       const suggested = quickRisk.suicidalIdeation==="activa" ? "alto"
@@ -1016,6 +1106,23 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           {taskError}
         </div>
       )}
+
+      {/* ── Toast de confirmación Fase 2 ───────────────────────────────────── */}
+      {toast.visible && (
+        <div style={{
+          position:"fixed", bottom:28, left:"50%", transform:"translateX(-50%)",
+          zIndex:600, display:"flex", alignItems:"center", gap:10,
+          background: toast.type === "warning" ? "#B8900A" : "#2D6A4F",
+          color:"#fff", padding:"13px 22px", borderRadius:14,
+          fontFamily:T.fB, fontSize:13.5, fontWeight:600,
+          boxShadow:"0 10px 30px rgba(0,0,0,0.25)", whiteSpace:"nowrap",
+          animation:"fadeSlideUp .3s ease",
+        }}>
+          <span style={{ fontSize:17 }}>{toast.type === "warning" ? "⚠️" : "✅"}</span>
+          {toast.msg}
+        </div>
+      )}
+      <style>{`@keyframes fadeSlideUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
 
       <div style={{ marginBottom:20 }}>
         <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
@@ -1381,9 +1488,25 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       </Modal>
 
       {/* ── Modal cobro post-sesión ─────────────────────────────────────── */}
-      <Modal open={showCobro} onClose={() => setShowCobro(false)} title="Registrar cobro" width={420}>
+      <Modal open={showCobro} onClose={skipCobro} title="Registrar cobro" width={420}>
+        {/* Resumen de la sesión guardada */}
+        {cobroData && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+            background:T.sucA, borderRadius:10, marginBottom:16, border:`1px solid ${T.suc}40` }}>
+            <span style={{ fontSize:18 }}>✅</span>
+            <div>
+              <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:T.suc }}>
+                Sesión guardada correctamente
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:1 }}>
+                {cobroData.patientName}
+                {cobroData._agendaSynced && <span style={{ marginLeft:8, color:T.suc }}>· 📅 Cita marcada como completada</span>}
+              </div>
+            </div>
+          </div>
+        )}
         <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
-          Sesión guardada. ¿Deseas registrar el cobro ahora?
+          ¿Deseas registrar el cobro ahora? El monto fue precargado según el perfil del paciente.
         </p>
         {getServiceOptions().length > 0 ? (
           <Select label="Servicio" value={cobroForm.serviceId} onChange={handleCobroService}
@@ -1422,7 +1545,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
             options={["Transferencia","Efectivo","Tarjeta","MercadoPago","PayPal"].map(m => ({value:m,label:m}))} />
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
-          <Btn variant="ghost" onClick={() => setShowCobro(false)}>Omitir</Btn>
+          <Btn variant="ghost" onClick={skipCobro}>Omitir (pendiente)</Btn>
           <Btn onClick={saveCobro} disabled={!cobroForm.amount}><Check size={15}/> Guardar cobro</Btn>
         </div>
       </Modal>
