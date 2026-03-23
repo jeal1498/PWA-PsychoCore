@@ -22,11 +22,155 @@ const FALLBACK_ESSENTIALS = ["pLoaded"];
 
 const AppStateContext = createContext(null);
 
-export function AppStateProvider({ children }) {
+// ── Valor shell: activo mientras auth no está lista o no hay sesión ───────────
+// Garantiza que cualquier consumidor de useAppState() tenga valores seguros
+// antes de que DataProvider se monte (p.ej. LockScreen, Onboarding).
+const noop = () => {};
+const EMPTY_DATA = {
+  patients: [], appointments: [], sessions: [], payments: [],
+  profile: DEFAULT_PROFILE, riskAssessments: [], scaleResults: [],
+  treatmentPlans: [], interSessions: [], medications: [], services: [],
+};
+function makeShellValue(authReady) {
+  return {
+    ...EMPTY_DATA,
+    setPatients: noop, setAppointments: noop, setSessions: noop,
+    setPayments: noop, setProfile: noop, setRiskAssessments: noop,
+    setScaleResults: noop, setTreatmentPlans: noop, setInterSessions: noop,
+    setMedications: noop, setServices: noop,
+    dataReady: false, dataLoaded: false, essentialDataLoaded: false,
+    dataTimedOut: false, authReady,
+    pLoaded: false, aLoaded: false, sLoaded: false, pyLoaded: false,
+    prLoaded: false, raLoaded: false, scLoaded: false, tpLoaded: false,
+    isLoaded: false, medLoaded: false, svLoaded: false,
+    allData: { ...EMPTY_DATA },
+    mp: {
+      patients: [], setPatients: noop,
+      appointments: [], setAppointments: noop,
+      sessions: [], setSessions: noop,
+      payments: [], setPayments: noop,
+      riskAssessments: [], setRiskAssessments: noop,
+      scaleResults: [], setScaleResults: noop,
+      treatmentPlans: [], setTreatmentPlans: noop,
+      interSessions: [], setInterSessions: noop,
+      medications: [], setMedications: noop,
+      services: [], setServices: noop,
+    },
+  };
+}
+
+// ── DataProvider ──────────────────────────────────────────────────────────────
+// SOLO se monta cuando userId es un string real y confirmado.
+// Esto garantiza que useSupabaseStorage NUNCA reciba userId = null,
+// eliminando el bug donde los loaders sobrescriben el estado con datos vacíos.
+function DataProvider({ userId, children }) {
   const bootModule = "dashboard";
   const requiredLoaderKeys = MODULE_ESSENTIALS[bootModule] ?? FALLBACK_ESSENTIALS;
 
-  const [userId, setUserId] = useState(null);
+  const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], userId);
+  const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], userId);
+  const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], userId);
+  const [payments,        setPayments,        pyLoaded]  = useSupabaseStorage("pc_payments",         [], userId);
+  const [profile,         setProfile,         prLoaded]  = useSupabaseStorage("pc_profile",          DEFAULT_PROFILE, userId);
+  const [riskAssessments, setRiskAssessments, raLoaded]  = useSupabaseStorage("pc_risk_assessments", [], userId);
+  const [scaleResults,    setScaleResults,    scLoaded]  = useSupabaseStorage("pc_scale_results",    [], userId);
+  const [treatmentPlans,  setTreatmentPlans,  tpLoaded]  = useSupabaseStorage("pc_treatment_plans",  [], userId);
+  const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   [], userId);
+  const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], userId);
+  const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
+
+  // Exponer para depuración en consola del navegador
+  if (typeof window !== "undefined") {
+    window.__debugPatients        = patients;
+    window.__debugPatientsLoaded  = pLoaded;
+    window.__debugAuthReady       = true;
+    window.__debugUserId          = userId;
+    window.__debugEffectiveUserId = userId;
+  }
+
+  const loaderMap = {
+    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+  };
+
+  const essentialDataLoaded = requiredLoaderKeys.every(k => loaderMap[k] === true);
+  const dataReady  = essentialDataLoaded;
+  const dataLoaded = essentialDataLoaded;
+
+  const timedOutRef = useRef(false);
+  const [dataTimedOut, setDataTimedOut] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!timedOutRef.current) {
+        timedOutRef.current = true;
+        setDataTimedOut(true);
+      }
+    }, 10000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const allData = useMemo(() => ({
+    patients, appointments, sessions, payments, profile,
+    riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services,
+  }), [patients, appointments, sessions, payments, profile,
+       riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services]);
+
+  const mp = useMemo(() => ({
+    patients,        setPatients,
+    appointments,    setAppointments,
+    sessions,        setSessions,
+    payments,        setPayments,
+    riskAssessments, setRiskAssessments,
+    scaleResults,    setScaleResults,
+    treatmentPlans,  setTreatmentPlans,
+    interSessions,   setInterSessions,
+    medications,     setMedications,
+    services,        setServices,
+  }), [patients, appointments, sessions, payments,
+       riskAssessments, scaleResults, treatmentPlans,
+       interSessions, medications, services]);
+
+  const value = useMemo(() => ({
+    patients,        setPatients,
+    appointments,    setAppointments,
+    sessions,        setSessions,
+    payments,        setPayments,
+    profile,         setProfile,
+    riskAssessments, setRiskAssessments,
+    scaleResults,    setScaleResults,
+    treatmentPlans,  setTreatmentPlans,
+    interSessions,   setInterSessions,
+    medications,     setMedications,
+    services,        setServices,
+    dataReady,
+    dataLoaded,
+    essentialDataLoaded,
+    dataTimedOut,
+    authReady: true,
+    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    allData,
+    mp,
+  }), [
+    mp, allData, profile,
+    dataReady, dataLoaded, essentialDataLoaded, dataTimedOut,
+    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+  ]);
+
+  return (
+    <AppStateContext.Provider value={value}>
+      {children}
+    </AppStateContext.Provider>
+  );
+}
+
+// ── AppStateProvider ──────────────────────────────────────────────────────────
+// Responsabilidad única: resolver auth y pasar userId a DataProvider.
+// DataProvider se monta solo cuando userId es un valor real — nunca con null.
+export function AppStateProvider({ children }) {
+  const [userId,    setUserId]    = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
@@ -63,133 +207,21 @@ export function AppStateProvider({ children }) {
     };
   }, []);
 
-  const effectiveUserId = authReady ? userId : null;
-
-  const [patients,        setPatients,        pLoaded]   = useSupabaseStorage("pc_patients",         [], effectiveUserId);
-  const [appointments,    setAppointments,    aLoaded]   = useSupabaseStorage("pc_appointments",     [], effectiveUserId);
-  const [sessions,        setSessions,        sLoaded]   = useSupabaseStorage("pc_sessions",         [], effectiveUserId);
-  const [payments,        setPayments,        pyLoaded]  = useSupabaseStorage("pc_payments",         [], effectiveUserId);
-  const [profile,         setProfile,         prLoaded]  = useSupabaseStorage("pc_profile",          DEFAULT_PROFILE, effectiveUserId);
-  const [riskAssessments, setRiskAssessments, raLoaded]  = useSupabaseStorage("pc_risk_assessments", [], effectiveUserId);
-  const [scaleResults,    setScaleResults,    scLoaded]  = useSupabaseStorage("pc_scale_results",    [], effectiveUserId);
-  const [treatmentPlans,  setTreatmentPlans,  tpLoaded]  = useSupabaseStorage("pc_treatment_plans",  [], effectiveUserId);
-  const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   [], effectiveUserId);
-  const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], effectiveUserId);
-  const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], effectiveUserId);
-
-  // Exponer para depuración
-  if (typeof window !== "undefined") {
-    window.__debugPatients = patients;
-    window.__debugPatientsLoaded = pLoaded;
-    window.__debugAuthReady = authReady;
-    window.__debugUserId = userId;
-    window.__debugEffectiveUserId = effectiveUserId;
+  // Auth no resuelta o sin sesión activa → shell vacío
+  if (!authReady || !userId) {
+    return (
+      <AppStateContext.Provider value={makeShellValue(authReady)}>
+        {children}
+      </AppStateContext.Provider>
+    );
   }
 
-  // Guard: si aún no hay sesión confirmada o userId es null, ningún loader
-  // puede considerarse "completado" — aunque useSupabaseStorage lo haya
-  // marcado true internamente corriendo con userId = null.
-  const isReadyToLoad = authReady && !!userId;
-
-  const loaderMap = {
-    pLoaded:   isReadyToLoad ? pLoaded   : false,
-    aLoaded:   isReadyToLoad ? aLoaded   : false,
-    sLoaded:   isReadyToLoad ? sLoaded   : false,
-    pyLoaded:  isReadyToLoad ? pyLoaded  : false,
-    prLoaded:  isReadyToLoad ? prLoaded  : false,
-    raLoaded:  isReadyToLoad ? raLoaded  : false,
-    scLoaded:  isReadyToLoad ? scLoaded  : false,
-    tpLoaded:  isReadyToLoad ? tpLoaded  : false,
-    isLoaded:  isReadyToLoad ? isLoaded  : false,
-    medLoaded: isReadyToLoad ? medLoaded : false,
-    svLoaded:  isReadyToLoad ? svLoaded  : false,
-  };
-
-  const essentialDataLoaded =
-    authReady && requiredLoaderKeys.every(k => loaderMap[k] === true);
-
-  const dataReady = essentialDataLoaded;
-  const dataLoaded = essentialDataLoaded;
-
-  const timedOutRef = useRef(false);
-  const [dataTimedOut, setDataTimedOut] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (!timedOutRef.current) {
-        timedOutRef.current = true;
-        setDataTimedOut(true);
-      }
-    }, 10000);
-    return () => clearTimeout(t);
-  }, []);
-
-  const allData = useMemo(() => ({
-    patients, appointments, sessions, payments, profile,
-    riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
-    services,
-  }), [patients, appointments, sessions, payments, profile,
-       riskAssessments, scaleResults, treatmentPlans, interSessions, medications,
-       services]);
-
-  const mp = useMemo(() => ({
-    patients, setPatients,
-    appointments, setAppointments,
-    sessions, setSessions,
-    payments, setPayments,
-    riskAssessments, setRiskAssessments,
-    scaleResults, setScaleResults,
-    treatmentPlans, setTreatmentPlans,
-    interSessions, setInterSessions,
-    medications, setMedications,
-    services, setServices,
-  }), [patients, appointments, sessions, payments,
-       riskAssessments, scaleResults, treatmentPlans,
-       interSessions, medications, services]);
-
-  const value = useMemo(() => ({
-    patients,        setPatients,
-    appointments,    setAppointments,
-    sessions,        setSessions,
-    payments,        setPayments,
-    profile,         setProfile,
-    riskAssessments, setRiskAssessments,
-    scaleResults,    setScaleResults,
-    treatmentPlans,  setTreatmentPlans,
-    interSessions,   setInterSessions,
-    medications,     setMedications,
-    services,        setServices,
-    dataReady,
-    dataLoaded,
-    essentialDataLoaded,
-    dataTimedOut,
-    authReady,
-    pLoaded:   loaderMap.pLoaded,
-    aLoaded:   loaderMap.aLoaded,
-    sLoaded:   loaderMap.sLoaded,
-    pyLoaded:  loaderMap.pyLoaded,
-    prLoaded:  loaderMap.prLoaded,
-    raLoaded:  loaderMap.raLoaded,
-    scLoaded:  loaderMap.scLoaded,
-    tpLoaded:  loaderMap.tpLoaded,
-    isLoaded:  loaderMap.isLoaded,
-    medLoaded: loaderMap.medLoaded,
-    svLoaded:  loaderMap.svLoaded,
-    allData,
-    mp,
-  }), [
-    mp, allData, profile,
-    dataReady, dataLoaded, essentialDataLoaded, dataTimedOut, authReady,
-    loaderMap.pLoaded,   loaderMap.aLoaded,  loaderMap.sLoaded,
-    loaderMap.pyLoaded,  loaderMap.prLoaded, loaderMap.raLoaded,
-    loaderMap.scLoaded,  loaderMap.tpLoaded, loaderMap.isLoaded,
-    loaderMap.medLoaded, loaderMap.svLoaded,
-  ]);
-
+  // Auth confirmada + userId real → montar DataProvider
+  // key={userId} fuerza remount completo si el usuario cambia de cuenta
   return (
-    <AppStateContext.Provider value={value}>
+    <DataProvider key={userId} userId={userId}>
       {children}
-    </AppStateContext.Provider>
+    </DataProvider>
   );
 }
 
