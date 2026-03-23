@@ -86,9 +86,23 @@ export function AppStateProvider({ children }) {
     window.__debugEffectiveUserId = effectiveUserId;
   }
 
+  // Guard: si aún no hay sesión confirmada o userId es null, ningún loader
+  // puede considerarse "completado" — aunque useSupabaseStorage lo haya
+  // marcado true internamente corriendo con userId = null.
+  const isReadyToLoad = authReady && !!userId;
+
   const loaderMap = {
-    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    pLoaded:   isReadyToLoad ? pLoaded   : false,
+    aLoaded:   isReadyToLoad ? aLoaded   : false,
+    sLoaded:   isReadyToLoad ? sLoaded   : false,
+    pyLoaded:  isReadyToLoad ? pyLoaded  : false,
+    prLoaded:  isReadyToLoad ? prLoaded  : false,
+    raLoaded:  isReadyToLoad ? raLoaded  : false,
+    scLoaded:  isReadyToLoad ? scLoaded  : false,
+    tpLoaded:  isReadyToLoad ? tpLoaded  : false,
+    isLoaded:  isReadyToLoad ? isLoaded  : false,
+    medLoaded: isReadyToLoad ? medLoaded : false,
+    svLoaded:  isReadyToLoad ? svLoaded  : false,
   };
 
   const essentialDataLoaded =
@@ -150,15 +164,26 @@ export function AppStateProvider({ children }) {
     essentialDataLoaded,
     dataTimedOut,
     authReady,
-    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    pLoaded:   loaderMap.pLoaded,
+    aLoaded:   loaderMap.aLoaded,
+    sLoaded:   loaderMap.sLoaded,
+    pyLoaded:  loaderMap.pyLoaded,
+    prLoaded:  loaderMap.prLoaded,
+    raLoaded:  loaderMap.raLoaded,
+    scLoaded:  loaderMap.scLoaded,
+    tpLoaded:  loaderMap.tpLoaded,
+    isLoaded:  loaderMap.isLoaded,
+    medLoaded: loaderMap.medLoaded,
+    svLoaded:  loaderMap.svLoaded,
     allData,
     mp,
   }), [
     mp, allData, profile,
     dataReady, dataLoaded, essentialDataLoaded, dataTimedOut, authReady,
-    pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    loaderMap.pLoaded,   loaderMap.aLoaded,  loaderMap.sLoaded,
+    loaderMap.pyLoaded,  loaderMap.prLoaded, loaderMap.raLoaded,
+    loaderMap.scLoaded,  loaderMap.tpLoaded, loaderMap.isLoaded,
+    loaderMap.medLoaded, loaderMap.svLoaded,
   ]);
 
   return (
