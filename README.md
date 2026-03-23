@@ -23,6 +23,7 @@ PWA de gestión clínica diseñada para psicólogos en práctica privada. Los da
 | **Entre Sesiones** | Registro de **contactos entre sesiones** (llamadas, WhatsApp, email, videollamada, crisis) y gestión del **historial de medicación** del paciente (categoría, dosis, prescriptor, estado activo/suspendido/completado). |
 | **Tareas Terapéuticas** | Asignación de tareas estructuradas a pacientes usando plantillas predefinidas por categoría. Envío por WhatsApp con enlace al Portal del Paciente. Seguimiento de respuestas y estado de completación desde el módulo del terapeuta. |
 | **Portal del Paciente** | Vista pública en `/p`: el paciente accede con su número de teléfono, completa las tareas asignadas y envía sus respuestas. No requiere cuenta ni instalación. |
+| **Reportes Clínicos** | Generación de informes psicológicos en PDF listos para imprimir. Tres tipos disponibles: **Evaluación Inicial** (motivo de consulta, diagnóstico, escalas y plan de tratamiento), **Alta Terapéutica** (resumen del proceso, objetivos logrados, evolución en escalas y recomendaciones) y **Derivación Extendida** (historial clínico completo con tratamiento previo y motivo de referencia). |
 | **Finanzas** | Registro de pagos, filtros por paciente y período, 3 métricas financieras clave. Integración con el catálogo de servicios para registrar pagos con tarifa predefinida. |
 | **Estadísticas** | Indicadores de actividad: sesiones por período, distribución de progreso y estados de ánimo, ingresos acumulados. |
 
@@ -31,17 +32,18 @@ PWA de gestión clínica diseñada para psicólogos en práctica privada. Los da
 | Módulo | Descripción |
 |--------|-------------|
 | **Servicios** | Catálogo de servicios del consultorio: nombre, tipo (individual, pareja, grupo, paquete, otro), modalidad (presencial/en línea/híbrida), precio y notas. Historial de precios por servicio. |
-| **Configuración** | Perfil del terapeuta (nombre, cédula, especialidad, consultorio), exportación a JSON y CSV, importación de backup, estado de suscripción / período de prueba. |
+| **Configuración** | Perfil del terapeuta (nombre, cédula, especialidad, teléfono, RFC, correo), exportación a JSON y CSV, importación de backup, estado de suscripción / período de prueba. El RFC se incluye automáticamente en los recibos de pago generados. |
 | **Lock Screen** | PIN de 4 dígitos con bloqueo por intentos fallidos (5 intentos / 30 seg). Soporte de teclado físico. |
+| **Modo oscuro** | Tres opciones: claro, oscuro y automático (sigue la preferencia del sistema operativo). |
 
 ---
 
 ## 🔐 Autenticación y acceso
 
-El acceso a la app requiere una cuenta de Google. Al iniciar sesión por primera vez se activa un **período de prueba de 30 días** sin restricciones.
+El acceso a la app requiere una cuenta de Google. Al iniciar sesión por primera vez se activa un **período de prueba de 30 días** sin restricciones. Un flujo de **onboarding** guía al psicólogo a completar su perfil antes de usar la aplicación.
 
 ```
-Login → Google OAuth (Supabase Auth) → Trial 30 días → Suscripción
+Login → Google OAuth (Supabase Auth) → Onboarding → Trial 30 días → Suscripción
 ```
 
 El estado de la suscripción y la fecha de vencimiento del trial son visibles desde **Configuración → Estado de suscripción**.
@@ -66,11 +68,11 @@ cd psychocore
 npm install
 
 # 3. Configurar variables de entorno
-cp .env.example .env.local
+cp .env.local.example .env.local
 # Editar .env.local con tu URL y clave anon de Supabase
 
 # 4. Aplicar el schema de Supabase
-# Abrir Supabase Dashboard → SQL Editor → ejecutar supabase_schema.sql
+# Abrir Supabase Dashboard → SQL Editor → ejecutar el schema incluido
 
 # 5. Iniciar servidor de desarrollo
 npm run dev
@@ -81,7 +83,7 @@ Abre [http://localhost:5173](http://localhost:5173) en tu navegador.
 ### Configurar Supabase
 
 1. Crear proyecto en [supabase.com](https://supabase.com)
-2. Ir a **SQL Editor** y ejecutar el contenido de `supabase_schema.sql`
+2. Ir a **SQL Editor** y ejecutar el schema de la base de datos
 3. Activar **Google como proveedor OAuth** en Authentication → Providers
 4. Copiar la `Project URL` y la `anon key` a `src/lib/supabase.js`
 
@@ -100,16 +102,8 @@ npm run lint      # Linting con ESLint
 
 ## 📦 Deploy en Vercel
 
-```bash
-# Instalar Vercel CLI
-npm install -g vercel
-
-# Deploy desde la raíz del proyecto
-vercel --prod
-```
-
-O desde la UI de Vercel:
-1. Importa el repositorio de GitHub
+Desde la UI de Vercel:
+1. Importar el repositorio de GitHub
 2. Framework: **Vite**
 3. Build command: `npm run build`
 4. Output directory: `dist`
@@ -134,10 +128,8 @@ psychocore/
 ├── scripts/
 │   └── generate-icons.mjs     # Generador de íconos PNG
 │
-├── supabase_schema.sql        # Schema completo con RLS
-│
 ├── src/
-│   ├── App.jsx                # Auth, routing, navegación
+│   ├── App.jsx                # Auth, routing, navegación, modo oscuro
 │   ├── main.jsx               # Entry point + Service Worker
 │   ├── theme.js               # Design tokens
 │   ├── utils.js               # Helpers: uid, fmt, fmtDate
@@ -152,8 +144,10 @@ psychocore/
 │   │   ├── LockScreen.jsx
 │   │   ├── GlobalSearch.jsx
 │   │   ├── NotificationBell.jsx
+│   │   ├── Onboarding.jsx       # Flujo de primer ingreso
+│   │   ├── SyncToast.jsx        # Indicador de sincronización en tiempo real
 │   │   └── ui/
-│   │       └── index.jsx      # Btn, Card, Modal, Input, Select, Badge…
+│   │       └── index.jsx        # Btn, Card, Modal, Input, Select, Badge…
 │   │
 │   ├── hooks/
 │   │   ├── useSupabaseStorage.js   # Hook genérico de lectura/escritura en Supabase
@@ -177,9 +171,9 @@ psychocore/
 │       ├── InterSessions.jsx  # Contactos entre sesiones + medicación
 │       ├── Tasks.jsx          # Tareas terapéuticas con plantillas
 │       ├── PatientPortal.jsx  # Vista pública /p (acceso por teléfono)
+│       ├── Reports.jsx        # Informes clínicos en PDF (evaluación, alta, derivación)
 │       ├── Finance.jsx
 │       ├── Stats.jsx
-│       ├── Reports.jsx
 │       └── Settings.jsx       # Perfil + Servicios + Backup + Suscripción
 │
 ├── index.html
@@ -311,9 +305,7 @@ Al crear una cita, el botón **"Cita recurrente"** permite configurar frecuencia
 
 ## 🛣️ Roadmap
 
-- [ ] Modo oscuro
 - [ ] Notificaciones push para recordatorio de citas (Web Push API)
-- [ ] Generación de informes psicológicos en PDF (evaluación inicial, alta, derivación completa)
 - [ ] Soporte multiusuario con perfiles independientes
 - [ ] Terapia de pareja y grupal (múltiples participantes por expediente)
 - [ ] Integración con Cal.com para agendamiento externo automatizado
