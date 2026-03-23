@@ -50,6 +50,7 @@ export default function App() {
     dataReady,
     dataLoaded,
     dataTimedOut,
+    authReady,
     allData,
     mp,
   } = useAppState();
@@ -268,7 +269,7 @@ export default function App() {
   };
 
   // ── Guards de renderizado ────────────────────────────────────────────────
-  if (authLoading) return (
+  if (authLoading || !authReady) return (
     <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.2)", borderTopColor:"#fff", animation:"spin .8s linear infinite" }}/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
