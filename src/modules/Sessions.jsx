@@ -1,10 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles, BookOpen, Target, History } from "lucide-react";
+import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles, BookOpen, Target } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
-import { OBJECTIVE_STATUS } from "./TreatmentPlan.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { emit } from "../lib/eventBus.js"; // FASE 2
@@ -581,324 +580,212 @@ function TaskResponseModal({ assignment, template, onClose }) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FASE 1 — CONTEXTO 360°
-// Configuración de horizontes (copia local para evitar dep circular con
-// TreatmentPlan que podría reexportar dinámicas internas en el futuro)
+// useIsDesktop — detecta breakpoint ≥768 px con listener reactivo
 // ─────────────────────────────────────────────────────────────────────────────
-const HORIZON_CFG = {
-  corto:   { label: "Corto plazo",   color: "var(--accent)",   bg: "var(--accent-a)"         },
-  mediano: { label: "Mediano plazo", color: "#5B8DB8",         bg: "rgba(91,141,184,0.10)"   },
-  largo:   { label: "Largo plazo",   color: "#6B5B9E",         bg: "rgba(107,91,158,0.10)"   },
-};
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 768
+  );
+  useEffect(() => {
+    const h = () => setDesktop(window.innerWidth >= 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return desktop;
+}
 
-// ── ContextPanel ──────────────────────────────────────────────────────────────
-// Panel de antecedentes clínicos visible dentro del modal de nueva nota.
-// Muestra: última nota de evolución + objetivos vigentes del plan activo.
-// Se auto-expande/colapsa según el paciente seleccionado.
 // ─────────────────────────────────────────────────────────────────────────────
-function ContextPanel({ patientId, sessions, treatmentPlans }) {
+// ClinicalReferencePanel — Panel de Referencia Clínica
+// Desktop: columna lateral sticky  |  Móvil: acordeón colapsable
+// ─────────────────────────────────────────────────────────────────────────────
+function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, mobile = false }) {
   const [open, setOpen] = useState(false);
-  const [tab,  setTab]  = useState("nota");
 
-  // Última sesión del paciente (excluye la que se está creando — no existe aún)
   const lastSession = useMemo(() => {
-    if (!patientId) return null;
-    return [...sessions]
+    return sessions
       .filter(s => s.patientId === patientId)
-      .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
-  }, [patientId, sessions]);
+      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  }, [sessions, patientId]);
 
-  // Plan de tratamiento activo más reciente
-  const activePlan = useMemo(() => {
-    if (!patientId || !treatmentPlans?.length) return null;
-    return [...treatmentPlans]
-      .filter(p => p.patientId === patientId && p.status === "activo")
-      .sort((a, b) => b.startDate.localeCompare(a.startDate))[0] ?? null;
-  }, [patientId, treatmentPlans]);
-
-  // Objetivos que aún no están logrados ni abandonados
-  const activeObjectives = useMemo(() =>
-    (activePlan?.objectives ?? []).filter(
-      o => o.status !== "logrado" && o.status !== "abandonado"
-    ),
-    [activePlan]
+  const plan = useMemo(() =>
+    treatmentPlans.find(tp => tp.patientId === patientId),
+    [treatmentPlans, patientId]
   );
 
-  // Auto-expand al cambiar de paciente; elegir el tab más útil
-  useEffect(() => {
-    if (!patientId) { setOpen(false); return; }
-    const hasNote = !!lastSession;
-    const hasPlan = activeObjectives.length > 0 || !!activePlan;
-    if (!hasNote && !hasPlan) { setOpen(false); return; }
-    setOpen(true);
-    setTab(!hasNote && hasPlan ? "plan" : "nota");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
+  const activeGoals = useMemo(() => {
+    if (!plan?.goals) return [];
+    return plan.goals.filter(g =>
+      !["completado","abandonado","completed","archived"].includes((g.status||"").toLowerCase())
+    );
+  }, [plan]);
 
-  const hasData = !!lastSession || !!activePlan;
-  if (!patientId || !hasData) return null;
+  const hasContent = lastSession || activeGoals.length > 0;
+  if (!hasContent) return null;
 
-  // Preview de la nota anterior
-  const notePreview = (() => {
-    if (!lastSession) return "";
-    const isStructured = lastSession.noteFormat && lastSession.noteFormat !== "libre" && lastSession.structured;
-    if (isStructured) {
-      const fd = NOTE_FORMATS[lastSession.noteFormat];
-      const first = fd?.fields?.[0];
-      return first ? (lastSession.structured[first.key] || "") : lastSession.notes;
-    }
-    return lastSession.notes || "";
-  })();
+  // ── Contenido compartido ───────────────────────────────────────────────────
+  const PanelContent = () => (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
 
-  const noteFormatCfg = (lastSession?.noteFormat && lastSession.noteFormat !== "libre")
-    ? NOTE_FORMATS[lastSession.noteFormat]
-    : null;
+      {/* ── Última nota de evolución ─────────────────────────────────────── */}
+      {lastSession && (() => {
+        const fd = NOTE_FORMATS[lastSession.noteFormat];
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+              <FileText size={13} color={T.p}/>
+              <span style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                Última nota
+              </span>
+              <span style={{ fontFamily:T.fB, fontSize:10, color:T.tl }}>
+                {fmtDate(lastSession.date)}
+              </span>
+              {fd && fd.id !== "libre" && (
+                <span style={{ padding:"1px 6px", borderRadius:9999, background:fd.bg, color:fd.color, fontSize:9, fontWeight:700, fontFamily:T.fB, letterSpacing:"0.04em" }}>
+                  {fd.label}
+                </span>
+              )}
+            </div>
 
-  const inProgressCount = activeObjectives.filter(o => o.status === "en_proceso").length;
+            {/* Nota estructurada */}
+            {fd?.fields && lastSession.structured ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {fd.fields.map(f => lastSession.structured[f.key] ? (
+                  <div key={f.key} style={{ borderLeft:`2.5px solid ${fd.color}60`, paddingLeft:8 }}>
+                    <div style={{ fontFamily:T.fB, fontSize:9.5, fontWeight:700, color:fd.color, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:3 }}>{f.key}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.t, lineHeight:1.55,
+                      display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                      {lastSession.structured[f.key]}
+                    </div>
+                  </div>
+                ) : null)}
+              </div>
+            ) : (
+              <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.t, lineHeight:1.6,
+                display:"-webkit-box", WebkitLineClamp:5, WebkitBoxOrient:"vertical", overflow:"hidden",
+                background:T.cardAlt, borderRadius:9, padding:"10px 12px", border:`1px solid ${T.bdrL}` }}>
+                {lastSession.notes || "Sin contenido"}
+              </div>
+            )}
 
-  return (
-    <div style={{
-      border:       `1.5px solid ${open ? T.p + "40" : T.bdr}`,
-      borderRadius: 14,
-      overflow:     "hidden",
-      marginBottom: 16,
-      transition:   "border-color .2s",
-    }}>
-      {/* Toggle header */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "space-between",
-          width:          "100%",
-          padding:        "11px 16px",
-          background:     open ? T.pA : T.cardAlt,
-          border:         "none",
-          cursor:         "pointer",
-          transition:     "background .18s",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <BookOpen size={14} color={open ? T.p : T.tm} strokeWidth={1.8}/>
-          <span style={{
-            fontFamily: T.fB, fontSize: 11, fontWeight: 700,
-            color: open ? T.p : T.tm, textTransform: "uppercase", letterSpacing: "0.07em",
-          }}>
-            Contexto clínico
-          </span>
-          {lastSession && (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              padding: "1px 7px", borderRadius: 9999,
-              background: T.bdrL, color: T.tm, fontFamily: T.fB, fontSize: 10, fontWeight: 600,
-            }}>
-              <History size={9}/>última nota
+            {/* Badges estado */}
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:8 }}>
+              {lastSession.mood && (
+                <span style={{ padding:"2px 8px", borderRadius:9999, background:T.pA, fontFamily:T.fB, fontSize:10, fontWeight:600, color:T.p }}>
+                  {lastSession.mood}
+                </span>
+              )}
+              {lastSession.progress && (() => {
+                const ps = progressStyle(lastSession.progress);
+                return (
+                  <span style={{ padding:"2px 8px", borderRadius:9999, background:ps.bg, fontFamily:T.fB, fontSize:10, fontWeight:600, color:ps.c }}>
+                    {lastSession.progress}
+                  </span>
+                );
+              })()}
+              {lastSession.duration && (
+                <span style={{ padding:"2px 8px", borderRadius:9999, background:T.bdrL, fontFamily:T.fB, fontSize:10, color:T.tl }}>
+                  {lastSession.duration} min
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Objetivos del Plan de Tratamiento ───────────────────────────── */}
+      {activeGoals.length > 0 && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+            <Target size={13} color="#5B8DB8"/>
+            <span style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:"#5B8DB8", textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              Objetivos vigentes
             </span>
-          )}
-          {activeObjectives.length > 0 && (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 4,
-              padding: "1px 7px", borderRadius: 9999,
-              background: inProgressCount > 0 ? T.warA : T.sucA,
-              color: inProgressCount > 0 ? T.war : T.suc,
-              fontFamily: T.fB, fontSize: 10, fontWeight: 700,
-            }}>
-              <Target size={9}/>
-              {activeObjectives.length} objetivo{activeObjectives.length !== 1 ? "s" : ""}
+            <span style={{ padding:"1px 6px", borderRadius:9999, background:"rgba(91,141,184,0.12)", fontFamily:T.fB, fontSize:9.5, fontWeight:700, color:"#5B8DB8" }}>
+              {activeGoals.length}
             </span>
-          )}
-        </div>
-        <ChevronDown
-          size={14} color={T.tl} strokeWidth={2}
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s", flexShrink: 0 }}
-        />
-      </button>
-
-      {/* Body */}
-      {open && (
-        <div style={{ background: T.card }}>
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 4, padding: "10px 14px 0", borderBottom: `1px solid ${T.bdrL}` }}>
-            {[
-              { id: "nota", icon: History, label: "Última nota",   disabled: !lastSession },
-              { id: "plan", icon: Target,  label: "Plan de trat.", disabled: !activePlan  },
-            ].map(({ id, icon: Icon, label, disabled }) => {
-              const active = tab === id;
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {activeGoals.slice(0, 6).map((goal, i) => {
+              const desc = goal.description || goal.title || goal.objective || goal.text || `Objetivo ${i+1}`;
+              const status = goal.status || "activo";
               return (
-                <button key={id} onClick={() => !disabled && setTab(id)} disabled={disabled}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 5,
-                    padding: "7px 12px", background: "none", border: "none",
-                    borderBottom: active ? `2px solid ${T.p}` : "2px solid transparent",
-                    marginBottom: -1, cursor: disabled ? "not-allowed" : "pointer",
-                    fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 500,
-                    color: disabled ? T.bdr : active ? T.p : T.tm,
-                    transition: "all .15s", opacity: disabled ? 0.4 : 1,
-                  }}>
-                  <Icon size={12} strokeWidth={active ? 2.2 : 1.8}/>{label}
-                </button>
+                <div key={goal.id || i}
+                  style={{ padding:"9px 11px", borderRadius:10, background:"rgba(91,141,184,0.05)",
+                    border:"1px solid rgba(91,141,184,0.18)", position:"relative", overflow:"hidden" }}>
+                  <div style={{ position:"absolute", left:0, top:0, bottom:0, width:3, background:"#5B8DB8", borderRadius:"0 0 0 0" }}/>
+                  <div style={{ paddingLeft:4 }}>
+                    <div style={{ fontFamily:T.fB, fontSize:12.5, fontWeight:500, color:T.t, lineHeight:1.45, marginBottom:3 }}>
+                      {desc}
+                    </div>
+                    <div style={{ fontFamily:T.fB, fontSize:10, color:"#5B8DB8", fontWeight:600, textTransform:"capitalize" }}>
+                      {status}
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </div>
-
-          {/* ── Tab: Última nota ─────────────────────────────────────── */}
-          {tab === "nota" && lastSession && (
-            <div style={{ padding: "14px 16px" }}>
-              {/* Meta */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm }}>
-                  {fmtDate(lastSession.date)}
-                </span>
-                <span style={{ color: T.bdr }}>·</span>
-                <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>{lastSession.duration} min</span>
-                {noteFormatCfg && (
-                  <span style={{
-                    padding: "1px 8px", borderRadius: 9999,
-                    background: noteFormatCfg.bg, color: noteFormatCfg.color,
-                    fontFamily: T.fB, fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                  }}>{noteFormatCfg.label}</span>
-                )}
-                {lastSession.progress && (() => {
-                  const ps = progressStyle(lastSession.progress);
-                  return <Badge color={ps.c} bg={ps.bg}>{lastSession.progress}</Badge>;
-                })()}
+            {activeGoals.length > 6 && (
+              <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, textAlign:"center", paddingTop:2 }}>
+                +{activeGoals.length - 6} objetivos más en Plan de Tratamiento
               </div>
-
-              {/* Contenido — read-only */}
-              {lastSession.noteFormat && lastSession.noteFormat !== "libre" && lastSession.structured
-                ? (
-                  <div style={{ border: `1px solid ${T.bdrL}`, borderRadius: 10, overflow: "hidden" }}>
-                    {NOTE_FORMATS[lastSession.noteFormat]?.fields?.map((f, idx, arr) => {
-                      const val = lastSession.structured[f.key];
-                      if (!val?.trim()) return null;
-                      return (
-                        <div key={f.key} style={{ borderBottom: idx < arr.length - 1 ? `1px solid ${T.bdrL}` : "none" }}>
-                          <div style={{ padding: "5px 12px 3px", background: NOTE_FORMATS[lastSession.noteFormat]?.bg }}>
-                            <span style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: NOTE_FORMATS[lastSession.noteFormat]?.color, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                              {f.label}
-                            </span>
-                          </div>
-                          <p style={{
-                            margin: 0, padding: "8px 12px 10px", fontFamily: T.fB, fontSize: 12.5,
-                            color: T.tm, lineHeight: 1.65, background: T.cardAlt,
-                            display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
-                            overflow: "hidden", whiteSpace: "pre-wrap",
-                          }}>{val}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ padding: "10px 14px", background: T.cardAlt, borderRadius: 10, border: `1px solid ${T.bdrL}` }}>
-                    <p style={{
-                      margin: 0, fontFamily: T.fB, fontSize: 12.5, color: T.tm, lineHeight: 1.7,
-                      display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical",
-                      overflow: "hidden", whiteSpace: "pre-wrap",
-                    }}>{notePreview || "Sin contenido registrado."}</p>
-                  </div>
-                )
-              }
-
-              {/* Tags */}
-              {(lastSession.tags || []).length > 0 && (
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-                  {lastSession.tags.map(tag => (
-                    <Badge key={tag} color={T.acc} bg={T.accA}><Tag size={9}/>{tag}</Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Tab: Plan de tratamiento ─────────────────────────────── */}
-          {tab === "plan" && (
-            <div style={{ padding: "14px 16px" }}>
-              {/* Plan info bar */}
-              {activePlan && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
-                  padding: "8px 12px", background: T.cardAlt, borderRadius: 10,
-                  border: `1px solid ${T.bdrL}`, flexWrap: "wrap",
-                }}>
-                  <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>
-                    Inicio: <strong style={{ color: T.tm }}>{fmtDate(activePlan.startDate)}</strong>
-                  </span>
-                  {activePlan.modality && (
-                    <><span style={{ color: T.bdr }}>·</span>
-                    <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{activePlan.modality}</span></>
-                  )}
-                  {activePlan.therapeuticApproach && (
-                    <><span style={{ color: T.bdr }}>·</span>
-                    <span style={{ fontFamily: T.fB, fontSize: 11, color: T.p, fontWeight: 600, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {activePlan.therapeuticApproach}
-                    </span></>
-                  )}
-                  {activePlan.objectives?.length > 0 && (() => {
-                    const total = activePlan.objectives.length;
-                    const done  = activePlan.objectives.filter(o => o.status === "logrado").length;
-                    return (
-                      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: T.fB, fontSize: 10, color: T.tl }}>{done}/{total}</span>
-                        <div style={{ width: 56, height: 4, borderRadius: 9999, background: T.bdrL, overflow: "hidden" }}>
-                          <div style={{ width: `${Math.round((done/total)*100)}%`, height: "100%", background: T.suc, borderRadius: 9999, transition: "width .3s" }}/>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {activeObjectives.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "20px 0", fontFamily: T.fB, fontSize: 13, color: T.tl }}>
-                  {activePlan ? "Todos los objetivos están logrados 🎉" : "Sin plan de tratamiento activo."}
-                </div>
-              ) : (
-                ["corto", "mediano", "largo"].map(hz => {
-                  const group = activeObjectives.filter(o => o.horizon === hz);
-                  if (!group.length) return null;
-                  const hzCfg = HORIZON_CFG[hz];
-                  return (
-                    <div key={hz} style={{ marginBottom: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: hzCfg.color, display: "inline-block", flexShrink: 0 }}/>
-                        <span style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: hzCfg.color, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                          {hzCfg.label}
-                        </span>
-                      </div>
-                      {group.map(obj => {
-                        const st = OBJECTIVE_STATUS[obj.status] ?? OBJECTIVE_STATUS.pendiente;
-                        return (
-                          <div key={obj.id} style={{
-                            display: "flex", alignItems: "flex-start", gap: 8,
-                            padding: "9px 12px", background: T.cardAlt, borderRadius: 10,
-                            border: `1px solid ${T.bdrL}`, marginBottom: 5,
-                          }}>
-                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: st.color, flexShrink: 0, marginTop: 5 }}/>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ margin: "0 0 4px", fontFamily: T.fB, fontSize: 12.5, color: T.t, lineHeight: 1.55 }}>
-                                {obj.description}
-                              </p>
-                              <span style={{ display: "inline-block", padding: "1px 7px", borderRadius: 9999, background: st.bg, color: st.color, fontFamily: T.fB, fontSize: 10, fontWeight: 700 }}>
-                                {st.label}
-                              </span>
-                              {obj.interventions && (
-                                <p style={{ margin: "5px 0 0", fontFamily: T.fB, fontSize: 11.5, color: T.tl, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                  {obj.interventions}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
+
+      {/* ── Sin plan registrado ──────────────────────────────────────────── */}
+      {!plan && (
+        <div style={{ padding:"10px 12px", borderRadius:9, background:T.bdrL, fontFamily:T.fB, fontSize:11.5, color:T.tl, display:"flex", alignItems:"center", gap:7 }}>
+          <BookOpen size={12}/>
+          Sin plan de tratamiento registrado
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Móvil: acordeón ───────────────────────────────────────────────────────
+  if (mobile) {
+    return (
+      <div style={{ marginBottom:16, border:`1.5px solid ${open ? T.p+"50" : T.bdrL}`,
+        borderRadius:12, overflow:"hidden", transition:"border .2s" }}>
+        <button onClick={() => setOpen(o => !o)}
+          style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            width:"100%", padding:"10px 14px", background: open ? T.pA : T.bdrL,
+            border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:11.5,
+            fontWeight:700, color: open ? T.p : T.tm, transition:"all .15s" }}>
+          <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <BookOpen size={13}/>
+            Referencia clínica del paciente
+            {(lastSession || activeGoals.length > 0) && (
+              <span style={{ padding:"1px 7px", borderRadius:9999, background: open ? T.p : T.bdrL,
+                color: open ? "#fff" : T.tm, fontSize:9.5, fontWeight:700, fontFamily:T.fB, border:`1px solid ${open ? T.p : T.bdr}` }}>
+                {[lastSession && "nota", activeGoals.length > 0 && `${activeGoals.length} obj.`].filter(Boolean).join(" · ")}
+              </span>
+            )}
+          </span>
+          {open ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+        </button>
+        {open && (
+          <div style={{ padding:"14px 16px", background:T.card, borderTop:`1px solid ${T.bdrL}` }}>
+            <PanelContent/>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Desktop: columna lateral ──────────────────────────────────────────────
+  return (
+    <div style={{ borderLeft:`1.5px solid ${T.bdrL}`, paddingLeft:20,
+      position:"sticky", top:0, maxHeight:"calc(90vh - 120px)", overflowY:"auto" }}>
+      <div style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.tm,
+        textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:16,
+        display:"flex", alignItems:"center", gap:6, paddingBottom:10,
+        borderBottom:`1px solid ${T.bdrL}` }}>
+        <BookOpen size={13}/>
+        Referencia Clínica
+      </div>
+      <PanelContent/>
     </div>
   );
 }
@@ -1135,6 +1022,10 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
     setRefForm({ reason:"", specialist:"", notes:"" });
   };
 
+  // ── Responsive layout ───────────────────────────────────────────────────────
+  const isDesktop = useIsDesktop();
+  const showRefPanel = isDesktop && !!form.patientId;
+
   return (
     <div>
       <PageHeader title="Notas de Sesión"
@@ -1242,16 +1133,31 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
       }
 
       {/* ── New/duplicate modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota" width={620}>
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota" width={showRefPanel ? 900 : 620}>
+
+        {/* ── Móvil: acordeón referencia clínica ───────────────────────────── */}
+        {!isDesktop && form.patientId && (
+          <ClinicalReferencePanel
+            patientId={form.patientId}
+            sessions={sessions}
+            treatmentPlans={treatmentPlans}
+            mobile
+          />
+        )}
+
+        {/* ── Layout: grid en desktop, bloque en móvil ─────────────────────── */}
+        <div style={{
+          display: showRefPanel ? "grid" : "block",
+          gridTemplateColumns: showRefPanel ? "1fr 280px" : undefined,
+          gap: showRefPanel ? 24 : undefined,
+          alignItems: "start",
+        }}>
+
+        {/* ── Columna izquierda: formulario ─────────────────────────────────── */}
+        <div>
+
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
-
-        {/* ── FASE 1: Contexto 360° — antecedentes clínicos del paciente ── */}
-        <ContextPanel
-          patientId={form.patientId}
-          sessions={sessions}
-          treatmentPlans={treatmentPlans}
-        />
 
         {/* ── Widget de tareas del paciente ─────────────────────── */}
         {form.patientId && patientTasks.length > 0 && (() => {
@@ -1487,6 +1393,19 @@ export default function Sessions({ sessions = [], setSessions, patients = [], pr
           <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
           <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
         </div>
+
+        </div> {/* /columna formulario */}
+
+        {/* ── Columna derecha: panel referencia clínica (desktop) ───────────── */}
+        {showRefPanel && (
+          <ClinicalReferencePanel
+            patientId={form.patientId}
+            sessions={sessions}
+            treatmentPlans={treatmentPlans}
+          />
+        )}
+
+        </div> {/* /grid layout */}
       </Modal>
 
       {/* ── Modal cobro post-sesión ─────────────────────────────────────── */}
