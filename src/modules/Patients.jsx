@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye } from "lucide-react";
+import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
@@ -634,6 +634,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     setPatients(prev => prev.map(p => p.id === id ? { ...p, status } : p));
     setSelected(prev => prev ? { ...prev, status } : prev);
   };
+
+  // ETAPA 3 — Mitigar riesgo: elimina activeRiskAlert del paciente (persiste en Supabase)
+  const mitigateRisk = (id) => {
+    setPatients(prev => prev.map(p => p.id === id ? { ...p, activeRiskAlert: null } : p));
+    setSelected(prev => prev ? { ...prev, activeRiskAlert: null } : prev);
+  };
   const setRate = (id, rate) => {
     setPatients(prev => prev.map(p => p.id === id ? { ...p, rate } : p));
     setSelected(prev => prev ? { ...prev, rate } : prev);
@@ -701,7 +707,41 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             </div>
 
             <div style={{ borderTop:`1px solid ${T.bdrL}`, paddingTop:14, marginBottom:14 }}>
-              {selected.phone && <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:8, fontFamily:T.fB, fontSize:13, color:T.tm }}><Phone size={13}/>{selected.phone}</div>}
+              {/* ETAPA 3 — Banner de alerta de riesgo activo persistido ─────────────── */}
+            {selected.activeRiskAlert && (
+              <div style={{
+                display:"flex", alignItems:"flex-start", gap:10, padding:"14px 16px",
+                background:"rgba(184,80,80,0.08)", border:"2px solid rgba(184,80,80,0.35)",
+                borderRadius:12, marginBottom:14,
+                animation:"pulseRiskBanner 2.5s ease-in-out infinite"
+              }}>
+                <ShieldAlert size={20} color="#B85050" style={{ flexShrink:0, marginTop:2 }}/>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:"#B85050", marginBottom:4 }}>
+                    Alerta: Riesgo {(selected.activeRiskAlert.level||"").toUpperCase()} Activo
+                  </div>
+                  <div style={{ fontFamily:T.fB, fontSize:11.5, color:"#B85050", lineHeight:1.55, opacity:0.9, marginBottom:10 }}>
+                    Detectado el {selected.activeRiskAlert.date
+                      ? new Date(selected.activeRiskAlert.date).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})
+                      : "—"}. Este banner permanecerá hasta que lo marques como mitigado.
+                  </div>
+                  <button onClick={() => {
+                    if (confirm(`¿Confirmas que el riesgo de ${selected.name} ha sido evaluado y se encuentra mitigado? Esta acción eliminará la alerta activa.`)) {
+                      mitigateRisk(selected.id);
+                    }
+                  }}
+                    style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"6px 14px",
+                      borderRadius:9, border:"1.5px solid rgba(184,80,80,0.4)",
+                      background:"rgba(184,80,80,0.12)", color:"#B85050",
+                      fontFamily:T.fB, fontSize:11.5, fontWeight:700, cursor:"pointer" }}>
+                    <X size={12}/> Marcar como Riesgo Mitigado
+                  </button>
+                </div>
+                <style>{`@keyframes pulseRiskBanner{0%,100%{box-shadow:0 0 0 0 rgba(184,80,80,0.3)}50%{box-shadow:0 0 0 8px rgba(184,80,80,0)}}`}</style>
+              </div>
+            )}
+
+            {selected.phone && <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:8, fontFamily:T.fB, fontSize:13, color:T.tm }}><Phone size={13}/>{selected.phone}</div>}
               {selected.email && <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:8, fontFamily:T.fB, fontSize:13, color:T.tm }}><Mail size={13}/>{selected.email}</div>}
             </div>
 
@@ -1042,7 +1082,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             const scaleColor  = latestScale ? (SCALES[latestScale.scaleId]?.color || T.tm) : null;
             const activePlan  = treatmentPlans.find(tp => tp.patientId === p.id && tp.status === "activo");
             // Indicadores relevantes — solo riesgo alto y consentimiento pendiente
-            const showRisk    = latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente");
+            // ETAPA 3: mostrar badge si hay riesgo alto/inminente en historial O alerta activa persistida
+            const showRisk    = (latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente")) || !!(p.activeRiskAlert);
+            const isActiveAlert = !!(p.activeRiskAlert);
             const showConsent = cs === "pending" || cs === "expired";
 
             return (
@@ -1065,7 +1107,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                         {p.name.split(" ").slice(0,2).join(" ")}
                       </span>
                       {/* Solo badges críticos */}
-                      {showRisk && <RiskBadge level={latestRisk.riskLevel} size="small"/>}
+                      {showRisk && (
+                        isActiveAlert
+                          ? (
+                            <span style={{
+                              display:"inline-flex", alignItems:"center", gap:3,
+                              padding:"1px 7px", borderRadius:9999, fontSize:9, fontWeight:700,
+                              fontFamily:T.fB, color:"#B85050", background:"rgba(184,80,80,0.12)",
+                              border:"1.5px solid rgba(184,80,80,0.35)",
+                              animation:"pulseRiskBadge 2s ease-in-out infinite", flexShrink:0
+                            }}>
+                              <ShieldAlert size={9}/> RIESGO ACTIVO
+                              <style>{`@keyframes pulseRiskBadge{0%,100%{opacity:1}50%{opacity:0.55}}`}</style>
+                            </span>
+                          )
+                          : <RiskBadge level={latestRisk.riskLevel} size="small"/>
+                      )}
                       {showConsent && (
                         <span style={{ padding:"1px 6px", borderRadius:9999, fontSize:9,
                           fontWeight:700, fontFamily:T.fB, color:csCfg.color,
