@@ -269,6 +269,12 @@ export default function App() {
   };
 
   // ── Guards de renderizado ────────────────────────────────────────────────
+  // Mostrar spinner mientras:
+  // - authLoading (App.jsx aún resolviendo getSession + psychologist)
+  // - !authReady  (AppStateContext aún no confirmó el estado de sesión)
+  // Ambas condiciones deben resolverse antes de evaluar si hay sesión.
+  // Esto evita que TOKEN_REFRESHED llegue tarde y la app muestre login
+  // incorrectamente durante el cold-start de la PWA.
   if (authLoading || !authReady) return (
     <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.2)", borderTopColor:"#fff", animation:"spin .8s linear infinite" }}/>
@@ -276,6 +282,8 @@ export default function App() {
     </div>
   );
 
+  // Solo llegar aquí cuando authReady=true y authLoading=false.
+  // Si user sigue siendo null en este punto, la sesión genuinamente no existe.
   if (!user) return <LockScreen />;
 
   if (psychologistLoaded && psychologist && !hasActiveAccess(psychologist)) {
