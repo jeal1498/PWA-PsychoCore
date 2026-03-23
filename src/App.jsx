@@ -55,10 +55,6 @@ export default function App() {
     mp,
   } = useAppState();
 
-  // ── Log de diagnóstico ───────────────────────────────────────────────────
-  console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
-
-
   const [user,               setUser]               = useState(null);
   const [authLoading,        setAuthLoading]        = useState(true);
   const [psychologist,       setPsychologist]       = useState(null);
@@ -81,6 +77,9 @@ export default function App() {
 
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
+
+  // ── Log de diagnóstico (declarado aquí para evitar TDZ con user/authLoading) ──
+  console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
