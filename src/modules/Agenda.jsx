@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle, CalendarDays } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../components/ui/index.jsx";
@@ -35,6 +35,9 @@ const whatsappReminder = (appointment, patient, profile) => {
 
 // ── Weekly availability helpers ───────────────────────────────────────────────
 const WORK_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
+
+// ── Mejora 1: horas para la Vista Día (08:00–20:00) ─────────────────────────
+const DAY_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20];
 
 function getWeekDays(anchor) {
   const d = new Date(anchor);
@@ -103,7 +106,6 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
   const endStr   = weekDays[5].toLocaleDateString("es-MX", { day:"numeric", month:"short", year:"numeric" });
   const busySlots = Object.keys(apptMap).length;
 
-  // Horas activas — solo mostrar horas que tienen citas ± 1 hora de margen
   const activeHours = new Set();
   Object.keys(apptMap).forEach(key => {
     const h = parseInt(key.split("_")[1]);
@@ -111,7 +113,6 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
     activeHours.add(h);
     activeHours.add(h + 1);
   });
-  // Si no hay citas, mostrar horario reducido 9-18
   const visibleHours = busySlots > 0
     ? WORK_HOURS.filter(h => activeHours.has(h))
     : WORK_HOURS.filter(h => h >= 9 && h <= 18);
@@ -140,7 +141,6 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
         </div>
       </div>
 
-      {/* Indicador de scroll horizontal en móvil */}
       <div style={{ position:"relative" }}>
         <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
           <div style={{ minWidth:480 }}>
@@ -171,7 +171,6 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
 
             {/* Filas de horas — solo las activas */}
             {visibleHours.map((hour, idx) => {
-              // Separador visual si hay salto de horas
               const prevHour = visibleHours[idx - 1];
               const hasGap = prevHour !== undefined && hour - prevHour > 1;
               return (
@@ -205,6 +204,10 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
                                 fontWeight:600, lineHeight:1.3, display:"flex", alignItems:"center", gap:2,
                                 overflow:"hidden" }}>
                                 {a.isRecurring && <Repeat size={7} style={{ opacity:0.7, flexShrink:0 }}/>}
+                                {/* ── Mejora 2: indicador compacto en Vista Semana ─────── */}
+                                {a.reminderSent && (
+                                  <Check size={7} color="#25D366" style={{ flexShrink:0 }}/>
+                                )}
                                 <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                                   {a.patientName.split(" ")[0]}
                                 </span>
@@ -225,12 +228,199 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
             })}
           </div>
         </div>
-        {/* Indicador de scroll → */}
         <div style={{ position:"absolute", right:0, top:"50%", transform:"translateY(-50%)",
           background:`linear-gradient(90deg, transparent, ${T.card})`,
           width:24, height:"100%", pointerEvents:"none" }}/>
       </div>
     </div>
+  );
+}
+
+// ── Mejora 1: Vista Día ───────────────────────────────────────────────────────
+function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuick, onOpenStatusModal, onConfirmDelete, onNewAppt, patients, profile, markReminderSent, today }) {
+  const todayStr = fmt(today);
+
+  const dayAppts = useMemo(() =>
+    appointments
+      .filter(a => a.date === selectedDayView)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [appointments, selectedDayView]
+  );
+
+  const apptByHour = useMemo(() => {
+    const map = {};
+    dayAppts.forEach(a => {
+      const h = apptHour(a.time);
+      if (!map[h]) map[h] = [];
+      map[h].push(a);
+    });
+    return map;
+  }, [dayAppts]);
+
+  const prevDay = () => {
+    const d = new Date(selectedDayView + "T12:00:00");
+    d.setDate(d.getDate() - 1);
+    setSelectedDayView(fmt(d));
+  };
+  const nextDay = () => {
+    const d = new Date(selectedDayView + "T12:00:00");
+    d.setDate(d.getDate() + 1);
+    setSelectedDayView(fmt(d));
+  };
+  const goToday = () => setSelectedDayView(fmt(today));
+
+  const isToday   = selectedDayView === todayStr;
+  const dateObj   = new Date(selectedDayView + "T12:00:00");
+  const dayLabel  = dateObj.toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+
+  return (
+    <Card style={{ padding:24 }}>
+      {/* ── Navegación de día ─── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, gap:8, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <button onClick={prevDay} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:7, cursor:"pointer", color:T.tm }}>
+            <ChevronLeft size={15}/>
+          </button>
+          <span style={{ fontFamily:T.fH, fontSize:17, color:isToday ? T.p : T.t, textTransform:"capitalize" }}>
+            {dayLabel}
+          </span>
+          <button onClick={nextDay} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:7, cursor:"pointer", color:T.tm }}>
+            <ChevronRight size={15}/>
+          </button>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {dayAppts.length > 0 && (
+            <span style={{ fontFamily:T.fB, fontSize:12, color:T.p, background:T.pA,
+              padding:"3px 10px", borderRadius:9999, fontWeight:600 }}>
+              {dayAppts.length} cita{dayAppts.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          {!isToday && (
+            <button onClick={goToday}
+              style={{ fontFamily:T.fB, fontSize:12, color:T.tm, background:T.bdrL,
+                border:"none", borderRadius:9999, padding:"3px 12px", cursor:"pointer", fontWeight:600 }}>
+              Hoy
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Timeline de horas ─── */}
+      <div>
+        {DAY_HOURS.map(hour => {
+          const slot     = apptByHour[hour];
+          const hasAppts = slot && slot.length > 0;
+          const timeStr  = `${String(hour).padStart(2, "0")}:00`;
+
+          return (
+            <div key={hour} style={{ display:"flex", gap:12, alignItems:"flex-start",
+              borderBottom:`1px solid ${T.bdrL}33`, minHeight: hasAppts ? "auto" : 44 }}>
+
+              {/* Etiqueta de hora */}
+              <div style={{ width:44, flexShrink:0, paddingTop:13, fontFamily:T.fB,
+                fontSize:11, color:T.tl, textAlign:"right" }}>
+                {timeStr}
+              </div>
+
+              {/* Contenido */}
+              <div style={{ flex:1, paddingTop: hasAppts ? 8 : 0, paddingBottom: hasAppts ? 8 : 0 }}>
+                {hasAppts ? (
+                  slot.map(a => {
+                    const pt   = patients.find(p => p.id === a.patientId);
+                    const url  = !a.reminderSent && a.status !== "completada"
+                      ? whatsappReminder(a, pt, profile)
+                      : null;
+                    const scfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.pendiente;
+                    return (
+                      <div key={a.id} style={{ padding:"12px 14px", borderRadius:12, background:T.cardAlt,
+                        marginBottom:6, border:`1px solid ${T.bdrL}` }}>
+
+                        {/* Fila principal: info + estado + eliminar */}
+                        <div style={{ display:"flex", alignItems:"center", gap:10,
+                          marginBottom: a.status !== "completada" ? 10 : 0 }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t,
+                              display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                              <span style={{ fontFamily:T.fB, fontSize:12, color:T.p, fontWeight:700 }}>
+                                {a.time}
+                              </span>
+                              {a.patientName.split(" ").slice(0, 2).join(" ")}
+                              {a.isRecurring && (
+                                <span style={{ display:"inline-flex", alignItems:"center", gap:3,
+                                  padding:"1px 7px", borderRadius:9999, background:T.pA, color:T.p,
+                                  fontSize:10, fontWeight:700 }}>
+                                  <Repeat size={9}/>Serie
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>
+                              {a.type}
+                              {a.modality ? ` · ${a.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}` : ""}
+                            </div>
+                          </div>
+                          <button onClick={() => onOpenStatusModal(a)}
+                            style={{ background:scfg.bg, border:"none", borderRadius:8, padding:"4px 10px",
+                              cursor:"pointer", fontSize:11, fontFamily:T.fB, color:scfg.color,
+                              fontWeight:600, maxWidth:140, whiteSpace:"nowrap",
+                              overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {scfg.label}
+                          </button>
+                          <button onClick={() => onConfirmDelete(a)}
+                            style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}>
+                            <Trash2 size={13}/>
+                          </button>
+                        </div>
+
+                        {/* Botones de acción */}
+                        {a.status !== "completada" && (
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={() => onOpenQuick(a)}
+                              style={{ flex:1, display:"flex", alignItems:"center", gap:6,
+                                padding:"8px 12px", borderRadius:8, border:`1.5px solid ${T.p}`,
+                                background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12,
+                                fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
+                              onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
+                              <FileText size={13}/> Registrar sesión
+                            </button>
+
+                            {/* ── Mejora 2: indicador / botón recordatorio en Vista Día ── */}
+                            {a.reminderSent ? (
+                              <div style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 12px",
+                                borderRadius:8, border:"1.5px solid #25D36640", background:"#25D36615",
+                                color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600 }}>
+                                <Check size={12}/> Recordatorio enviado
+                              </div>
+                            ) : url ? (
+                              <a href={url} target="_blank" rel="noreferrer"
+                                onClick={() => markReminderSent(a.id)}
+                                style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px",
+                                  borderRadius:8, border:"1.5px solid #25D366", background:"#25D36620",
+                                  color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600,
+                                  cursor:"pointer", textDecoration:"none", transition:"all .15s" }}>
+                                <MessageCircle size={13}/> Recordatorio
+                              </a>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  /* Slot vacío — clic para nueva cita con fecha/hora pre-rellenadas */
+                  <div
+                    onClick={() => onNewAppt(selectedDayView, timeStr)}
+                    style={{ minHeight:44, cursor:"pointer", borderRadius:8, transition:"background .12s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.pA; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -266,11 +456,16 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [showAdd,       setShowAdd]       = useState(false);
   const [calCollapsed,  setCalCollapsed]  = useState(false);
 
+  // ── Mejora 1: estado del día seleccionado para Vista Día ─────────────────
+  const [selectedDayView, setSelectedDayView] = useState(fmt(todayDate));
+
+  // ── Mejora 3: sugerencia de siguiente cita ───────────────────────────────
+  const [nextApptSuggestion, setNextApptSuggestion] = useState(null);
+
   useEffect(() => {
     if (autoOpen === "add") setShowAdd(true);
   }, [autoOpen]);
 
-  // When modal opens, evaluate initial type for modality picker
   useEffect(() => {
     if (!showAdd) { setShowModalityPicker(false); return; }
     const opt = appointmentTypeOptions.find(o => (o.label || o) === form.type);
@@ -279,12 +474,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       setShowModalityPicker(true);
     }
   }, [showAdd]);
+
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [quickSession,  setQuickSession]  = useState(null);
-  const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
+  const [deleteTarget,  setDeleteTarget]  = useState(null);
 
   // ── Cancelaciones / cambio de estado (Sección 4 del Flujo Clínico) ─────────
-  const [statusTarget,  setStatusTarget]  = useState(null); // appt seleccionada
+  const [statusTarget,  setStatusTarget]  = useState(null);
   const [statusForm,    setStatusForm]    = useState({ status:"", motivo:"", reagendar:false, newDate:"", newTime:"" });
   const sfStatus = k => v => setStatusForm(f => ({ ...f, [k]: v }));
 
@@ -301,7 +497,6 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       const updated = { ...a, status: statusForm.status, cancelMotivo: statusForm.motivo };
       return updated;
     }));
-    // Si reagendar → crear nueva cita pre-rellenada
     if (statusForm.reagendar && statusForm.newDate) {
       const newAppt = {
         ...statusTarget,
@@ -319,9 +514,9 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   };
 
   const whatsappCancel = (appt, patient) => {
-    const nombre   = patient?.name?.split(" ")[0] || "";
-    const phone    = patient?.phone?.replace(/\D/g, "");
-    const fecha    = fmtDate(appt.date);
+    const nombre    = patient?.name?.split(" ")[0] || "";
+    const phone     = patient?.phone?.replace(/\D/g, "");
+    const fecha     = fmtDate(appt.date);
     const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
     if (!phone) return null;
     const msg = encodeURIComponent(
@@ -354,9 +549,9 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   };
 
   // Recurrence state
-  const [recurring,     setRecurring]     = useState(false);
-  const [recFrequency,  setRecFrequency]  = useState("semanal");
-  const [recOccurrences,setRecOccurrences]= useState(8);
+  const [recurring,      setRecurring]      = useState(false);
+  const [recFrequency,   setRecFrequency]   = useState("semanal");
+  const [recOccurrences, setRecOccurrences] = useState(8);
 
   const [sessionForm, setSessionForm] = useState({ duration:50, mood:"moderado", progress:"bueno", notes:"", tags:"" });
   const fld  = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -387,12 +582,23 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const dayAppts      = selectedDay ? (apptsByDay[selectedDay] || []) : [];
   const upcomingAppts = [...appointments].filter(a => a.date >= todayStr).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 8);
 
-  // Count recurring series for the header stat
   const recurringCount = useMemo(() => {
     const groups = new Set(appointments.filter(a => a.isRecurring).map(a => a.recurrenceGroupId));
     return groups.size;
   }, [appointments]);
 
+  // ── Mejora 2: marcar recordatorio enviado ───────────────────────────────
+  const markReminderSent = (id) => {
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, reminderSent: true } : a));
+  };
+
+  // ── Mejora 1: abrir modal de nueva cita con fecha/hora pre-rellenadas ───
+  const openAddWithPreset = (date, time) => {
+    setForm(f => ({ ...f, date, time }));
+    setShowAdd(true);
+  };
+
+  // ── Mejora 3: guardar cita con lógica de sugerencia ──────────────────────
   const save = () => {
     if (!form.patientId || !form.date) return;
     const pt = patients.find(p => p.id === form.patientId);
@@ -401,7 +607,29 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       const batch = generateRecurring(form, recFrequency, recOccurrences, pt);
       setAppointments(prev => [...prev, ...batch]);
     } else {
-      setAppointments(prev => [...prev, { ...form, id:"a"+uid(), patientName: pt?.name || "" }]);
+      const newAppt = { ...form, id:"a"+uid(), patientName: pt?.name || "" };
+      setAppointments(prev => [...prev, newAppt]);
+
+      // Verificar si hay patrón de misma hora para sugerir siguiente cita
+      const patientHistory = appointments.filter(a =>
+        a.patientId === form.patientId && !a.isRecurring
+      );
+      const hasTimePattern = patientHistory.some(a => a.time === form.time);
+
+      if (hasTimePattern && patientHistory.length >= 1) {
+        const [y, m, d] = form.date.split("-").map(Number);
+        const nextDate = new Date(y, m - 1, d);
+        nextDate.setDate(nextDate.getDate() + 7);
+        setNextApptSuggestion({
+          patientId:   form.patientId,
+          patientName: pt?.name || "",
+          date:        fmt(nextDate),
+          time:        form.time,
+          type:        form.type,
+          serviceId:   form.serviceId,
+          modality:    form.modality,
+        });
+      }
     }
 
     setForm(blankForm);
@@ -412,7 +640,17 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setShowAdd(false);
   };
 
-  // Delete one vs. all in series
+  // ── Mejora 3: confirmar cita sugerida ────────────────────────────────────
+  const confirmNextAppt = () => {
+    if (!nextApptSuggestion) return;
+    setAppointments(prev => [...prev, {
+      ...nextApptSuggestion,
+      id:     "a" + uid(),
+      status: "pendiente",
+    }]);
+    setNextApptSuggestion(null);
+  };
+
   const confirmDelete = (appt) => setDeleteTarget(appt);
 
   const deleteOne = () => {
@@ -444,7 +682,6 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setQuickSession(null);
   };
 
-  // Frequency label
   const freqLabel = { semanal:"semana", quincenal:"2 semanas", mensual:"mes" };
 
   return (
@@ -453,10 +690,17 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${recurringCount > 0 ? ` · ${recurringCount} serie${recurringCount!==1?"s":""} recurrente${recurringCount!==1?"s":""}` : ""}`}
         action={
           <div style={{ display:"flex", gap:8 }}>
+            {/* ── Mejora 1: toggle con tres vistas Mes / Semana / Día ── */}
             <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, gap:2 }}>
-              {[{id:"month",icon:LayoutGrid,tip:"Mes"},{id:"week",icon:List,tip:"Semana"}].map(v => (
+              {[
+                { id:"month", icon:LayoutGrid, tip:"Mes"    },
+                { id:"week",  icon:List,       tip:"Semana" },
+                { id:"day",   icon:CalendarDays,tip:"Día"   },
+              ].map(v => (
                 <button key={v.id} onClick={() => setView(v.id)} title={v.tip}
-                  style={{ background:view===v.id?T.card:"transparent", border:"none", borderRadius:8, padding:"6px 10px", cursor:"pointer", color:view===v.id?T.p:T.tl, transition:"all .15s" }}>
+                  style={{ background:view===v.id?T.card:"transparent", border:"none", borderRadius:8,
+                    padding:"6px 10px", cursor:"pointer",
+                    color:view===v.id?T.p:T.tl, transition:"all .15s" }}>
                   <v.icon size={15}/>
                 </button>
               ))}
@@ -466,16 +710,35 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         }
       />
 
+      {/* ── Vista Semana ────────────────────────────────────────────────────── */}
       {view === "week" && (
         <Card style={{ padding:24 }}>
           <WeeklyView appointments={appointments} weekAnchor={weekAnchor} setWeekAnchor={setWeekAnchor} onOpenQuick={openQuickSession} today={todayDate}/>
         </Card>
       )}
 
+      {/* ── Mejora 1: Vista Día ─────────────────────────────────────────────── */}
+      {view === "day" && (
+        <DayView
+          appointments={appointments}
+          selectedDayView={selectedDayView}
+          setSelectedDayView={setSelectedDayView}
+          onOpenQuick={openQuickSession}
+          onOpenStatusModal={openStatusModal}
+          onConfirmDelete={confirmDelete}
+          onNewAppt={openAddWithPreset}
+          patients={patients}
+          profile={profile}
+          markReminderSent={markReminderSent}
+          today={todayDate}
+        />
+      )}
+
+      {/* ── Vista Mes ───────────────────────────────────────────────────────── */}
       {view === "month" && (
         <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr minmax(0,320px)", gap:20 }}>
           <Card style={{ padding:0, overflow:"hidden" }}>
-            {/* Header del calendario — siempre visible, con toggle en móvil */}
+            {/* Header del calendario */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom: calCollapsed ? "none" : `1px solid ${T.bdrL}` }}>
               <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth()-1, 1))} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.tm }}><ChevronLeft size={16}/></button>
               <button onClick={() => isMobile && setCalCollapsed(c => !c)}
@@ -485,46 +748,53 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               </button>
               <button onClick={() => setCurrent(d => new Date(d.getFullYear(), d.getMonth()+1, 1))} style={{ background:T.bdrL, border:"none", borderRadius:8, padding:8, cursor:"pointer", color:T.tm }}><ChevronRight size={16}/></button>
             </div>
+
             <div style={{ display: calCollapsed ? "none" : "block", padding:"16px 20px 20px" }}>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
-              {DAYS_ES.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.06em", padding:"6px 0" }}>{d}</div>)}
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-              {cells.map((d, i) => {
-                if (!d) return <div key={i}/>;
-                const dateStr = `${monthStr}-${d}`;
-                const isToday = dateStr === todayStr;
-                const isSel   = d === selectedDay;
-                const appts   = apptsByDay[d];
-                const hasRecurring = appts?.some(a => a.isRecurring);
-                return (
-                  <div key={i} onClick={() => setSelectedDay(isSel ? null : d)}
-                    style={{ textAlign:"center", padding:"8px 4px", borderRadius:10, cursor:"pointer", background:isSel?T.p:isToday?T.pA:"transparent", color:isSel?"#fff":isToday?T.p:T.t, fontFamily:T.fB, fontSize:13.5, fontWeight:isToday||isSel?600:400, transition:"all .12s", position:"relative" }}>
-                    {d}
-                    {appts && <div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", display:"flex", gap:2 }}>
-                      {appts.slice(0,3).map((a,j) => (
-                        <div key={j} style={{ width:4, height:4, borderRadius:"50%", background:isSel?"rgba(255,255,255,0.7)":a.isRecurring?T.p:T.acc }}/>
-                      ))}
-                    </div>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            {recurringCount > 0 && (
-              <div style={{ marginTop:16, display:"flex", gap:14, paddingTop:12, borderTop:`1px solid ${T.bdrL}` }}>
-                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%", background:T.acc }}/>
-                  <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Cita única</span>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%", background:T.p }}/>
-                  <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Recurrente</span>
-                </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
+                {DAYS_ES.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.06em", padding:"6px 0" }}>{d}</div>)}
               </div>
-            )}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+                {cells.map((d, i) => {
+                  if (!d) return <div key={i}/>;
+                  const dateStr = `${monthStr}-${d}`;
+                  const isToday = dateStr === todayStr;
+                  const isSel   = d === selectedDay;
+                  const appts   = apptsByDay[d];
+                  return (
+                    <div key={i} onClick={() => {
+                        setSelectedDay(isSel ? null : d);
+                        // ── Mejora 1: sincronizar con selectedDayView ──
+                        setSelectedDayView(dateStr);
+                      }}
+                      style={{ textAlign:"center", padding:"8px 4px", borderRadius:10, cursor:"pointer",
+                        background:isSel?T.p:isToday?T.pA:"transparent",
+                        color:isSel?"#fff":isToday?T.p:T.t,
+                        fontFamily:T.fB, fontSize:13.5, fontWeight:isToday||isSel?600:400,
+                        transition:"all .12s", position:"relative" }}>
+                      {d}
+                      {appts && <div style={{ position:"absolute", bottom:3, left:"50%", transform:"translateX(-50%)", display:"flex", gap:2 }}>
+                        {appts.slice(0,3).map((a,j) => (
+                          <div key={j} style={{ width:4, height:4, borderRadius:"50%", background:isSel?"rgba(255,255,255,0.7)":a.isRecurring?T.p:T.acc }}/>
+                        ))}
+                      </div>}
+                    </div>
+                  );
+                })}
+              </div>
 
+              {/* Legend */}
+              {recurringCount > 0 && (
+                <div style={{ marginTop:16, display:"flex", gap:14, paddingTop:12, borderTop:`1px solid ${T.bdrL}` }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:T.acc }}/>
+                    <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Cita única</span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:T.p }}/>
+                    <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Recurrente</span>
+                  </div>
+                </div>
+              )}
             </div>{/* fin del div colapsable */}
 
             {selectedDay && (
@@ -573,11 +843,20 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                             onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
                             <FileText size={13}/> Registrar sesión
                           </button>
-                          {(() => {
+
+                          {/* ── Mejora 2: indicador / botón recordatorio en Vista Mes ── */}
+                          {a.reminderSent ? (
+                            <div style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 12px",
+                              borderRadius:8, border:"1.5px solid #25D36640", background:"#25D36615",
+                              color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600 }}>
+                              <Check size={12}/> Recordatorio enviado
+                            </div>
+                          ) : (() => {
                             const pt  = patients.find(p => p.id === a.patientId);
                             const url = whatsappReminder(a, pt, profile);
                             return url ? (
                               <a href={url} target="_blank" rel="noreferrer"
+                                onClick={() => markReminderSent(a.id)}
                                 style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px", borderRadius:8, border:"1.5px solid #25D366", background:"#25D36620", color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none", transition:"all .15s" }}>
                                 <MessageCircle size={13}/> Recordatorio
                               </a>
@@ -597,7 +876,6 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             {upcomingAppts.length === 0
               ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl }}>No hay citas próximas</div>
               : (() => {
-                  // Agrupar por día
                   const groups = [];
                   let lastDate = null;
                   upcomingAppts.forEach(a => {
@@ -627,7 +905,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                         {/* Citas del día */}
                         {g.appts.map(a => {
                           const pt  = patients.find(p => p.id === a.patientId);
-                          const url = a.status !== "completada" ? whatsappReminder(a, pt, profile) : null;
+                          const url = a.status !== "completada" && !a.reminderSent ? whatsappReminder(a, pt, profile) : null;
                           return (
                             <div key={a.id} style={{ display:"flex", alignItems:"center", gap:10,
                               padding:"8px 10px", borderRadius:10, marginBottom:6,
@@ -664,16 +942,25 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                     <FileText size={11}/> Sesión
                                   </button>
                                 )}
-                                {url && (
+                                {/* ── Mejora 2: indicador compacto en Próximas citas ── */}
+                                {a.reminderSent ? (
+                                  <div title="Recordatorio enviado"
+                                    style={{ display:"flex", alignItems:"center", padding:"5px 7px",
+                                      borderRadius:7, border:"1px solid #25D36640",
+                                      background:"#25D36615", color:"#25D366" }}>
+                                    <Check size={13}/>
+                                  </div>
+                                ) : url ? (
                                   <a href={url} target="_blank" rel="noreferrer"
                                     title="Recordatorio WhatsApp"
+                                    onClick={() => markReminderSent(a.id)}
                                     style={{ display:"flex", alignItems:"center", padding:"5px 7px",
                                       borderRadius:7, border:"1px solid #25D36640",
                                       background:"#25D36615", color:"#25D366",
                                       textDecoration:"none" }}>
                                     <MessageCircle size={13}/>
                                   </a>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                           );
@@ -959,6 +1246,46 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           );
         })()}
       </Modal>
+
+      {/* ── Mejora 3: Banner de sugerencia de siguiente cita ────────────── */}
+      {nextApptSuggestion && (
+        <div style={{
+          position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
+          zIndex:9999, background:T.card,
+          border:`1.5px solid ${T.p}`, borderRadius:16,
+          padding:"18px 22px",
+          boxShadow:"0 8px 36px rgba(0,0,0,0.16)",
+          maxWidth:420, width:"calc(100% - 48px)",
+          animation:"fadeSlideUp .2s ease",
+        }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:14 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:T.pA,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <CalendarDays size={18} color={T.p}/>
+            </div>
+            <div>
+              <div style={{ fontFamily:T.fH, fontSize:15, color:T.t, marginBottom:3 }}>
+                ¿Agendar siguiente cita?
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, lineHeight:1.5 }}>
+                <strong style={{ color:T.t }}>
+                  {nextApptSuggestion.patientName.split(" ").slice(0,2).join(" ")}
+                </strong>
+                {" — "}
+                {fmtDate(nextApptSuggestion.date)} a las {nextApptSuggestion.time}
+              </div>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn onClick={confirmNextAppt} style={{ flex:1 }}>
+              <Check size={14}/> Confirmar
+            </Btn>
+            <Btn variant="ghost" onClick={() => setNextApptSuggestion(null)} style={{ flex:1 }}>
+              Omitir
+            </Btn>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
