@@ -504,7 +504,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [] }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
@@ -777,8 +777,9 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     const phone    = patient?.phone?.replace(/\D/g, "");
     const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
     if (!phone) return null;
+    const link = `https://psychocore.vercel.app/portal?phone=${phone}`;
     const msg = encodeURIComponent(
-      `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, necesito que firmes el *Consentimiento Informado*. Por favor escríbeme para coordinarlo antes o durante nuestra primera sesión.\n\n¡Gracias! 😊\n— ${psicologa}`
+      `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${link}\n\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
     );
     return `https://wa.me/52${phone}?text=${msg}`;
   };
@@ -832,6 +833,11 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                 </button>
               ))}
             </div>
+            {onPrimerContacto && (
+              <Btn variant="ghost" onClick={onPrimerContacto} title="Nuevo paciente con pre-cita">
+                <Plus size={15}/> Nuevo paciente
+              </Btn>
+            )}
             <Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Nueva cita</Btn>
           </div>
         }

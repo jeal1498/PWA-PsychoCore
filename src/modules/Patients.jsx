@@ -11,6 +11,18 @@ import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } f
 import { getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 
+// ── Portal domain for consent links ──────────────────────────────────────────
+const PORTAL_DOMAIN = "https://psychocore.vercel.app";
+
+// ── Time slots helper for Primer Contacto (30-min, 08:00–20:00) ──────────────
+const PC_TIME_SLOTS = (() => {
+  const slots = [];
+  for (let m = 8 * 60; m < 20 * 60; m += 30) {
+    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return slots;
+})();
+
 // ── STATUS ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   activo: { label:"Activo",   color:T.suc, bg:T.sucA },
@@ -795,13 +807,245 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
   );
 }
 
-export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [] }) {
+// ── Primer Contacto Modal ─────────────────────────────────────────────────────
+function PrimerContactoModal({ open, onClose, patients, onSave }) {
+  const BLANK_PC = { name: "", phone: "", initialReason: "", appointmentDate: "", appointmentTime: "09:00" };
+  const [step,    setStep]    = useState(1);  // 1=form, 2=whatsapp
+  const [form,    setForm]    = useState(BLANK_PC);
+  const [dupWarn, setDupWarn] = useState(null); // { name, id } of duplicate patient
+  const [saved,   setSaved]   = useState(null); // { patient, appointment, msg }
+
+  // Reset on close
+  const handleClose = () => {
+    setStep(1); setForm(BLANK_PC); setDupWarn(null); setSaved(null);
+    onClose();
+  };
+
+  const fld = (k) => (e) => {
+    const raw = e.target ? e.target.value : e;
+    if (k === "phone") {
+      // only digits
+      setForm(f => ({ ...f, phone: raw.replace(/\D/g, "") }));
+    } else {
+      setForm(f => ({ ...f, [k]: raw }));
+    }
+    if (k === "phone") setDupWarn(null);
+  };
+
+  const checkDup = () => {
+    const phone = form.phone.replace(/\D/g, "");
+    if (!phone) return;
+    const dup = patients.find(p => p.phone?.replace(/\D/g, "") === phone);
+    if (dup) setDupWarn({ name: dup.name, id: dup.id });
+    else setDupWarn(null);
+  };
+
+  const canSave = form.name.trim() && form.phone.trim() && form.initialReason.trim() && form.appointmentDate && !dupWarn;
+
+  const handleSave = () => {
+    if (!canSave) return;
+    const result = onSave(form);
+    setSaved(result);
+    setStep(2);
+  };
+
+  // ── Step 2: build WhatsApp message ───────────────────────────────────────
+  const buildWelcomeMsg = () => {
+    if (!saved) return "";
+    const phone     = saved.patient.phone;
+    const link      = `${PORTAL_DOMAIN}/portal?phone=${phone}`;
+    const firstName = saved.patient.name.split(" ")[0];
+    const dateLabel = fmtDate(saved.appointment.date);
+    const time      = saved.appointment.time;
+    return `Hola, ${firstName}. 👋 Es un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartimos el enlace para revisar y firmar tu Consentimiento Informado: ${link} ¡Estamos para apoyarte! ✨`;
+  };
+
+  const msg      = buildWelcomeMsg();
+  const waUrl    = saved ? `https://wa.me/52${saved.patient.phone}?text=${encodeURIComponent(msg)}` : "";
+
+  const inputStyle = {
+    width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+    borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+    background:T.card, outline:"none", boxSizing:"border-box",
+  };
+
+  return (
+    <Modal open={open} onClose={handleClose} title={step === 1 ? "✨ Nuevo paciente — Pre-Cita" : "📱 Mensaje de bienvenida"} width={480}>
+
+      {/* ── Step 1: Capture form ──────────────────────────────────────────── */}
+      {step === 1 && (
+        <div>
+          {/* Progress indicator */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
+            <div style={{ flex:1, height:3, borderRadius:9999, background:T.p }}/>
+            <div style={{ flex:1, height:3, borderRadius:9999, background:T.bdrL }}/>
+            <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Paso 1 de 2</span>
+          </div>
+
+          {/* Name */}
+          <div style={{ marginBottom:14 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+              Nombre completo *
+            </label>
+            <input value={form.name} onChange={fld("name")} placeholder="Ej. María González López"
+              style={inputStyle}/>
+          </div>
+
+          {/* Phone */}
+          <div style={{ marginBottom: dupWarn ? 8 : 14 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+              Teléfono * <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(solo números)</span>
+            </label>
+            <input
+              value={form.phone}
+              onChange={fld("phone")}
+              onBlur={checkDup}
+              placeholder="9981234567"
+              inputMode="numeric"
+              maxLength={15}
+              style={{ ...inputStyle, borderColor: dupWarn ? T.err : T.bdr }}
+            />
+          </div>
+
+          {/* Duplicate phone warning */}
+          {dupWarn && (
+            <div style={{
+              display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+              background:T.warA, border:`1.5px solid ${T.war}60`,
+              borderRadius:10, marginBottom:14
+            }}>
+              <span style={{ fontSize:16 }}>⚠️</span>
+              <div style={{ flex:1 }}>
+                <span style={{ fontFamily:T.fB, fontSize:13, color:T.war, fontWeight:600 }}>
+                  Ya existe un paciente con este teléfono: <strong>{dupWarn.name}</strong>.
+                </span>
+                <br/>
+                <button
+                  onClick={() => { handleClose(); /* caller handles navigation */ onSave({ __navigateTo: dupWarn.id }); }}
+                  style={{ background:"none", border:"none", padding:0, fontFamily:T.fB, fontSize:12, color:T.p, textDecoration:"underline", cursor:"pointer", marginTop:3 }}>
+                  ¿Quieres abrir su expediente?
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Initial reason */}
+          <div style={{ marginBottom:14 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+              Motivo breve de consulta *
+            </label>
+            <input value={form.initialReason} onChange={fld("initialReason")} placeholder="Ej. Ansiedad generalizada, dificultades de pareja..."
+              style={inputStyle}/>
+          </div>
+
+          {/* Date + Time */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+            <div>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                Fecha de primera cita
+              </label>
+              <input type="date" value={form.appointmentDate} onChange={fld("appointmentDate")}
+                style={inputStyle}/>
+            </div>
+            <div>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                Hora
+              </label>
+              <select value={form.appointmentTime} onChange={e => setForm(f => ({ ...f, appointmentTime: e.target.value }))}
+                style={{ ...inputStyle, appearance:"none", WebkitAppearance:"none", cursor:"pointer" }}>
+                {PC_TIME_SLOTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <Btn variant="ghost" onClick={handleClose}>Cancelar</Btn>
+            <Btn onClick={handleSave} disabled={!canSave}>
+              <Check size={14}/> Guardar y continuar
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: WhatsApp welcome message ──────────────────────────────── */}
+      {step === 2 && saved && (
+        <div>
+          {/* Progress indicator */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
+            <div style={{ flex:1, height:3, borderRadius:9999, background:T.suc }}/>
+            <div style={{ flex:1, height:3, borderRadius:9999, background:T.suc }}/>
+            <span style={{ fontFamily:T.fB, fontSize:11, color:T.suc, fontWeight:700 }}>✅ Completado</span>
+          </div>
+
+          {/* Success summary */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
+            background:T.sucA, borderRadius:12, marginBottom:16, border:`1px solid ${T.suc}40` }}>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:T.suc,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <span style={{ fontFamily:T.fH, fontSize:16, color:"#fff" }}>{saved.patient.name[0]}</span>
+            </div>
+            <div>
+              <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:700, color:T.t }}>
+                {saved.patient.name}
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
+                {saved.appointment.date ? `📅 ${fmtDate(saved.appointment.date)} · ${saved.appointment.time}` : "Sin cita agendada"}
+              </div>
+            </div>
+            <span style={{ marginLeft:"auto", padding:"3px 10px", borderRadius:9999,
+              background:T.pA, color:T.p, fontFamily:T.fB, fontSize:10, fontWeight:700 }}>
+              Primera vez
+            </span>
+          </div>
+
+          {/* Message preview */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase",
+              letterSpacing:"0.07em", marginBottom:8 }}>
+              Mensaje de bienvenida
+            </div>
+            <div style={{ padding:"14px 16px", background:"#ECF8F2", border:"1.5px solid #25D36640",
+              borderRadius:12, fontFamily:T.fB, fontSize:13.5, color:"#1A2B28", lineHeight:1.65,
+              whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+              {msg}
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:6 }}>
+              🔒 Enlace de consentimiento incluido automáticamente
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <a href={waUrl} target="_blank" rel="noreferrer"
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                padding:"13px 16px", borderRadius:12, border:"none",
+                background:"#25D366", color:"#fff",
+                fontFamily:T.fB, fontSize:14, fontWeight:700,
+                textDecoration:"none", cursor:"pointer", transition:"opacity .13s" }}
+              onMouseEnter={e => e.currentTarget.style.opacity="0.88"}
+              onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              Enviar por WhatsApp
+            </a>
+            <Btn variant="ghost" onClick={handleClose} style={{ justifyContent:"center" }}>
+              Listo, cerrar
+            </Btn>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [], appointments = [], setAppointments }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [showAdd,      setShowAdd]      = useState(false);
+  const [showPC,       setShowPC]       = useState(false);   // ← Primer Contacto modal
+  const [editTarget,   setEditTarget]   = useState(null);    // patient being edited in full form
 
   useEffect(() => {
-    if (autoOpen === "add") setShowAdd(true);
+    if (autoOpen === "add") setShowPC(true);
   }, [autoOpen]);
   const [selected,     setSelected]     = useState(null);
   const [detailTab,    setDetailTab]    = useState("sessions");
@@ -848,9 +1092,61 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
   const save = () => {
     if (!form.name.trim()) return;
-    setPatients(prev => [...prev, { ...form, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
+    if (editTarget) {
+      // Update existing patient
+      setPatients(prev => prev.map(p =>
+        p.id === editTarget ? { ...p, ...form, age: calcAge(form.birthdate) } : p
+      ));
+      setSelected(prev => prev ? { ...prev, ...form, age: calcAge(form.birthdate) } : prev);
+    } else {
+      // Add new patient (full form path)
+      setPatients(prev => [...prev, { ...form, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
+    }
     setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setEditTarget(null);
     setShowAdd(false);
+  };
+
+  // ── Primer Contacto — save handler ───────────────────────────────────────
+  const savePrimerContacto = (pcForm) => {
+    // Handle "navigate to existing" shortcut
+    if (pcForm.__navigateTo) {
+      const existing = patients.find(p => p.id === pcForm.__navigateTo);
+      if (existing) handleSelect(existing);
+      return null;
+    }
+    const newId = "p" + uid();
+    const newPatient = {
+      id:            newId,
+      name:          pcForm.name.trim(),
+      phone:         pcForm.phone.replace(/\D/g, ""),
+      status:        "activo",
+      initialReason: pcForm.initialReason.trim(),
+      reason:        pcForm.initialReason.trim(),
+      consent:       { signed: false },
+      type:          "individual",
+      createdAt:     fmt(todayDate),
+      birthdate:"", email:"", diagnosis:"", cie11Code:"", notes:"",
+      rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"",
+    };
+    setPatients(prev => [...prev, newPatient]);
+
+    // Create appointment if date is provided
+    let newAppointment = null;
+    if (pcForm.appointmentDate && setAppointments) {
+      newAppointment = {
+        id:          "a" + uid(),
+        patientId:   newId,
+        patientName: newPatient.name,
+        date:        pcForm.appointmentDate,
+        time:        pcForm.appointmentTime || "09:00",
+        type:        "Primera vez",
+        status:      "pendiente",
+      };
+      setAppointments(prev => [...prev, newAppointment]);
+    }
+
+    return { patient: newPatient, appointment: newAppointment || { date: pcForm.appointmentDate, time: pcForm.appointmentTime } };
   };
 
   const del = id => { setPatients(prev => prev.filter(p => p.id !== id)); if (selected?.id === id) setSelected(null); };
@@ -1101,6 +1397,42 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               </div>}
             </div>
 
+            {/* Editar expediente completo */}
+            <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}` }}>
+              <button
+                onClick={() => {
+                  setForm({
+                    name:              selected.name || "",
+                    birthdate:         selected.birthdate || "",
+                    phone:             selected.phone || "",
+                    email:             selected.email || "",
+                    diagnosis:         selected.diagnosis || "",
+                    cie11Code:         selected.cie11Code || "",
+                    reason:            selected.reason || "",
+                    notes:             selected.notes || "",
+                    status:            selected.status || "activo",
+                    type:              selected.type || "individual",
+                    coParticipants:    selected.coParticipants || "",
+                    rate:              selected.rate || "",
+                    serviceId:         selected.serviceId || "",
+                    emergencyName:     selected.emergencyName || "",
+                    emergencyPhone:    selected.emergencyPhone || "",
+                    emergencyRelation: selected.emergencyRelation || "",
+                  });
+                  setEditTarget(selected.id);
+                  setShowAdd(true);
+                }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  width:"100%", padding:"7px", borderRadius:9,
+                  border:`1px solid ${T.bdr}`, background:"transparent",
+                  color:T.tm, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
+                  cursor:"pointer", transition:"all .15s", marginBottom:8 }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
+                ✏️ Editar expediente completo
+              </button>
+            </div>
+
             {/* Botón eliminar — separado visualmente, zona de peligro */}
             <div style={{ marginTop:20, paddingTop:14, borderTop:`1px dashed ${T.bdrL}` }}>
               <button
@@ -1278,7 +1610,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     <div>
       <PageHeader title="Pacientes"
         subtitle={`${patients.length} paciente${patients.length!==1?"s":""} · ${patients.filter(p=>(p.status||"activo")==="activo").length} activos`}
-        action={<Btn onClick={() => setShowAdd(true)}><Plus size={15}/> Nuevo paciente</Btn>}
+        action={<Btn onClick={() => setShowPC(true)}><Plus size={15}/> Nuevo paciente</Btn>}
       />
 
       <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
@@ -1390,7 +1722,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         </div>
       }
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nuevo paciente">
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditTarget(null); setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" }); }} title={editTarget ? "Editar expediente" : "Expediente completo"}>
         {/* Tipo de expediente */}
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Tipo de expediente</div>
@@ -1477,10 +1809,18 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           )}
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
-          <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
-          <Btn onClick={save} disabled={!form.name.trim()}><Check size={15}/> Guardar paciente</Btn>
+          <Btn variant="ghost" onClick={() => { setShowAdd(false); setEditTarget(null); }}>Cancelar</Btn>
+          <Btn onClick={save} disabled={!form.name.trim()}><Check size={15}/> {editTarget ? "Guardar cambios" : "Guardar paciente"}</Btn>
         </div>
       </Modal>
+
+      {/* ── Primer Contacto modal ──────────────────────────────────────────── */}
+      <PrimerContactoModal
+        open={showPC}
+        onClose={() => setShowPC(false)}
+        patients={patients}
+        onSave={savePrimerContacto}
+      />
     </div>
   );
 }
