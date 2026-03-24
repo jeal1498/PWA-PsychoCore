@@ -58,6 +58,7 @@ const TASK_STATUS = {
 export default function DynamicSummary({
   open,
   onClose,
+  onContinue,
   patient,
   appointment,
   sessions      = [],
@@ -319,6 +320,31 @@ export default function DynamicSummary({
       {lastSessions.length === 0 && patientTasks.length === 0 && !lastRisk && !activePlan && (
         <div style={{ textAlign:"center", padding:"24px 0", fontFamily:T.fB, fontSize:13, color:T.tl }}>
           Sin historial previo — primera sesión registrada
+        </div>
+      )}
+
+      {/* Footer — Continuar a sesión */}
+      {onContinue && (
+        <div style={{
+          marginTop:20, paddingTop:16, borderTop:`1px solid ${T.bdrL}`,
+          display:"flex", justifyContent:"flex-end", gap:8,
+        }}>
+          <button onClick={onClose}
+            style={{ padding:"9px 18px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
+              background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
+              cursor:"pointer", fontWeight:500 }}>
+            Cerrar
+          </button>
+          <button
+            onClick={() => { onContinue(); onClose(); }}
+            style={{ padding:"9px 20px", borderRadius:10, border:"none",
+              background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13,
+              fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:7,
+              transition:"opacity .13s" }}
+            onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
+            onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+            Continuar a sesión →
+          </button>
         </div>
       )}
     </Modal>
