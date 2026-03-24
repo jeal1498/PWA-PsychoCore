@@ -1034,6 +1034,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
   const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
+  // ── Autoguardado de notas clínicas ──────────────────────────────────────────
+  const DRAFT_KEY = "pc_draft_new";
+  const [draftSavedAt,    setDraftSavedAt]    = useState(null);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [draftBannerData, setDraftBannerData] = useState(null);
+  const draftDebounceRef = useRef(null);
+
   useEffect(() => {
     if (!form?.patientId) { setPatientTasks([]); return; }
     getAssignmentsByPatient(form.patientId)
@@ -1041,6 +1048,39 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       .catch(() => setPatientTasks([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form?.patientId]);
+
+  // ── Autoguardado con debounce 2s ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!showAdd) return;
+    if (draftDebounceRef.current) clearTimeout(draftDebounceRef.current);
+    draftDebounceRef.current = setTimeout(() => {
+      const hasContent = form.noteFormat !== "libre"
+        ? NOTE_FORMATS[form.noteFormat]?.fields?.some(f => form.structured?.[f.key]?.trim())
+        : form.notes.trim();
+      if (!hasContent) return;
+      const draft = {
+        notes: form.notes,
+        structured: form.structured,
+        noteFormat: form.noteFormat,
+        savedAt: new Date().toISOString(),
+      };
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch {}
+      setDraftSavedAt(new Date().toISOString());
+    }, 2000);
+    return () => { if (draftDebounceRef.current) clearTimeout(draftDebounceRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.notes, form.structured, form.noteFormat, showAdd]);
+
+  // ── Detectar borrador guardado al abrir el modal ─────────────────────────────
+  useEffect(() => {
+    if (!showAdd) { setShowDraftBanner(false); setDraftBannerData(null); return; }
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft?.savedAt) { setDraftBannerData(draft); setShowDraftBanner(true); }
+    } catch {}
+  }, [showAdd]);
 
   const fld  = k => v => setForm(f => ({ ...f, [k]:v }));
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
@@ -1051,15 +1091,22 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [aiError,      setAiError]      = useState("");
   const [showAiModal,  setShowAiModal]  = useState(false);
   const [taskError,    setTaskError]    = useState("");
+
   const [showCobro,    setShowCobro]    = useState(false);
   const [cobroData,    setCobroData]    = useState(null); // { sessionId, patientId, patientName, date }
 
   // ── Wizard de Cierre (Secciones 8.3 → 8.4 → 8.5 del Flujo Clínico) ─────────
   const [showCloseWizard, setShowCloseWizard] = useState(false);
   const [closeCtx,        setCloseCtx]        = useState(null); // { patientId, patientName, date, sessionId }
-  const [closeStep,       setCloseStep]        = useState(1);   // 1=Intersesión 2=Próxima cita 3=WhatsApp
+  const [closeStep,       setCloseStep]        = useState(1);   // 1=Intersesión 2=Tareas 3=Próxima cita 4=WhatsApp
   const [closeInterForm,  setCloseInterForm]   = useState({ notes:"", type:"Indicación" });
   const [closeNextAppt,   setCloseNextAppt]    = useState({ date:"", time:"09:00", type:"Seguimiento" });
+  // ── Paso 2: Tareas ───────────────────────────────────────────────────────────
+  const [closeTaskTplId,   setCloseTaskTplId]   = useState(null);
+  const [closeTaskNotes,   setCloseTaskNotes]   = useState("");
+  const [closeTaskAssigned, setCloseTaskAssigned] = useState(false);
+  const [closeTaskSaving,  setCloseTaskSaving]  = useState(false);
+  const [closeTaskError,   setCloseTaskError]   = useState("");
   const cifld = k => v => setCloseInterForm(f => ({ ...f, [k]: v }));
   const cnfld = k => v => setCloseNextAppt(f => ({ ...f, [k]: v }));
 
@@ -1067,6 +1114,11 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     setCloseCtx(ctx);
     setCloseStep(1);
     setCloseInterForm({ notes:"", type:"Indicación" });
+    setCloseTaskTplId(null);
+    setCloseTaskNotes("");
+    setCloseTaskAssigned(false);
+    setCloseTaskSaving(false);
+    setCloseTaskError("");
     // Pre-fill next appt one week from session date
     const d = new Date(ctx.date);
     d.setDate(d.getDate() + 7);
@@ -1109,7 +1161,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
         isRecurring: false,
       }]);
     }
-    setCloseStep(3);
+    setCloseStep(4);
   };
 
   const whatsappNextAppt = () => {
@@ -1443,6 +1495,8 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       Promise.allSettled(assignPromises);
     }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setDraftSavedAt(null); setShowDraftBanner(false); setDraftBannerData(null);
   };
 
   const duplicate = (s) => {
@@ -1631,6 +1685,44 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
 
           {/* ── Columna principal del formulario ───────────────────── */}
           <div>
+
+        {/* ── Banner de borrador guardado ───────────────────────── */}
+        {showDraftBanner && draftBannerData && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+            background:"rgba(196,137,90,0.10)", border:`1.5px solid rgba(196,137,90,0.35)`,
+            borderRadius:11, marginBottom:14 }}>
+            <span style={{ fontSize:18, flexShrink:0 }}>📝</span>
+            <div style={{ flex:1, fontFamily:T.fB, fontSize:12.5, color:T.t, lineHeight:1.5 }}>
+              <strong>Tienes un borrador guardado</strong> del{" "}
+              {new Date(draftBannerData.savedAt).toLocaleDateString("es-MX", { day:"numeric", month:"short" })}{" "}
+              a las {new Date(draftBannerData.savedAt).toLocaleTimeString("es-MX", { hour:"2-digit", minute:"2-digit" })}.
+              ¿Restaurar?
+            </div>
+            <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+              <button onClick={() => {
+                setForm(f => ({ ...f,
+                  notes: draftBannerData.notes || f.notes,
+                  structured: draftBannerData.structured || f.structured,
+                  noteFormat: draftBannerData.noteFormat || f.noteFormat,
+                }));
+                setShowDraftBanner(false);
+              }} style={{ padding:"5px 12px", borderRadius:8, border:`1.5px solid ${T.p}`,
+                background:T.pA, fontFamily:T.fB, fontSize:12, fontWeight:700,
+                color:T.p, cursor:"pointer" }}>
+                Restaurar
+              </button>
+              <button onClick={() => {
+                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+                setShowDraftBanner(false); setDraftBannerData(null);
+              }} style={{ padding:"5px 10px", borderRadius:8, border:`1.5px solid ${T.bdrL}`,
+                background:"transparent", fontFamily:T.fB, fontSize:12,
+                color:T.tm, cursor:"pointer" }}>
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
+
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
         {/* ── Widget de tareas del paciente ─────────────────────── */}
@@ -1727,6 +1819,12 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
           : <Textarea label="Notas clínicas *" value={form.notes} onChange={fld("notes")}
               placeholder="Describe la sesión, intervenciones y respuesta del paciente..." rows={5}/>
         }
+        {/* ── Indicador de autoguardado ───────────────────────────────── */}
+        {draftSavedAt && (
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, textAlign:"right", marginTop:-10, marginBottom:14 }}>
+            Borrador guardado {new Date(draftSavedAt).toLocaleTimeString("es-MX", { hour:"2-digit", minute:"2-digit" })}
+          </div>
+        )}
 
         {/* ── Botón resumen IA ──────────────────────────────────────── */}
         {(form.notes?.trim() || form.structured) && (
@@ -2376,14 +2474,14 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
       <Modal
         open={showCloseWizard}
         onClose={() => setShowCloseWizard(false)}
-        title={`Cierre de sesión · Paso ${closeStep} de 3`}
+        title={`Cierre de sesión · Paso ${closeStep} de 4`}
         width={480}
       >
         {closeCtx && (() => {
           const pt = patients.find(p => p.id === closeCtx.patientId);
 
           // ── Indicador de pasos ──────────────────────────────────────────
-          const steps = ["Intersesión", "Próxima cita", "Confirmar"];
+          const steps = ["Intersesión", "Tareas", "Próxima cita", "Confirmar"];
           return (
             <>
               {/* Progress bar */}
@@ -2478,8 +2576,120 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </>
               )}
 
-              {/* ── Paso 2: Próxima cita (Sección 8.4) ─────────────────── */}
-              {closeStep === 2 && (
+              {/* ── Paso 2: Asignación de Tareas ───────────────────────── */}
+              {closeStep === 2 && (() => {
+                const ptWiz = patients.find(p => p.id === closeCtx?.patientId);
+                const handleAssignTask = async () => {
+                  if (!closeTaskTplId) return;
+                  const tpl = TASK_TEMPLATES[closeTaskTplId];
+                  if (!tpl) return;
+                  setCloseTaskSaving(true);
+                  setCloseTaskError("");
+                  try {
+                    await createAssignment({
+                      patientId:    closeCtx.patientId,
+                      patientName:  ptWiz?.name || closeCtx.patientName,
+                      patientPhone: ptWiz?.phone?.replace(/\D/g, "") || "",
+                      templateId:   closeTaskTplId,
+                      title:        tpl.title,
+                      notes:        closeTaskNotes.trim() || null,
+                      sessionId:    closeCtx.sessionId,
+                    });
+                    emit.taskAssigned({ patientId: closeCtx.patientId, patientName: ptWiz?.name || closeCtx.patientName, sessionId: closeCtx.sessionId, count: 1 });
+                    setCloseTaskAssigned(true);
+                  } catch {
+                    setCloseTaskError("No se pudo guardar la tarea. Verifica la conexión.");
+                  } finally {
+                    setCloseTaskSaving(false);
+                  }
+                };
+                return (
+                  <>
+                    <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:14, lineHeight:1.6 }}>
+                      Asigna una tarea terapéutica para trabajar antes de la próxima sesión.
+                      <span style={{ color:T.tl }}> (Opcional — puedes omitir)</span>
+                    </p>
+
+                    {/* Lista de plantillas */}
+                    {!closeTaskAssigned && (
+                      <>
+                        <div style={{ maxHeight:220, overflowY:"auto", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:6, background:T.cardAlt, display:"flex", flexDirection:"column", gap:4, marginBottom:12 }}>
+                          {Object.values(TASK_TEMPLATES).map(tpl => {
+                            const sel = closeTaskTplId === tpl.id;
+                            return (
+                              <button key={tpl.id} onClick={() => setCloseTaskTplId(sel ? null : tpl.id)}
+                                style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", borderRadius:8,
+                                  border:`1.5px solid ${sel ? T.p : T.bdr}`, background:sel ? T.pA : T.card,
+                                  cursor:"pointer", textAlign:"left", transition:"all .12s" }}>
+                                <span style={{ fontSize:18, lineHeight:1, flexShrink:0 }}>{tpl.icon}</span>
+                                <div style={{ flex:1, overflow:"hidden" }}>
+                                  <div style={{ fontFamily:T.fB, fontSize:12.5, fontWeight:sel?700:500, color:sel?T.p:T.t, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{tpl.title}</div>
+                                  <div style={{ fontFamily:T.fB, fontSize:10.5, color:T.tl }}>{tpl.category}</div>
+                                </div>
+                                {sel && <Check size={14} color={T.p} style={{ flexShrink:0 }}/>}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Nota personalizada */}
+                        {closeTaskTplId && (
+                          <div style={{ marginBottom:12 }}>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                              textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                              Instrucción o nota para el paciente <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
+                            </label>
+                            <textarea value={closeTaskNotes} onChange={e => setCloseTaskNotes(e.target.value)} rows={2}
+                              placeholder="Ej. Completa esto antes del jueves, enfocándote en las situaciones del trabajo..."
+                              style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                                borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
+                                background:T.card, outline:"none", resize:"vertical",
+                                boxSizing:"border-box", lineHeight:1.6 }}/>
+                          </div>
+                        )}
+
+                        {closeTaskError && (
+                          <div style={{ padding:"9px 12px", background:T.errA, borderRadius:9, fontFamily:T.fB, fontSize:12, color:T.err, marginBottom:10 }}>
+                            ⚠️ {closeTaskError}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Estado de confirmación */}
+                    {closeTaskAssigned && (
+                      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 16px",
+                        background:T.sucA, borderRadius:12, border:`1.5px solid ${T.suc}40`, marginBottom:14 }}>
+                        <span style={{ fontSize:20 }}>✓</span>
+                        <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:T.suc }}>
+                          Tarea asignada correctamente
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                      <button onClick={() => setCloseStep(3)}
+                        style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
+                          background:"transparent", fontFamily:T.fB, fontSize:13,
+                          color:T.tm, cursor:"pointer" }}>
+                        {closeTaskAssigned ? "Continuar" : "Omitir este paso"}
+                      </button>
+                      {!closeTaskAssigned && closeTaskTplId && (
+                        <button onClick={handleAssignTask} disabled={closeTaskSaving}
+                          style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px",
+                            borderRadius:9, border:"none", background:T.p, color:"#fff",
+                            fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer",
+                            opacity: closeTaskSaving ? 0.7 : 1 }}>
+                          <ClipboardCheck size={14}/> {closeTaskSaving ? "Guardando…" : "Asignar tarea"}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* ── Paso 3: Próxima cita (Sección 8.4) ─────────────────── */}
+              {closeStep === 3 && (
                 <>
                   <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
                     Agenda la próxima sesión directamente desde aquí.
@@ -2525,7 +2735,7 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-                    <button onClick={() => setCloseStep(3)}
+                    <button onClick={() => setCloseStep(4)}
                       style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
                         background:"transparent", fontFamily:T.fB, fontSize:13,
                         color:T.tm, cursor:"pointer" }}>
@@ -2541,8 +2751,8 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </>
               )}
 
-              {/* ── Paso 3: Confirmación WhatsApp (Sección 8.5) ──────────── */}
-              {closeStep === 3 && (() => {
+              {/* ── Paso 4: Confirmación WhatsApp (Sección 8.5) ──────────── */}
+              {closeStep === 4 && (() => {
                 const waUrl = whatsappNextAppt();
                 return (
                   <>
