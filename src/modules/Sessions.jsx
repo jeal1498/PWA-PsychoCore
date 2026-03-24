@@ -1227,7 +1227,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,
       date: savedCtx.date, sessionId: savedCtx.sessionId });
   };
-  };
 
   // ── Omitir cobro → pago queda como "pendiente" en Finanzas ─────────────────
   const skipCobro = () => {
