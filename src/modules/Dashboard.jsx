@@ -22,7 +22,9 @@ import {
   Users, Calendar, TrendingUp, AlertCircle, Clock,
   FileText, ChevronRight, ShieldAlert, DollarSign,
   ClipboardList, Target, UserX, Activity, ArrowRight,
-  AlertTriangle, TrendingDown, Zap,
+  AlertTriangle, TrendingDown, Zap, CheckCircle2,
+  ChevronDown, ChevronUp, Camera, BadgeCheck, Briefcase,
+  CalendarClock, ListChecks,
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus } from "./Consent.jsx";
@@ -292,6 +294,352 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEJORA 1 — Alerta de saldo pendiente al inicio de la jornada
+// ─────────────────────────────────────────────────────────────────────────────
+function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
+  if (pendingCount === 0) return null;
+  return (
+    <div style={{
+      marginBottom: 20,
+      background: T.warA,
+      border: `1.5px solid ${T.war}40`,
+      borderRadius: 14,
+      padding: "14px 18px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      flexWrap: "wrap",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: `${T.war}20`,
+          border: `1.5px solid ${T.war}50`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <AlertCircle size={17} color={T.war} strokeWidth={1.8} />
+        </div>
+        <span style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.war }}>
+          {pendingCount} paciente{pendingCount !== 1 ? "s" : ""} con saldo pendiente
+          {" — "}
+          <span style={{ fontWeight: 800 }}>
+            Total: {fmtCur(pendingTotal)} MXN
+          </span>
+        </span>
+      </div>
+      <button
+        onClick={() => onNavigate("finance")}
+        style={{
+          padding: "7px 16px", borderRadius: 9999, border: `1.5px solid ${T.war}`,
+          background: "transparent", color: T.war, fontFamily: T.fB, fontSize: 12.5,
+          fontWeight: 700, cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap",
+          flexShrink: 0,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = T.war; e.currentTarget.style.color = "#fff"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.war; }}>
+        Ver en Finanzas →
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEJORA 2 — Barra de progreso de configuración pendiente
+// ─────────────────────────────────────────────────────────────────────────────
+function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
+  const [open, setOpen] = useState(true);
+
+  const items = useMemo(() => [
+    {
+      key:   "photo",
+      label: "Foto de perfil",
+      icon:  Camera,
+      done:  !!(profile?.photo || profile?.avatar),
+    },
+    {
+      key:   "cedula",
+      label: "Número de cédula",
+      icon:  BadgeCheck,
+      done:  !!(profile?.cedula),
+    },
+    {
+      key:   "services",
+      label: "Al menos un servicio configurado",
+      icon:  Briefcase,
+      done:  services.length > 0,
+    },
+    {
+      key:   "schedule",
+      label: "Horario de disponibilidad",
+      icon:  CalendarClock,
+      done:  !!(profile?.schedule?.workDays?.length > 0),
+    },
+  ], [profile, services]);
+
+  const completed = items.filter(i => i.done).length;
+  const total     = items.length;
+
+  // No renderiza si todo está completo
+  if (completed === total) return null;
+
+  const pct = Math.round((completed / total) * 100);
+
+  return (
+    <div style={{
+      marginBottom: 20,
+      background: T.card,
+      border: `1.5px solid ${T.bdrL}`,
+      borderRadius: 14,
+      overflow: "hidden",
+    }}>
+      {/* Header colapsable */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", background: "none", border: "none", cursor: "pointer",
+          padding: "14px 18px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12,
+        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <ListChecks size={16} color={T.p} strokeWidth={1.8} />
+          <span style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 700, color: T.t }}>
+            Completa tu perfil
+          </span>
+          <span style={{
+            padding: "2px 10px", borderRadius: 9999, fontSize: 11.5, fontWeight: 700,
+            fontFamily: T.fB, color: T.p, background: T.pA,
+          }}>
+            {completed} de {total} completados
+          </span>
+        </div>
+        {open
+          ? <ChevronUp size={16} color={T.tl} />
+          : <ChevronDown size={16} color={T.tl} />}
+      </button>
+
+      {/* Barra de progreso */}
+      <div style={{ padding: "0 18px", marginBottom: open ? 0 : 14 }}>
+        <div style={{
+          height: 6, borderRadius: 9999, background: T.bdrL, overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%", borderRadius: 9999,
+            width: `${pct}%`,
+            background: pct === 100 ? T.suc : T.p,
+            transition: "width .4s ease",
+          }} />
+        </div>
+      </div>
+
+      {/* Lista de ítems — solo visible si abierto */}
+      {open && (
+        <div style={{ padding: "10px 18px 16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+            {items.map(item => {
+              const ItemIcon = item.icon;
+              return (
+                <div key={item.key} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 12px", borderRadius: 10,
+                  background: item.done ? T.sucA : T.cardAlt,
+                  border: `1px solid ${item.done ? T.suc : T.bdrL}30`,
+                  opacity: item.done ? 0.75 : 1,
+                  transition: "all .15s",
+                }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: item.done ? `${T.suc}20` : T.pA,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {item.done
+                      ? <CheckCircle2 size={14} color={T.suc} strokeWidth={2} />
+                      : <ItemIcon size={14} color={T.p} strokeWidth={1.8} />}
+                  </div>
+                  <span style={{
+                    flex: 1, fontFamily: T.fB, fontSize: 13, color: item.done ? T.tm : T.t,
+                    textDecoration: item.done ? "line-through" : "none",
+                  }}>
+                    {item.label}
+                  </span>
+                  {!item.done && (
+                    <button
+                      onClick={() => onNavigate("settings")}
+                      style={{
+                        padding: "4px 12px", borderRadius: 9999, border: `1.5px solid ${T.p}`,
+                        background: "transparent", color: T.p, fontFamily: T.fB,
+                        fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                        transition: "all .15s", flexShrink: 0,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = T.p; e.currentTarget.style.color = "#fff"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.p; }}>
+                      Configurar
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEJORA 3 — Guía contextual para el primer paciente
+// ─────────────────────────────────────────────────────────────────────────────
+function WelcomeGuide({ onNavigate }) {
+  const steps = [
+    {
+      num:     1,
+      title:   "Registra tu primer paciente",
+      desc:    "Agrega sus datos, historial y motivo de consulta.",
+      icon:    Users,
+      color:   T.p,
+      bg:      T.pA,
+      btnLabel:"Nuevo paciente",
+      module:  "patients",
+      isBtn:   true,
+    },
+    {
+      num:     2,
+      title:   "Agenda su primera cita",
+      desc:    "Programa la sesión inicial en el calendario integrado.",
+      icon:    Calendar,
+      color:   T.acc,
+      bg:      T.accA,
+      btnLabel:"Ir a Agenda",
+      module:  "agenda",
+      isBtn:   true,
+    },
+    {
+      num:     3,
+      title:   "Envía el mensaje de bienvenida",
+      desc:    "PsychoCore generará automáticamente el mensaje de confirmación al agendar la cita. No necesitas hacer nada adicional.",
+      icon:    FileText,
+      color:   T.suc,
+      bg:      T.sucA,
+      btnLabel:null,
+      module:  null,
+      isBtn:   false,
+    },
+  ];
+
+  return (
+    <div style={{
+      padding: "32px 24px 28px",
+      background: T.card,
+      border: `1.5px solid ${T.bdrL}`,
+      borderRadius: 18,
+      textAlign: "center",
+    }}>
+      {/* Ícono decorativo */}
+      <div style={{
+        width: 64, height: 64, borderRadius: 18, background: T.pA,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        margin: "0 auto 18px",
+      }}>
+        <Zap size={28} color={T.p} strokeWidth={1.5} />
+      </div>
+
+      <h2 style={{
+        fontFamily: T.fH, fontSize: 26, fontWeight: 500, color: T.t,
+        margin: "0 0 8px",
+      }}>
+        ¡Bienvenido a PsychoCore!
+      </h2>
+      <p style={{
+        fontFamily: T.fB, fontSize: 14, color: T.tm,
+        margin: "0 auto 32px", maxWidth: 480, lineHeight: 1.6,
+      }}>
+        Sigue estos tres pasos para comenzar a gestionar tu práctica clínica.
+      </p>
+
+      {/* Pasos */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: 16, marginBottom: 28, textAlign: "left",
+      }}>
+        {steps.map(step => {
+          const StepIcon = step.icon;
+          return (
+            <div key={step.num} style={{
+              background: T.cardAlt,
+              border: `1.5px solid ${T.bdrL}`,
+              borderRadius: 14, padding: "20px 18px",
+              display: "flex", flexDirection: "column", gap: 12,
+              position: "relative", overflow: "hidden",
+            }}>
+              {/* Número de paso — decorativo fondo */}
+              <div style={{
+                position: "absolute", top: -6, right: 10,
+                fontFamily: T.fH, fontSize: 72, fontWeight: 700,
+                color: `${step.color}08`, lineHeight: 1, userSelect: "none",
+              }}>
+                {step.num}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11, background: step.bg, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: `1.5px solid ${step.color}30`,
+                }}>
+                  <StepIcon size={17} color={step.color} strokeWidth={1.7} />
+                </div>
+                <span style={{
+                  fontFamily: T.fB, fontSize: 11, fontWeight: 800, color: step.color,
+                  textTransform: "uppercase", letterSpacing: "0.07em",
+                }}>
+                  Paso {step.num}
+                </span>
+              </div>
+
+              <div>
+                <div style={{ fontFamily: T.fB, fontSize: 14.5, fontWeight: 700, color: T.t, marginBottom: 5 }}>
+                  {step.title}
+                </div>
+                <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.55 }}>
+                  {step.desc}
+                </div>
+              </div>
+
+              {step.isBtn && (
+                <button
+                  onClick={() => onNavigate(step.module)}
+                  style={{
+                    alignSelf: "flex-start",
+                    padding: "8px 18px", borderRadius: 9999,
+                    border: `1.5px solid ${step.color}`,
+                    background: step.bg, color: step.color,
+                    fontFamily: T.fB, fontSize: 13, fontWeight: 700,
+                    cursor: "pointer", transition: "all .15s",
+                    marginTop: "auto",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = step.color; e.currentTarget.style.color = "#fff"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = step.bg; e.currentTarget.style.color = step.color; }}>
+                  {step.btnLabel}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{
+        fontFamily: T.fB, fontSize: 12, color: T.tl,
+        margin: 0, lineHeight: 1.5,
+      }}>
+        Puedes consultar esta guía en cualquier momento desde{" "}
+        <span style={{ fontWeight: 700, color: T.tm }}>Configuración → Ayuda</span>.
+      </p>
     </div>
   );
 }
@@ -701,13 +1049,14 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
 // DASHBOARD PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Dashboard({
-  patients      = [],
-  appointments  = [],
-  sessions      = [],
-  payments      = [],
+  patients        = [],
+  appointments    = [],
+  sessions        = [],
+  payments        = [],
   riskAssessments = [],
   treatmentPlans  = [],
   services        = [],
+  profile         = {},
   onNavigate,
   onQuickNav,
   onStartSession,
@@ -840,6 +1189,31 @@ export default function Dashboard({
   // ── Labels de período para subtítulos ───────────────────────────────────
   const periodLabel = period === "month" ? "este mes" : period === "quarter" ? "este trimestre" : "este año";
 
+  // ── MEJORA 1: Pagos pendientes del mes en curso ──────────────────────────
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  const pendingBalanceData = useMemo(() => {
+    const pending = payments.filter(p => {
+      if (p.status !== "pendiente") return false;
+      // Si tiene fecha, filtra por mes actual; si no tiene fecha, incluir siempre
+      if (p.date) return p.date.startsWith(currentMonthKey);
+      return true;
+    });
+    const total      = pending.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const patientIds = [...new Set(pending.map(p => p.patientId).filter(Boolean))];
+    // Si hay pagos sin patientId, los cuenta como pacientes separados
+    const noIdCount  = pending.filter(p => !p.patientId).length;
+    const uniqueCount = patientIds.length + (noIdCount > 0 ? 1 : 0);
+    return {
+      count:      Math.max(uniqueCount, pending.length > 0 ? 1 : 0),
+      total,
+      hasPending: pending.length > 0,
+    };
+  }, [payments, currentMonthKey]);
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div>
@@ -872,6 +1246,15 @@ export default function Dashboard({
           )}
         </div>
       </div>
+
+      {/* ── MEJORA 1: ALERTA DE SALDO PENDIENTE ───────────────────────────── */}
+      {pendingBalanceData.hasPending && (
+        <PendingBalanceAlert
+          pendingCount={pendingBalanceData.count}
+          pendingTotal={pendingBalanceData.total}
+          onNavigate={onNavigate}
+        />
+      )}
 
       {/* ── 2. BANNER ALERTAS CRÍTICAS (alto / inminente) ─────────────────── */}
       {criticalAlerts.length > 0 && (
@@ -931,271 +1314,285 @@ export default function Dashboard({
       {/* ── 3. ACCIONES RÁPIDAS ───────────────────────────────────────────── */}
       <QuickBar onQuickNav={onQuickNav} onNewSession={onNewSession} isMobile={isMobile} />
 
-      {/* ── 4. FILTRO DE PERÍODO + KPIs FINANCIEROS ───────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-        flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
-        <h2 style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500, color: T.t, margin: 0 }}>
-          Salud Financiera
-        </h2>
-        <PeriodFilter value={period} onChange={setPeriod} />
-      </div>
+      {/* ── MEJORA 2: BARRA DE PROGRESO DE CONFIGURACIÓN ──────────────────── */}
+      <ProfileSetupBar
+        profile={profile}
+        services={services}
+        onNavigate={onNavigate}
+      />
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile
-          ? "1fr 1fr"
-          : "repeat(4, 1fr)",
-        gap: 12, marginBottom: 20,
-      }}>
-        <FinKpiCard
-          label="Ingresos"
-          value={fmtCur(periodIncome)}
-          icon={TrendingUp}
-          color={CC.income}
-          bg={`${CC.income}18`}
-          sub={periodLabel}
-          onClick={() => onNavigate("finance")}
-        />
-        <FinKpiCard
-          label="Proyección"
-          value={fmtCur(projectedIncome)}
-          icon={Zap}
-          color={CC.sessions}
-          bg={`${CC.sessions}15`}
-          sub="próximos 30 días"
-          tag={projectedIncome > 0 ? `${appointments.filter(a => a.status === "pendiente" && a.date > todayStr && a.date <= future30Str).length} citas` : null}
-        />
-        <FinKpiCard
-          label="Ticket Prom."
-          value={avgTicket > 0 ? fmtCur(avgTicket) : "—"}
-          icon={Target}
-          color="#5B8DB8"
-          bg="rgba(91,141,184,0.12)"
-          sub={`${periodSessions.length} sesiones`}
-        />
-        <FinKpiCard
-          label="Pagos Pend."
-          value={pendingPay}
-          icon={AlertCircle}
-          color={T.war}
-          bg={T.warA}
-          sub={pendingPay > 0 ? "cobros sin confirmar" : "al día ✓"}
-          onClick={() => onNavigate("finance")}
-        />
-      </div>
+      {/* ── MEJORA 3: GUÍA DE PRIMER PACIENTE o CONTENIDO NORMAL ──────────── */}
+      {patients.length === 0 ? (
 
-      {/* ── 5. KPIs OPERATIVOS ────────────────────────────────────────────── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))",
-        gap: 10, marginBottom: 24,
-      }}>
-        <KpiCard label="Pacientes activos" value={activeCount}
-          icon={Users} color={T.p} bg={T.pA} onClick={() => onNavigate("patients")} />
-        <KpiCard label="Citas hoy" value={todayAppts.length}
-          icon={Calendar} color={T.acc} bg={T.accA} onClick={() => onNavigate("agenda")} />
-        <KpiCard label="Sesiones período" value={periodSessions.length}
-          icon={Activity} color={CC.sessions} bg={`${CC.sessions}15`} onClick={() => onNavigate("sessions")} />
-        <KpiCard label="Tareas pendientes" value={pendingTasks ?? "…"}
-          icon={ClipboardList} color={T.p} bg={T.pA} onClick={() => onNavigate("tasks")} />
-      </div>
+        <WelcomeGuide onNavigate={onNavigate} />
 
-      {/* ── 6. GRÁFICA DE TENDENCIA ───────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <TrendChart data={trendData} isMobile={isMobile} />
-      </div>
-
-      {/* ── 7. GRID: VIGILANCIA CLÍNICA + RETENCIÓN ──────────────────────── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap: 20, marginBottom: 24,
-      }}>
-        <RiskVigilancePanel
-          patients={patients}
-          riskAssessments={riskAssessments}
-          onNavigate={onNavigate}
-        />
-        <RetentionPanel
-          patients={patients}
-          sessions={sessions}
-          onNavigate={onNavigate}
-        />
-      </div>
-
-      {/* ── 8. CITAS DE HOY ───────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center",
-          justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
+      ) : (
+        <>
+          {/* ── 4. FILTRO DE PERÍODO + KPIs FINANCIEROS ─────────────────── */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
             <h2 style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500, color: T.t, margin: 0 }}>
-              Citas de hoy
+              Salud Financiera
             </h2>
-            {pendingAppts.length > 0 && (
-              <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 2 }}>
-                {pendingAppts.length} pendiente{pendingAppts.length > 1 ? "s" : ""} por documentar
-              </div>
-            )}
+            <PeriodFilter value={period} onChange={setPeriod} />
           </div>
-          <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
-        </div>
 
-        {todayAppts.length === 0 ? (
-          <Card style={{ padding: 28, textAlign: "center" }}>
-            <Calendar size={34} strokeWidth={1.2}
-              style={{ color: T.tl, opacity: 0.35, marginBottom: 10 }} />
-            <div style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tl, marginBottom: 14 }}>
-              Sin citas programadas para hoy
-            </div>
-            <button onClick={() => onNavigate("agenda")}
-              style={{ background: T.pA, border: "none", borderRadius: 9999,
-                padding: "8px 18px", fontFamily: T.fB, fontSize: 13,
-                color: T.p, cursor: "pointer", fontWeight: 700 }}>
-              + Agendar cita
-            </button>
-          </Card>
-        ) : (
-          <div style={{ display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))",
-            gap: 12 }}>
-            {todayAppts.map(a => (
-              <ApptCard key={a.id} appt={a} onStart={onStartSession} />
-            ))}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+            gap: 12, marginBottom: 20,
+          }}>
+            <FinKpiCard
+              label="Ingresos"
+              value={fmtCur(periodIncome)}
+              icon={TrendingUp}
+              color={CC.income}
+              bg={`${CC.income}18`}
+              sub={periodLabel}
+              onClick={() => onNavigate("finance")}
+            />
+            <FinKpiCard
+              label="Proyección"
+              value={fmtCur(projectedIncome)}
+              icon={Zap}
+              color={CC.sessions}
+              bg={`${CC.sessions}15`}
+              sub="próximos 30 días"
+              tag={projectedIncome > 0 ? `${appointments.filter(a => a.status === "pendiente" && a.date > todayStr && a.date <= future30Str).length} citas` : null}
+            />
+            <FinKpiCard
+              label="Ticket Prom."
+              value={avgTicket > 0 ? fmtCur(avgTicket) : "—"}
+              icon={Target}
+              color="#5B8DB8"
+              bg="rgba(91,141,184,0.12)"
+              sub={`${periodSessions.length} sesiones`}
+            />
+            <FinKpiCard
+              label="Pagos Pend."
+              value={pendingPay}
+              icon={AlertCircle}
+              color={T.war}
+              bg={T.warA}
+              sub={pendingPay > 0 ? "cobros sin confirmar" : "al día ✓"}
+              onClick={() => onNavigate("finance")}
+            />
           </div>
-        )}
-      </div>
 
-      {/* ── 9. GRID INFERIOR: Sesiones recientes + Pendientes ─────────────── */}
-      <div style={{ display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(300px,1fr))",
-        gap: 20 }}>
+          {/* ── 5. KPIs OPERATIVOS ──────────────────────────────────────── */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))",
+            gap: 10, marginBottom: 24,
+          }}>
+            <KpiCard label="Pacientes activos" value={activeCount}
+              icon={Users} color={T.p} bg={T.pA} onClick={() => onNavigate("patients")} />
+            <KpiCard label="Citas hoy" value={todayAppts.length}
+              icon={Calendar} color={T.acc} bg={T.accA} onClick={() => onNavigate("agenda")} />
+            <KpiCard label="Sesiones período" value={periodSessions.length}
+              icon={Activity} color={CC.sessions} bg={`${CC.sessions}15`} onClick={() => onNavigate("sessions")} />
+            <KpiCard label="Tareas pendientes" value={pendingTasks ?? "…"}
+              icon={ClipboardList} color={T.p} bg={T.pA} onClick={() => onNavigate("tasks")} />
+          </div>
 
-        {/* Sesiones recientes */}
-        <Card style={{ padding: 24 }}>
-          <SectionHead
-            title="Sesiones recientes"
-            action={<SeeAll label="Ver todas" onClick={() => onNavigate("sessions")} />}
-          />
-          {recentSess.length === 0 ? (
-            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl,
-              textAlign: "center", padding: "20px 0" }}>
-              Sin sesiones registradas aún
-            </div>
-          ) : recentSess.map(s => {
-            const MoodIcon = moodIcon(s.mood);
-            const ps = progressStyle(s.progress);
-            return (
-              <div key={s.id} onClick={() => onNavigate("sessions")}
-                style={{ display: "flex", alignItems: "center", gap: 12,
-                  padding: "10px 0", borderBottom: `1px solid ${T.bdrL}`, cursor: "pointer" }}>
-                <MoodIcon size={17} color={moodColor(s.mood)} strokeWidth={1.6} style={{ flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 500, color: T.t,
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {s.patientName.split(" ").slice(0, 2).join(" ")}
-                  </div>
-                  <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
-                    {fmtDate(s.date)}
-                  </div>
-                </div>
-                <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
-              </div>
-            );
-          })}
-        </Card>
+          {/* ── 6. GRÁFICA DE TENDENCIA ──────────────────────────────────── */}
+          <div style={{ marginBottom: 24 }}>
+            <TrendChart data={trendData} isMobile={isMobile} />
+          </div>
 
-        {/* Pendientes secundarios */}
-        {hasSecondaryAlerts && (
-          <Card style={{ padding: 24 }}>
-            <SectionHead title="Pendientes" action={null} />
+          {/* ── 7. GRID: VIGILANCIA CLÍNICA + RETENCIÓN ─────────────────── */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            gap: 20, marginBottom: 24,
+          }}>
+            <RiskVigilancePanel
+              patients={patients}
+              riskAssessments={riskAssessments}
+              onNavigate={onNavigate}
+            />
+            <RetentionPanel
+              patients={patients}
+              sessions={sessions}
+              onNavigate={onNavigate}
+            />
+          </div>
 
-            {consentIssues.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center",
-                  justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
-                    color: T.war, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    ⚠ Consentimientos
-                  </span>
-                  <SeeAll label="Ver" onClick={() => onNavigate("patients")} />
-                </div>
-                {consentIssues.slice(0, 3).map(p => {
-                  const cs    = consentStatus(p);
-                  const color = cs === "expired" ? T.err : cs === "expiring" ? T.acc : T.war;
-                  const label = cs === "expired" ? "Vencido" : cs === "expiring" ? "Por vencer" : "Sin firmar";
-                  return (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10,
-                      padding: "7px 10px", borderRadius: 9, background: `${color}10`, marginBottom: 5 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: "50%",
-                        background: `${color}20`, display: "flex", alignItems: "center",
-                        justifyContent: "center", flexShrink: 0, border: `1.5px solid ${color}40` }}>
-                        <span style={{ fontFamily: T.fH, fontSize: 12, color }}>{p.name[0]}</span>
-                      </div>
-                      <span style={{ fontFamily: T.fB, fontSize: 13, color: T.t, flex: 1,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {p.name.split(" ").slice(0, 2).join(" ")}
-                      </span>
-                      <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, color, flexShrink: 0 }}>
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
-                {consentIssues.length > 3 && (
-                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, textAlign: "center", marginTop: 2 }}>
-                    +{consentIssues.length - 3} más
+          {/* ── 8. CITAS DE HOY ─────────────────────────────────────────── */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center",
+              justifyContent: "space-between", marginBottom: 14 }}>
+              <div>
+                <h2 style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500, color: T.t, margin: 0 }}>
+                  Citas de hoy
+                </h2>
+                {pendingAppts.length > 0 && (
+                  <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 2 }}>
+                    {pendingAppts.length} pendiente{pendingAppts.length > 1 ? "s" : ""} por documentar
                   </div>
                 )}
               </div>
-            )}
+              <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
+            </div>
 
-            {(overdueFollowUps.length > 0 || followUps.length > 0) && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center",
-                  justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
-                    color: "#5B8DB8", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    📅 Post-alta
-                  </span>
-                  <SeeAll label="Ver" onClick={() => onNavigate("agenda")} />
+            {todayAppts.length === 0 ? (
+              <Card style={{ padding: 28, textAlign: "center" }}>
+                <Calendar size={34} strokeWidth={1.2}
+                  style={{ color: T.tl, opacity: 0.35, marginBottom: 10 }} />
+                <div style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tl, marginBottom: 14 }}>
+                  Sin citas programadas para hoy
                 </div>
-                {[...overdueFollowUps, ...followUps].slice(0, 3).map(a => {
-                  const pt      = patients.find(p => p.id === a.patientId);
-                  const overdue = a.date < todayStr;
-                  return (
-                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10,
-                      padding: "7px 10px", borderRadius: 9,
-                      background: overdue ? T.warA : "rgba(91,141,184,0.08)", marginBottom: 5 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: "50%",
-                        background: overdue ? T.warA : "rgba(91,141,184,0.15)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0, border: `1.5px solid ${overdue ? T.war : "#5B8DB8"}40` }}>
-                        <span style={{ fontFamily: T.fH, fontSize: 12,
-                          color: overdue ? T.war : "#5B8DB8" }}>
-                          {pt?.name?.[0] || "?"}
-                        </span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: T.fB, fontSize: 13, color: T.t,
-                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
-                        </div>
-                        <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>
-                          {fmtDate(a.date)}
-                        </div>
-                      </div>
-                      <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
-                        color: overdue ? T.war : "#5B8DB8" }}>
-                        {overdue ? "Vencido" : "Próximo"}
-                      </span>
-                    </div>
-                  );
-                })}
+                <button onClick={() => onNavigate("agenda")}
+                  style={{ background: T.pA, border: "none", borderRadius: 9999,
+                    padding: "8px 18px", fontFamily: T.fB, fontSize: 13,
+                    color: T.p, cursor: "pointer", fontWeight: 700 }}>
+                  + Agendar cita
+                </button>
+              </Card>
+            ) : (
+              <div style={{ display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))",
+                gap: 12 }}>
+                {todayAppts.map(a => (
+                  <ApptCard key={a.id} appt={a} onStart={onStartSession} />
+                ))}
               </div>
             )}
-          </Card>
-        )}
-      </div>
+          </div>
+
+          {/* ── 9. GRID INFERIOR: Sesiones recientes + Pendientes ─────────── */}
+          <div style={{ display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(300px,1fr))",
+            gap: 20 }}>
+
+            {/* Sesiones recientes */}
+            <Card style={{ padding: 24 }}>
+              <SectionHead
+                title="Sesiones recientes"
+                action={<SeeAll label="Ver todas" onClick={() => onNavigate("sessions")} />}
+              />
+              {recentSess.length === 0 ? (
+                <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl,
+                  textAlign: "center", padding: "20px 0" }}>
+                  Sin sesiones registradas aún
+                </div>
+              ) : recentSess.map(s => {
+                const MoodIcon = moodIcon(s.mood);
+                const ps = progressStyle(s.progress);
+                return (
+                  <div key={s.id} onClick={() => onNavigate("sessions")}
+                    style={{ display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 0", borderBottom: `1px solid ${T.bdrL}`, cursor: "pointer" }}>
+                    <MoodIcon size={17} color={moodColor(s.mood)} strokeWidth={1.6} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 500, color: T.t,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {s.patientName.split(" ").slice(0, 2).join(" ")}
+                      </div>
+                      <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
+                        {fmtDate(s.date)}
+                      </div>
+                    </div>
+                    <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
+                  </div>
+                );
+              })}
+            </Card>
+
+            {/* Pendientes secundarios */}
+            {hasSecondaryAlerts && (
+              <Card style={{ padding: 24 }}>
+                <SectionHead title="Pendientes" action={null} />
+
+                {consentIssues.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center",
+                      justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+                        color: T.war, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                        ⚠ Consentimientos
+                      </span>
+                      <SeeAll label="Ver" onClick={() => onNavigate("patients")} />
+                    </div>
+                    {consentIssues.slice(0, 3).map(p => {
+                      const cs    = consentStatus(p);
+                      const color = cs === "expired" ? T.err : cs === "expiring" ? T.acc : T.war;
+                      const label = cs === "expired" ? "Vencido" : cs === "expiring" ? "Por vencer" : "Sin firmar";
+                      return (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10,
+                          padding: "7px 10px", borderRadius: 9, background: `${color}10`, marginBottom: 5 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%",
+                            background: `${color}20`, display: "flex", alignItems: "center",
+                            justifyContent: "center", flexShrink: 0, border: `1.5px solid ${color}40` }}>
+                            <span style={{ fontFamily: T.fH, fontSize: 12, color }}>{p.name[0]}</span>
+                          </div>
+                          <span style={{ fontFamily: T.fB, fontSize: 13, color: T.t, flex: 1,
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.name.split(" ").slice(0, 2).join(" ")}
+                          </span>
+                          <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, color, flexShrink: 0 }}>
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {consentIssues.length > 3 && (
+                      <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, textAlign: "center", marginTop: 2 }}>
+                        +{consentIssues.length - 3} más
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(overdueFollowUps.length > 0 || followUps.length > 0) && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center",
+                      justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+                        color: "#5B8DB8", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                        📅 Post-alta
+                      </span>
+                      <SeeAll label="Ver" onClick={() => onNavigate("agenda")} />
+                    </div>
+                    {[...overdueFollowUps, ...followUps].slice(0, 3).map(a => {
+                      const pt      = patients.find(p => p.id === a.patientId);
+                      const overdue = a.date < todayStr;
+                      return (
+                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10,
+                          padding: "7px 10px", borderRadius: 9,
+                          background: overdue ? T.warA : "rgba(91,141,184,0.08)", marginBottom: 5 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%",
+                            background: overdue ? T.warA : "rgba(91,141,184,0.15)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            flexShrink: 0, border: `1.5px solid ${overdue ? T.war : "#5B8DB8"}40` }}>
+                            <span style={{ fontFamily: T.fH, fontSize: 12,
+                              color: overdue ? T.war : "#5B8DB8" }}>
+                              {pt?.name?.[0] || "?"}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.t,
+                              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
+                            </div>
+                            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>
+                              {fmtDate(a.date)}
+                            </div>
+                          </div>
+                          <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                            color: overdue ? T.war : "#5B8DB8" }}>
+                            {overdue ? "Vencido" : "Próximo"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+        </>
+      )}
 
     </div>
   );
