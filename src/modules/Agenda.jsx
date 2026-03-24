@@ -39,6 +39,50 @@ const WORK_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
 // ── Mejora 1: horas para la Vista Día (08:00–20:00) ─────────────────────────
 const DAY_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20];
 
+// ── Schedule helpers ──────────────────────────────────────────────────────────
+/**
+ * Genera slots de 30 min dentro del horario configurado.
+ * Fallback: 08:00–20:00 si no hay configuración.
+ */
+function buildTimeSlots(profile) {
+  const start = profile?.workingStart;
+  const end   = profile?.workingEnd;
+  if (!start || !end || start >= end) {
+    // Fallback 08:00–20:00
+    const slots = [];
+    for (let m = 8 * 60; m < 20 * 60; m += 30) {
+      slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    }
+    return slots;
+  }
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin   = eh * 60 + em;
+  const slots = [];
+  for (let m = startMin; m < endMin; m += 30) {
+    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return slots.length > 0 ? slots : (() => {
+    const fb = [];
+    for (let m = 8 * 60; m < 20 * 60; m += 30)
+      fb.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    return fb;
+  })();
+}
+
+/**
+ * Devuelve true si la hora (número entero) cae dentro del horario laboral configurado.
+ */
+function isHourActive(hour, profile) {
+  const start = profile?.workingStart;
+  const end   = profile?.workingEnd;
+  if (!start || !end) return true; // sin configuración → todo activo
+  const startH = parseInt(start.split(":")[0]);
+  const endH   = parseInt(end.split(":")[0]);
+  return hour >= startH && hour < endH;
+}
+
 function getWeekDays(anchor) {
   const d = new Date(anchor);
   const day = d.getDay();
@@ -83,7 +127,8 @@ function generateRecurring(base, frequency, occurrences, pt) {
 }
 
 // ── Weekly view ───────────────────────────────────────────────────────────────
-function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, today }) {
+// Recibe `profile` para marcar visualmente las horas fuera de horario
+function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, today, profile }) {
   const weekDays = useMemo(() => getWeekDays(weekAnchor), [weekAnchor]);
   const todayStr = fmt(today);
 
@@ -173,6 +218,8 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
             {visibleHours.map((hour, idx) => {
               const prevHour = visibleHours[idx - 1];
               const hasGap = prevHour !== undefined && hour - prevHour > 1;
+              // ── Indicador 4: hora fuera del horario configurado ──────────
+              const inactive = !isHourActive(hour, profile);
               return (
                 <div key={hour}>
                   {hasGap && (
@@ -184,8 +231,10 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
                     </div>
                   )}
                   <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:3 }}>
-                    <div style={{ fontFamily:T.fB, fontSize:10, color:T.tl, paddingTop:5,
-                      textAlign:"right", paddingRight:6 }}>
+                    <div style={{ fontFamily:T.fB, fontSize:10,
+                      color: inactive ? T.tl : T.tl,
+                      paddingTop:5, textAlign:"right", paddingRight:6,
+                      opacity: inactive ? 0.5 : 1 }}>
                       {hour}:00
                     </div>
                     {weekDays.map((d, di) => {
@@ -216,10 +265,16 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
                           </div>
                         );
                       }
+                      // ── Slot vacío: fondo diferente si está fuera de horario ─
                       return (
-                        <div key={di} style={{ background:isToday?"rgba(58,107,110,0.03)":"transparent",
+                        <div key={di} style={{
+                          background: inactive
+                            ? T.bdrL          // fondo apagado para horas inactivas
+                            : isToday ? "rgba(58,107,110,0.03)" : "transparent",
                           borderRadius:8, minHeight:36,
-                          border:`1px solid ${T.bdrL}` }}/>
+                          border:`1px solid ${inactive ? T.bdrL : T.bdrL}`,
+                          opacity: inactive ? 0.55 : 1,
+                        }}/>
                       );
                     })}
                   </div>
@@ -536,6 +591,35 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [form, setForm] = useState(blankForm);
   const [showModalityPicker, setShowModalityPicker] = useState(false);
 
+  // ── Validación de fecha y conflicto ──────────────────────────────────────
+  const [dateError,     setDateError]     = useState("");
+  const [conflictError, setConflictError] = useState("");
+
+  // Slots horarios derivados del perfil
+  const timeSlots = useMemo(() => buildTimeSlots(profile), [profile?.workingStart, profile?.workingEnd]);
+
+  // Manejador de cambio de fecha con validación de días hábiles
+  const handleDateChange = (value) => {
+    setDateError("");
+    if (!value) { fld("date")(""); return; }
+    const workingDays = profile?.workingDays ?? [1,2,3,4,5];
+    if (workingDays.length > 0) {
+      const dayOfWeek = new Date(value + "T12:00:00").getDay();
+      if (!workingDays.includes(dayOfWeek)) {
+        setDateError("Este día no está en tu horario de trabajo. Ajusta tu horario en Configuración si necesitas hacer una excepción.");
+        fld("date")("");
+        return;
+      }
+    }
+    fld("date")(value);
+  };
+
+  // Manejador de cambio de hora — limpia el error de conflicto
+  const handleTimeChange = (value) => {
+    setConflictError("");
+    fld("time")(value);
+  };
+
   const handleTypeChange = (label) => {
     const opt = appointmentTypeOptions.find(o => (o.label || o) === label);
     const svc = opt?.serviceId ? services.find(s => s.id === opt.serviceId) : null;
@@ -601,6 +685,17 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   // ── Mejora 3: guardar cita con lógica de sugerencia ──────────────────────
   const save = () => {
     if (!form.patientId || !form.date) return;
+
+    // ── Validación de conflicto de horario ────────────────────────────────
+    if (!recurring) {
+      const conflict = appointments.find(a => a.date === form.date && a.time === form.time);
+      if (conflict) {
+        const conflictName = conflict.patientName?.split(" ").slice(0, 2).join(" ") || "otro paciente";
+        setConflictError(`Ya tienes una cita a esa hora con ${conflictName}. Elige otro horario.`);
+        return;
+      }
+    }
+
     const pt = patients.find(p => p.id === form.patientId);
 
     if (recurring) {
@@ -637,6 +732,8 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setRecurring(false);
     setRecFrequency("semanal");
     setRecOccurrences(8);
+    setDateError("");
+    setConflictError("");
     setShowAdd(false);
   };
 
@@ -713,7 +810,14 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       {/* ── Vista Semana ────────────────────────────────────────────────────── */}
       {view === "week" && (
         <Card style={{ padding:24 }}>
-          <WeeklyView appointments={appointments} weekAnchor={weekAnchor} setWeekAnchor={setWeekAnchor} onOpenQuick={openQuickSession} today={todayDate}/>
+          <WeeklyView
+            appointments={appointments}
+            weekAnchor={weekAnchor}
+            setWeekAnchor={setWeekAnchor}
+            onOpenQuick={openQuickSession}
+            today={todayDate}
+            profile={profile}
+          />
         </Card>
       )}
 
@@ -918,16 +1022,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                 flexShrink:0, width:38, textAlign:"center" }}>
                                 {a.time}
                               </span>
-                              {/* Info */}
                               <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t,
-                                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
-                                  display:"flex", alignItems:"center", gap:5 }}>
-                                  {a.patientName.split(" ").slice(0,2).join(" ")}
-                                  {a.isRecurring && <Repeat size={9} color={T.p} style={{ opacity:0.6, flexShrink:0 }}/>}
-                                </div>
-                                <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm,
+                                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:500, color:T.t,
                                   whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                                  {a.patientName.split(" ").slice(0,2).join(" ")}
+                                </div>
+                                <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>
                                   {a.type}
                                 </div>
                               </div>
@@ -975,13 +1075,70 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       )}
 
       {/* ── New appointment modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setRecurring(false); }} title="Nueva cita" width={520}>
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setRecurring(false); setDateError(""); setConflictError(""); }} title="Nueva cita" width={520}>
         <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Input label="Fecha *" value={form.date} onChange={fld("date")} type="date"/>
-          <Input label="Hora"    value={form.time} onChange={fld("time")} type="time"/>
+
+        {/* ── Fecha con validación de días hábiles ─────────────────────── */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom: dateError ? 4 : 16 }}>
+          <div>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm,
+              marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+              Fecha *
+            </label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => handleDateChange(e.target.value)}
+              style={{ width:"100%", padding:"10px 14px",
+                border:`1.5px solid ${dateError ? T.err : T.bdr}`,
+                borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                background:T.card, outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
+
+          {/* ── Hora como <select> de slots del horario configurado ──── */}
+          <div>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm,
+              marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+              Hora
+            </label>
+            <select
+              value={form.time}
+              onChange={e => handleTimeChange(e.target.value)}
+              style={{ width:"100%", padding:"10px 14px",
+                border:`1.5px solid ${conflictError ? T.err : T.bdr}`,
+                borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                background:T.card, outline:"none", boxSizing:"border-box",
+                appearance:"none", WebkitAppearance:"none", cursor:"pointer" }}
+            >
+              {timeSlots.map(slot => (
+                <option key={slot} value={slot}>{slot}</option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        {/* Error de día no hábil */}
+        {dateError && (
+          <div style={{ marginBottom:14, padding:"8px 12px",
+            background:T.errA, borderRadius:8,
+            fontFamily:T.fB, fontSize:12, color:T.err, lineHeight:1.5 }}>
+            {dateError}
+          </div>
+        )}
+
+        {/* Error de conflicto de horario */}
+        {conflictError && (
+          <div style={{ marginBottom:14, padding:"8px 12px",
+            background:T.errA, borderRadius:8,
+            fontFamily:T.fB, fontSize:12, color:T.err, lineHeight:1.5,
+            display:"flex", alignItems:"flex-start", gap:6 }}>
+            <AlertTriangle size={13} style={{ flexShrink:0, marginTop:1 }}/>
+            {conflictError}
+          </div>
+        )}
+
         <Select label="Tipo de cita" value={form.type} onChange={handleTypeChange}
           options={appointmentTypeOptions.map(o => ({ value: o.label || o, label: o.label || o }))}/>
         {showModalityPicker && (
@@ -1077,7 +1234,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={() => { setShowAdd(false); setRecurring(false); }}>Cancelar</Btn>
+          <Btn variant="ghost" onClick={() => { setShowAdd(false); setRecurring(false); setDateError(""); setConflictError(""); }}>Cancelar</Btn>
           <Btn onClick={save} disabled={!form.patientId||!form.date}>
             <Check size={15}/> {recurring ? `Crear ${recOccurrences} citas` : "Guardar cita"}
           </Btn>
