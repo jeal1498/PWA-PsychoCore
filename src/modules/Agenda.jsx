@@ -1,9 +1,19 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import DynamicSummary from "../components/DynamicSummary.jsx";
+
+// ── Configuración de estados de cita (Sección 2.6 y 4 del Flujo Clínico) ─────
+const STATUS_CONFIG = {
+  pendiente:          { label:"Pendiente",            color:T.war,  bg:T.warA  },
+  completada:         { label:"Completada",           color:T.suc,  bg:T.sucA  },
+  cancelada_paciente: { label:"Cancelada (paciente)", color:T.tl,   bg:T.bdrL  },
+  cancelada_psicologa:{ label:"Cancelada (psicóloga)",color:"#6B5B9E", bg:"rgba(107,91,158,0.1)" },
+  no_presentado:      { label:"No presentado",        color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
+};
 
 // ── WhatsApp reminder ────────────────────────────────────────────────────────
 const whatsappReminder = (appointment, patient, profile) => {
@@ -273,6 +283,53 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null); // appt to confirm delete
 
+  // ── Cancelaciones / cambio de estado (Sección 4 del Flujo Clínico) ─────────
+  const [statusTarget,  setStatusTarget]  = useState(null); // appt seleccionada
+  const [statusForm,    setStatusForm]    = useState({ status:"", motivo:"", reagendar:false, newDate:"", newTime:"" });
+  const sfStatus = k => v => setStatusForm(f => ({ ...f, [k]: v }));
+
+  const openStatusModal = (appt) => {
+    setStatusTarget(appt);
+    setStatusForm({ status: appt.status || "pendiente", motivo:"", reagendar:false,
+      newDate: fmt(todayDate), newTime: appt.time || "09:00" });
+  };
+
+  const saveStatus = () => {
+    if (!statusTarget) return;
+    setAppointments(prev => prev.map(a => {
+      if (a.id !== statusTarget.id) return a;
+      const updated = { ...a, status: statusForm.status, cancelMotivo: statusForm.motivo };
+      return updated;
+    }));
+    // Si reagendar → crear nueva cita pre-rellenada
+    if (statusForm.reagendar && statusForm.newDate) {
+      const newAppt = {
+        ...statusTarget,
+        id:      "a" + uid(),
+        date:    statusForm.newDate,
+        time:    statusForm.newTime,
+        status:  "pendiente",
+        isRecurring: false,
+        recurrenceGroupId: null,
+        cancelMotivo: null,
+      };
+      setAppointments(prev => [...prev, newAppt]);
+    }
+    setStatusTarget(null);
+  };
+
+  const whatsappCancel = (appt, patient) => {
+    const nombre   = patient?.name?.split(" ")[0] || "";
+    const phone    = patient?.phone?.replace(/\D/g, "");
+    const fecha    = fmtDate(appt.date);
+    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    if (!phone) return null;
+    const msg = encodeURIComponent(
+      `Hola ${nombre} 🙏\n\nLamentamos informarte que necesitamos reprogramar tu sesión del *${fecha}*. Por favor escríbenos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\n— ${psicologa}`
+    );
+    return `https://wa.me/52${phone}?text=${msg}`;
+  };
+
   // Build type options from services + clinical fallback
   const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
   const CLINICAL_FALLBACK = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
@@ -496,7 +553,16 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                             )}
                           </div>
                         </div>
-                        <button onClick={() => toggle(a.id)} style={{ background:a.status==="completada"?T.sucA:T.warA, border:"none", borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:a.status==="completada"?T.suc:T.war, fontWeight:600 }}>{a.status}</button>
+                        <button onClick={() => openStatusModal(a)} style={{
+                            background: STATUS_CONFIG[a.status]?.bg || T.warA,
+                            border:"none", borderRadius:8, padding:"4px 10px",
+                            cursor:"pointer", fontSize:11, fontFamily:T.fB,
+                            color: STATUS_CONFIG[a.status]?.color || T.war,
+                            fontWeight:600, maxWidth:140, whiteSpace:"nowrap",
+                            overflow:"hidden", textOverflow:"ellipsis",
+                          }}>
+                            {STATUS_CONFIG[a.status]?.label || a.status}
+                          </button>
                         <button onClick={() => confirmDelete(a)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}><Trash2 size={13}/></button>
                       </div>
                       {a.status !== "completada" && (
@@ -763,6 +829,136 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
       {/* ── Delete confirmation ────────────────────────────────────────── */}
       <DeleteConfirm appt={deleteTarget} onDeleteOne={deleteOne} onDeleteAll={deleteAll} onCancel={() => setDeleteTarget(null)}/>
+
+      {/* ── Modal cambio de estado / cancelación (Sección 4) ────────────── */}
+      <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title="Estado de la cita" width={460}>
+        {statusTarget && (() => {
+          const pt = patients.find(p => p.id === statusTarget.patientId);
+          const cancelUrl = statusForm.status === "cancelada_psicologa" ? whatsappCancel(statusTarget, pt) : null;
+          const isCancelled = statusForm.status === "cancelada_paciente" || statusForm.status === "cancelada_psicologa";
+          const isNoShow = statusForm.status === "no_presentado";
+
+          return (
+            <>
+              {/* Info de la cita */}
+              <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:16,
+                border:`1px solid ${T.p}25`, fontFamily:T.fB }}>
+                <div style={{ fontSize:13.5, fontWeight:600, color:T.p }}>
+                  {statusTarget.patientName?.split(" ").slice(0,2).join(" ")}
+                </div>
+                <div style={{ fontSize:12, color:T.tm, marginTop:2 }}>
+                  {fmtDate(statusTarget.date)} · {statusTarget.time} · {statusTarget.type}
+                </div>
+              </div>
+
+              {/* Selector de estado */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                  textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>
+                  Estado
+                </label>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
+                    const selected = statusForm.status === key;
+                    return (
+                      <button key={key} onClick={() => sfStatus("status")(key)}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                          borderRadius:10, border:`1.5px solid ${selected ? cfg.color : T.bdr}`,
+                          background: selected ? cfg.bg : "transparent",
+                          cursor:"pointer", fontFamily:T.fB, fontSize:13,
+                          fontWeight: selected ? 700 : 400,
+                          color: selected ? cfg.color : T.t,
+                          transition:"all .13s", textAlign:"left" }}>
+                        <div style={{ width:8, height:8, borderRadius:"50%",
+                          background: selected ? cfg.color : T.bdr, flexShrink:0 }}/>
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Motivo (solo para cancelaciones y no presentado) */}
+              {(isCancelled || isNoShow) && (
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                    textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                    Motivo {isCancelled ? "de cancelación" : "de inasistencia"} (opcional)
+                  </label>
+                  <textarea value={statusForm.motivo} onChange={e => sfStatus("motivo")(e.target.value)}
+                    rows={2} placeholder="Registra el motivo para el historial clínico..."
+                    style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                      borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t,
+                      background:T.card, outline:"none", resize:"vertical",
+                      boxSizing:"border-box" }}/>
+                </div>
+              )}
+
+              {/* Reagendar toggle (solo en cancelaciones) */}
+              {isCancelled && (
+                <div style={{ marginBottom:14 }}>
+                  <button onClick={() => sfStatus("reagendar")(!statusForm.reagendar)}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+                      padding:"10px 14px", borderRadius:10, border:`1.5px solid ${statusForm.reagendar ? T.p : T.bdr}`,
+                      background: statusForm.reagendar ? T.pA : "transparent",
+                      cursor:"pointer", fontFamily:T.fB, fontSize:13,
+                      color: statusForm.reagendar ? T.p : T.t, fontWeight: statusForm.reagendar ? 700 : 400,
+                      transition:"all .13s" }}>
+                    <BookOpen size={14} color={statusForm.reagendar ? T.p : T.tl}/>
+                    Reagendar automáticamente
+                    {statusForm.reagendar && (
+                      <span style={{ marginLeft:"auto", fontSize:10, background:T.p,
+                        color:"#fff", padding:"1px 7px", borderRadius:9999, fontWeight:700 }}>
+                        Activo
+                      </span>
+                    )}
+                  </button>
+
+                  {statusForm.reagendar && (
+                    <div style={{ marginTop:10, padding:"12px 14px", background:T.cardAlt,
+                      borderRadius:10, border:`1px solid ${T.bdrL}`,
+                      display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                      <Input label="Nueva fecha" value={statusForm.newDate}
+                        onChange={sfStatus("newDate")} type="date"/>
+                      <Input label="Nueva hora" value={statusForm.newTime}
+                        onChange={sfStatus("newTime")} type="time"/>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Alerta no presentado */}
+              {isNoShow && (
+                <div style={{ padding:"10px 14px", background:"rgba(196,98,42,0.08)",
+                  border:"1px solid rgba(196,98,42,0.25)", borderRadius:10, marginBottom:14,
+                  fontFamily:T.fB, fontSize:12, color:"#C4622A", display:"flex", gap:8 }}>
+                  <AlertTriangle size={14} style={{ flexShrink:0, marginTop:1 }}/>
+                  Quedará registrado en el historial del expediente y en las Estadísticas de tasa de asistencia.
+                </div>
+              )}
+
+              {/* Botones de acción */}
+              <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
+                {cancelUrl && (
+                  <a href={cancelUrl} target="_blank" rel="noreferrer"
+                    style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px",
+                      borderRadius:9, border:"1.5px solid #25D36640",
+                      background:"#25D36615", color:"#25D366", fontFamily:T.fB,
+                      fontSize:12, fontWeight:600, textDecoration:"none" }}>
+                    <MessageCircle size={13}/> Avisar al paciente
+                  </a>
+                )}
+                <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
+                  <Btn variant="ghost" onClick={() => setStatusTarget(null)}>Cancelar</Btn>
+                  <Btn onClick={saveStatus} disabled={!statusForm.status}>
+                    <Check size={15}/> Guardar
+                  </Btn>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

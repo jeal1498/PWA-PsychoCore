@@ -798,6 +798,127 @@ function HelpTab() {
 }
 
 // ── Tab: Servicios ───────────────────────────────────────────────────────────
+// ── Tab: Horario de Disponibilidad (Sección 2.1 del Flujo Clínico) ────────────
+const DAY_LABELS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+function ScheduleTab({ profile, setProfile }) {
+  const [form, setForm] = useState(() => ({
+    workingDays:  profile?.workingDays  ?? [1,2,3,4,5],
+    workingStart: profile?.workingStart ?? "09:00",
+    workingEnd:   profile?.workingEnd   ?? "19:00",
+  }));
+  const [saved, setSaved] = useState(false);
+
+  const toggleDay = (d) => {
+    setForm(f => {
+      const days = f.workingDays.includes(d)
+        ? f.workingDays.filter(x => x !== d)
+        : [...f.workingDays, d].sort((a,b) => a-b);
+      return { ...f, workingDays: days };
+    });
+  };
+
+  const save = () => {
+    setProfile(p => ({ ...p, ...form }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <p style={{ fontFamily:T.fB, fontSize:13.5, color:T.tm, marginBottom:24, lineHeight:1.6 }}>
+        Define los días y horarios en que atiendes pacientes. La Agenda respetará esta configuración
+        y no permitirá agendar citas fuera de estos bloques.
+      </p>
+
+      <Card style={{ padding:28, marginBottom:20 }}>
+        {/* Días hábiles */}
+        <div style={{ marginBottom:24 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+            textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>
+            Días de atención
+          </label>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {DAY_LABELS.map((lbl, idx) => {
+              const active = form.workingDays.includes(idx);
+              return (
+                <button key={idx} onClick={() => toggleDay(idx)}
+                  style={{ width:52, height:52, borderRadius:12, cursor:"pointer",
+                    fontFamily:T.fB, fontSize:13, fontWeight: active ? 700 : 400,
+                    border:`1.5px solid ${active ? T.p : T.bdr}`,
+                    background: active ? T.pA : "transparent",
+                    color: active ? T.p : T.tm, transition:"all .13s" }}>
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+          {form.workingDays.length === 0 && (
+            <div style={{ marginTop:8, fontFamily:T.fB, fontSize:12, color:T.err }}>
+              Selecciona al menos un día de atención.
+            </div>
+          )}
+        </div>
+
+        {/* Bloques horarios */}
+        <div>
+          <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+            textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>
+            Horario de atención
+          </label>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+            <div>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6 }}>
+                Entrada
+              </label>
+              <input type="time" value={form.workingStart}
+                onChange={e => setForm(f => ({ ...f, workingStart: e.target.value }))}
+                style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                  borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                  background:T.card, outline:"none", boxSizing:"border-box" }}/>
+            </div>
+            <div>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6 }}>
+                Salida
+              </label>
+              <input type="time" value={form.workingEnd}
+                onChange={e => setForm(f => ({ ...f, workingEnd: e.target.value }))}
+                style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                  borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                  background:T.card, outline:"none", boxSizing:"border-box" }}/>
+            </div>
+          </div>
+          {form.workingStart >= form.workingEnd && (
+            <div style={{ marginTop:8, fontFamily:T.fB, fontSize:12, color:T.err }}>
+              La hora de entrada debe ser anterior a la de salida.
+            </div>
+          )}
+        </div>
+
+        {/* Preview */}
+        <div style={{ marginTop:24, padding:"12px 16px", background:T.cardAlt,
+          borderRadius:10, border:`1px solid ${T.bdrL}` }}>
+          <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tm,
+            textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+            Resumen
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t }}>
+            {form.workingDays.length > 0
+              ? `${form.workingDays.map(d => DAY_LABELS[d]).join(", ")} · ${form.workingStart} – ${form.workingEnd}`
+              : "Sin días seleccionados"}
+          </div>
+        </div>
+      </Card>
+
+      <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <Btn onClick={save} disabled={form.workingDays.length === 0 || form.workingStart >= form.workingEnd}>
+          {saved ? "✓ Guardado" : "Guardar horario"}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function ServicesTab({ services, setServices }) {
   const uid = () => Math.random().toString(36).slice(2, 9);
   const today = new Date().toISOString().slice(0, 10);
@@ -1329,6 +1450,7 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
 
   const tabs = [
     { id: "profile",    label: "Perfil"     },
+    { id: "horario",    label: "Horario"    },
     { id: "services",   label: "Servicios"  },
     { id: "appearance", label: "Apariencia" },
     { id: "data",       label: "Datos"      },
@@ -1356,6 +1478,7 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
       </div>
 
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
+      {tab === "horario"    && <ScheduleTab   profile={profile} setProfile={setProfile} />}
       {tab === "services"   && <ServicesTab   services={services} setServices={setServices} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
       {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}

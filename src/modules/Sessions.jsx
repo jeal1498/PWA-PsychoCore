@@ -997,7 +997,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
   );
 }
 
-export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions }) {
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
@@ -1053,6 +1053,78 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [taskError,    setTaskError]    = useState("");
   const [showCobro,    setShowCobro]    = useState(false);
   const [cobroData,    setCobroData]    = useState(null); // { sessionId, patientId, patientName, date }
+
+  // ── Wizard de Cierre (Secciones 8.3 → 8.4 → 8.5 del Flujo Clínico) ─────────
+  const [showCloseWizard, setShowCloseWizard] = useState(false);
+  const [closeCtx,        setCloseCtx]        = useState(null); // { patientId, patientName, date, sessionId }
+  const [closeStep,       setCloseStep]        = useState(1);   // 1=Intersesión 2=Próxima cita 3=WhatsApp
+  const [closeInterForm,  setCloseInterForm]   = useState({ notes:"", type:"Indicación" });
+  const [closeNextAppt,   setCloseNextAppt]    = useState({ date:"", time:"09:00", type:"Seguimiento" });
+  const cifld = k => v => setCloseInterForm(f => ({ ...f, [k]: v }));
+  const cnfld = k => v => setCloseNextAppt(f => ({ ...f, [k]: v }));
+
+  const openCloseWizard = (ctx) => {
+    setCloseCtx(ctx);
+    setCloseStep(1);
+    setCloseInterForm({ notes:"", type:"Indicación" });
+    // Pre-fill next appt one week from session date
+    const d = new Date(ctx.date);
+    d.setDate(d.getDate() + 7);
+    const nextDate = d.toISOString().split("T")[0];
+    // Find last session time for this patient
+    const lastAppt = appointments
+      .filter(a => a.patientId === ctx.patientId)
+      .sort((a,b) => b.date.localeCompare(a.date))[0];
+    setCloseNextAppt({ date: nextDate, time: lastAppt?.time || "09:00", type:"Seguimiento" });
+    setShowCloseWizard(true);
+  };
+
+  const saveCloseIntersession = () => {
+    if (closeInterForm.notes.trim() && setInterSessions) {
+      setInterSessions(prev => [...prev, {
+        id:        "is" + uid(),
+        patientId: closeCtx.patientId,
+        sessionId: closeCtx.sessionId,
+        date:      closeCtx.date,
+        type:      closeInterForm.type,
+        notes:     closeInterForm.notes,
+        createdAt: new Date().toISOString(),
+      }]);
+    }
+    setCloseStep(2);
+  };
+
+  const saveCloseNextAppt = () => {
+    if (closeNextAppt.date && setAppointments) {
+      const pt = patients.find(p => p.id === closeCtx.patientId);
+      setAppointments(prev => [...prev, {
+        id:          "a" + uid(),
+        patientId:   closeCtx.patientId,
+        patientName: pt?.name || closeCtx.patientName,
+        date:        closeNextAppt.date,
+        time:        closeNextAppt.time,
+        type:        closeNextAppt.type,
+        modality:    "",
+        status:      "pendiente",
+        isRecurring: false,
+      }]);
+    }
+    setCloseStep(3);
+  };
+
+  const whatsappNextAppt = () => {
+    const pt    = patients.find(p => p.id === closeCtx?.patientId);
+    const phone = pt?.phone?.replace(/\D/g, "");
+    if (!phone || !closeNextAppt.date) return null;
+    const nombre   = pt.name?.split(" ")[0] || "";
+    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    const fecha    = new Date(closeNextAppt.date + "T12:00:00")
+      .toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" });
+    const msg = encodeURIComponent(
+      `Hola ${nombre}. 📅 Tu próxima sesión está confirmada para el ${fecha} a las ${closeNextAppt.time}. Si tienes alguna duda, no dudes en escribirnos. ¡Hasta pronto! 💙\n— ${psicologa}`
+    );
+    return `https://wa.me/52${phone}?text=${msg}`;
+  };
 
   // Service helpers
   const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro" };
@@ -1146,11 +1218,15 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     });
 
     setShowCobro(false);
+    const savedCtx = { ...cobroData };
     setCobroData(null);
     setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
 
-    const agendaMsg = cobroData._agendaSynced ? " · 📅 Cita actualizada" : "";
+    const agendaMsg = savedCtx._agendaSynced ? " · 📅 Cita actualizada" : "";
     showToast(`✓ Sesión guardada${agendaMsg} · 💰 Pago registrado (Folio ${folio})`);
+    openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,
+      date: savedCtx.date, sessionId: savedCtx.sessionId });
+  };
   };
 
   // ── Omitir cobro → pago queda como "pendiente" en Finanzas ─────────────────
@@ -1172,10 +1248,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     };
     setPayments(prev => [...prev, pending]);
     const agendaSkipMsg = cobroData?._agendaSynced ? " · 📅 Cita actualizada" : "";
+    const savedCtx = { ...cobroData };
     setShowCobro(false);
     setCobroData(null);
     setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
     showToast(`Sesión guardada${agendaSkipMsg} · ⏳ Cobro pendiente en Finanzas`, "warning");
+    openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,
+      date: savedCtx.date, sessionId: savedCtx.sessionId });
   };
 
   const handleAISummary = async () => {
@@ -2293,6 +2372,226 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
           />
         );
       })()}
+
+      {/* ── Wizard de Cierre de Sesión (Secciones 8.3 → 8.4 → 8.5) ────────── */}
+      <Modal
+        open={showCloseWizard}
+        onClose={() => setShowCloseWizard(false)}
+        title={`Cierre de sesión · Paso ${closeStep} de 3`}
+        width={480}
+      >
+        {closeCtx && (() => {
+          const pt = patients.find(p => p.id === closeCtx.patientId);
+
+          // ── Indicador de pasos ──────────────────────────────────────────
+          const steps = ["Intersesión", "Próxima cita", "Confirmar"];
+          return (
+            <>
+              {/* Progress bar */}
+              <div style={{ display:"flex", gap:6, marginBottom:20 }}>
+                {steps.map((lbl, i) => {
+                  const idx   = i + 1;
+                  const done  = closeStep > idx;
+                  const active= closeStep === idx;
+                  return (
+                    <div key={lbl} style={{ flex:1, textAlign:"center" }}>
+                      <div style={{
+                        height:4, borderRadius:9999, marginBottom:5,
+                        background: done ? T.p : active ? T.p : T.bdrL,
+                        opacity: done ? 0.4 : 1,
+                        transition:"all .2s",
+                      }}/>
+                      <span style={{
+                        fontFamily:T.fB, fontSize:10, fontWeight: active ? 700 : 400,
+                        color: active ? T.p : done ? T.tl : T.tl,
+                        textTransform:"uppercase", letterSpacing:"0.06em",
+                      }}>{lbl}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Header paciente */}
+              <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10,
+                marginBottom:18, border:`1px solid ${T.p}25` }}>
+                <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.p }}>
+                  {pt?.name?.split(" ").slice(0,2).join(" ") || closeCtx.patientName}
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:2 }}>
+                  Sesión del {closeCtx.date}
+                </div>
+              </div>
+
+              {/* ── Paso 1: Intersesión rápida (Sección 8.3) ───────────── */}
+              {closeStep === 1 && (
+                <>
+                  <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:14, lineHeight:1.6 }}>
+                    Registra indicaciones de medicación, contactos de seguimiento o intervenciones pautadas
+                    entre sesiones. <span style={{ color:T.tl }}>(Opcional — puedes omitir)</span>
+                  </p>
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                      textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>
+                      Tipo
+                    </label>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {["Indicación","Medicación","Contacto de seguimiento","Tarea especial"].map(t => {
+                        const on = closeInterForm.type === t;
+                        return (
+                          <button key={t} onClick={() => cifld("type")(t)}
+                            style={{ padding:"6px 12px", borderRadius:9, cursor:"pointer",
+                              fontFamily:T.fB, fontSize:12, fontWeight: on ? 700 : 400,
+                              border:`1.5px solid ${on ? T.p : T.bdr}`,
+                              background: on ? T.pA : "transparent",
+                              color: on ? T.p : T.tm, transition:"all .13s" }}>
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom:18 }}>
+                    <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                      textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                      Descripción
+                    </label>
+                    <textarea value={closeInterForm.notes} onChange={e => cifld("notes")(e.target.value)}
+                      rows={3} placeholder="Ej: Continuar con sertralina 50mg. Llamar si hay crisis de ansiedad antes de la próxima cita..."
+                      style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                        borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t,
+                        background:T.card, outline:"none", resize:"vertical",
+                        boxSizing:"border-box", lineHeight:1.6 }}/>
+                  </div>
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                    <button onClick={() => setCloseStep(2)}
+                      style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
+                        background:"transparent", fontFamily:T.fB, fontSize:13,
+                        color:T.tm, cursor:"pointer" }}>
+                      Omitir
+                    </button>
+                    <button onClick={saveCloseIntersession}
+                      style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px",
+                        borderRadius:9, border:"none", background:T.p, color:"#fff",
+                        fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      <Check size={14}/> {closeInterForm.notes.trim() ? "Guardar y continuar" : "Continuar"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── Paso 2: Próxima cita (Sección 8.4) ─────────────────── */}
+              {closeStep === 2 && (
+                <>
+                  <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
+                    Agenda la próxima sesión directamente desde aquí.
+                    <span style={{ color:T.tl }}> (Opcional — puedes omitir)</span>
+                  </p>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                        textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Fecha</label>
+                      <input type="date" value={closeNextAppt.date}
+                        onChange={e => cnfld("date")(e.target.value)}
+                        style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                          borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                          background:T.card, outline:"none", boxSizing:"border-box" }}/>
+                    </div>
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                        textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Hora</label>
+                      <input type="time" value={closeNextAppt.time}
+                        onChange={e => cnfld("time")(e.target.value)}
+                        style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
+                          borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t,
+                          background:T.card, outline:"none", boxSizing:"border-box" }}/>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom:18 }}>
+                    <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm,
+                      textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Tipo</label>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {["Seguimiento","Evaluación","Crisis","Cierre"].map(t => {
+                        const on = closeNextAppt.type === t;
+                        return (
+                          <button key={t} onClick={() => cnfld("type")(t)}
+                            style={{ padding:"6px 12px", borderRadius:9, cursor:"pointer",
+                              fontFamily:T.fB, fontSize:12, fontWeight: on ? 700 : 400,
+                              border:`1.5px solid ${on ? T.p : T.bdr}`,
+                              background: on ? T.pA : "transparent",
+                              color: on ? T.p : T.tm, transition:"all .13s" }}>
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                    <button onClick={() => setCloseStep(3)}
+                      style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
+                        background:"transparent", fontFamily:T.fB, fontSize:13,
+                        color:T.tm, cursor:"pointer" }}>
+                      Omitir
+                    </button>
+                    <button onClick={saveCloseNextAppt}
+                      style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px",
+                        borderRadius:9, border:"none", background:T.p, color:"#fff",
+                        fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      <Check size={14}/> {closeNextAppt.date ? "Agendar y continuar" : "Continuar"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── Paso 3: Confirmación WhatsApp (Sección 8.5) ──────────── */}
+              {closeStep === 3 && (() => {
+                const waUrl = whatsappNextAppt();
+                return (
+                  <>
+                    <div style={{ textAlign:"center", padding:"8px 0 20px" }}>
+                      <div style={{ fontSize:40, marginBottom:10 }}>✅</div>
+                      <div style={{ fontFamily:T.fB, fontSize:16, fontWeight:700, color:T.t, marginBottom:6 }}>
+                        Sesión cerrada correctamente
+                      </div>
+                      <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>
+                        {closeInterForm.notes.trim() && "Intersesión registrada · "}
+                        {closeNextAppt.date && `Próxima cita: ${closeNextAppt.date} ${closeNextAppt.time}`}
+                      </div>
+                    </div>
+
+                    {waUrl ? (
+                      <a href={waUrl} target="_blank" rel="noreferrer"
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          gap:8, padding:"14px", borderRadius:12, marginBottom:12,
+                          background:"#25D36618", border:"1.5px solid #25D36650",
+                          color:"#25D366", fontFamily:T.fB, fontSize:14,
+                          fontWeight:700, textDecoration:"none", transition:"all .15s" }}
+                        onMouseEnter={e => e.currentTarget.style.background="#25D36628"}
+                        onMouseLeave={e => e.currentTarget.style.background="#25D36618"}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.556 4.116 1.529 5.845L.057 23.492l5.799-1.522A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.011-1.374l-.359-.214-3.44.902.918-3.352-.234-.372A9.818 9.818 0 1112 21.818z"/>
+                        </svg>
+                        Enviar confirmación al paciente
+                      </a>
+                    ) : (
+                      <div style={{ padding:"12px 14px", background:T.bdrL, borderRadius:10,
+                        fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:12, textAlign:"center" }}>
+                        Sin teléfono registrado — no se puede enviar WhatsApp
+                      </div>
+                    )}
+
+                    <button onClick={() => setShowCloseWizard(false)}
+                      style={{ width:"100%", padding:"11px", borderRadius:10, border:`1px solid ${T.bdrL}`,
+                        background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm, cursor:"pointer" }}>
+                      Finalizar
+                    </button>
+                  </>
+                );
+              })()}
+            </>
+          );
+        })()}
+      </Modal>
 
       {/* ── Referral modal ───────────────────────────────────────────── */}
       <Modal open={!!referral} onClose={() => setReferral(null)} title="Carta de Derivación" width={520}>
