@@ -5,10 +5,14 @@ import App from "./App.jsx";
 import PatientPortal from "./modules/PatientPortal.jsx";
 import { AppStateProvider } from "./context/AppStateContext.jsx";
 
-// PWA update handler
+// PWA update handler — auto-reload cuando hay nueva versión para evitar
+// el error "Failed to fetch dynamically imported module" tras un nuevo deploy.
 import { registerSW } from "virtual:pwa-register";
-registerSW({
-  onNeedRefresh() { console.info("[PsychoCore] Nueva versión disponible. Actualizando..."); },
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.info("[PsychoCore] Nueva versión disponible. Actualizando...");
+    updateSW(true); // fuerza recarga inmediata con el nuevo SW
+  },
   onOfflineReady() { console.info("[PsychoCore] App lista para uso offline."); },
 });
 
