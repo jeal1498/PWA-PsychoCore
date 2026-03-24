@@ -574,6 +574,227 @@ function PatientTasksTab({ patient, sessions }) {
 }
 
 
+// ── AnamnesisTab ──────────────────────────────────────────────────────────────
+const ANAMNESIS_BLANK = {
+  fechaPrimeraConsulta: "",
+  motivoConsulta: "",
+  observacionesIniciales: "",
+  antMedicos: "",
+  antPsiquiatricos: "",
+  medicacionActual: "",
+  sustancias: "ninguno",
+  sustanciasOtro: "",
+  historiaFamiliar: "",
+  enfermedadesFamiliares: "",
+  situacionLaboral: "",
+  situacionFamiliar: "",
+  redApoyo: "",
+  impresionDiagnostica: "",
+  hipotesisTrabajo: "",
+};
+
+function AnamnesisSection({ title, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom:16, border:`1px solid ${T.bdrL}`, borderRadius:12, overflow:"hidden" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          width:"100%", padding:"12px 16px", background:open ? T.pA : T.cardAlt,
+          border:"none", cursor:"pointer", textAlign:"left", transition:"background .12s" }}>
+        <span style={{ fontFamily:T.fB, fontSize:12.5, fontWeight:700,
+          color: open ? T.p : T.t, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+          {title}
+        </span>
+        {open
+          ? <ChevronUp size={14} color={T.p}/>
+          : <ChevronDown size={14} color={T.tl}/>}
+      </button>
+      {open && (
+        <div style={{ padding:"14px 16px", background:T.card }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AField({ label, children }) {
+  return (
+    <div style={{ marginBottom:12 }}>
+      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tl,
+        textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const aTextarea = (rows = 3) => ({
+  width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
+  borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t,
+  background:T.card, outline:"none", resize:"vertical",
+  boxSizing:"border-box", lineHeight:1.55,
+  minHeight: rows * 22 + 18,
+});
+
+const aInput = {
+  width:"100%", padding:"9px 12px", border:`1.5px solid ${T.bdr}`,
+  borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t,
+  background:T.card, outline:"none", boxSizing:"border-box",
+};
+
+function AnamnesisTab({ patient, setPatients, todayStr }) {
+  const existing = patient.anamnesis || {};
+  const [form, setForm] = useState({ ...ANAMNESIS_BLANK, fechaPrimeraConsulta: todayStr, ...existing });
+  const [saved, setSaved] = useState(false);
+
+  const fld = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const saveAnamnesis = () => {
+    setPatients(prev => prev.map(p =>
+      p.id === patient.id ? { ...p, anamnesis: { ...form } } : p
+    ));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div>
+      {/* Sección 1 */}
+      <AnamnesisSection title="1 · Primera impresión">
+        <AField label="Fecha de primera consulta">
+          <input type="date" value={form.fechaPrimeraConsulta}
+            onChange={fld("fechaPrimeraConsulta")} style={aInput}/>
+        </AField>
+        <AField label="Motivo de consulta ampliado">
+          <textarea rows={4} value={form.motivoConsulta}
+            onChange={fld("motivoConsulta")}
+            placeholder="Descripción detallada del motivo de consulta según el paciente..."
+            style={aTextarea(4)}/>
+        </AField>
+        <AField label="Observaciones clínicas iniciales">
+          <textarea rows={3} value={form.observacionesIniciales}
+            onChange={fld("observacionesIniciales")}
+            placeholder="Apariencia, actitud, nivel de comunicación, estado afectivo observable..."
+            style={aTextarea(3)}/>
+        </AField>
+      </AnamnesisSection>
+
+      {/* Sección 2 */}
+      <AnamnesisSection title="2 · Antecedentes personales" defaultOpen={false}>
+        <AField label="Antecedentes médicos relevantes">
+          <textarea rows={3} value={form.antMedicos}
+            onChange={fld("antMedicos")}
+            placeholder="Enfermedades crónicas, cirugías, hospitalizaciones, alergias..."
+            style={aTextarea(3)}/>
+        </AField>
+        <AField label="Antecedentes psiquiátricos / tratamientos previos">
+          <textarea rows={3} value={form.antPsiquiatricos}
+            onChange={fld("antPsiquiatricos")}
+            placeholder="Diagnósticos previos, psicoterapias anteriores, internamientos..."
+            style={aTextarea(3)}/>
+        </AField>
+        <AField label="Medicación actual">
+          <textarea rows={2} value={form.medicacionActual}
+            onChange={fld("medicacionActual")}
+            placeholder="Nombre, dosis y prescriptor..."
+            style={aTextarea(2)}/>
+        </AField>
+        <AField label="Consumo de sustancias">
+          <select value={form.sustancias} onChange={fld("sustancias")}
+            style={{ ...aInput, marginBottom: form.sustancias === "otros" ? 8 : 0 }}>
+            <option value="ninguno">Ninguno</option>
+            <option value="alcohol">Alcohol</option>
+            <option value="tabaco">Tabaco</option>
+            <option value="cannabis">Cannabis</option>
+            <option value="otros">Otros</option>
+          </select>
+          {form.sustancias === "otros" && (
+            <input value={form.sustanciasOtro}
+              onChange={fld("sustanciasOtro")}
+              placeholder="Especifica la sustancia y frecuencia..."
+              style={{ ...aInput, marginTop:6 }}/>
+          )}
+        </AField>
+      </AnamnesisSection>
+
+      {/* Sección 3 */}
+      <AnamnesisSection title="3 · Antecedentes familiares" defaultOpen={false}>
+        <AField label="Historia familiar relevante">
+          <textarea rows={3} value={form.historiaFamiliar}
+            onChange={fld("historiaFamiliar")}
+            placeholder="Dinámica familiar, eventos significativos, estructura familiar..."
+            style={aTextarea(3)}/>
+        </AField>
+        <AField label="Enfermedades mentales en familia">
+          <textarea rows={2} value={form.enfermedadesFamiliares}
+            onChange={fld("enfermedadesFamiliares")}
+            placeholder="Diagnósticos conocidos en familiares de primer y segundo grado..."
+            style={aTextarea(2)}/>
+        </AField>
+      </AnamnesisSection>
+
+      {/* Sección 4 */}
+      <AnamnesisSection title="4 · Contexto actual" defaultOpen={false}>
+        <AField label="Situación laboral / escolar">
+          <input value={form.situacionLaboral}
+            onChange={fld("situacionLaboral")}
+            placeholder="Ocupación, nivel de estudios, situación actual..."
+            style={aInput}/>
+        </AField>
+        <AField label="Situación familiar / relaciones">
+          <textarea rows={3} value={form.situacionFamiliar}
+            onChange={fld("situacionFamiliar")}
+            placeholder="Estado civil, hijos, relación con familia de origen, pareja..."
+            style={aTextarea(3)}/>
+        </AField>
+        <AField label="Red de apoyo">
+          <textarea rows={2} value={form.redApoyo}
+            onChange={fld("redApoyo")}
+            placeholder="Personas de confianza, grupos de apoyo, recursos disponibles..."
+            style={aTextarea(2)}/>
+        </AField>
+      </AnamnesisSection>
+
+      {/* Sección 5 */}
+      <AnamnesisSection title="5 · Observaciones del psicólogo" defaultOpen={false}>
+        <AField label="Impresión diagnóstica inicial">
+          <textarea rows={3} value={form.impresionDiagnostica}
+            onChange={fld("impresionDiagnostica")}
+            placeholder="Hipótesis diagnóstica preliminar basada en la primera impresión clínica..."
+            style={aTextarea(3)}/>
+        </AField>
+        <AField label="Hipótesis de trabajo">
+          <textarea rows={3} value={form.hipotesisTrabajo}
+            onChange={fld("hipotesisTrabajo")}
+            placeholder="Modelo explicativo del problema, factores predisponentes, desencadenantes y mantenedores..."
+            style={aTextarea(3)}/>
+        </AField>
+      </AnamnesisSection>
+
+      {/* Botón guardar */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"flex-end", gap:10, marginTop:4 }}>
+        {saved && (
+          <span style={{ fontFamily:T.fB, fontSize:12, color:T.suc, display:"flex", alignItems:"center", gap:5 }}>
+            <Check size={13}/> Guardado
+          </span>
+        )}
+        <button onClick={saveAnamnesis}
+          style={{ display:"flex", alignItems:"center", gap:7, padding:"10px 20px",
+            borderRadius:10, border:"none", background:T.p, color:"#fff",
+            fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer",
+            transition:"opacity .13s" }}
+          onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
+          onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+          <Check size={14}/> Guardar Anamnesis
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [] }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
@@ -611,8 +832,11 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     setShowAddDx(false);
   };
 
-  const handleSelect = (p) => { setSelected(patients.find(pt => pt.id === p.id) || p); setDetailTab("sessions"); };
-  if (onQuickNav) onQuickNav.current = handleSelect;
+  const handleSelect = (p, openTab) => {
+    setSelected(patients.find(pt => pt.id === p.id) || p);
+    setDetailTab(openTab || "sessions");
+  };
+  if (onQuickNav) onQuickNav.current = (p, openTab) => handleSelect(p, openTab);
 
   const filtered = useMemo(() =>
     patients
@@ -901,6 +1125,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           <Card style={{ padding:24 }}>
             <Tabs
               tabs={[
+                { id:"anamnesis", label: selected.anamnesis && Object.values(selected.anamnesis).some(v => v && v !== "ninguno" && v !== fmt(todayDate))
+                  ? "Anamnesis ✅"
+                  : "Anamnesis 🟠" },
                 { id:"sessions",    label:`Sesiones (${ptSessions.length})`  },
                 { id:"payments",    label:`Pagos (${ptPayments.length})`     },
                 { id:"progress",    label:"Progreso"                         },
@@ -910,6 +1137,15 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               ]}
               active={detailTab} onChange={setDetailTab}
             />
+
+            {/* Anamnesis */}
+            {detailTab === "anamnesis" && (
+              <AnamnesisTab
+                patient={selected}
+                setPatients={setPatients}
+                todayStr={fmt(todayDate)}
+              />
+            )}
 
             {/* Sessions */}
             {detailTab === "sessions" && (

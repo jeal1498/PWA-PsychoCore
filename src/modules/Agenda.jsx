@@ -436,7 +436,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                                 fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
                               onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
                               onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-                              <FileText size={13}/> Registrar sesión
+                            <FileText size={13}/> Abrir
                             </button>
 
                             {/* ── Mejora 2: indicador / botón recordatorio en Vista Día ── */}
@@ -504,7 +504,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [] }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [] }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
@@ -533,6 +533,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null);
+
+  // ── Punto de entrada inteligente — Resumen / Admisión ───────────────────────
+  const [summaryTarget,  setSummaryTarget]  = useState(null); // { patient, appointment }
+  const [admisionTarget, setAdmisionTarget] = useState(null); // { appt, patient }
 
   // ── Cancelaciones / cambio de estado (Sección 4 del Flujo Clínico) ─────────
   const [statusTarget,  setStatusTarget]  = useState(null);
@@ -767,6 +771,32 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setSessionForm({ duration:50, mood:"moderado", progress:"bueno", notes:"", tags:"" });
   };
 
+  // ── WhatsApp para consentimiento informado ───────────────────────────────
+  const whatsappConsent = (patient) => {
+    const nombre   = patient?.name?.split(" ")[0] || "";
+    const phone    = patient?.phone?.replace(/\D/g, "");
+    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    if (!phone) return null;
+    const msg = encodeURIComponent(
+      `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, necesito que firmes el *Consentimiento Informado*. Por favor escríbeme para coordinarlo antes o durante nuestra primera sesión.\n\n¡Gracias! 😊\n— ${psicologa}`
+    );
+    return `https://wa.me/52${phone}?text=${msg}`;
+  };
+
+  // ── Punto de entrada inteligente ─────────────────────────────────────────
+  // Detecta si el paciente tiene sesiones previas:
+  //   Con sesiones  → abre DynamicSummary (contexto clínico previo a la sesión)
+  //   Sin sesiones  → abre modal de Protocolo de Admisión (primera vez)
+  const handleOpenAppt = (appt) => {
+    const pt = patients.find(p => p.id === appt.patientId);
+    const hasSessions = sessions.some(s => s.patientId === appt.patientId);
+    if (hasSessions) {
+      setSummaryTarget({ patient: pt, appointment: appt });
+    } else {
+      setAdmisionTarget({ appt, patient: pt });
+    }
+  };
+
   const saveQuickSession = () => {
     if (!quickSession || !sessionForm.notes.trim()) return;
     setSessions(prev => [...prev, {
@@ -814,7 +844,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             appointments={appointments}
             weekAnchor={weekAnchor}
             setWeekAnchor={setWeekAnchor}
-            onOpenQuick={openQuickSession}
+            onOpenQuick={handleOpenAppt}
             today={todayDate}
             profile={profile}
           />
@@ -827,7 +857,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           appointments={appointments}
           selectedDayView={selectedDayView}
           setSelectedDayView={setSelectedDayView}
-          onOpenQuick={openQuickSession}
+          onOpenQuick={handleOpenAppt}
           onOpenStatusModal={openStatusModal}
           onConfirmDelete={confirmDelete}
           onNewAppt={openAddWithPreset}
@@ -941,11 +971,11 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                       </div>
                       {a.status !== "completada" && (
                         <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                          <button onClick={() => openQuickSession(a)}
+                          <button onClick={() => handleOpenAppt(a)}
                             style={{ flex:1, display:"flex", alignItems:"center", gap:6, padding:"8px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
                             onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
                             onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-                            <FileText size={13}/> Registrar sesión
+                            <FileText size={13}/> Abrir
                           </button>
 
                           {/* ── Mejora 2: indicador / botón recordatorio en Vista Mes ── */}
@@ -1034,12 +1064,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                               {/* Acciones */}
                               <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                                 {a.status !== "completada" && (
-                                  <button onClick={() => openQuickSession(a)}
-                                    title="Registrar sesión"
+                                  <button onClick={() => handleOpenAppt(a)}
+                                    title="Abrir sesión"
                                     style={{ display:"flex", alignItems:"center", gap:4, padding:"5px 8px",
                                       borderRadius:7, border:`1px solid ${T.p}`, background:T.pA,
                                       color:T.p, fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer" }}>
-                                    <FileText size={11}/> Sesión
+                                    <FileText size={11}/> Abrir
                                   </button>
                                 )}
                                 {/* ── Mejora 2: indicador compacto en Próximas citas ── */}
@@ -1403,6 +1433,134 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           );
         })()}
       </Modal>
+
+      {/* ── Modal DynamicSummary — paciente con sesiones previas ────────── */}
+      {summaryTarget && (
+        <DynamicSummary
+          open={!!summaryTarget}
+          onClose={() => setSummaryTarget(null)}
+          onContinue={() => {
+            openQuickSession(summaryTarget.appointment);
+            setSummaryTarget(null);
+          }}
+          patient={summaryTarget.patient}
+          appointment={summaryTarget.appointment}
+          sessions={sessions}
+          taskAssignments={taskAssignments}
+          scaleResults={scaleResults}
+          riskAssessments={riskAssessments}
+          treatmentPlans={treatmentPlans}
+          interSessions={interSessions}
+        />
+      )}
+
+      {/* ── Modal Protocolo de Admisión — primera vez ────────────────────── */}
+      {admisionTarget && (() => {
+        const { appt, patient: pt } = admisionTarget;
+        const consentSigned = pt?.consent?.signed;
+        const consentUrl = !consentSigned && pt?.phone
+          ? whatsappConsent(pt)
+          : null;
+        return (
+          <Modal open={!!admisionTarget} onClose={() => setAdmisionTarget(null)}
+            title="Protocolo de Admisión" width={480}>
+
+            {/* Encabezado del paciente */}
+            <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
+              background:T.pA, borderRadius:12, marginBottom:18, border:`1px solid ${T.p}25` }}>
+              <div style={{ width:38, height:38, borderRadius:"50%", background:T.p,
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:T.fH, fontSize:16, color:"#fff" }}>
+                  {pt?.name?.[0] || "?"}
+                </span>
+              </div>
+              <div>
+                <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:T.t }}>
+                  {pt?.name?.split(" ").slice(0,2).join(" ") || "Paciente"}
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
+                  {fmtDate(appt.date)} · {appt.time} · {appt.type}
+                </div>
+              </div>
+              <span style={{ marginLeft:"auto", padding:"3px 10px", borderRadius:9999,
+                background:"rgba(58,107,110,0.12)", color:T.p,
+                fontFamily:T.fB, fontSize:10, fontWeight:700 }}>
+                Primera sesión
+              </span>
+            </div>
+
+            {/* Consentimiento Informado */}
+            <div style={{ padding:"12px 14px", borderRadius:10, marginBottom:14,
+              background: consentSigned ? T.sucA : T.warA,
+              border:`1.5px solid ${consentSigned ? T.suc+"50" : T.war+"60"}` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: consentSigned ? 0 : 10 }}>
+                <span style={{ fontSize:16 }}>{consentSigned ? "✅" : "⚠️"}</span>
+                <span style={{ fontFamily:T.fB, fontSize:13, fontWeight:700,
+                  color: consentSigned ? T.suc : T.war }}>
+                  {consentSigned ? "Consentimiento Informado firmado" : "Consentimiento pendiente de firma"}
+                </span>
+              </div>
+              {!consentSigned && (
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.war, lineHeight:1.5 }}>
+                    Es recomendable obtener el CI antes de iniciar el proceso terapéutico.
+                  </span>
+                  {consentUrl && (
+                    <a href={consentUrl} target="_blank" rel="noreferrer"
+                      style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px",
+                        borderRadius:9, border:"1.5px solid #25D36660",
+                        background:"#25D36618", color:"#25D366",
+                        fontFamily:T.fB, fontSize:12, fontWeight:700,
+                        textDecoration:"none", whiteSpace:"nowrap" }}>
+                      <MessageCircle size={13}/> Enviar por WhatsApp
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Acciones */}
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {onNavigate && (
+                <button
+                  onClick={() => { setAdmisionTarget(null); onNavigate("patients", pt, "anamnesis"); }}
+                  style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 16px",
+                    borderRadius:11, border:`1.5px solid ${T.bdr}`,
+                    background:T.cardAlt, fontFamily:T.fB, fontSize:13,
+                    fontWeight:600, color:T.t, cursor:"pointer", transition:"all .13s",
+                    textAlign:"left" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.t; }}>
+                  <BookOpen size={15} color={T.p}/>
+                  <div>
+                    <div>Ir a Anamnesis</div>
+                    <div style={{ fontSize:11, fontWeight:400, color:T.tm, marginTop:1 }}>
+                      Completa el expediente antes de la sesión
+                    </div>
+                  </div>
+                </button>
+              )}
+              <button
+                onClick={() => { openQuickSession(appt); setAdmisionTarget(null); }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+                  padding:"12px 16px", borderRadius:11, border:"none",
+                  background:T.p, color:"#fff", fontFamily:T.fB,
+                  fontSize:13, fontWeight:700, cursor:"pointer", transition:"opacity .13s" }}
+                onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
+                onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+                <FileText size={14}/> Continuar a sesión
+              </button>
+              <button
+                onClick={() => setAdmisionTarget(null)}
+                style={{ padding:"9px", borderRadius:11, border:`1px solid ${T.bdrL}`,
+                  background:"transparent", fontFamily:T.fB, fontSize:12,
+                  color:T.tl, cursor:"pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ── Mejora 3: Banner de sugerencia de siguiente cita ────────────── */}
       {nextApptSuggestion && (
