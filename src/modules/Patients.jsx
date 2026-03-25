@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X } from "lucide-react";
+import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X, LogOut } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
@@ -10,6 +10,7 @@ import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.js
 import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "./InterSessions.jsx";
 import { getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
+import { printAlta, printDerivacion } from "./Reports.jsx";
 
 // ── Portal domain for consent links ──────────────────────────────────────────
 const PORTAL_DOMAIN = "https://psychocore.vercel.app";
@@ -807,6 +808,201 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
   );
 }
 
+// ── Motivos de alta ───────────────────────────────────────────────────────────
+const MOTIVO_ALTA_OPTIONS = [
+  { value: "logros",     label: "Objetivos terapéuticos logrados"  },
+  { value: "voluntaria", label: "Alta voluntaria del paciente"      },
+  { value: "derivacion", label: "Derivación a otro profesional"     },
+  { value: "otros",      label: "Otros"                             },
+];
+
+const BLANK_ALTA = {
+  observaciones:     "",
+  recomendaciones:   "",
+  motivo:            "logros",
+  genInforme:        true,
+  genCarta:          false,
+  referProfessional: "",
+};
+
+// ── Protocolo de Alta Modal ───────────────────────────────────────────────────
+function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm }) {
+  const [form, setForm] = useState(BLANK_ALTA);
+  const fld = k => e => {
+    const v = e.target ? (e.target.type === "checkbox" ? e.target.checked : e.target.value) : e;
+    setForm(f => ({ ...f, [k]: v }));
+  };
+
+  // Reset when re-opening
+  useEffect(() => { if (open) setForm(BLANK_ALTA); }, [open]);
+
+  const sorted      = [...ptSessions].sort((a, b) => a.date.localeCompare(b.date));
+  const firstSess   = sorted[0];
+  const lastSess    = sorted[sorted.length - 1];
+  const canConfirm  = form.observaciones.trim().length > 0;
+
+  const sectionHead = (n, label) => (
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, marginTop: n > 1 ? 20 : 0 }}>
+      <div style={{ width:24, height:24, borderRadius:"50%", background:T.pA, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p }}>{n}</span>
+      </div>
+      <span style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:T.t, textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
+      <div style={{ flex:1, height:1, background:T.bdrL }}/>
+    </div>
+  );
+
+  const taStyle = {
+    width:"100%", padding:"10px 13px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
+    fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.bg, outline:"none",
+    resize:"vertical", boxSizing:"border-box", lineHeight:1.65,
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="🎓 Protocolo de Alta" width={540}>
+      {/* ── Sección 1: Nota de Alta ───────────────────────────────────── */}
+      {sectionHead(1, "Nota de Alta")}
+
+      <div style={{ marginBottom:12 }}>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+          Observaciones finales y estado del paciente al egreso *
+        </label>
+        <textarea rows={4} value={form.observaciones} onChange={fld("observaciones")}
+          placeholder="Describe el estado actual del paciente, logros alcanzados y condición de egreso..."
+          style={{ ...taStyle, borderColor: form.observaciones.trim() ? T.bdr : T.err+"60" }}/>
+        {!form.observaciones.trim() && (
+          <div style={{ fontFamily:T.fB, fontSize:11, color:T.err, marginTop:4 }}>Campo requerido</div>
+        )}
+      </div>
+
+      <div style={{ marginBottom:12 }}>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+          Recomendaciones de seguimiento <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
+        </label>
+        <textarea rows={3} value={form.recomendaciones} onChange={fld("recomendaciones")}
+          placeholder="Sugerencias post-alta, recursos, seguimiento recomendado..."
+          style={taStyle}/>
+      </div>
+
+      <div style={{ marginBottom:4 }}>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+          Motivo de alta
+        </label>
+        <select value={form.motivo} onChange={fld("motivo")}
+          style={{ width:"100%", padding:"10px 13px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.bg, outline:"none" }}>
+          {MOTIVO_ALTA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {/* ── Sección 2: Documentos ─────────────────────────────────────── */}
+      {sectionHead(2, "Documentos a generar")}
+
+      <div style={{ padding:"14px 16px", background:T.cardAlt, borderRadius:12, marginBottom:6 }}>
+        {/* Informe de Alta */}
+        <label style={{ display:"flex", alignItems:"flex-start", gap:10, cursor:"pointer", marginBottom:12 }}>
+          <input type="checkbox" checked={form.genInforme} onChange={fld("genInforme")}
+            style={{ marginTop:2, accentColor:T.p, width:16, height:16, flexShrink:0 }}/>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Generar Informe de Alta Terapéutica</div>
+            <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>PDF con resumen del proceso, objetivos, evolución y recomendaciones</div>
+          </div>
+        </label>
+
+        {/* Carta de Referencia */}
+        <label style={{ display:"flex", alignItems:"flex-start", gap:10, cursor:"pointer" }}>
+          <input type="checkbox" checked={form.genCarta} onChange={fld("genCarta")}
+            style={{ marginTop:2, accentColor:T.p, width:16, height:16, flexShrink:0 }}/>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Generar Carta de Referencia</div>
+            <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>Carta formal para derivar a otro profesional</div>
+          </div>
+        </label>
+
+        {form.genCarta && (
+          <div style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${T.bdrL}` }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+              Profesional de referencia
+            </label>
+            <input value={form.referProfessional} onChange={fld("referProfessional")}
+              placeholder="Ej. Dr. Carlos Ruiz · Psiquiatría · IMSS Cancún"
+              style={{ width:"100%", padding:"9px 13px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
+          </div>
+        )}
+      </div>
+
+      {/* ── Sección 3: Confirmación ───────────────────────────────────── */}
+      {sectionHead(3, "Confirmación")}
+
+      <div style={{ padding:"14px 16px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:12, marginBottom:20 }}>
+        <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>
+          Resumen del proceso
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Paciente</div>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{patient?.name || "—"}</div>
+          </div>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Total de sesiones</div>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{ptSessions.length}</div>
+          </div>
+          {firstSess && (
+            <div>
+              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Primera sesión</div>
+              <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(firstSess.date)}</div>
+            </div>
+          )}
+          {lastSess && (
+            <div>
+              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Última sesión</div>
+              <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(lastSess.date)}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+        <Btn
+          onClick={() => canConfirm && onConfirm(form)}
+          disabled={!canConfirm}
+          style={{ background:"#4E8B5F", opacity: canConfirm ? 1 : 0.5 }}>
+          <Check size={15}/> Confirmar Alta
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ── WA Alta Modal ─────────────────────────────────────────────────────────────
+function WaAltaModal({ open, onClose, patient }) {
+  const firstName = patient?.name?.split(" ")[0] || "";
+  const msg = `Hola, ${firstName}. 🌟 Ha sido un honor acompañarte en este proceso. Hemos registrado tu alta y queremos desearte mucho éxito en tu camino. Recuerda que aquí estaremos si algún día nos necesitas de nuevo. ¡Cuídate mucho! 💙`;
+  const waUrl = patient?.phone
+    ? `https://wa.me/52${patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
+    : "";
+
+  return (
+    <Modal open={open} onClose={onClose} title="📱 Mensaje de despedida" width={420}>
+      <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:10 }}>
+        Puedes enviarle un mensaje de cierre al paciente por WhatsApp:
+      </div>
+      <div style={{ padding:"14px 16px", background:"#ECF8F2", border:"1.5px solid #25D36640", borderRadius:12, fontFamily:T.fB, fontSize:13.5, color:"#1A2B28", lineHeight:1.65, marginBottom:20, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+        {msg}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noreferrer"
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"13px 16px", borderRadius:12, background:"#25D366", color:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, textDecoration:"none" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Enviar por WhatsApp
+          </a>
+        )}
+        <Btn variant="ghost" onClick={onClose} style={{ justifyContent:"center" }}>Omitir</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Primer Contacto Modal ─────────────────────────────────────────────────────
 function PrimerContactoModal({ open, onClose, patients, onSave }) {
   const BLANK_PC = { name: "", phone: "", initialReason: "", appointmentDate: "", appointmentTime: "09:00" };
@@ -1054,6 +1250,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
+  const [showAltaModal, setShowAltaModal] = useState(false);
+  const [showWaModal,   setShowWaModal]   = useState(false);
+  const [altaToast,     setAltaToast]     = useState(false);
 
   const updateConsent = (id, consentData) => {
     setPatients(prev => prev.map(p => p.id === id ? { ...p, consent: consentData } : p));
@@ -1174,6 +1373,52 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
   const togglePayment = id => setPayments(prev => prev.map(p => p.id === id ? { ...p, status: p.status === "pagado" ? "pendiente" : "pagado" } : p));
 
+  // ── Confirmar Protocolo de Alta ───────────────────────────────────────────
+  const confirmAlta = (altaForm) => {
+    if (!selected) return;
+    const dischargeDate = fmt(todayDate);
+    const discharge = {
+      date:            dischargeDate,
+      reason:          altaForm.motivo,
+      notes:           altaForm.observaciones,
+      recommendations: altaForm.recomendaciones,
+    };
+
+    // 1. Actualizar estado del paciente
+    setPatients(prev => prev.map(p =>
+      p.id === selected.id ? { ...p, status: "alta", discharge } : p
+    ));
+    setSelected(prev => prev ? { ...prev, status: "alta", discharge } : prev);
+
+    // 2. Generar PDFs
+    const ptSess  = sessions.filter(s => s.patientId === selected.id).sort((a,b) => a.date.localeCompare(b.date));
+    const allSc   = scaleResults.filter(r => r.patientId === selected.id).sort((a,b) => a.date.localeCompare(b.date));
+    const plan    = treatmentPlans.filter(tp => tp.patientId === selected.id).sort((a,b) => (b.startDate||"").localeCompare(a.startDate||""))[0] || null;
+
+    if (altaForm.genInforme) {
+      printAlta({ patient: selected, plan, allScales: allSc, ptSessions: ptSess, profile, custom: {}, discharge });
+    }
+    if (altaForm.genCarta) {
+      const latestRisk = riskAssessments.filter(r => r.patientId === selected.id).sort((a,b) => b.date.localeCompare(a.date))[0] || null;
+      printDerivacion({
+        patient: selected, plan, allScales: allSc, ptSessions: ptSess, profile, latestRisk,
+        custom: {
+          destinatario:        altaForm.referProfessional ? "" : "",
+          profesional:         altaForm.referProfessional,
+          motivo:              `Derivación al alta de ${selected.name}. ${altaForm.observaciones}`,
+          resumenClinico:      altaForm.observaciones,
+          informacionAdicional: altaForm.recomendaciones,
+        },
+      });
+    }
+
+    // 3. Cerrar modal de alta, abrir WA, mostrar toast
+    setShowAltaModal(false);
+    setShowWaModal(true);
+    setAltaToast(true);
+    setTimeout(() => setAltaToast(false), 3500);
+  };
+
   // ── Detail ────────────────────────────────────────────────────────────────
   if (selected) {
     const ptSessions = sessions.filter(s => s.patientId === selected.id).sort((a,b) => b.date.localeCompare(a.date));
@@ -1184,6 +1429,16 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
     return (
       <div>
+        {/* ── Toast de confirmación de alta ──────────────────────────────────── */}
+        {altaToast && (
+          <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
+            background:"#4E8B5F", color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:600,
+            padding:"11px 22px", borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
+            zIndex:9999, display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap" }}>
+            <Check size={15}/> Alta registrada correctamente
+          </div>
+        )}
+
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <button onClick={() => setSelected(null)}
             style={{ display:"flex", alignItems:"center", gap:5, background:"none", border:"none",
@@ -1224,6 +1479,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   cursor:"pointer", background:sc.bg, color:sc.color, flexShrink:0 }}>
                 {Object.entries(STATUS_CONFIG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
+              {selected.status === "alta" && selected.discharge?.date && (
+                <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
+                  textAlign:"right", marginTop:3, whiteSpace:"nowrap" }}>
+                  Alta: {fmtDate(selected.discharge.date)}
+                </div>
+              )}
             </div>
 
             <div style={{ borderTop:`1px solid ${T.bdrL}`, paddingTop:14, marginBottom:14 }}>
@@ -1396,6 +1657,42 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                 <div style={{ fontSize:11, color:T.tm, marginTop:3, fontFamily:T.fB }}>Pendiente</div>
               </div>}
             </div>
+
+            {/* Botón Dar de Alta — solo si no está ya en alta */}
+            {(selected.status !== "alta") && (
+              <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}` }}>
+                <button
+                  onClick={() => setShowAltaModal(true)}
+                  style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    width:"100%", padding:"8px", borderRadius:9,
+                    border:`1.5px solid rgba(78,139,95,0.4)`, background:"rgba(78,139,95,0.07)",
+                    color:"#4E8B5F", fontFamily:T.fB, fontSize:12, fontWeight:700,
+                    cursor:"pointer", transition:"all .15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background="rgba(78,139,95,0.18)"; e.currentTarget.style.borderColor="rgba(78,139,95,0.7)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background="rgba(78,139,95,0.07)"; e.currentTarget.style.borderColor="rgba(78,139,95,0.4)"; }}>
+                  <LogOut size={13}/> Dar de alta
+                </button>
+              </div>
+            )}
+
+            {/* Registro de alta — banner informativo si ya está en alta */}
+            {selected.status === "alta" && selected.discharge && (
+              <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}`, padding:"12px 14px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:10 }}>
+                <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                  🎓 Registro de Alta
+                </div>
+                {selected.discharge.reason && (
+                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4 }}>
+                    {MOTIVO_ALTA_OPTIONS.find(o => o.value === selected.discharge.reason)?.label || selected.discharge.reason}
+                  </div>
+                )}
+                {selected.discharge.notes && (
+                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.t, lineHeight:1.55 }}>
+                    {selected.discharge.notes.slice(0, 120)}{selected.discharge.notes.length > 120 ? "…" : ""}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Editar expediente completo */}
             <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}` }}>
@@ -1601,6 +1898,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             )}
           </Card>
         </div>
+
+        {/* ── Protocolo de Alta Modal ────────────────────────────────────── */}
+        <DischargeProtocolModal
+          open={showAltaModal}
+          onClose={() => setShowAltaModal(false)}
+          patient={selected}
+          ptSessions={sessions.filter(s => s.patientId === selected.id)}
+          onConfirm={confirmAlta}
+        />
+
+        {/* ── WhatsApp despedida Modal ───────────────────────────────────── */}
+        <WaAltaModal
+          open={showWaModal}
+          onClose={() => setShowWaModal(false)}
+          patient={selected}
+        />
       </div>
     );
   }

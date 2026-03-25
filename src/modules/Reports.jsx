@@ -334,13 +334,26 @@ ${buildSignature(profile, today)}
 }
 
 // ── PDF 2: ALTA TERAPÉUTICA ──────────────────────────────────────────────────
-function printAlta({ patient, plan, allScales, ptSessions, profile, custom }) {
+export function printAlta({ patient, plan, allScales, ptSessions, profile, custom = {}, discharge }) {
   const w = window.open("", "_blank");
   const today = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
   const firstSession = ptSessions[0];
   const lastSession  = ptSessions[ptSessions.length - 1];
   const scaleComp    = scaleComparison(allScales);
   const pct          = plan ? progressPct(plan.objectives) : null;
+
+  // Merge discharge data into effective custom fields
+  const MOTIVO_LABEL = {
+    logros:     "Objetivos terapéuticos logrados",
+    voluntaria: "Alta voluntaria del paciente",
+    derivacion: "Derivación a otro profesional",
+    otros:      "Otros",
+  };
+  const effectiveCustom = {
+    ...custom,
+    ...(discharge?.notes           ? { estadoAlta:      discharge.notes           } : {}),
+    ...(discharge?.recommendations ? { recomendaciones: discharge.recommendations } : {}),
+  };
 
   // Progress distribution
   const progDist = { excelente: 0, bueno: 0, moderado: 0, bajo: 0 };
@@ -356,6 +369,11 @@ function printAlta({ patient, plan, allScales, ptSessions, profile, custom }) {
 ${buildLetterhead(profile, today)}
 
 <div class="report-title">Informe de Alta Terapéutica</div>
+
+${discharge ? `<div style="background:#EBF5EC;border:1.5px solid #4E8B5F40;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:18px;flex-wrap:wrap">
+  ${discharge.date ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#4E8B5F;margin-bottom:3px">Fecha de alta</div><div style="font-size:13.5px;font-weight:600;color:#1A2B28">${fmtDate(discharge.date)}</div></div>` : ""}
+  ${discharge.reason ? `<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#4E8B5F;margin-bottom:3px">Motivo de alta</div><div style="font-size:13.5px;font-weight:600;color:#1A2B28">${MOTIVO_LABEL[discharge.reason] || discharge.reason}</div></div>` : ""}
+</div>` : ""}
 
 <h2>Datos del paciente</h2>
 ${buildPatientBlock(patient)}
@@ -375,8 +393,8 @@ ${ptSessions.length > 0 ? `<div style="background:#F9F8F5;padding:13px 18px;bord
   <div style="font-size:13px;color:#1A2B28">${progRows || "Sin datos"}</div>
 </div>` : ""}
 
-${custom.evolucion ? `<h2>Evolución del paciente</h2>
-<div class="text-block">${custom.evolucion}</div>` : ""}
+${effectiveCustom.evolucion ? `<h2>Evolución del paciente</h2>
+<div class="text-block">${effectiveCustom.evolucion}</div>` : ""}
 
 ${plan?.objectives?.length ? buildObjectivesSection(plan) : ""}
 
@@ -386,16 +404,16 @@ ${plan?.dischargeCriteria ? `<h2>Criterios de alta alcanzados</h2>
 <div class="text-block">${plan.dischargeCriteria}</div>` : ""}
 
 <h2>Estado al alta</h2>
-<div class="text-block">${custom.estadoAlta || "Pendiente de completar."}</div>
+<div class="text-block">${effectiveCustom.estadoAlta || "Pendiente de completar."}</div>
 
 <h2>Plan de prevención de recaídas</h2>
-<div class="text-block">${custom.prevencion || "Pendiente de completar."}</div>
+<div class="text-block">${effectiveCustom.prevencion || "Pendiente de completar."}</div>
 
 <h2>Recomendaciones post-alta</h2>
-<div class="text-block accent">${custom.recomendaciones || "Pendiente de completar."}</div>
+<div class="text-block accent">${effectiveCustom.recomendaciones || "Pendiente de completar."}</div>
 
-${custom.observaciones ? `<h2>Observaciones adicionales</h2>
-<div class="text-block">${custom.observaciones}</div>` : ""}
+${effectiveCustom.observaciones ? `<h2>Observaciones adicionales</h2>
+<div class="text-block">${effectiveCustom.observaciones}</div>` : ""}
 
 ${buildSignature(profile, today)}
 
@@ -406,7 +424,7 @@ ${buildSignature(profile, today)}
 }
 
 // ── PDF 3: DERIVACIÓN EXTENDIDA ──────────────────────────────────────────────
-function printDerivacion({ patient, plan, allScales, latestRisk, ptSessions, profile, custom }) {
+export function printDerivacion({ patient, plan, allScales, latestRisk, ptSessions, profile, custom }) {
   const w = window.open("", "_blank");
   const today = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
 
