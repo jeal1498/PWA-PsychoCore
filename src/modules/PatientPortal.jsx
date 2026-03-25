@@ -1073,10 +1073,10 @@ function TaskList({ phone, assignments: initial, onLogout }) {
 }
 
 // ── Login screen ──────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }) {
-  const [input,   setInput]   = useState("");
+function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
+  const [input,   setInput]   = useState(initialPhone);
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [error,   setError]   = useState(autoError);
 
   const handleAccess = async () => {
     const clean = input.replace(/\D/g, "");
@@ -1187,13 +1187,60 @@ function LoginScreen({ onLogin }) {
 export default function PatientPortal() {
   const [phone,       setPhone]       = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [autoLoading, setAutoLoading] = useState(false);
+  const [autoError,   setAutoError]   = useState("");
+  const [initialPhone, setInitialPhone] = useState("");
+
+  // Auto-login cuando ?phone= viene en la URL (enlace de WhatsApp)
+  useEffect(() => {
+    const params  = new URLSearchParams(window.location.search);
+    const urlPhone = (params.get("phone") || "").replace(/\D/g, "");
+    if (!urlPhone || urlPhone.length < 10) return;
+
+    setInitialPhone(urlPhone);
+    setAutoLoading(true);
+    getAssignmentsByPhone(urlPhone)
+      .then(data => {
+        setPhone(urlPhone);
+        setAssignments(data);
+      })
+      .catch(() => {
+        setAutoError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
+      })
+      .finally(() => setAutoLoading(false));
+  }, []);
 
   const handleLogin = (normalizedPhone, data) => {
     setPhone(normalizedPhone);
     setAssignments(data);
   };
 
-  if (!phone) return <LoginScreen onLogin={handleLogin}/>;
+  if (autoLoading) return (
+    <div style={{
+      minHeight:"100vh", background:P.bg,
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center",
+      fontFamily:P.fB,
+    }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, height:4, background:`linear-gradient(90deg, ${P.p}, #5A9497)` }}/>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ width:56, height:56, borderRadius:16, background:P.p, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", boxShadow:`0 8px 24px rgba(58,107,110,0.3)` }}>
+          <ClipboardList size={24} color="#fff" strokeWidth={1.5}/>
+        </div>
+        <Spinner/>
+        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Cargando tu portal…</p>
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (!phone) return (
+    <LoginScreen
+      onLogin={handleLogin}
+      initialPhone={initialPhone}
+      autoError={autoError}
+    />
+  );
 
   return (
     <TaskList
