@@ -174,3 +174,48 @@ export async function getAllResponsesByPhone(phone) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+// ── PORTAL DEL PACIENTE — Consentimiento ──────────────────────────────────────
+
+/** Obtiene el objeto `consent` del paciente identificado por teléfono.
+ *  Retorna el objeto consent (puede tener signed:false) o null si no existe. */
+export async function getConsentByPhone(phone) {
+  const res = await sb(`/patients?phone=eq.${encodeURIComponent(phone)}&select=consent&limit=1`);
+  if (!res.ok) throw new Error(await res.text());
+  const rows = await res.json();
+  return rows[0]?.consent ?? null;
+}
+
+/** Guarda (merge) los datos de firma en el campo `consent` del paciente.
+ *  consentData debe incluir: { signed, signedAt, signatureDataUrl, signedBy } */
+export async function savePatientConsent(phone, consentData) {
+  const res = await sb(`/patients?phone=eq.${encodeURIComponent(phone)}`, {
+    method:  "PATCH",
+    prefer:  "return=minimal",
+    body:    JSON.stringify({ consent: consentData }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+// ── PORTAL DEL PACIENTE — Citas ───────────────────────────────────────────────
+
+/** Obtiene las citas del paciente identificado por teléfono.
+ *  Filtra date >= hoy y devuelve ordenadas cronológicamente.
+ *  Asume tabla `sessions` con columnas: id, patient_id, date, start_time, session_type, status. */
+export async function getAppointmentsByPhone(phone) {
+  // 1. Resolver patient_id a partir del teléfono
+  const pRes = await sb(`/patients?phone=eq.${encodeURIComponent(phone)}&select=id&limit=1`);
+  if (!pRes.ok) throw new Error(await pRes.text());
+  const patients = await pRes.json();
+  if (!patients.length) return [];
+
+  const patientId = patients[0].id;
+  const today     = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+  // 2. Consultar sesiones futuras del paciente
+  const sRes = await sb(
+    `/sessions?patient_id=eq.${encodeURIComponent(patientId)}&date=gte.${today}&order=date.asc,start_time.asc&select=id,date,start_time,session_type,status`
+  );
+  if (!sRes.ok) throw new Error(await sRes.text());
+  return sRes.json();
+}
