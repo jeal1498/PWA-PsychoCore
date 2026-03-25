@@ -30,6 +30,7 @@ const EMPTY_DATA = {
   patients: [], appointments: [], sessions: [], payments: [],
   profile: DEFAULT_PROFILE, riskAssessments: [], scaleResults: [],
   treatmentPlans: [], interSessions: [], medications: [], services: [],
+  expenses: [],
 };
 function makeShellValue(authReady) {
   return {
@@ -37,12 +38,12 @@ function makeShellValue(authReady) {
     setPatients: noop, setAppointments: noop, setSessions: noop,
     setPayments: noop, setProfile: noop, setRiskAssessments: noop,
     setScaleResults: noop, setTreatmentPlans: noop, setInterSessions: noop,
-    setMedications: noop, setServices: noop,
+    setMedications: noop, setServices: noop, setExpenses: noop,
     dataReady: false, dataLoaded: false, essentialDataLoaded: false,
     dataTimedOut: false, authReady,
     pLoaded: false, aLoaded: false, sLoaded: false, pyLoaded: false,
     prLoaded: false, raLoaded: false, scLoaded: false, tpLoaded: false,
-    isLoaded: false, medLoaded: false, svLoaded: false,
+    isLoaded: false, medLoaded: false, svLoaded: false, exLoaded: false,
     allData: { ...EMPTY_DATA },
     mp: {
       patients: [], setPatients: noop,
@@ -55,6 +56,7 @@ function makeShellValue(authReady) {
       interSessions: [], setInterSessions: noop,
       medications: [], setMedications: noop,
       services: [], setServices: noop,
+      expenses: [], setExpenses: noop,
     },
   };
 }
@@ -78,6 +80,7 @@ function DataProvider({ userId, children }) {
   const [interSessions,   setInterSessions,   isLoaded]  = useSupabaseStorage("pc_inter_sessions",   [], userId);
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], userId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
+  const [expenses,        setExpenses,        exLoaded]  = useSupabaseStorage("pc_expenses",          [], userId);
 
   // Exponer para depuración en consola del navegador
   if (typeof window !== "undefined") {
@@ -90,7 +93,7 @@ function DataProvider({ userId, children }) {
 
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
   };
 
   const essentialDataLoaded = requiredLoaderKeys.every(k => loaderMap[k] === true);
@@ -112,9 +115,9 @@ function DataProvider({ userId, children }) {
 
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
-    riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services,
+    riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses,
   }), [patients, appointments, sessions, payments, profile,
-       riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services]);
+       riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses]);
 
   const mp = useMemo(() => ({
     patients,        setPatients,
@@ -127,9 +130,10 @@ function DataProvider({ userId, children }) {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
+    expenses,        setExpenses,
   }), [patients, appointments, sessions, payments,
        riskAssessments, scaleResults, treatmentPlans,
-       interSessions, medications, services]);
+       interSessions, medications, services, expenses]);
 
   const value = useMemo(() => ({
     patients,        setPatients,
@@ -143,20 +147,21 @@ function DataProvider({ userId, children }) {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
+    expenses,        setExpenses,
     dataReady,
     dataLoaded,
     essentialDataLoaded,
     dataTimedOut,
     authReady: true,
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
     allData,
     mp,
   }), [
     mp, allData, profile,
     dataReady, dataLoaded, essentialDataLoaded, dataTimedOut,
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
   ]);
 
   return (
