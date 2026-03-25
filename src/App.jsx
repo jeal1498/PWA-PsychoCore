@@ -12,6 +12,7 @@ import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
+import PatientPortalComp from "./modules/PatientPortal.jsx";
 import Onboarding       from "./components/Onboarding.jsx";
 import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";
@@ -277,6 +278,11 @@ export default function App() {
   // Ambas condiciones deben resolverse antes de evaluar si hay sesión.
   // Esto evita que TOKEN_REFRESHED llegue tarde y la app muestre login
   // incorrectamente durante el cold-start de la PWA.
+  // ── Portal del paciente — ruta pública, sin auth ────────────────────────
+  if (window.location.pathname === "/portal" || window.location.pathname === "/p") {
+    return <PatientPortalComp />;
+  }
+
   if (authLoading || !authReady) return (
     <div style={{ minHeight:"100vh", background:`linear-gradient(145deg, #1E3535 0%, ${T.p} 100%)`, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid rgba(255,255,255,0.2)", borderTopColor:"#fff", animation:"spin .8s linear infinite" }}/>
