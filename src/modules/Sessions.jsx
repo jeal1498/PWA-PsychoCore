@@ -1035,7 +1035,11 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
   // ── Autoguardado de notas clínicas ──────────────────────────────────────────
-  const DRAFT_KEY = "pc_draft_new";
+  // editingSessionId: ID de la sesión existente que se esté editando (null = sesión nueva).
+  // Permite que cada borrador use una clave única en localStorage, evitando que
+  // borradores de sesiones distintas se sobreescriban mutuamente.
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const DRAFT_KEY = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
   const [draftSavedAt,    setDraftSavedAt]    = useState(null);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [draftBannerData, setDraftBannerData] = useState(null);
@@ -1064,23 +1068,25 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
         noteFormat: form.noteFormat,
         savedAt: new Date().toISOString(),
       };
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch {}
+      const key = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
+      try { localStorage.setItem(key, JSON.stringify(draft)); } catch {}
       setDraftSavedAt(new Date().toISOString());
     }, 2000);
     return () => { if (draftDebounceRef.current) clearTimeout(draftDebounceRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.notes, form.structured, form.noteFormat, showAdd]);
+  }, [form.notes, form.structured, form.noteFormat, showAdd, editingSessionId]);
 
   // ── Detectar borrador guardado al abrir el modal ─────────────────────────────
   useEffect(() => {
     if (!showAdd) { setShowDraftBanner(false); setDraftBannerData(null); return; }
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const key = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
+      const raw = localStorage.getItem(key);
       if (!raw) return;
       const draft = JSON.parse(raw);
       if (draft?.savedAt) { setDraftBannerData(draft); setShowDraftBanner(true); }
     } catch {}
-  }, [showAdd]);
+  }, [showAdd, editingSessionId]);
 
   const fld  = k => v => setForm(f => ({ ...f, [k]:v }));
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
@@ -1495,7 +1501,11 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       Promise.allSettled(assignPromises);
     }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
-    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    const removedKey = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
+    try { localStorage.removeItem(removedKey); } catch {}
+    // Si era una sesión nueva, también limpiar el fallback "pc_draft_new" por si acaso
+    if (editingSessionId) { try { localStorage.removeItem("pc_draft_new"); } catch {} }
+    setEditingSessionId(null);
     setDraftSavedAt(null); setShowDraftBanner(false); setDraftBannerData(null);
   };
 
@@ -1663,7 +1673,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       }
 
       {/* ── New/duplicate modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nueva nota"
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditingSessionId(null); }} title="Nueva nota"
         width={isMobileView ? 620 : 940}>
 
         {/* Mobile: acordeón de contexto clínico al inicio del formulario */}
@@ -1712,7 +1722,8 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
                 Restaurar
               </button>
               <button onClick={() => {
-                try { localStorage.removeItem(DRAFT_KEY); } catch {}
+                const key = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
+                try { localStorage.removeItem(key); } catch {}
                 setShowDraftBanner(false); setDraftBannerData(null);
               }} style={{ padding:"5px 10px", borderRadius:8, border:`1.5px solid ${T.bdrL}`,
                 background:"transparent", fontFamily:T.fB, fontSize:12,
@@ -1973,7 +1984,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
             </button>
           )}
           <div style={{ display:"flex", gap:10, marginLeft:"auto" }}>
-            <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
+            <Btn variant="ghost" onClick={() => { setShowAdd(false); setEditingSessionId(null); }}>Cancelar</Btn>
             <Btn onClick={save} disabled={!canSave}><Check size={15}/> Guardar nota</Btn>
           </div>
         </div>
