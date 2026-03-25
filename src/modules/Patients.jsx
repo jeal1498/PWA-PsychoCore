@@ -675,6 +675,23 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
 
   return (
     <div>
+      {/* Banner de reingreso si aplica */}
+      {existing.reingresoDate && (
+        <div style={{
+          display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+          background:T.pA, border:`1.5px solid ${T.p}40`, borderRadius:10, marginBottom:16
+        }}>
+          <span style={{ fontSize:18 }}>🔄</span>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:T.p }}>
+              Reingreso — {fmtDate(existing.reingresoDate)}
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm }}>
+              Esta anamnesis fue iniciada en el reingreso del paciente. Completa los campos con la nueva información clínica.
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sección 1 */}
       <AnamnesisSection title="1 · Primera impresión">
         <AField label="Fecha de primera consulta">
@@ -1003,6 +1020,125 @@ function WaAltaModal({ open, onClose, patient }) {
   );
 }
 
+// ── Reingreso Modal ───────────────────────────────────────────────────────────
+function ReingresoModal({ open, onClose, patient, onConfirm }) {
+  const [option,        setOption]        = useState("A");
+  const [withAdmission, setWithAdmission] = useState(true);
+
+  useEffect(() => { if (open) { setOption("A"); setWithAdmission(true); } }, [open]);
+
+  const dischargeLabel = patient?.discharge?.date ? fmtDate(patient.discharge.date) : "—";
+  const dischargeReason = patient?.discharge?.reason
+    ? ({ logros:"Objetivos terapéuticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"Derivación a otro profesional", otros:"Otros" }[patient.discharge.reason] || patient.discharge.reason)
+    : "—";
+
+  const radioStyle = (active) => ({
+    display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px",
+    borderRadius:10, border:`1.5px solid ${active ? T.p : T.bdrL}`,
+    background: active ? T.pA : "transparent", cursor:"pointer",
+    transition:"all .15s", marginBottom:8,
+  });
+
+  return (
+    <Modal open={open} onClose={onClose} title="🔄 Iniciar Reingreso" width={520}>
+      {/* Info del alta previa */}
+      <div style={{ padding:"10px 14px", background:"rgba(78,139,95,0.07)", border:"1.5px solid rgba(78,139,95,0.2)", borderRadius:10, marginBottom:20, fontFamily:T.fB, fontSize:12.5, color:T.tm }}>
+        <span style={{ fontWeight:700, color:"#4E8B5F" }}>Alta previa:</span>{" "}
+        {dischargeLabel} · {dischargeReason}
+      </div>
+
+      {/* Opción A */}
+      <div onClick={() => setOption("A")} style={radioStyle(option === "A")}>
+        <div style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${option==="A" ? T.p : T.bdrL}`, background: option==="A" ? T.p : "transparent", flexShrink:0, marginTop:2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {option==="A" && <div style={{ width:7, height:7, borderRadius:"50%", background:"#fff" }}/>}
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:T.t, marginBottom:3 }}>
+            Opción A — Reactivar expediente existente
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tm, lineHeight:1.6, marginBottom: option==="A" ? 12 : 0 }}>
+            El historial previo se conserva y el nuevo proceso se suma al mismo expediente.
+          </div>
+          {option === "A" && (
+            <div style={{ paddingTop:10, borderTop:`1px dashed ${T.bdrL}` }}>
+              {[
+                { val: true,  label:"Con nueva admisión", desc:"Activa el tab de Anamnesis vacío marcado con la fecha de reingreso." },
+                { val: false, label:"Sin nueva admisión", desc:"El Resumen Dinámico de la sesión previa servirá como punto de partida." },
+              ].map(o => (
+                <label key={String(o.val)} onClick={e => { e.stopPropagation(); setWithAdmission(o.val); }}
+                  style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer", marginBottom:8 }}>
+                  <div style={{ width:15, height:15, borderRadius:"50%", border:`2px solid ${withAdmission===o.val ? T.p : T.bdrL}`, background: withAdmission===o.val ? T.p : "transparent", flexShrink:0, marginTop:2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {withAdmission===o.val && <div style={{ width:5, height:5, borderRadius:"50%", background:"#fff" }}/>}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:T.fB, fontSize:12.5, fontWeight:600, color:T.t }}>{o.label}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl }}>{o.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Opción B */}
+      <div onClick={() => setOption("B")} style={radioStyle(option === "B")}>
+        <div style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${option==="B" ? T.p : T.bdrL}`, background: option==="B" ? T.p : "transparent", flexShrink:0, marginTop:2, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {option==="B" && <div style={{ width:7, height:7, borderRadius:"50%", background:"#fff" }}/>}
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:T.t, marginBottom:3 }}>
+            Opción B — Nuevo proceso vinculado
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tm, lineHeight:1.6 }}>
+            Se crea un expediente nuevo. El anterior queda archivado como referencia.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:20 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
+        <Btn onClick={() => onConfirm(option, withAdmission)}
+          style={{ background: option==="B" ? T.acc : T.p }}>
+          <Check size={15}/>
+          {option === "A" ? "Reactivar expediente" : "Crear nuevo proceso"}
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Consent Renewal Modal (post-reingreso) ────────────────────────────────────
+function ConsentRenewalModal({ open, onClose, patient }) {
+  const firstName = patient?.name?.split(" ")[0] || "";
+  const phone = patient?.phone || "";
+  const link = `${PORTAL_DOMAIN}/portal?phone=${phone}`;
+  const msg = `Hola, ${firstName}. 👋 Con motivo de tu reingreso, te compartimos el enlace para renovar tu Consentimiento Informado antes de tu próxima sesión: ${link} ¡Gracias por tu confianza! 💙`;
+  const waUrl = phone
+    ? `https://wa.me/52${phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
+    : "";
+
+  return (
+    <Modal open={open} onClose={onClose} title="⚠️ Consentimiento informado vencido" width={420}>
+      <div style={{ padding:"12px 14px", background:T.warA, border:`1.5px solid ${T.war}60`, borderRadius:10, marginBottom:16 }}>
+        <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.65 }}>
+          El consentimiento informado tiene más de 12 meses. Se recomienda obtener una nueva firma antes de la primera sesión.
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noreferrer"
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"13px 16px", borderRadius:12, background:"#25D366", color:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, textDecoration:"none" }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Enviar nuevo consentimiento por WhatsApp
+          </a>
+        )}
+        <Btn variant="ghost" onClick={onClose} style={{ justifyContent:"center" }}>Omitir</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Primer Contacto Modal ─────────────────────────────────────────────────────
 function PrimerContactoModal({ open, onClose, patients, onSave }) {
   const BLANK_PC = { name: "", phone: "", initialReason: "", appointmentDate: "", appointmentTime: "09:00" };
@@ -1250,9 +1386,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
-  const [showAltaModal, setShowAltaModal] = useState(false);
-  const [showWaModal,   setShowWaModal]   = useState(false);
-  const [altaToast,     setAltaToast]     = useState(false);
+  const [showAltaModal,      setShowAltaModal]      = useState(false);
+  const [showWaModal,        setShowWaModal]        = useState(false);
+  const [altaToast,          setAltaToast]          = useState(false);
+  const [showReingresoModal, setShowReingresoModal] = useState(false);
+  const [showConsentExpired, setShowConsentExpired] = useState(false);
+  const [reingresoToast,     setReingresoToast]     = useState(false);
 
   const updateConsent = (id, consentData) => {
     setPatients(prev => prev.map(p => p.id === id ? { ...p, consent: consentData } : p));
@@ -1419,6 +1558,56 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     setTimeout(() => setAltaToast(false), 3500);
   };
 
+  // ── Confirmar Reingreso ───────────────────────────────────────────────────
+  const confirmReingreso = (option, withAdmission) => {
+    if (!selected) return;
+    const today = fmt(todayDate);
+    const reingresoData = { date: today, option, withAdmission: option === "A" ? withAdmission : false };
+
+    if (option === "A") {
+      const updates = { status: "activo", reingreso: reingresoData };
+      if (withAdmission) {
+        // Reset anamnesis, preserve reingresoDate as marker
+        updates.anamnesis = { ...ANAMNESIS_BLANK, fechaPrimeraConsulta: today, reingresoDate: today };
+      }
+      setPatients(prev => prev.map(p => p.id === selected.id ? { ...p, ...updates } : p));
+      setSelected(prev => prev ? { ...prev, ...updates } : prev);
+    } else {
+      // Opción B: annotate original (stays alta/archived), create new linked patient
+      setPatients(prev => prev.map(p => p.id === selected.id ? { ...p, reingreso: reingresoData } : p));
+      const newId = "p" + uid();
+      const newPatient = {
+        id:            newId,
+        name:          selected.name,
+        phone:         selected.phone || "",
+        status:        "activo",
+        linkedTo:      selected.id,
+        reingreso:     reingresoData,
+        type:          selected.type || "individual",
+        createdAt:     today,
+        birthdate:"", email:"", diagnosis:"", cie11Code:"", reason:"",
+        notes:"", rate: selected.rate || "", serviceId: selected.serviceId || "",
+        emergencyName:"", emergencyPhone:"", emergencyRelation:"",
+        consent: { signed: false },
+      };
+      setPatients(prev => [...prev, newPatient]);
+      setSelected(newPatient);
+    }
+
+    setShowReingresoModal(false);
+    setReingresoToast(true);
+    setTimeout(() => setReingresoToast(false), 3500);
+
+    // Verificar vencimiento de consentimiento (>12 meses o sin firma)
+    const signedAt = selected.consent?.signedAt;
+    if (!signedAt) {
+      setShowConsentExpired(true);
+    } else {
+      const monthsDiff = (Date.now() - new Date(signedAt).getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+      if (monthsDiff > 12) setShowConsentExpired(true);
+    }
+  };
+
   // ── Detail ────────────────────────────────────────────────────────────────
   if (selected) {
     const ptSessions = sessions.filter(s => s.patientId === selected.id).sort((a,b) => b.date.localeCompare(a.date));
@@ -1436,6 +1625,49 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             padding:"11px 22px", borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
             zIndex:9999, display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap" }}>
             <Check size={15}/> Alta registrada correctamente
+          </div>
+        )}
+
+        {/* ── Toast de confirmación de reingreso ─────────────────────────────── */}
+        {reingresoToast && (
+          <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
+            background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:600,
+            padding:"11px 22px", borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
+            zIndex:9999, display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap" }}>
+            <Check size={15}/> Reingreso registrado correctamente
+          </div>
+        )}
+
+        {/* ── Banner de Alta — solo si el paciente está en alta ──────────────── */}
+        {selected.status === "alta" && selected.discharge && (
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
+            padding:"14px 18px", marginBottom:16,
+            background:"rgba(78,139,95,0.08)", border:"1.5px solid rgba(78,139,95,0.3)",
+            borderRadius:12,
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:20 }}>🎓</span>
+              <div>
+                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:"#4E8B5F", marginBottom:2 }}>
+                  Este paciente fue dado de alta el {fmtDate(selected.discharge.date)}.
+                </div>
+                <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
+                  Motivo:{" "}
+                  {({ logros:"Objetivos terapéuticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"Derivación a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason || "—")}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowReingresoModal(true)}
+              style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+                border:"none", background:"#4E8B5F", color:"#fff",
+                fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer",
+                boxShadow:"0 2px 8px rgba(78,139,95,0.28)", transition:"opacity .15s", flexShrink:0 }}
+              onMouseEnter={e => e.currentTarget.style.opacity="0.88"}
+              onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+              🔄 Iniciar Reingreso
+            </button>
           </div>
         )}
 
@@ -1479,6 +1711,13 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   cursor:"pointer", background:sc.bg, color:sc.color, flexShrink:0 }}>
                 {Object.entries(STATUS_CONFIG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
+              {selected.linkedTo && (
+                <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.p,
+                  textAlign:"right", marginTop:3, whiteSpace:"nowrap",
+                  padding:"2px 8px", borderRadius:9999, background:T.pA }}>
+                  🔗 Reingreso (exp. vinculado)
+                </div>
+              )}
               {selected.status === "alta" && selected.discharge?.date && (
                 <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
                   textAlign:"right", marginTop:3, whiteSpace:"nowrap" }}>
@@ -1675,22 +1914,43 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               </div>
             )}
 
-            {/* Registro de alta — banner informativo si ya está en alta */}
+            {/* Registro de alta — banner sidebar si ya está en alta */}
             {selected.status === "alta" && selected.discharge && (
-              <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}`, padding:"12px 14px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:10 }}>
-                <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-                  🎓 Registro de Alta
+              <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}` }}>
+                <div style={{ padding:"12px 14px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:10 }}>
+                  <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                    🎓 Registro de Alta
+                  </div>
+                  {selected.discharge.reason && (
+                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4 }}>
+                      {({ logros:"Objetivos terapéuticos logrados", voluntaria:"Alta voluntaria", derivacion:"Derivación a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason)}
+                    </div>
+                  )}
+                  {selected.discharge.notes && (
+                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.t, lineHeight:1.55, marginBottom:10 }}>
+                      {selected.discharge.notes.slice(0, 120)}{selected.discharge.notes.length > 120 ? "…" : ""}
+                    </div>
+                  )}
+                  {selected.reingreso && (
+                    <div style={{ padding:"6px 10px", background:T.pA, borderRadius:8, marginBottom:8 }}>
+                      <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Reingreso previo</div>
+                      <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm }}>
+                        {fmtDate(selected.reingreso.date)} · Opción {selected.reingreso.option}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowReingresoModal(true)}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                      width:"100%", padding:"8px", borderRadius:9,
+                      border:"none", background:"#4E8B5F", color:"#fff",
+                      fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer",
+                      transition:"opacity .15s" }}
+                    onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
+                    onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+                    🔄 Iniciar Reingreso
+                  </button>
                 </div>
-                {selected.discharge.reason && (
-                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4 }}>
-                    {MOTIVO_ALTA_OPTIONS.find(o => o.value === selected.discharge.reason)?.label || selected.discharge.reason}
-                  </div>
-                )}
-                {selected.discharge.notes && (
-                  <div style={{ fontFamily:T.fB, fontSize:12, color:T.t, lineHeight:1.55 }}>
-                    {selected.discharge.notes.slice(0, 120)}{selected.discharge.notes.length > 120 ? "…" : ""}
-                  </div>
-                )}
               </div>
             )}
 
@@ -1912,6 +2172,21 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         <WaAltaModal
           open={showWaModal}
           onClose={() => setShowWaModal(false)}
+          patient={selected}
+        />
+
+        {/* ── Reingreso Modal ────────────────────────────────────────────── */}
+        <ReingresoModal
+          open={showReingresoModal}
+          onClose={() => setShowReingresoModal(false)}
+          patient={selected}
+          onConfirm={confirmReingreso}
+        />
+
+        {/* ── Consent Renewal Modal ──────────────────────────────────────── */}
+        <ConsentRenewalModal
+          open={showConsentExpired}
+          onClose={() => setShowConsentExpired(false)}
           patient={selected}
         />
       </div>
