@@ -48,6 +48,7 @@ export default function App() {
     interSessions,   setInterSessions,
     medications,     setMedications,
     services,        setServices,
+    assignments,
     dataReady,
     dataLoaded,
     dataTimedOut,
@@ -172,7 +173,7 @@ export default function App() {
   };
 
   // ── Notificaciones ───────────────────────────────────────────────────────
-  const { notifications, dismiss, dismissAll } = useNotifications(user ? appointments : []);
+  const { notifications, dismiss, dismissAll } = useNotifications(user ? appointments : [], user ? assignments : []);
 
   // ── Navegación ───────────────────────────────────────────────────────────
   const navTo = (mod) => {
