@@ -30,7 +30,7 @@ const EMPTY_DATA = {
   patients: [], appointments: [], sessions: [], payments: [],
   profile: DEFAULT_PROFILE, riskAssessments: [], scaleResults: [],
   treatmentPlans: [], interSessions: [], medications: [], services: [],
-  expenses: [],
+  expenses: [], assignments: [],
 };
 function makeShellValue(authReady) {
   return {
@@ -39,6 +39,7 @@ function makeShellValue(authReady) {
     setPayments: noop, setProfile: noop, setRiskAssessments: noop,
     setScaleResults: noop, setTreatmentPlans: noop, setInterSessions: noop,
     setMedications: noop, setServices: noop, setExpenses: noop,
+    setAssignments: noop,
     dataReady: false, dataLoaded: false, essentialDataLoaded: false,
     dataTimedOut: false, authReady,
     pLoaded: false, aLoaded: false, sLoaded: false, pyLoaded: false,
@@ -57,6 +58,7 @@ function makeShellValue(authReady) {
       medications: [], setMedications: noop,
       services: [], setServices: noop,
       expenses: [], setExpenses: noop,
+      assignments: [], setAssignments: noop,
     },
   };
 }
@@ -81,6 +83,7 @@ function DataProvider({ userId, children }) {
   const [medications,     setMedications,     medLoaded] = useSupabaseStorage("pc_medications",      [], userId);
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
   const [expenses,        setExpenses,        exLoaded]  = useSupabaseStorage("pc_expenses",          [], userId);
+  const [assignments,     setAssignments,     asLoaded]  = useSupabaseStorage("pc_assignments",        [], userId);
 
   // Exponer para depuración en consola del navegador
   if (typeof window !== "undefined") {
@@ -93,7 +96,7 @@ function DataProvider({ userId, children }) {
 
   const loaderMap = {
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded, asLoaded,
   };
 
   const essentialDataLoaded = requiredLoaderKeys.every(k => loaderMap[k] === true);
@@ -115,9 +118,9 @@ function DataProvider({ userId, children }) {
 
   const allData = useMemo(() => ({
     patients, appointments, sessions, payments, profile,
-    riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses,
+    riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses, assignments,
   }), [patients, appointments, sessions, payments, profile,
-       riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses]);
+       riskAssessments, scaleResults, treatmentPlans, interSessions, medications, services, expenses, assignments]);
 
   const mp = useMemo(() => ({
     patients,        setPatients,
@@ -131,9 +134,10 @@ function DataProvider({ userId, children }) {
     medications,     setMedications,
     services,        setServices,
     expenses,        setExpenses,
+    assignments,     setAssignments,
   }), [patients, appointments, sessions, payments,
        riskAssessments, scaleResults, treatmentPlans,
-       interSessions, medications, services, expenses]);
+       interSessions, medications, services, expenses, assignments]);
 
   const value = useMemo(() => ({
     patients,        setPatients,
@@ -148,13 +152,14 @@ function DataProvider({ userId, children }) {
     medications,     setMedications,
     services,        setServices,
     expenses,        setExpenses,
+    assignments,     setAssignments,
     dataReady,
     dataLoaded,
     essentialDataLoaded,
     dataTimedOut,
     authReady: true,
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
-    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
+    raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded, asLoaded,
     allData,
     mp,
   }), [
