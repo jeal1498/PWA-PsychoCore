@@ -1115,7 +1115,8 @@ export default function Finance({
                   </div>
                 </div>
                 {/* KPIs vivos */}
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
+                {/* [mobile-audit] grid de 3 columnas fijo → colapsa a 1 columna en mobile */}
+                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:10, marginBottom:20 }}>
                   <div style={{ padding:"14px", borderRadius:12, background:T.sucA }}>
                     <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.suc, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Total período</div>
                     <div style={{ fontFamily:T.fH, fontSize:24, fontWeight:500, color:T.suc }}>{fmtCur(r1.total)}</div>
@@ -1221,7 +1222,8 @@ export default function Finance({
                   </div>
                 </div>
                 {/* KPIs balance */}
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:20 }}>
+                {/* [mobile-audit] grid de 4 columnas fijo → colapsa a 2×2 en mobile */}
+                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:10, marginBottom:20 }}>
                   {[
                     { label:"Ingresos",     value:fmtCur(r3.totalI), color:T.suc, bg:T.sucA },
                     { label:"Gastos",       value:fmtCur(r3.totalG), color:T.err, bg:"rgba(184,80,80,0.08)" },
@@ -1272,7 +1274,8 @@ export default function Finance({
                   </button>
                 </div>
                 {/* KPIs 7/15/30 */}
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
+                {/* [mobile-audit] grid de 3 columnas fijo → colapsa a 1 columna en mobile */}
+                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:10, marginBottom:20 }}>
                   {[
                     { label:"Próximos 7 días",  value:fmtCur(r4.sum7),  count:r4.f7.length  },
                     { label:"Próximos 15 días", value:fmtCur(r4.sum15), count:r4.f15.length },

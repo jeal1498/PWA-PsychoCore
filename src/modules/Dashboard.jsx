@@ -281,7 +281,8 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
     { label: "Registrar", sub: "pago",     icon: DollarSign, color: T.war, bg: T.warA, module: "finance",  handler: null },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 24 }}>
+    // [mobile-audit] grid de 4 columnas fijo → colapsa a 2×2 en mobile
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 8, marginBottom: 24 }}>
       {actions.map(a => (
         <button key={a.label}
           onClick={() => a.handler ? a.handler() : onQuickNav(a.module, "add")}
@@ -359,8 +360,25 @@ function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MEJORA 2 — Barra de progreso de configuración pendiente
 // ─────────────────────────────────────────────────────────────────────────────
-function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
+function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }) {
   const [open, setOpen] = useState(true);
+
+  // Mapeo de cada ítem al tab de Settings correspondiente
+  const ITEM_TAB = {
+    photo:    "profile",
+    cedula:   "profile",
+    services: "services",
+    schedule: "horario",
+  };
+
+  const handleConfigure = (key) => {
+    const tab = ITEM_TAB[key] || "profile";
+    if (onQuickNav) {
+      onQuickNav("settings", null, tab);
+    } else {
+      onNavigate("settings");
+    }
+  };
 
   const items = useMemo(() => [
     {
@@ -476,7 +494,7 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
                   </span>
                   {!item.done && (
                     <button
-                      onClick={() => onNavigate("settings")}
+                      onClick={() => handleConfigure(item.key)}
                       style={{
                         padding: "4px 12px", borderRadius: 9999, border: `1.5px solid ${T.p}`,
                         background: "transparent", color: T.p, fontFamily: T.fB,
@@ -1326,6 +1344,7 @@ export default function Dashboard({
         profile={profile}
         services={services}
         onNavigate={onNavigate}
+        onQuickNav={onQuickNav}
       />
 
       {/* ── MEJORA 3: GUÍA DE PRIMER PACIENTE o CONTENIDO NORMAL ──────────── */}
