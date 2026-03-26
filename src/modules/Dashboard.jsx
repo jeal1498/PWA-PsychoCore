@@ -139,7 +139,7 @@ function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick }) {
 function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick }) {
   return (
     <Card onClick={onClick}
-      style={{ padding: "18px 20px", cursor: onClick ? "pointer" : "default", transition: "all .15s",
+      style={{ padding: "16px 20px", cursor: onClick ? "pointer" : "default", transition: "all .15s",
         borderLeft: `3px solid ${color}` }}
       onMouseEnter={onClick ? e => { e.currentTarget.style.boxShadow = T.shM; e.currentTarget.style.transform = "translateY(-2px)"; } : undefined}
       onMouseLeave={onClick ? e => { e.currentTarget.style.boxShadow = T.sh;  e.currentTarget.style.transform = "translateY(0)"; } : undefined}>
@@ -309,7 +309,7 @@ function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
       background: T.warA,
       border: `1.5px solid ${T.war}40`,
       borderRadius: 14,
-      padding: "14px 18px",
+      padding: "14px 16px",
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
@@ -336,7 +336,7 @@ function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
       <button
         onClick={() => onNavigate("finance")}
         style={{
-          padding: "7px 16px", borderRadius: 9999, border: `1.5px solid ${T.war}`,
+          padding: "8px 16px", borderRadius: 9999, border: `1.5px solid ${T.war}`,
           background: "transparent", color: T.war, fontFamily: T.fB, fontSize: 12.5,
           fontWeight: 700, cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap",
           flexShrink: 0,
@@ -403,7 +403,7 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
         onClick={() => setOpen(v => !v)}
         style={{
           width: "100%", background: "none", border: "none", cursor: "pointer",
-          padding: "14px 18px", display: "flex", alignItems: "center",
+          padding: "14px 16px", display: "flex", alignItems: "center",
           justifyContent: "space-between", gap: 12,
         }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -424,7 +424,7 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
       </button>
 
       {/* Barra de progreso */}
-      <div style={{ padding: "0 18px", marginBottom: open ? 0 : 14 }}>
+      <div style={{ padding: "0 16px", marginBottom: open ? 0 : 14 }}>
         <div style={{
           height: 6, borderRadius: 9999, background: T.bdrL, overflow: "hidden",
         }}>
@@ -439,7 +439,7 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate }) {
 
       {/* Lista de ítems — solo visible si abierto */}
       {open && (
-        <div style={{ padding: "10px 18px 16px" }}>
+        <div style={{ padding: "10px 16px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
             {items.map(item => {
               const ItemIcon = item.icon;
@@ -543,7 +543,7 @@ function WelcomeGuide({ onNavigate }) {
       <div style={{
         width: 64, height: 64, borderRadius: 18, background: T.pA,
         display: "flex", alignItems: "center", justifyContent: "center",
-        margin: "0 auto 18px",
+        margin: "0 auto 16px",
       }}>
         <Zap size={28} color={T.p} strokeWidth={1.5} />
       </div>
@@ -573,7 +573,7 @@ function WelcomeGuide({ onNavigate }) {
             <div key={step.num} style={{
               background: T.cardAlt,
               border: `1.5px solid ${T.bdrL}`,
-              borderRadius: 14, padding: "20px 18px",
+              borderRadius: 14, padding: "20px 16px",
               display: "flex", flexDirection: "column", gap: 12,
               position: "relative", overflow: "hidden",
             }}>
@@ -616,7 +616,7 @@ function WelcomeGuide({ onNavigate }) {
                   onClick={() => onNavigate(step.module)}
                   style={{
                     alignSelf: "flex-start",
-                    padding: "8px 18px", borderRadius: 9999,
+                    padding: "8px 16px", borderRadius: 9999,
                     border: `1.5px solid ${step.color}`,
                     background: step.bg, color: step.color,
                     fontFamily: T.fB, fontSize: 13, fontWeight: 700,
@@ -1444,7 +1444,7 @@ export default function Dashboard({
                 </div>
                 <button onClick={() => onNavigate("agenda")}
                   style={{ background: T.pA, border: "none", borderRadius: 9999,
-                    padding: "8px 18px", fontFamily: T.fB, fontSize: 13,
+                    padding: "8px 16px", fontFamily: T.fB, fontSize: 13,
                     color: T.p, cursor: "pointer", fontWeight: 700 }}>
                   + Agendar cita
                 </button>
@@ -1520,7 +1520,7 @@ export default function Dashboard({
                       const label = cs === "expired" ? "Vencido" : cs === "expiring" ? "Por vencer" : "Sin firmar";
                       return (
                         <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10,
-                          padding: "7px 10px", borderRadius: 9, background: `${color}10`, marginBottom: 5 }}>
+                          padding: "8px 10px", borderRadius: 9, background: `${color}10`, marginBottom: 5 }}>
                           <div style={{ width: 28, height: 28, borderRadius: "50%",
                             background: `${color}20`, display: "flex", alignItems: "center",
                             justifyContent: "center", flexShrink: 0, border: `1.5px solid ${color}40` }}>
@@ -1559,7 +1559,7 @@ export default function Dashboard({
                       const overdue = a.date < todayStr;
                       return (
                         <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10,
-                          padding: "7px 10px", borderRadius: 9,
+                          padding: "8px 10px", borderRadius: 9,
                           background: overdue ? T.warA : "rgba(91,141,184,0.08)", marginBottom: 5 }}>
                           <div style={{ width: 28, height: 28, borderRadius: "50%",
                             background: overdue ? T.warA : "rgba(91,141,184,0.15)",

@@ -297,13 +297,17 @@ function getPrevPeriodRange(period) {
   }
 }
 
-function printReport(html) {
+function printReport(html, onMsg) {
   const w = window.open("", "_blank", "width=900,height=700");
-  if (!w) { alert("Permite ventanas emergentes para exportar el PDF."); return; }
+  if (!w) {
+    if (onMsg) onMsg("error");
+    return;
+  }
   w.document.write(html);
   w.document.close();
   w.focus();
   setTimeout(() => w.print(), 600);
+  if (onMsg) onMsg("success");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -565,6 +569,7 @@ export default function Finance({
 
   // ── Ingresos: estado existente ─────────────────────────────────────────────
   const [showAdd,       setShowAdd]       = useState(false);
+  const [cobroFromPending, setCobroFromPending] = useState(null); // payment origen al abrir modal desde "Cobrar"
   const [filterPt,      setFilterPt]      = useState("");
   const [editPayment,   setEditPayment]   = useState(null);
   const [savedPayment,  setSavedPayment]  = useState(null);
@@ -591,6 +596,16 @@ export default function Finance({
   const [report1Period, setReport1Period] = useState("mes_actual");
   const [report2Group,  setReport2Group]  = useState("paciente");
   const [report3Period, setReport3Period] = useState("mes_actual");
+
+  // ── Feedback inline de generación de PDF ──────────────────────────────────
+  const [pdfMsg, setPdfMsg] = useState(null); // { type: "success"|"error", text: string }
+  const showPdfMsg = (type) => {
+    const text = type === "success"
+      ? "Recibo abierto en nueva pestaña."
+      : "Permite ventanas emergentes en tu navegador para exportar el PDF.";
+    setPdfMsg({ type, text });
+    setTimeout(() => setPdfMsg(null), type === "success" ? 3000 : 5000);
+  };
 
   // ── Ingresos: lógica existente ─────────────────────────────────────────────
   const SERVICE_TYPES_LABEL = {
@@ -667,6 +682,7 @@ export default function Finance({
     setPayments(prev => [...prev, { ...form, id:"pay"+uid(), patientName:pt?.name||"", folio }]);
     setForm({ patientId:"", date:fmt(todayDate), amount:"", concept:"", serviceId:"", modality:"", method:"Transferencia", status:"pagado" });
     setShowModalityPicker(false);
+    setCobroFromPending(null);
     setShowAdd(false);
   };
   const del           = id => setPayments(prev => prev.filter(p => p.id !== id));
@@ -774,6 +790,13 @@ export default function Finance({
     return { f7, f15, f30, sum7, sum15, sum30, est };
   }, [appointments, patients, services]);
 
+  // ── Abrir modal "Cobrar" desde un pago pendiente ──────────────────────────
+  const openCobroFromPending = (p) => {
+    setCobroFromPending(p);
+    setForm(f => ({ ...f, patientId: p.patientId, concept: p.concept || "", date: fmt(todayDate), amount: p.amount ? String(p.amount) : "", status: "pagado" }));
+    setShowAdd(true);
+  };
+
   // ── Helpers de UI ──────────────────────────────────────────────────────────
   const paymentRow = (p) => {
     const patient = patients.find(pt => pt.id === p.patientId);
@@ -788,6 +811,13 @@ export default function Finance({
         <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.concept}</span>
         <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{p.method}</span>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          {p.status === "pendiente" && (
+            <button
+              onClick={() => openCobroFromPending(p)}
+              style={{ background:T.p, border:"none", borderRadius:6, padding:"3px 9px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:"#fff", fontWeight:700, whiteSpace:"nowrap" }}>
+              Cobrar
+            </button>
+          )}
           <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
           <button onClick={() => shareRecibo(p, patient, profile)} title="Generar recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"4px 6px", cursor:"pointer", color:T.p }}>
             <Printer size={12}/>
@@ -971,6 +1001,23 @@ export default function Finance({
             {filterStatus && <span style={{ marginLeft:6, color:filterStatus==="pagado"?T.p:T.war, fontWeight:600 }}>· {filterStatus}</span>}
           </div>
 
+          {/* Feedback inline generación PDF */}
+          {pdfMsg && (
+            <div style={{
+              marginBottom: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              fontFamily: T.fB,
+              fontSize: 13,
+              background: pdfMsg.type === "success" ? T.sucA : T.warA,
+              border: `1.5px solid ${pdfMsg.type === "success" ? T.suc : T.war}`,
+              color: pdfMsg.type === "success" ? T.suc : T.war,
+              fontWeight: 500,
+            }}>
+              {pdfMsg.text}
+            </div>
+          )}
+
           {/* Tabla pagos */}
           <Card>
             {isMobile ? (
@@ -1060,7 +1107,7 @@ export default function Finance({
                       style={{ padding:"8px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:12, color:T.t, background:T.card, outline:"none" }}>
                       {periodOptionsWithWeek.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                    <button onClick={() => printReport(buildR1Html(payments, report1Period, profile))}
+                    <button onClick={() => printReport(buildR1Html(payments, report1Period, profile), showPdfMsg)}
                       style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:9, border:"none",
                         background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                       <FileText size={13}/> Exportar PDF
@@ -1119,7 +1166,7 @@ export default function Finance({
                       <option value="paciente">Por paciente</option>
                       <option value="servicio">Por tipo de servicio</option>
                     </select>
-                    <button onClick={() => printReport(buildR2Html(payments, report2Group, patients, profile))}
+                    <button onClick={() => printReport(buildR2Html(payments, report2Group, patients, profile), showPdfMsg)}
                       style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:9, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                       <FileText size={13}/> Exportar PDF
                     </button>
@@ -1167,7 +1214,7 @@ export default function Finance({
                       style={{ padding:"8px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:12, color:T.t, background:T.card, outline:"none" }}>
                       {periodOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                    <button onClick={() => printReport(buildR3Html(payments, expenses, report3Period, profile))}
+                    <button onClick={() => printReport(buildR3Html(payments, expenses, report3Period, profile), showPdfMsg)}
                       style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:9, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                       <FileText size={13}/> Exportar PDF
                     </button>
@@ -1219,7 +1266,7 @@ export default function Finance({
               <div style={{ padding:"18px 20px 0" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
                   <div style={{ fontFamily:T.fH, fontSize:18, color:T.t }}>Proyección de ingresos</div>
-                  <button onClick={() => printReport(buildR4Html(appointments, patients, services, profile))}
+                  <button onClick={() => printReport(buildR4Html(appointments, patients, services, profile), showPdfMsg)}
                     style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 14px", borderRadius:9, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                     <FileText size={13}/> Exportar PDF
                   </button>
@@ -1275,9 +1322,19 @@ export default function Finance({
       ══════════════════════════════════════════════════════════════════ */}
 
       {/* Modal agregar pago */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Registrar pago">
-        <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
-          options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]} />
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setCobroFromPending(null); }} title="Registrar pago">
+        {/* Cambio 3: Si se abrió desde "Cobrar" en un pago pendiente, mostrar paciente como texto fijo */}
+        {cobroFromPending ? (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Paciente</div>
+            <div style={{ padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, background:T.cardAlt, fontFamily:T.fB, fontSize:14, color:T.t, fontWeight:500 }}>
+              {cobroFromPending.patientName}
+            </div>
+          </div>
+        ) : (
+          <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
+            options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]} />
+        )}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Fecha" value={form.date} onChange={fld("date")} type="date"/>
           <Input label="Monto (MXN) *" value={form.amount} onChange={fld("amount")} type="number" placeholder="900"/>
@@ -1316,7 +1373,7 @@ export default function Finance({
           Se generará automáticamente el folio <strong>{nextFolio(payments)}</strong> para este pago.
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
+          <Btn variant="ghost" onClick={() => { setShowAdd(false); setCobroFromPending(null); }}>Cancelar</Btn>
           <Btn onClick={save} disabled={!form.patientId||!form.amount}><Check size={15}/> Guardar pago</Btn>
         </div>
       </Modal>

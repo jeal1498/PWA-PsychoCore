@@ -1009,8 +1009,10 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   }, []);
   const isMobileView = windowWidth < 768;
 
-  const [filterPt,  setFilterPt]  = useState("");
-  const [showAdd,   setShowAdd]   = useState(!!prefill);
+  const [filterPt,     setFilterPt]     = useState("");
+  const [showAdd,      setShowAdd]      = useState(!!prefill);
+  // Cuando se llega con prefill.patientId, el campo paciente empieza bloqueado
+  const [patientLocked, setPatientLocked] = useState(!!(prefill?.patientId));
   const [referral,  setReferral]  = useState(null);
   const [refForm,   setRefForm]   = useState({ reason:"", specialist:"", notes:"" });
   const [riskOpen,  setRiskOpen]  = useState(false);
@@ -1734,8 +1736,30 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
           </div>
         )}
 
-        <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
-          options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
+        {/* ── Selector de paciente: solo lectura si llegó con prefill.patientId ── */}
+        {patientLocked && form.patientId ? (() => {
+          const lockedPt = patients.find(p => p.id === form.patientId);
+          return (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                Paciente
+              </label>
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, background:T.cardAlt }}>
+                <span style={{ flex:1, fontFamily:T.fB, fontSize:14, color:T.t, fontWeight:500 }}>
+                  {lockedPt?.name || "—"}
+                </span>
+                <button
+                  onClick={() => setPatientLocked(false)}
+                  style={{ background:"none", border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:12, color:T.p, fontWeight:600, padding:0, textDecoration:"underline" }}>
+                  Cambiar
+                </button>
+              </div>
+            </div>
+          );
+        })() : (
+          <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
+            options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
+        )}
         {/* ── Widget de tareas del paciente ─────────────────────── */}
         {form.patientId && patientTasks.length > 0 && (() => {
           const completadas = patientTasks.filter(t => t.status === "completed");
