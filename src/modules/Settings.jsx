@@ -1445,8 +1445,8 @@ function ServicesTab({ services, setServices }) {
 }
 
 // ── Main Settings component ───────────────────────────────────────────────────
-export default function Settings({ profile, setProfile, darkMode, setDarkMode, patients, setPatients, googleUser, psychologist, allData, onRestore, services = [], setServices }) {
-  const [tab, setTab] = useState("profile");
+export default function Settings({ profile, setProfile, darkMode, setDarkMode, patients, setPatients, googleUser, psychologist, allData, onRestore, services = [], setServices, initialTab = "profile" }) {
+  const [tab, setTab] = useState(initialTab || "profile");
 
   const tabs = [
     { id: "profile",    label: "Perfil"     },

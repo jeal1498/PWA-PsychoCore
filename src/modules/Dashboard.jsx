@@ -1005,7 +1005,7 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
           <UserX size={13} color={T.war} />
           Riesgo de abandono
           {inactivePatients.length > 0 && (
-            <span style={{ padding: "1px 7px", borderRadius: 9999,
+            <span style={{ padding: "1px 8px", borderRadius: 9999,
               background: T.warA, color: T.war, fontSize: 11, fontWeight: 800 }}>
               {inactivePatients.length}
             </span>
