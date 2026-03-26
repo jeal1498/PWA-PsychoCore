@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle, CalendarDays } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle, CalendarDays, Play } from "lucide-react";
+import { emit } from "../lib/eventBus.js";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../components/ui/index.jsx";
@@ -291,9 +292,23 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
   );
 }
 
-// ── Mejora 1: Vista Día ───────────────────────────────────────────────────────
-function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuick, onOpenStatusModal, onConfirmDelete, onNewAppt, patients, profile, markReminderSent, today }) {
+// ── Vista Día — Timeline mejorado (t9) ────────────────────────────────────────
+function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuick, onOpenStatusModal, onConfirmDelete, onNewAppt, patients, profile, markReminderSent, today, onStartSession }) {
   const todayStr = fmt(today);
+  const isMobile = useIsMobile();
+
+  // Hora actual reactiva (se actualiza cada minuto cuando el día es hoy)
+  const [nowMinutes, setNowMinutes] = useState(() => {
+    const n = new Date();
+    return n.getHours() * 60 + n.getMinutes();
+  });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const n = new Date();
+      setNowMinutes(n.getHours() * 60 + n.getMinutes());
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const dayAppts = useMemo(() =>
     appointments
@@ -302,6 +317,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
     [appointments, selectedDayView]
   );
 
+  // Agrupa citas por hora de inicio (para citas que se solapan en la misma hora)
   const apptByHour = useMemo(() => {
     const map = {};
     dayAppts.forEach(a => {
@@ -324,9 +340,41 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
   };
   const goToday = () => setSelectedDayView(fmt(today));
 
-  const isToday   = selectedDayView === todayStr;
-  const dateObj   = new Date(selectedDayView + "T12:00:00");
-  const dayLabel  = dateObj.toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  const isToday  = selectedDayView === todayStr;
+  const dateObj  = new Date(selectedDayView + "T12:00:00");
+  const dayLabel = dateObj.toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+
+  // Handler "Iniciar sesión" con fallback graceful
+  const handleStartSession = (appt) => {
+    if (typeof onStartSession === "function") {
+      onStartSession(appt);
+    } else {
+      console.warn("[Agenda] onStartSession prop no recibido — conectar desde App.jsx");
+      emit.toast("Abre el módulo de Sesiones para registrar esta nota", "info");
+    }
+  };
+
+  // Altura fija por hora (px). Cada hora ocupa HOUR_H px.
+  const HOUR_H = 64;
+  // Timeline: 08:00 a 20:00 → 12 franjas
+  const TIMELINE_START = 8;
+  const TIMELINE_END   = 20;
+  const timelineHours  = Array.from({ length: TIMELINE_END - TIMELINE_START + 1 }, (_, i) => TIMELINE_START + i);
+
+  // Posición vertical del marcador "ahora" en px desde el top del contenedor
+  const nowOffsetPx = isToday
+    ? ((nowMinutes - TIMELINE_START * 60) / 60) * HOUR_H
+    : null;
+  const showNowMarker = nowOffsetPx !== null && nowOffsetPx >= 0 && nowOffsetPx <= (TIMELINE_END - TIMELINE_START) * HOUR_H;
+
+  // Calcula la posición top de una cita en px
+  const apptTopPx = (timeStr) => {
+    const [h, m] = timeStr.split(":").map(Number);
+    return ((h * 60 + m) - TIMELINE_START * 60) / 60 * HOUR_H;
+  };
+
+  // Altura estimada de un bloque de cita (mínimo 56px, crece si hay contenido)
+  const BLOCK_H = 72;
 
   return (
     <Card style={{ padding:24 }}>
@@ -360,120 +408,187 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
         </div>
       </div>
 
-      {/* ── Timeline de horas ─── */}
-      <div>
-        {DAY_HOURS.map(hour => {
-          const slot     = apptByHour[hour];
-          const hasAppts = slot && slot.length > 0;
-          const timeStr  = `${String(hour).padStart(2, "0")}:00`;
+      {/* ── Timeline vertical ─── */}
+      <div style={{ position:"relative", overflowY:"auto", maxHeight:"72vh" }}>
+        {/* Contenedor principal: eje izquierdo + área de citas */}
+        <div style={{ position:"relative", minHeight: (TIMELINE_END - TIMELINE_START) * HOUR_H }}>
 
-          return (
-            <div key={hour} style={{ display:"flex", gap:12, alignItems:"flex-start",
-              borderBottom:`1px solid ${T.bdrL}33`, minHeight: hasAppts ? "auto" : 44 }}>
+          {/* ── Franjas horarias (fondo) ── */}
+          {timelineHours.map((hour, idx) => {
+            if (idx === timelineHours.length - 1) return null; // última etiqueta, no franja
+            const hasAppts = !!(apptByHour[hour] && apptByHour[hour].length > 0);
+            const timeStr  = `${String(hour).padStart(2,"0")}:00`;
+            const top      = (hour - TIMELINE_START) * HOUR_H;
+            return (
+              <div key={hour} style={{ position:"absolute", top, left:0, right:0, height:HOUR_H,
+                display:"flex", alignItems:"stretch" }}>
 
-              {/* Etiqueta de hora */}
-              <div style={{ width:44, flexShrink:0, paddingTop:13, fontFamily:T.fB,
-                fontSize:11, color:T.tl, textAlign:"right" }}>
-                {timeStr}
+                {/* Etiqueta de hora */}
+                <div style={{ width:48, flexShrink:0, paddingTop:0, display:"flex",
+                  alignItems:"flex-start", justifyContent:"flex-end", paddingRight:10, paddingTop:6 }}>
+                  <span style={{ fontFamily:T.fB, fontSize:10, color:T.tl, lineHeight:1 }}>
+                    {timeStr}
+                  </span>
+                </div>
+
+                {/* Franja — fondo tenue si no hay citas, línea divisoria */}
+                <div
+                  onClick={() => !hasAppts && onNewAppt(selectedDayView, timeStr)}
+                  style={{
+                    flex:1,
+                    background: hasAppts ? "transparent" : `color-mix(in srgb, var(--card-alt) 35%, transparent)`,
+                    borderTop: `1px solid ${T.bdrL}55`,
+                    borderRadius: hasAppts ? 0 : 6,
+                    cursor: hasAppts ? "default" : "pointer",
+                    transition: "background .12s",
+                    marginRight:4,
+                  }}
+                  onMouseEnter={e => { if (!hasAppts) e.currentTarget.style.background = T.pA; }}
+                  onMouseLeave={e => { if (!hasAppts) e.currentTarget.style.background = `color-mix(in srgb, var(--card-alt) 35%, transparent)`; }}
+                />
               </div>
+            );
+          })}
 
-              {/* Contenido */}
-              <div style={{ flex:1, paddingTop: hasAppts ? 8 : 0, paddingBottom: hasAppts ? 8 : 0 }}>
-                {hasAppts ? (
-                  slot.map(a => {
-                    const pt   = patients.find(p => p.id === a.patientId);
-                    const url  = !a.reminderSent && a.status !== "completada"
-                      ? whatsappReminder(a, pt, profile)
-                      : null;
-                    const scfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.pendiente;
-                    return (
-                      <div key={a.id} style={{ padding:"12px 14px", borderRadius:12, background:T.cardAlt,
-                        marginBottom:6, border:`1px solid ${T.bdrL}` }}>
+          {/* Última línea de cierre */}
+          <div style={{ position:"absolute", top:(TIMELINE_END - TIMELINE_START)*HOUR_H,
+            left:48, right:4, height:1, background:`${T.bdrL}55` }}/>
 
-                        {/* Fila principal: info + estado + eliminar */}
-                        <div style={{ display:"flex", alignItems:"center", gap:10,
-                          marginBottom: a.status !== "completada" ? 10 : 0 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t,
-                              display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                              <span style={{ fontFamily:T.fB, fontSize:12, color:T.p, fontWeight:700 }}>
-                                {a.time}
-                              </span>
-                              {a.patientName.split(" ").slice(0, 2).join(" ")}
-                              {a.isRecurring && (
-                                <span style={{ display:"inline-flex", alignItems:"center", gap:3,
-                                  padding:"1px 7px", borderRadius:9999, background:T.pA, color:T.p,
-                                  fontSize:10, fontWeight:700 }}>
-                                  <Repeat size={9}/>Serie
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>
-                              {a.type}
-                              {a.modality ? ` · ${a.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}` : ""}
-                            </div>
-                          </div>
-                          <button onClick={() => onOpenStatusModal(a)}
-                            style={{ background:scfg.bg, border:"none", borderRadius:8, padding:"4px 10px",
-                              cursor:"pointer", fontSize:11, fontFamily:T.fB, color:scfg.color,
-                              fontWeight:600, maxWidth:140, whiteSpace:"nowrap",
-                              overflow:"hidden", textOverflow:"ellipsis" }}>
-                            {scfg.label}
-                          </button>
-                          <button onClick={() => onConfirmDelete(a)}
-                            style={{ background:"none", border:"none", color:T.tl, cursor:"pointer" }}>
-                            <Trash2 size={13}/>
-                          </button>
-                        </div>
+          {/* ── Marcador "ahora" ── */}
+          {showNowMarker && (
+            <div style={{ position:"absolute", top:nowOffsetPx, left:40, right:0,
+              display:"flex", alignItems:"center", zIndex:10, pointerEvents:"none" }}>
+              {/* Círculo en el eje */}
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"#E53935",
+                flexShrink:0, marginRight:0, position:"relative", left:0 }}/>
+              {/* Línea roja */}
+              <div style={{ flex:1, height:1.5, background:"#E53935", opacity:0.85 }}/>
+            </div>
+          )}
 
-                        {/* Botones de acción */}
-                        {a.status !== "completada" && (
-                          <div style={{ display:"flex", gap:8 }}>
-                            <button onClick={() => onOpenQuick(a)}
-                              style={{ flex:1, display:"flex", alignItems:"center", gap:6,
-                                padding:"8px 12px", borderRadius:8, border:`1.5px solid ${T.p}`,
-                                background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12,
-                                fontWeight:600, cursor:"pointer", justifyContent:"center", transition:"all .15s" }}
-                              onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
-                              onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
-                            <FileText size={13}/> Abrir
-                            </button>
+          {/* ── Bloques de cita posicionados absolutamente ── */}
+          {dayAppts.map(a => {
+            const pt    = patients.find(p => p.id === a.patientId);
+            const url   = !a.reminderSent && a.status !== "completada"
+              ? whatsappReminder(a, pt, profile)
+              : null;
+            const scfg  = STATUS_CONFIG[a.status] || STATUS_CONFIG.pendiente;
+            const top   = apptTopPx(a.time);
+            const isPendienteHoy = a.status === "pendiente" && isToday;
+            // Nombre: solo primer nombre en mobile, dos nombres en desktop
+            const displayName = isMobile
+              ? a.patientName.split(" ")[0]
+              : a.patientName.split(" ").slice(0,2).join(" ");
 
-                            {/* ── Mejora 2: indicador / botón recordatorio en Vista Día ── */}
-                            {a.reminderSent ? (
-                              <div style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 12px",
-                                borderRadius:8, border:"1.5px solid #25D36640", background:"#25D36615",
-                                color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600 }}>
-                                <Check size={12}/> Recordatorio enviado
-                              </div>
-                            ) : url ? (
-                              <a href={url} target="_blank" rel="noreferrer"
-                                onClick={() => markReminderSent(a.id)}
-                                style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 12px",
-                                  borderRadius:8, border:"1.5px solid #25D366", background:"#25D36620",
-                                  color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600,
-                                  cursor:"pointer", textDecoration:"none", transition:"all .15s" }}>
-                                <MessageCircle size={13}/> Recordatorio
-                              </a>
-                            ) : null}
-                          </div>
-                        )}
+            return (
+              <div key={a.id} style={{
+                position:"absolute",
+                top: top + 2,
+                left: 52,
+                right: 8,
+                minHeight: BLOCK_H,
+                background: T.cardAlt,
+                borderLeft: `4px solid ${scfg.color}`,
+                borderRadius: "0 10px 10px 0",
+                boxShadow: `0 2px 8px ${scfg.color}22`,
+                padding:"10px 12px",
+                zIndex: 5,
+                display:"flex",
+                flexDirection:"column",
+                gap:6,
+              }}>
+                {/* Fila 1: hora + nombre + tipo + badge estado */}
+                <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                  {/* Info principal */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:2 }}>
+                      <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:scfg.color }}>
+                        {a.time}
+                      </span>
+                      <span style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t,
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        {displayName}
+                      </span>
+                      {a.isRecurring && (
+                        <span style={{ display:"inline-flex", alignItems:"center", gap:2,
+                          padding:"1px 6px", borderRadius:9999, background:T.pA, color:T.p,
+                          fontSize:9, fontWeight:700, flexShrink:0 }}>
+                          <Repeat size={8}/>Serie
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>
+                      {a.type}
+                      {a.modality ? ` · ${a.modality === "presencial" ? "🏢" : "💻"}` : ""}
+                    </div>
+                  </div>
+
+                  {/* Badge status (clic abre modal de estado) */}
+                  <button onClick={() => onOpenStatusModal(a)}
+                    style={{ background:scfg.bg, border:"none", borderRadius:7, padding:"3px 9px",
+                      cursor:"pointer", fontSize:10, fontFamily:T.fB, color:scfg.color,
+                      fontWeight:600, whiteSpace:"nowrap", flexShrink:0 }}>
+                    {scfg.label}
+                  </button>
+
+                  {/* Eliminar */}
+                  <button onClick={() => onConfirmDelete(a)}
+                    style={{ background:"none", border:"none", color:T.tl, cursor:"pointer",
+                      padding:2, flexShrink:0 }}>
+                    <Trash2 size={12}/>
+                  </button>
+                </div>
+
+                {/* Fila 2: botones de acción */}
+                {a.status !== "completada" && (
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {/* Abrir / sesión */}
+                    <button onClick={() => onOpenQuick(a)}
+                      style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 11px",
+                        borderRadius:7, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p,
+                        fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer",
+                        transition:"all .13s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
+                      <FileText size={11}/> Abrir
+                    </button>
+
+                    {/* Iniciar sesión — solo si pendiente y es hoy */}
+                    {isPendienteHoy && (
+                      <button onClick={() => handleStartSession(a)}
+                        style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 11px",
+                          borderRadius:7, border:`1.5px solid ${T.suc}`, background:T.sucA, color:T.suc,
+                          fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer",
+                          transition:"all .13s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background=T.suc; e.currentTarget.style.color="#fff"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background=T.sucA; e.currentTarget.style.color=T.suc; }}>
+                        <Play size={10}/> Iniciar sesión
+                      </button>
+                    )}
+
+                    {/* Recordatorio WhatsApp */}
+                    {a.reminderSent ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px",
+                        borderRadius:7, border:"1.5px solid #25D36640", background:"#25D36615",
+                        color:"#25D366", fontFamily:T.fB, fontSize:11, fontWeight:600 }}>
+                        <Check size={10}/> Recordatorio enviado
                       </div>
-                    );
-                  })
-                ) : (
-                  /* Slot vacío — clic para nueva cita con fecha/hora pre-rellenadas */
-                  <div
-                    onClick={() => onNewAppt(selectedDayView, timeStr)}
-                    style={{ minHeight:44, cursor:"pointer", borderRadius:8, transition:"background .12s" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = T.pA; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                  />
+                    ) : url ? (
+                      <a href={url} target="_blank" rel="noreferrer"
+                        onClick={() => markReminderSent(a.id)}
+                        style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 10px",
+                          borderRadius:7, border:"1.5px solid #25D366", background:"#25D36618",
+                          color:"#25D366", fontFamily:T.fB, fontSize:11, fontWeight:600,
+                          cursor:"pointer", textDecoration:"none", transition:"all .13s" }}>
+                        <MessageCircle size={11}/> Recordatorio
+                      </a>
+                    ) : null}
+                  </div>
                 )}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </Card>
   );
@@ -504,7 +619,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto, onStartSession }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
@@ -871,6 +986,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           profile={profile}
           markReminderSent={markReminderSent}
           today={todayDate}
+          onStartSession={onStartSession}
         />
       )}
 
