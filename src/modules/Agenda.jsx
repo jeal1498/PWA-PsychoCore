@@ -932,7 +932,8 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       <PageHeader title="Agenda"
         subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${recurringCount > 0 ? ` · ${recurringCount} serie${recurringCount!==1?"s":""} recurrente${recurringCount!==1?"s":""}` : ""}`}
         action={
-          <div style={{ display:"flex", gap:8 }}>
+          // [mobile-audit] flexWrap añadido para que los botones bajen a nueva línea en mobile
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {/* ── Mejora 1: toggle con tres vistas Mes / Semana / Día ── */}
             <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, gap:2 }}>
               {[
@@ -1401,7 +1402,8 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.p }}>{quickSession.patientName?.split(" ").slice(0,2).join(" ")}</div>
               <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{fmtDate(quickSession.date)} · {quickSession.time} · {quickSession.type}</div>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+            {/* [mobile-audit] grid 3-col colapsado a 1 col en mobile para evitar inputs aplastados */}
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap:12 }}>
               <Input label="Duración (min)" value={sessionForm.duration} onChange={sfld("duration")} type="number"/>
               <Select label="Progreso" value={sessionForm.progress} onChange={sfld("progress")}
                 options={["excelente","bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
