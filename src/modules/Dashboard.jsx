@@ -113,57 +113,64 @@ function SectionHead({ title, action }) {
 }
 
 function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick }) {
+  const [hover, setHover] = useState(false);
   return (
-    <Card onClick={onClick}
-      style={{ padding: "14px 16px", cursor: "pointer", transition: "all .15s" }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = T.shM; e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = T.sh;  e.currentTarget.style.transform = "translateY(0)"; }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: bg,
-          display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon size={15} color={color} strokeWidth={1.7} />
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ transition: "all .15s ease", boxShadow: hover ? T.shM : T.sh, transform: hover ? "translateY(-2px)" : "translateY(0)", borderRadius: 16 }}
+    >
+      <Card onClick={onClick} style={{ padding: "14px 16px", cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: bg,
+            display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon size={15} color={color} strokeWidth={1.7} />
+          </div>
         </div>
-      </div>
-      <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: T.t, lineHeight: 1, marginBottom: 2 }}>
-        {value}
-      </div>
-      <div style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, color: T.tl,
-        letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</div>
-      {sub && (
-        <div style={{ fontFamily: T.fB, fontSize: 11, color, marginTop: 4 }}>{sub}</div>
-      )}
-    </Card>
+        <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: T.t, lineHeight: 1, marginBottom: 2 }}>
+          {value}
+        </div>
+        <div style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, color: T.tl,
+          letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</div>
+        {sub && (
+          <div style={{ fontFamily: T.fB, fontSize: 11, color, marginTop: 4 }}>{sub}</div>
+        )}
+      </Card>
+    </div>
   );
 }
 
 function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick }) {
+  const [hover, setHover] = useState(false);
   return (
-    <Card onClick={onClick}
-      style={{ padding: "16px 20px", cursor: onClick ? "pointer" : "default", transition: "all .15s",
-        borderLeft: `3px solid ${color}` }}
-      onMouseEnter={onClick ? e => { e.currentTarget.style.boxShadow = T.shM; e.currentTarget.style.transform = "translateY(-2px)"; } : undefined}
-      onMouseLeave={onClick ? e => { e.currentTarget.style.boxShadow = T.sh;  e.currentTarget.style.transform = "translateY(0)"; } : undefined}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: bg,
-            display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Icon size={14} color={color} strokeWidth={1.8} />
+    <div
+      onMouseEnter={() => onClick && setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ transition: "all .15s ease", boxShadow: hover ? T.shM : T.sh, transform: hover ? "translateY(-2px)" : "translateY(0)", borderRadius: 16 }}
+    >
+      <Card onClick={onClick} style={{ padding: "16px 20px", cursor: onClick ? "pointer" : "default", borderLeft: `3px solid ${color}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: bg,
+              display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon size={14} color={color} strokeWidth={1.8} />
+            </div>
+            <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
+              textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
           </div>
-          <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl,
-            textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+          {tag && (
+            <span style={{ padding: "2px 8px", borderRadius: 9999, fontSize: 10.5, fontWeight: 700,
+              fontFamily: T.fB, color, background: bg }}>{tag}</span>
+          )}
         </div>
-        {tag && (
-          <span style={{ padding: "2px 8px", borderRadius: 9999, fontSize: 10.5, fontWeight: 700,
-            fontFamily: T.fB, color, background: bg }}>{tag}</span>
+        <div style={{ fontFamily: T.fH, fontSize: 30, fontWeight: 500, color: T.t, lineHeight: 1, marginBottom: 2 }}>
+          {value}
+        </div>
+        {sub && (
+          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 4 }}>{sub}</div>
         )}
-      </div>
-      <div style={{ fontFamily: T.fH, fontSize: 30, fontWeight: 500, color: T.t, lineHeight: 1, marginBottom: 2 }}>
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginTop: 4 }}>{sub}</div>
-      )}
-    </Card>
+      </Card>
+    </div>
   );
 }
 
