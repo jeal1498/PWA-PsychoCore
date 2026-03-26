@@ -2087,7 +2087,8 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               ptPayments.length === 0
                 ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"24px 0", textAlign:"center" }}>Sin pagos registrados</div>
                 : <>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16, padding:"12px 14px", background:T.bg, borderRadius:12 }}>
+                  {/* [mobile-audit] grid 3 cols pagos → 2 cols en mobile para evitar desbordamiento */}
+                  <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap:8, marginBottom:16, padding:"12px 14px", background:T.bg, borderRadius:12 }}>
                     <div style={{ textAlign:"center" }}>
                       <div style={{ fontFamily:T.fH, fontSize:20, color:T.suc, lineHeight:1 }}>{fmtCur(totalPaid)}</div>
                       <div style={{ fontFamily:T.fB, fontSize:10, color:T.tm, marginTop:3 }}>Pagado</div>
