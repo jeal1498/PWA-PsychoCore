@@ -218,12 +218,20 @@ ${formData.notes?`<p class="body-text">${formData.notes}</p>`:""}
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 function FormatSelector({ value, onChange }) {
+  // [mobile-audit] Patrón 1: hook local para detectar mobile sin prop drilling
+  const [_fsMobile, _setFsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const _fsOnResize = () => _setFsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", _fsOnResize);
+    return () => window.removeEventListener("resize", _fsOnResize);
+  }, []);
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:8, letterSpacing:"0.06em", textTransform:"uppercase" }}>
         Formato de nota
       </label>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6 }}>
+      {/* [mobile-audit] Patrón 1: grid 4 col fijo → 2 col en mobile */}
+      <div style={{ display:"grid", gridTemplateColumns:_fsMobile ? "1fr 1fr" : "repeat(4,1fr)", gap:6 }}>
         {Object.values(NOTE_FORMATS).map(fd => {
           const active = value === fd.id;
           return (
