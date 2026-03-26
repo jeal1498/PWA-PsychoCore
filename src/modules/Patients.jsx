@@ -1372,6 +1372,8 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
 export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [], appointments = [], setAppointments }) {
   const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
+  const [filterChip,   setFilterChip]   = useState("todos");
+  const [expandedRows, setExpandedRows] = useState({});
   const [showAdd,      setShowAdd]      = useState(false);
   const [showPC,       setShowPC]       = useState(false);   // ← Primer Contacto modal
   const [editTarget,   setEditTarget]   = useState(null);    // patient being edited in full form
@@ -1420,13 +1422,32 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   };
   if (onQuickNav) onQuickNav.current = (p, openTab) => handleSelect(p, openTab);
 
-  const filtered = useMemo(() =>
-    patients
-      .filter(p => filterStatus === "todos" || (p.status||"activo") === filterStatus)
-      .filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.diagnosis||"").toLowerCase().includes(search.toLowerCase())
-      ), [patients, search, filterStatus]);
+  // Chip filter counts
+  const chipCounts = useMemo(() => {
+    const activos  = patients.filter(p => (p.status||"activo") === "activo").length;
+    const conSaldo = patients.filter(p => payments.some(py => py.patientId === p.id && py.status === "pendiente")).length;
+    const riesgo   = patients.filter(p => {
+      const lr = riskAssessments.filter(r => r.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      return (lr && (lr.riskLevel === "alto" || lr.riskLevel === "inminente")) || !!(p.activeRiskAlert);
+    }).length;
+    const alta     = patients.filter(p => (p.status||"activo") === "alta").length;
+    return { activos, conSaldo, riesgo, alta };
+  }, [patients, payments, riskAssessments]);
+
+  const filtered = useMemo(() => {
+    let base = patients;
+    if (filterChip === "activos")  base = base.filter(p => (p.status||"activo") === "activo");
+    else if (filterChip === "conSaldo") base = base.filter(p => payments.some(py => py.patientId === p.id && py.status === "pendiente"));
+    else if (filterChip === "riesgo")  base = base.filter(p => {
+      const lr = riskAssessments.filter(r => r.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      return (lr && (lr.riskLevel === "alto" || lr.riskLevel === "inminente")) || !!(p.activeRiskAlert);
+    });
+    else if (filterChip === "alta") base = base.filter(p => (p.status||"activo") === "alta");
+    return base.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.diagnosis||"").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [patients, payments, riskAssessments, search, filterChip]);
 
   const save = () => {
     if (!form.name.trim()) return;
@@ -2201,110 +2222,211 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         action={<Btn onClick={() => setShowPC(true)}><Plus size={15}/> Nuevo paciente</Btn>}
       />
 
-      <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
-        <div style={{ position:"relative", flex:1, minWidth:200 }}>
-          <Search size={16} style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:T.tl, pointerEvents:"none" }}/>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre o diagnóstico..."
-            style={{ width:"100%", padding:"11px 14px 11px 42px", border:`1.5px solid ${T.bdr}`, borderRadius:12, fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
-        </div>
-        <div style={{ display:"flex", gap:6 }}>
-          {["todos","activo","pausa","alta"].map(s => {
-            const isA = filterStatus === s;
-            const cfg = STATUS_CONFIG[s];
-            return (
-              <button key={s} onClick={() => setFilterStatus(s)}
-                style={{ padding:"8px 14px", borderRadius:9999, border:`1.5px solid ${isA?(cfg?.color||T.p):T.bdr}`, background:isA?(cfg?.bg||T.pA):"transparent", color:isA?(cfg?.color||T.p):T.tm, fontFamily:T.fB, fontSize:12, fontWeight:isA?700:400, cursor:"pointer", transition:"all .15s" }}>
-                {s === "todos" ? "Todos" : cfg?.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* ── Barra de búsqueda ────────────────────────────────────────────── */}
+      <div style={{ position:"relative", marginBottom:14 }}>
+        <Search size={16} style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:T.tl, pointerEvents:"none" }}/>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre o diagnóstico..."
+          style={{ width:"100%", padding:"11px 14px 11px 42px", border:`1.5px solid ${T.bdr}`, borderRadius:12, fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
       </div>
 
+      {/* ── Chips de filtro rápido (t7) ──────────────────────────────────── */}
+      <div style={{ display:"flex", gap:7, marginBottom:20, flexWrap:"wrap" }}>
+        {[
+          { id:"todos",    label:"Todos" },
+          { id:"activos",  label:`Activos (${chipCounts.activos})` },
+          { id:"conSaldo", label:`Con saldo (${chipCounts.conSaldo})` },
+          { id:"riesgo",   label:`Riesgo alto (${chipCounts.riesgo})` },
+          { id:"alta",     label:`Alta (${chipCounts.alta})` },
+        ].map(chip => {
+          const active = filterChip === chip.id;
+          return (
+            <button key={chip.id} onClick={() => setFilterChip(chip.id)}
+              style={{
+                padding:"5px 14px", borderRadius:9999, border:"none",
+                background: active ? T.p : T.cardAlt,
+                color: active ? "#fff" : T.tm,
+                fontFamily:T.fB, fontSize:12.5, fontWeight:600,
+                cursor:"pointer", transition:"all 150ms",
+              }}>
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Lista compacta expandible (t6) ───────────────────────────────── */}
       {filtered.length === 0
         ? <EmptyState icon={Users} title="Sin pacientes" desc="Agrega tu primer paciente con el botón de arriba"/>
-        : <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px,1fr))", gap:14 }}>
+        : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
           {filtered.map(p => {
-            const sc = STATUS_CONFIG[p.status||"activo"];
-            const cs = consentStatus(p);
-            const csCfg = CONSENT_STATUS_CONFIG[cs];
-            const hasPend = payments.some(py => py.patientId === p.id && py.status === "pendiente");
-            const ptSess  = sessions.filter(s => s.patientId === p.id);
-            const lastMood = ptSess.length > 0 ? ptSess.sort((a,b)=>b.date.localeCompare(a.date))[0].mood : null;
-            const MI = lastMood ? moodIcon(lastMood) : null;
+            const sc          = STATUS_CONFIG[p.status||"activo"];
+            const hasPend     = payments.some(py => py.patientId === p.id && py.status === "pendiente");
+            const pendAmt     = payments.filter(py => py.patientId === p.id && py.status === "pendiente").reduce((s,py)=>s+Number(py.amount),0);
+            const ptSess      = sessions.filter(s => s.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date));
+            const lastMood    = ptSess.length > 0 ? ptSess[0].mood : null;
+            const MI          = lastMood ? moodIcon(lastMood) : null;
             const latestRisk  = riskAssessments.filter(r => r.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-            const latestScale = scaleResults.filter(r => r.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-            const scaleSev    = latestScale ? getSeverity(latestScale.scaleId, latestScale.score) : null;
-            const scaleColor  = latestScale ? (SCALES[latestScale.scaleId]?.color || T.tm) : null;
-            const activePlan  = treatmentPlans.find(tp => tp.patientId === p.id && tp.status === "activo");
-            // Indicadores relevantes — solo riesgo alto y consentimiento pendiente
-            // ETAPA 3: mostrar badge si hay riesgo alto/inminente en historial O alerta activa persistida
-            const showRisk    = (latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente")) || !!(p.activeRiskAlert);
+            const isHighRisk  = (latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente")) || !!(p.activeRiskAlert);
             const isActiveAlert = !!(p.activeRiskAlert);
-            const showConsent = cs === "pending" || cs === "expired";
+            const expanded    = !!expandedRows[p.id];
+            const diagShort   = p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim() : null;
+
+            // Avatar colors — riesgo alto usa colores de error
+            const avatarBg    = isHighRisk ? T.errA : T.pA;
+            const avatarColor = isHighRisk ? T.err  : T.p;
 
             return (
-              <Card key={p.id} onClick={() => handleSelect(p)}
-                style={{ padding:"12px 16px", cursor:"pointer" }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = T.shM}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = T.sh}>
-                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                  {/* Avatar compacto */}
-                  <div style={{ width:40, height:40, borderRadius:"50%", background:T.pA,
+              <div key={p.id} style={{
+                background: T.card,
+                borderRadius: 12,
+                border: `1px solid ${T.bdrL}`,
+                borderLeft: isHighRisk ? `3px solid ${T.err}` : `1px solid ${T.bdrL}`,
+                boxShadow: T.sh,
+                overflow: "hidden",
+                background: isHighRisk
+                  ? `color-mix(in srgb, ${T.card} 97%, var(--error) 3%)`
+                  : T.card,
+              }}>
+                {/* ── Fila colapsada ── */}
+                <div
+                  onClick={() => setExpandedRows(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                  style={{
+                    display:"flex", alignItems:"center", gap:12,
+                    padding:"0 14px", height:56, cursor:"pointer",
+                    transition:"background 150ms",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.cardAlt}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >
+                  {/* Avatar */}
+                  <div style={{ width:34, height:34, borderRadius:"50%", background:avatarBg,
                     display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <span style={{ fontFamily:T.fH, fontSize:17, color:T.p }}>{p.name[0]}</span>
+                    <span style={{ fontFamily:T.fH, fontSize:15, color:avatarColor }}>{p.name[0]}</span>
                   </div>
 
-                  {/* Info principal */}
+                  {/* Nombre + diagnóstico */}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                      <span style={{ fontFamily:T.fB, fontSize:14.5, fontWeight:600, color:T.t,
-                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                        {p.name.split(" ").slice(0,2).join(" ")}
-                      </span>
-                      {/* Solo badges críticos */}
-                      {showRisk && (
-                        isActiveAlert
-                          ? (
-                            <span style={{
-                              display:"inline-flex", alignItems:"center", gap:3,
-                              padding:"1px 7px", borderRadius:9999, fontSize:9, fontWeight:700,
-                              fontFamily:T.fB, color:"#B85050", background:"rgba(184,80,80,0.12)",
-                              border:"1.5px solid rgba(184,80,80,0.35)",
-                              animation:"pulseRiskBadge 2s ease-in-out infinite", flexShrink:0
-                            }}>
-                              <ShieldAlert size={9}/> RIESGO ACTIVO
-                              <style>{`@keyframes pulseRiskBadge{0%,100%{opacity:1}50%{opacity:0.55}}`}</style>
-                            </span>
-                          )
-                          : <RiskBadge level={latestRisk.riskLevel} size="small"/>
-                      )}
-                      {showConsent && (
-                        <span style={{ padding:"1px 6px", borderRadius:9999, fontSize:9,
-                          fontWeight:700, fontFamily:T.fB, color:csCfg.color,
-                          background:csCfg.bg, whiteSpace:"nowrap", flexShrink:0 }}>
-                          {cs === "pending" ? "Sin CI" : "CI vencido"}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm,
+                    <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:600, color:T.t,
                       whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                      {p.age ? `${p.age} años · ` : ""}
-                      {p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim() : "Sin diagnóstico"}
+                      {p.name}
                     </div>
-                  </div>
-
-                  {/* Status + flecha */}
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end",
-                    gap:4, flexShrink:0 }}>
-                    <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
-                    {hasPend && (
-                      <span style={{ fontSize:10, fontWeight:600, color:T.war,
-                        fontFamily:T.fB }}>💰 Pendiente</span>
+                    {diagShort && (
+                      <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl,
+                        whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        {diagShort}
+                      </div>
                     )}
                   </div>
+
+                  {/* Sesiones count */}
+                  <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm, flexShrink:0 }}>
+                    {ptSess.length} ses.
+                  </span>
+
+                  {/* Status badge */}
+                  <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
+
+                  {/* Saldo pendiente */}
+                  {hasPend && (
+                    <span style={{ padding:"3px 8px", borderRadius:9999, fontSize:10.5, fontWeight:700,
+                      fontFamily:T.fB, color:T.war, background:T.warA, whiteSpace:"nowrap", flexShrink:0 }}>
+                      💰 Pendiente
+                    </span>
+                  )}
+
+                  {/* Chevron */}
+                  <ChevronDown size={16} color={T.tl} style={{
+                    flexShrink:0,
+                    transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                    transition:"transform 200ms",
+                  }}/>
                 </div>
-              </Card>
+
+                {/* ── Bloque expandido ── */}
+                {expanded && (
+                  <div style={{
+                    borderTop:`1px solid ${T.bdrL}`,
+                    padding:"14px 16px 16px",
+                    background: T.cardAlt,
+                  }}>
+                    {/* Mini-KPIs */}
+                    <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
+                      {/* Diagnóstico con código CIE-11 */}
+                      <div style={{ flex:1, minWidth:120, padding:"10px 12px", background:T.card,
+                        borderRadius:10, border:`1px solid ${T.bdrL}` }}>
+                        <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
+                          textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Diagnóstico</div>
+                        {p.cie11Code && (
+                          <span style={{ display:"inline-block", padding:"1px 6px", borderRadius:5,
+                            background:T.pA, color:T.p, fontSize:10, fontWeight:700,
+                            fontFamily:"monospace", marginBottom:3 }}>{p.cie11Code}</span>
+                        )}
+                        <div style={{ fontFamily:T.fB, fontSize:12, color:T.t, lineHeight:1.4 }}>
+                          {p.diagnosis || <span style={{ color:T.tl }}>Sin diagnóstico</span>}
+                        </div>
+                      </div>
+
+                      {/* Sesiones totales */}
+                      <div style={{ padding:"10px 14px", background:T.card,
+                        borderRadius:10, border:`1px solid ${T.bdrL}`, textAlign:"center", flexShrink:0 }}>
+                        <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
+                          textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Sesiones</div>
+                        <div style={{ fontFamily:T.fH, fontSize:22, fontWeight:500, color:T.p }}>
+                          {ptSess.length}
+                        </div>
+                      </div>
+
+                      {/* Último estado de ánimo */}
+                      <div style={{ padding:"10px 14px", background:T.card,
+                        borderRadius:10, border:`1px solid ${T.bdrL}`, textAlign:"center", flexShrink:0 }}>
+                        <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tl,
+                          textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Último ánimo</div>
+                        {lastMood && MI ? (
+                          <div style={{ display:"flex", alignItems:"center", gap:5, justifyContent:"center" }}>
+                            <MI size={18} color={moodColor(lastMood)}/>
+                            <span style={{ fontFamily:T.fB, fontSize:12, fontWeight:600,
+                              color:moodColor(lastMood), textTransform:"capitalize" }}>{lastMood}</span>
+                          </div>
+                        ) : (
+                          <span style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>—</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      <Btn variant="ghost" small onClick={() => handleSelect(p)}>
+                        <Eye size={13}/> Ver expediente
+                      </Btn>
+                      <Btn variant="primary" small onClick={e => {
+                        e.stopPropagation();
+                        if (onQuickNav) {
+                          const ref = { current: null };
+                          onQuickNav.current = null;
+                          handleSelect(p, "sessions");
+                        } else {
+                          handleSelect(p, "sessions");
+                        }
+                      }}>
+                        <Plus size={13}/> Nueva sesión
+                      </Btn>
+                      {hasPend && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleSelect(p, "payments"); }}
+                          style={{
+                            display:"inline-flex", alignItems:"center", gap:5,
+                            padding:"7px 14px", borderRadius:9999, border:"none",
+                            background:T.warA, color:T.war,
+                            fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer",
+                            transition:"all 150ms",
+                          }}>
+                          <DollarSign size={13}/> Registrar pago ${fmtCur ? fmtCur(pendAmt) : pendAmt.toLocaleString("es-MX")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
