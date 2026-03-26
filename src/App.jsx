@@ -69,6 +69,7 @@ export default function App() {
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
+  const [settingsTab,   setSettingsTab]   = useState("profile");
 
   // "auto" | "dark" | "light"
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
@@ -183,9 +184,10 @@ export default function App() {
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
-  const quickNav = (mod, action) => {
+  const quickNav = (mod, action, tab) => {
     setActiveModule(mod);
     setOpenAction({ module: mod, action, ts: Date.now() });
+    if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
@@ -253,6 +255,7 @@ export default function App() {
           psychologist={psychologist}
           allData={allData}
           services={services} setServices={setServices}
+          initialTab={settingsTab}
           onRestore={(data) => {
             if (data.patients)        setPatients(data.patients);
             if (data.appointments)    setAppointments(data.appointments);
