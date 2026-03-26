@@ -120,12 +120,13 @@ export function Badge({ children, color, bg }) {
 }
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
-export function EmptyState({ icon: Icon, title, desc }) {
+export function EmptyState({ icon: Icon, title, desc, action }) {
   return (
     <div style={{ textAlign: "center", padding: "64px 24px" }}>
       <Icon size={40} strokeWidth={1.2} style={{ marginBottom: 16, opacity: 0.35, color: T.tl }} />
       <div style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500, color: T.tm, marginBottom: 8 }}>{title}</div>
       <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl }}>{desc}</div>
+      {action && <div style={{ marginTop: 20 }}>{action}</div>}
     </div>
   );
 }
