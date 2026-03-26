@@ -1,9 +1,13 @@
-import { useMemo } from "react";
-import { TrendingUp, Users, FileText, DollarSign, Activity, Award, UserCheck, Calendar, XCircle, BarChart2, ShieldAlert, ClipboardCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { TrendingUp, Users, FileText, DollarSign, Activity, Award, UserCheck, Calendar, XCircle, BarChart2, ShieldAlert, ClipboardCheck, HeartPulse } from "lucide-react";
 import { T, MONTHS_ES } from "../theme.js";
 import { fmtCur, fmt, todayDate } from "../utils.js";
-import { Card, PageHeader, Badge } from "../components/ui/index.jsx";
+import { Card, PageHeader, Badge, Select, EmptyState } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 // ── Mini bar chart ────────────────────────────────────────────────────────────
 function BarChart({ data, color, height = 80, showLabels = true }) {
@@ -25,10 +29,7 @@ function BarChart({ data, color, height = 80, showLabels = true }) {
 
 // ── Multi-series bar chart ────────────────────────────────────────────────────
 function MultiBarChart({ data, series, height = 100 }) {
-  // data = [{label, completed, cancelled, pending}, ...]
-  // series = [{key, color, label}]
   const max = Math.max(...data.flatMap(d => series.map(s => d[s.key] || 0)), 1);
-  const barW = 100 / (data.length * (series.length + 0.5));
   return (
     <div>
       <div style={{ display:"flex", alignItems:"flex-end", gap:4, height }}>
@@ -46,7 +47,6 @@ function MultiBarChart({ data, series, height = 100 }) {
           </div>
         ))}
       </div>
-      {/* Legend */}
       <div style={{ display:"flex", gap:12, marginTop:10, flexWrap:"wrap" }}>
         {series.map(s => (
           <div key={s.key} style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -146,6 +146,296 @@ function SectionTitle({ icon:Icon, title, sub }) {
   );
 }
 
+// ── Attendance heatmap (SVG puro) ─────────────────────────────────────────────
+function AttendanceHeatmap({ sessions, months = 12 }) {
+  // Build a map: "YYYY-WW" → count
+  const weekMap = useMemo(() => {
+    const map = {};
+    sessions.forEach(s => {
+      if (!s.date) return;
+      const d = new Date(s.date + "T12:00:00");
+      // ISO week key: year + week-of-year
+      const jan1 = new Date(d.getFullYear(), 0, 1);
+      const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      const key = `${d.getFullYear()}-${String(week).padStart(2, "0")}`;
+      map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+  }, [sessions]);
+
+  // Generate weeks from (today - months*~4.33 weeks) to today
+  const today = new Date();
+  const totalWeeks = Math.round(months * 4.34);
+  const weeks = useMemo(() => {
+    const result = [];
+    for (let i = totalWeeks - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i * 7);
+      // normalize to Monday of that week
+      const day = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      const jan1 = new Date(monday.getFullYear(), 0, 1);
+      const week = Math.ceil(((monday - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      const key = `${monday.getFullYear()}-${String(week).padStart(2, "0")}`;
+      result.push({ key, date: new Date(monday) });
+    }
+    return result;
+  }, [totalWeeks]);
+
+  // Month label positions
+  const monthLabels = useMemo(() => {
+    const seen = new Set();
+    const labels = [];
+    weeks.forEach((w, i) => {
+      const m = w.date.getMonth();
+      const y = w.date.getFullYear();
+      const key = `${y}-${m}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        labels.push({ index: i, label: MONTHS_ES[m].slice(0, 3) });
+      }
+    });
+    return labels;
+  }, [weeks]);
+
+  const CELL = 14;
+  const GAP  = 2;
+  const STEP = CELL + GAP;
+  const svgW = weeks.length * STEP;
+  const svgH = CELL + 20; // 20px for month labels above
+
+  function cellColor(count) {
+    if (!count) return "#2a3d38"; // fallback neutral dark — will be overridden by bdrL in light mode
+    if (count === 1) return "#5DCAA5";
+    if (count === 2) return "#1D9E75";
+    return "#0F6E56";
+  }
+
+  return (
+    <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <svg
+        width={svgW}
+        height={svgH}
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        style={{ display: "block", minWidth: svgW }}
+      >
+        {/* Month labels */}
+        {monthLabels.map(({ index, label }) => (
+          <text
+            key={label + index}
+            x={index * STEP}
+            y={11}
+            style={{ fontFamily: "system-ui, sans-serif", fontSize: 9, fill: "#8a9e98" }}
+          >
+            {label}
+          </text>
+        ))}
+        {/* Cells */}
+        {weeks.map((w, i) => {
+          const count = weekMap[w.key] || 0;
+          return (
+            <rect
+              key={w.key}
+              x={i * STEP}
+              y={18}
+              width={CELL}
+              height={CELL}
+              rx={3}
+              ry={3}
+              fill={count === 0 ? "#dce8e4" : cellColor(count)}
+              style={{ transition: "fill .3s" }}
+            >
+              <title>{`${w.date.toLocaleDateString("es-MX", { day:"numeric", month:"short" })}: ${count} sesión${count !== 1 ? "es" : ""}`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+      {/* Legend */}
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:10, flexWrap:"wrap" }}>
+        <span style={{ fontFamily:T.fB, fontSize:10, color:"#8a9e98" }}>Menos</span>
+        {[0, 1, 2, 3].map(n => (
+          <div
+            key={n}
+            style={{
+              width: CELL, height: CELL, borderRadius: 3,
+              background: n === 0 ? "#dce8e4" : cellColor(n),
+            }}
+          />
+        ))}
+        <span style={{ fontFamily:T.fB, fontSize:10, color:"#8a9e98" }}>Más</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Tooltip custom para recharts ──────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const PROG_LABEL = { 3:"Mejora", 2:"Estable", 1:"Retroceso" };
+  const val = payload[0]?.value;
+  return (
+    <div style={{
+      background: "#1a2b28",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 10,
+      padding: "8px 14px",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+    }}>
+      <div style={{ fontFamily: T.fB, fontSize: 11, color: "#8a9e98", marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: T.fH, fontSize: 17, color: "#fff", fontWeight: 500, lineHeight: 1 }}>
+        {val != null ? (PROG_LABEL[val] || val) : "—"}
+      </div>
+    </div>
+  );
+}
+
+// ── Therapeutic adherence section ─────────────────────────────────────────────
+function AdherenciaSection({ patients, sessions, isMobile }) {
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+
+  // Patients activos options
+  const activePatients = useMemo(
+    () => patients.filter(p => (p.status || "activo") === "activo"),
+    [patients]
+  );
+
+  const patientOptions = useMemo(() => [
+    { value: "", label: "— Seleccionar paciente —" },
+    ...activePatients.map(p => ({ value: p.id, label: (p.name || "Sin nombre").split(" ").slice(0, 3).join(" ") })),
+  ], [activePatients]);
+
+  // Last 10 sessions of selected patient, mapped to progress numeric
+  const progressData = useMemo(() => {
+    if (!selectedPatientId) return [];
+    const PROG_MAP = { mejora: 3, estable: 2, retroceso: 1 };
+    return sessions
+      .filter(s => s.patientId === selectedPatientId)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-10)
+      .map((s, i) => ({
+        name: `S${i + 1}`,
+        date: s.date,
+        progreso: PROG_MAP[s.progress] ?? null,
+      }));
+  }, [selectedPatientId, sessions]);
+
+  const heatmapMonths = isMobile ? 6 : 12;
+
+  return (
+    <>
+      <SectionTitle
+        icon={HeartPulse}
+        title="Adherencia terapéutica"
+        sub="Mapa de asistencia e hilo de progreso por paciente"
+      />
+
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:16, marginBottom:20 }}>
+
+        {/* ── Heatmap ── */}
+        <Card style={{ padding:24, gridColumn: isMobile ? "1" : "1 / -1" }}>
+          <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 4px" }}>
+            Mapa de asistencia
+          </h3>
+          <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>
+            Últimos {heatmapMonths} meses · intensidad por semana
+          </p>
+          <AttendanceHeatmap sessions={sessions} months={heatmapMonths} />
+        </Card>
+
+        {/* ── Selector + AreaChart ── */}
+        <Card style={{ padding:24, gridColumn: isMobile ? "1" : "1 / -1" }}>
+          <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 16px" }}>
+            Progreso terapéutico por paciente
+          </h3>
+
+          <Select
+            label="Paciente"
+            value={selectedPatientId}
+            onChange={setSelectedPatientId}
+            options={patientOptions}
+          />
+
+          {!selectedPatientId ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 16px", color:T.tl }}>
+              <HeartPulse size={36} strokeWidth={1.2} style={{ marginBottom:12, opacity:0.3 }}/>
+              <div style={{ fontFamily:T.fH, fontSize:18, color:T.tm, marginBottom:6, textAlign:"center" }}>
+                Sin paciente seleccionado
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, textAlign:"center" }}>
+                Selecciona un paciente para ver su progreso terapéutico
+              </div>
+            </div>
+          ) : progressData.length === 0 ? (
+            <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"20px 0" }}>
+              Este paciente no tiene sesiones con progreso registrado.
+            </div>
+          ) : (
+            <>
+              {/* Y-axis tick labels reference */}
+              <div style={{ display:"flex", gap:16, marginBottom:12, flexWrap:"wrap" }}>
+                {[
+                  { v:3, label:"Mejora",    c:"#2D9B91" },
+                  { v:2, label:"Estable",   c:"#8a9e98" },
+                  { v:1, label:"Retroceso", c:"#c97a7a" },
+                ].map(item => (
+                  <div key={item.v} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ width:10, height:10, borderRadius:3, background:item.c }}/>
+                    <span style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={progressData} margin={{ top:8, right:8, left:-20, bottom:0 }}>
+                  <defs>
+                    <linearGradient id="gradProg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#2D9B91" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#2D9B91" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false}/>
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontFamily:"system-ui", fontSize:11, fill:"#8a9e98" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[1, 3]}
+                    ticks={[1, 2, 3]}
+                    tickFormatter={v => ["", "Ret.", "Est.", "Mej."][v] || ""}
+                    tick={{ fontFamily:"system-ui", fontSize:10, fill:"#8a9e98" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke:"rgba(45,155,145,0.2)", strokeWidth:2 }}/>
+                  <Area
+                    type="monotone"
+                    dataKey="progreso"
+                    stroke="#2D9B91"
+                    strokeWidth={2.5}
+                    fill="url(#gradProg)"
+                    dot={{ fill:"#2D9B91", strokeWidth:0, r:4 }}
+                    activeDot={{ fill:"#2D9B91", stroke:"#fff", strokeWidth:2, r:6 }}
+                    connectNulls={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+
+              <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:8 }}>
+                Últimas {progressData.length} sesión{progressData.length !== 1 ? "es" : ""} con progreso registrado
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Stats({ patients = [], appointments = [], sessions = [], payments = [], services = [], riskAssessments = [], scaleResults = [] }) {
   const isMobile = useIsMobile();
@@ -234,7 +524,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   // ── Income by service type ──
   const incomeByService = useMemo(() => {
     if (!services.length) return [];
-    const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro" };
     const map = {};
     payments.filter(p => p.status === "pagado").forEach(p => {
       const key = p.concept || "Otro";
@@ -261,9 +550,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   const activoPatients = patients.filter(p => (p.status||"activo") === "activo").length;
   const tasaAlta       = totalPatients > 0 ? (altaPatients / totalPatients) * 100 : 0;
 
-  // Alta por mes (últimos 6)
   const altaByMonth = useMemo(() => {
-    // We estimate discharge month from last session of patients with status=alta
     const altaPats = patients.filter(p => p.status === "alta");
     return last6.map(m => {
       const ms = `${m.year}-${String(m.month+1).padStart(2,"0")}`;
@@ -275,7 +562,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
     });
   }, [last6, patients, sessions]);
 
-  // Avg sessions per patient (activos vs alta)
   const avgSessActivo = useMemo(() => {
     const pats = patients.filter(p => (p.status||"activo") === "activo");
     if (!pats.length) return 0;
@@ -290,7 +576,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
     return Math.round(total / pats.length);
   }, [patients, sessions]);
 
-  // ── ② ADHERENCIA (asistencia a citas) ────────────────────────────────────
+  // ── ② ADHERENCIA ────────────────────────────────────────────────────────
   const pastAppts = appointments.filter(a => a.date < fmt(todayDate));
   const completedAppts  = pastAppts.filter(a => a.status === "completed" || a.status === "realizada" ||
     sessions.some(s => s.patientId === a.patientId && s.date === a.date));
@@ -302,7 +588,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   const tasaCancelacion = totalPast > 0 ? (cancelledAppts.length / totalPast) * 100 : 0;
   const tasaNoShow      = totalPast > 0 ? (noShowAppts.length / totalPast) * 100 : 0;
 
-  // Adherencia por mes (últimos 6) — based on sessions registered vs appointments scheduled
   const adherenciaByMonth = useMemo(() =>
     last6.map(m => {
       const ms = `${m.year}-${String(m.month+1).padStart(2,"0")}`;
@@ -312,7 +597,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
       return { label:m.label, completed:realiz, cancelled, pending: Math.max(0, sched - realiz - cancelled) };
     }), [last6, appointments, sessions]);
 
-  // ── ③ CANCELACIONES por paciente (top 5) ──────────────────────────────────
+  // ── ③ CANCELACIONES ──────────────────────────────────────────────────────
   const cancByPatient = useMemo(() => {
     const map = {};
     appointments
@@ -324,7 +609,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
     return Object.values(map).sort((a,b) => b.count - a.count).slice(0, 5);
   }, [appointments, patients]);
 
-  // Cancelaciones por mes
   const cancByMonth = useMemo(() =>
     last6.map(m => {
       const ms = `${m.year}-${String(m.month+1).padStart(2,"0")}`;
@@ -518,7 +802,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
 
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:20 }}>
 
-        {/* Gauge */}
         <Card style={{ padding:"16px 20px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:16 }}>
             <GaugeChart value={tasaAlta} max={100} color={T.suc} size={110} label={`${altaPatients}/${totalPatients}`}/>
@@ -531,14 +814,12 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           </div>
         </Card>
 
-        {/* Alta por mes */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 4px" }}>Altas por mes</h3>
           <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>Basado en última sesión del paciente</p>
           <BarChart data={altaByMonth} color={T.suc} height={90}/>
         </Card>
 
-        {/* Sesiones promedio */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 20px" }}>Sesiones promedio</h3>
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -558,13 +839,12 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          ② ADHERENCIA
+          ② ADHERENCIA AL TRATAMIENTO
       ══════════════════════════════════════════════════════════════════════ */}
       <SectionTitle icon={Calendar} title="Adherencia al tratamiento" sub="Asistencia a citas programadas"/>
 
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:20 }}>
 
-        {/* Gauge adherencia */}
         <Card style={{ padding:"16px 20px" }}>
           {totalPast === 0
             ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"16px 0" }}>Sin citas pasadas registradas</div>
@@ -580,7 +860,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           }
         </Card>
 
-        {/* KPIs adherencia */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 20px" }}>Desglose de citas pasadas</h3>
           {totalPast === 0
@@ -603,7 +882,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           }
         </Card>
 
-        {/* Multi-bar asistencia por mes */}
         <Card style={{ padding:24, gridColumn: isMobile ? "span 1" : "span 1" }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 4px" }}>Asistencia por mes</h3>
           <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>Últimos 6 meses</p>
@@ -625,7 +903,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
 
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:32 }}>
 
-        {/* Cancelaciones por mes */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 4px" }}>Cancelaciones por mes</h3>
           <p style={{ fontFamily:T.fB, fontSize:12, color:T.tl, margin:"0 0 16px" }}>Últimos 6 meses</p>
@@ -635,13 +912,12 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           </div>
         </Card>
 
-        {/* Top canceladores */}
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 20px" }}>Pacientes con más cancelaciones</h3>
           {cancByPatient.length === 0
             ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl }}>Sin cancelaciones registradas</div>
             : cancByPatient.map((p, i) => {
-              const ptTotal = appointments.filter(a => a.patientId === Object.keys(
+              const ptTotal = appointments.filter(a => a.status === "cancelled" || a.status === "cancelada").filter(a => a.patientId === Object.keys(
                 appointments.reduce((m,a) => { if (a.status==="cancelled"||a.status==="cancelada") m[a.patientId]=(m[a.patientId]||0)+1; return m; }, {})
               )[i]).length;
               return (
@@ -662,7 +938,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
           }
         </Card>
 
-
         {/* ══ SECCIÓN CLÍNICA — FASE 4 ══════════════════════════════════════ */}
         {(riskAssessments.length > 0 || scaleResults.length > 0) && (
           <>
@@ -670,9 +945,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
               <SectionTitle icon={ShieldAlert} title="Clínico" sub="Riesgo y escalas psicométricas"/>
             </div>
 
-            {/* Distribución de niveles de riesgo */}
             {riskAssessments.length > 0 && (() => {
-              // Solo el último registro por paciente
               const latestByPt = {};
               riskAssessments.forEach(r => {
                 if (!latestByPt[r.patientId] || r.date > latestByPt[r.patientId].date)
@@ -714,7 +987,6 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
               );
             })()}
 
-            {/* Escalas aplicadas */}
             {scaleResults.length > 0 && (() => {
               const byScale = {};
               scaleResults.forEach(r => {
@@ -750,7 +1022,17 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
             })()}
           </>
         )}
-        {/* Resumen operativo */}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ④ ADHERENCIA TERAPÉUTICA (heatmap + progreso por paciente)
+      ══════════════════════════════════════════════════════════════════════ */}
+      <AdherenciaSection patients={patients} sessions={sessions} isMobile={isMobile} />
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          RESUMEN OPERATIVO
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px,1fr))", gap:16, marginBottom:32 }}>
         <Card style={{ padding:24 }}>
           <h3 style={{ fontFamily:T.fH, fontSize:18, color:T.t, margin:"0 0 20px" }}>Resumen operativo</h3>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
