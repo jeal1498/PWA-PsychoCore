@@ -13,6 +13,7 @@
 //   risk:elevated    { patientId, patientName, sessionId, level }
 //   task:assigned    { patientId, patientName, sessionId, count }
 //   payment:created  { patientId, patientName, sessionId, amount, method }
+//   ui:toast         { message: string, type: "success"|"warn"|"error"|"info", duration?: number }
 // ─────────────────────────────────────────────────────────────────────────────
 
 function createBus() {
@@ -41,4 +42,6 @@ export const emit = {
   riskElevated:   (data) => bus.emit("risk:elevated",    data),
   taskAssigned:   (data) => bus.emit("task:assigned",    data),
   paymentCreated: (data) => bus.emit("payment:created",  data),
+  toast: (message, type = "success", duration = 3000) =>
+    bus.emit("ui:toast", { message, type, duration }),
 };
