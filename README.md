@@ -1,7 +1,7 @@
 # PsychoCore — Sistema de Gestión Clínica para Psicólogos
 
 > **PWA progresiva, offline-first, construida con React + Vite + Supabase.**  
-> Centraliza la gestión de pacientes, sesiones, escalas clínicas, planes de tratamiento, finanzas y tareas terapéuticas en una sola aplicación installable desde el navegador.
+> Centraliza la gestión de pacientes, sesiones, escalas clínicas, planes de tratamiento, finanzas y tareas terapéuticas en una sola aplicación instalable desde el navegador.
 
 ---
 
@@ -15,25 +15,41 @@ El paciente tiene también acceso a un **portal propio** (sin registro) donde pu
 
 ## Características principales
 
+### Dashboard
+- KPIs en tiempo real: pacientes activos, sesiones del mes, ingresos y alertas de riesgo.
+- Gráficas de tendencia de los últimos 6 meses (ingresos + sesiones) via Recharts.
+- **Alerta de saldo pendiente**: bandera automática al inicio de la jornada con el total de pacientes y monto por cobrar.
+- **Barra de progreso de configuración**: guía visual del perfil incompleto (foto, cédula, servicios, tarifas) con acceso rápido a cada sección.
+- **Onboarding para usuarios nuevos**: flujo de bienvenida que desaparece una vez completados los pasos esenciales.
+- Contador reactivo de tareas terapéuticas pendientes de revisión.
+- Proyección de ingresos a 30 días basada en citas agendadas y tarifas configuradas.
+
 ### Gestión clínica
-- **Dashboard** con indicadores en tiempo real: pacientes activos, sesiones del mes, ingresos, alertas de riesgo y gráficas de tendencia (Recharts).
-- **Expedientes de pacientes** con datos demográficos, motivo de consulta, estado clínico, historial de sesiones y archivos adjuntos.
-- **Agenda** con vista mensual/semanal y gestión de citas (fecha, hora, modalidad, estado).
-- **Registro de sesiones** con notas clínicas, humor, duración y prefill automático desde la agenda.
+- **Expedientes de pacientes** con datos demográficos, motivo de consulta, estado clínico e historial completo.
+- **Anamnesis clínica** estructurada en 4 secciones (primera impresión, antecedentes personales, antecedentes familiares, contexto actual) con badge de completitud y soporte para reingreso.
+- **Flujo de reingreso (Readmission)**: reactiva un expediente dado de alta, registra la fecha de reingreso y genera un nuevo ciclo de anamnesis sin perder el historial previo; incluye renovación de consentimiento informado.
+- **Agenda** con vista mensual/semanal, gestión de citas (fecha, hora, modalidad, estado) y routing inteligente hacia el registro de sesión.
+- **Registro de sesiones** con notas clínicas, estado de ánimo, duración y prefill automático desde la agenda. Incluye modal de Protocolo de Admisión para primera cita.
 - **Planes de tratamiento** con formulación biopsicosocial, objetivos terapéuticos y seguimiento de progreso.
-- **Evaluación de riesgo** (suicidio/autolesión) con sugerencia automática de nivel, plan de seguridad exportable a PDF.
+- **Evaluación de riesgo** (suicidio/autolesión) con sugerencia automática de nivel y plan de seguridad exportable a PDF.
 - **Escalas clínicas estandarizadas**: PHQ-9, GAD-7 y otras, con historial de puntuaciones y detección de tendencias.
 - **Registros entre sesiones** (inter-sessions): autorregistros de estado emocional enviados por el paciente.
-- **Consentimiento informado** digital con firma en canvas y almacenamiento por secciones.
-- **Reportes** generables en PDF: evaluación inicial, evolución terapéutica y alta clínica.
+- **Consentimiento informado** digital con firma en canvas, almacenamiento por secciones y flujo de renovación en reingreso.
+- **Reportes clínicos** generables en PDF: evaluación inicial, evolución terapéutica y alta clínica.
 
 ### Finanzas
 - Registro de pagos con folio automático `YYYY-MM-NNNN` y recibo exportable a PDF/imagen.
-- Catálogo de servicios con precios, modalidad (presencial/remoto) e historial de cambios de tarifa.
-- Dashboard financiero con ingresos por período (mes/trimestre/año).
+- **Registro de gastos** categorizado (renta, servicios, materiales, software, formación, publicidad, honorarios, otros) con filtro por período.
+- **Catálogo de servicios** con precios por modalidad (presencial/remoto) e historial de cambios de tarifa.
+- Dashboard financiero con ingresos por período (mes/trimestre/año) y desglose de gastos.
+- **4 reportes financieros exportables a PDF:**
+  - **R1 — Ingresos por período**: detalle de pagos recibidos en el rango seleccionado.
+  - **R2 — Ranking de ingresos**: top 10 por paciente o por servicio en el año.
+  - **R3 — Balance ingresos vs. gastos**: comparativo por período con saldo neto.
+  - **R4 — Proyección de ingresos**: estimación basada en citas agendadas y tarifas configuradas.
 
 ### Tareas terapéuticas
-- Biblioteca de plantillas de tareas categorizadas (mindfulness, psicoeducación, registros conductuales, etc.).
+- Biblioteca de plantillas categorizadas (mindfulness, psicoeducación, registros conductuales, etc.).
 - Asignación a paciente con enlace directo vía **WhatsApp**.
 - Seguimiento de estado: pendiente → completado, con respuestas visibles en el módulo.
 
@@ -154,8 +170,8 @@ psychocore/
 │   │   └── SyncToast.jsx      # Toast de estado de sincronización
 │   │
 │   └── modules/               # Vistas principales (lazy-loaded)
-│       ├── Dashboard.jsx       # KPIs, gráficas y alertas clínicas
-│       ├── Patients.jsx        # Gestión de expedientes
+│       ├── Dashboard.jsx       # KPIs, alertas de saldo, barra de configuración, gráficas
+│       ├── Patients.jsx        # Gestión de expedientes + Anamnesis + flujo de Reingreso
 │       ├── Agenda.jsx          # Calendario de citas
 │       ├── Sessions.jsx        # Registro de sesiones clínicas
 │       ├── InterSessions.jsx   # Autorregistros entre sesiones
@@ -166,7 +182,7 @@ psychocore/
 │       ├── Reports.jsx         # Generador de informes clínicos en PDF
 │       ├── Tasks.jsx           # Tareas terapéuticas (vista del psicólogo)
 │       ├── PatientPortal.jsx   # Portal del paciente (/p)
-│       ├── Finance.jsx         # Pagos, recibos y catálogo de servicios
+│       ├── Finance.jsx         # Pagos, gastos, recibos, catálogo de servicios y 4 reportes PDF
 │       ├── Stats.jsx           # Estadísticas clínicas avanzadas
 │       └── Settings.jsx        # Perfil del psicólogo y configuración
 │
