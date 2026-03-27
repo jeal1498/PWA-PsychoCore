@@ -35,7 +35,6 @@ const Tasks         = lazy(() => import("./modules/Tasks.jsx"));
 
 export default function App() {
   // ── Estado de contexto ───────────────────────────────────────────────────
-  // Todos los datos de negocio vienen del AppStateContext (Fase 1).
   const {
     patients,        setPatients,
     appointments,    setAppointments,
@@ -61,8 +60,6 @@ export default function App() {
   const [authLoading,        setAuthLoading]        = useState(true);
   const [psychologist,       setPsychologist]       = useState(null);
   const [psychologistLoaded, setPsychologistLoaded] = useState(false);
-  // Recupera el último módulo visitado para que el refresh arranque
-  // cargando solo los datos que esa vista necesita (Route-Aware Loading).
   const [activeModule,  setActiveModule]  = useState(
     () => localStorage.getItem("pc_last_module") || "dashboard"
   );
@@ -71,7 +68,6 @@ export default function App() {
   const [openAction,    setOpenAction]    = useState(null);
   const [settingsTab,   setSettingsTab]   = useState("profile");
 
-  // "auto" | "dark" | "light"
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -81,7 +77,6 @@ export default function App() {
   const isMobile      = useIsMobile();
   const patientsNavRef= useRef(null);
 
-  // ── Log de diagnóstico (declarado aquí para evitar TDZ con user/authLoading) ──
   console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
@@ -130,8 +125,6 @@ export default function App() {
   }, []);
 
   // ── Persistir módulo activo ──────────────────────────────────────────────
-  // Guarda el módulo en localStorage cada vez que el usuario navega.
-  // AppStateContext lo lee al montar para saber qué tabla cargar primero.
   useEffect(() => {
     localStorage.setItem("pc_last_module", activeModule);
   }, [activeModule]);
@@ -160,8 +153,6 @@ export default function App() {
     if (!dataLoaded || !user) return;
     const key = `pc_onboarding_done_${user.id}`;
     if (localStorage.getItem(key)) return;
-    // Solo mostrar onboarding si llevamos más de 5s cargados sin pacientes
-    // — evita que un timeout de red muestre el onboarding a usuarios existentes.
     const t = setTimeout(() => {
       if (patients.length === 0) setShowOnboarding(true);
     }, 2000);
@@ -184,9 +175,11 @@ export default function App() {
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
-  const quickNav = (mod, action, tab) => {
+  // FIX D3: quickNav ahora acepta un payload opcional para pasar datos extra al módulo destino
+  // Uso desde Dashboard: quickNav("finance", null, null, { openCobroId: payment.id })
+  const quickNav = (mod, action, tab, payload) => {
     setActiveModule(mod);
-    setOpenAction({ module: mod, action, ts: Date.now() });
+    setOpenAction({ module: mod, action, ts: Date.now(), payload: payload || null });
     if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
     window.history.pushState({ module: mod }, "", window.location.pathname);
@@ -210,7 +203,10 @@ export default function App() {
   }, []);
 
   // ── Handlers de sesión ───────────────────────────────────────────────────
+
+  // FIX D6: guard — validar que appt y appt.patientId existan antes de setear prefill
   const handleStartSession = (appt) => {
+    if (!appt?.patientId) return;
     setSessionPrefill({ patientId: appt.patientId, date: appt.date });
     setActiveModule("sessions");
     setOpenAction(null);
@@ -240,9 +236,16 @@ export default function App() {
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
-      case "finance":     return <Finance   {...mp} key={openAction?.module==="finance"  ? openAction.ts : "f"} autoOpen={openAction?.module==="finance"  ? openAction.action : null} profile={profile}/>;
+      // FIX D3: pasa openCobroId desde openAction.payload al módulo Finance
+      case "finance":     return <Finance
+        {...mp}
+        key={openAction?.module==="finance"  ? openAction.ts : "f"}
+        autoOpen={openAction?.module==="finance"  ? openAction.action : null}
+        openCobroId={openAction?.module==="finance" ? openAction.payload?.openCobroId : null}
+        profile={profile}
+      />;
       case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;
-      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults}/>;  {/* FASE 4 */}
+      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
@@ -276,13 +279,6 @@ export default function App() {
   };
 
   // ── Guards de renderizado ────────────────────────────────────────────────
-  // Mostrar spinner mientras:
-  // - authLoading (App.jsx aún resolviendo getSession + psychologist)
-  // - !authReady  (AppStateContext aún no confirmó el estado de sesión)
-  // Ambas condiciones deben resolverse antes de evaluar si hay sesión.
-  // Esto evita que TOKEN_REFRESHED llegue tarde y la app muestre login
-  // incorrectamente durante el cold-start de la PWA.
-  // ── Portal del paciente — ruta pública, sin auth ────────────────────────
   if (window.location.pathname === "/portal" || window.location.pathname === "/p") {
     return <PatientPortalComp />;
   }
@@ -294,8 +290,6 @@ export default function App() {
     </div>
   );
 
-  // Solo llegar aquí cuando authReady=true y authLoading=false.
-  // Si user sigue siendo null en este punto, la sesión genuinamente no existe.
   if (!user) return <LockScreen />;
 
   if (psychologistLoaded && psychologist && !hasActiveAccess(psychologist)) {
