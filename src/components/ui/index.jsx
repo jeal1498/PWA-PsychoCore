@@ -120,13 +120,38 @@ export function Badge({ children, color, bg }) {
 }
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
+// FIX D2: la prop `action` soporta dos formas:
+//   1. Nodo React directo (comportamiento original preservado):
+//      <EmptyState action={<button>...</button>} />
+//   2. Objeto { label: string, onClick: fn } — renderiza un Btn primario estilizado:
+//      <EmptyState action={{ label: "Nueva sesión", onClick: () => setShowAdd(true) }} />
 export function EmptyState({ icon: Icon, title, desc, action }) {
+  // FIX D2: detectar si action es objeto {label, onClick} o nodo React
+  const actionNode = action && typeof action === "object" && "label" in action && "onClick" in action
+    ? (
+      <button
+        onClick={action.onClick}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "10px 22px", borderRadius: 9999,
+          background: T.p, color: "#fff", border: "none",
+          fontFamily: T.fB, fontSize: 13, fontWeight: 600,
+          cursor: "pointer", transition: "opacity .15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+        onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+      >
+        {action.label}
+      </button>
+    )
+    : action; // nodo React directo — sin cambios
+
   return (
     <div style={{ textAlign: "center", padding: "64px 24px" }}>
       <Icon size={40} strokeWidth={1.2} style={{ marginBottom: 16, opacity: 0.35, color: T.tl }} />
       <div style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 500, color: T.tm, marginBottom: 8 }}>{title}</div>
       <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl }}>{desc}</div>
-      {action && <div style={{ marginTop: 20 }}>{action}</div>}
+      {actionNode && <div style={{ marginTop: 20 }}>{actionNode}</div>}
     </div>
   );
 }
