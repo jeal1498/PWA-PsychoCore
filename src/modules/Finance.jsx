@@ -9,6 +9,8 @@ import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+// FIX D1: import emit para ui:toast desde el event bus existente
+import { emit } from "../lib/eventBus.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FOLIO GENERATOR — YYYY-MM-NNNN
@@ -131,6 +133,8 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARE: RECIBO COMO IMAGEN (WhatsApp / Compartir)
+// FIX D1: función pura sin side effects de UI — el feedback lo maneja
+//         handleShareRecibo() dentro del componente vía emit.toast
 // ─────────────────────────────────────────────────────────────────────────────
 async function shareRecibo(payment, patient, profile) {
   const folio     = payment.folio || "—";
@@ -178,8 +182,7 @@ async function shareRecibo(payment, patient, profile) {
           <div style="background:#F7F9F8;border-radius:10px;padding:12px 14px;">
             <div style="font-size:8px;font-weight:700;color:#9BAFAD;letter-spacing:0.09em;margin-bottom:5px;">${label}</div>
             <div style="font-size:13px;font-weight:700;color:#1A2B28;line-height:1.3;">${value}</div>
-            ${sub?`<div style="font-size:10px;color:#9BAFAD;margin-top:3px;">${sub}</div>`:""}
-          </div>`).join("")}
+            ${sub?`<div style="font-size:10px;color:#9BAFAD;margin-top:3px;">${sub}</div>`:""}`).join("")}
       </div>
       <div style="border-top:1px solid #EEF2F1;margin:0 16px;padding:12px 0 16px;text-align:center;">
         <div style="font-size:9px;color:#B0BFC0;line-height:1.6;">Este recibo ampara el pago de servicios psicológicos. No es comprobante fiscal (CFDI).</div>
@@ -193,18 +196,25 @@ async function shareRecibo(payment, patient, profile) {
   const canvas = await html2canvas(node, { scale:2, useCORS:true, backgroundColor:"#ffffff", logging:false });
   document.body.removeChild(wrap);
 
-  canvas.toBlob(async (blob) => {
-    const fname = `Recibo_${folio}_${nombre.split(" ")[0]}.png`;
-    const file  = new File([blob], fname, { type:"image/png" });
-    if (navigator.canShare?.({ files:[file] })) {
-      try { await navigator.share({ files:[file], title:`Recibo ${folio} — ${nombre}` }); return; }
-      catch (e) { if (e.name === "AbortError") return; }
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = fname; a.click();
-    URL.revokeObjectURL(url);
-  }, "image/png");
+  await new Promise((resolve, reject) => {
+    canvas.toBlob(async (blob) => {
+      try {
+        const fname = `Recibo_${folio}_${nombre.split(" ")[0]}.png`;
+        const file  = new File([blob], fname, { type:"image/png" });
+        if (navigator.canShare?.({ files:[file] })) {
+          try { await navigator.share({ files:[file], title:`Recibo ${folio} — ${nombre}` }); resolve(); return; }
+          catch (e) { if (e.name === "AbortError") { resolve(); return; } }
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fname; a.click();
+        URL.revokeObjectURL(url);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    }, "image/png");
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,7 +280,7 @@ function getPeriodRange(period, MONTHS) {
     }
     case "anio_actual":
       return { start:`${y}-01-01`, end:`${y}-12-31`, label:String(y) };
-    default: // mes_actual
+    default:
       return { start:`${y}-${String(m+1).padStart(2,"0")}-01`, end:fmtISO(new Date(y,m+1,0)), label:`${MONTHS[m]} ${y}` };
   }
 }
@@ -292,7 +302,7 @@ function getPrevPeriodRange(period) {
     }
     case "anio_actual":
       return { start:`${y-1}-01-01`, end:`${y-1}-12-31` };
-    default: // mes_actual → mes anterior
+    default:
       return { start:`${y}-${String(m).padStart(2,"0")}-01`, end:fmtISO(new Date(y,m,0)) };
   }
 }
@@ -560,6 +570,8 @@ export default function Finance({
   patients = [],
   profile,
   autoOpen,
+  // FIX D3: nueva prop para abrir modal de cobro específico desde Dashboard
+  openCobroId,
   services = [],
   expenses = [], setExpenses,
   appointments = [],
@@ -569,7 +581,7 @@ export default function Finance({
 
   // ── Ingresos: estado existente ─────────────────────────────────────────────
   const [showAdd,       setShowAdd]       = useState(false);
-  const [cobroFromPending, setCobroFromPending] = useState(null); // payment origen al abrir modal desde "Cobrar"
+  const [cobroFromPending, setCobroFromPending] = useState(null);
   const [filterPt,      setFilterPt]      = useState("");
   const [editPayment,   setEditPayment]   = useState(null);
   const [savedPayment,  setSavedPayment]  = useState(null);
@@ -582,7 +594,20 @@ export default function Finance({
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const [showModalityPicker, setShowModalityPicker] = useState(false);
 
+  // FIX D1: estado de loading para shareRecibo — evita doble tap y da feedback visual
+  const [reciboLoading, setReciboLoading] = useState(false);
+
   useEffect(() => { if (autoOpen === "add") setShowAdd(true); }, [autoOpen]);
+
+  // FIX D3: detectar openCobroId y abrir modal de edición automáticamente
+  useEffect(() => {
+    if (!openCobroId || !payments.length) return;
+    const payment = payments.find(p => p.id === openCobroId);
+    if (payment) {
+      setActiveTab("ingresos");
+      setEditPayment({ ...payment });
+    }
+  }, [openCobroId, payments]);
 
   // ── Gastos: estado ─────────────────────────────────────────────────────────
   const emptyExpForm = () => ({ date:fmt(todayDate), concept:"", amount:"", category:EXPENSE_CATS[0], notes:"" });
@@ -598,13 +623,28 @@ export default function Finance({
   const [report3Period, setReport3Period] = useState("mes_actual");
 
   // ── Feedback inline de generación de PDF ──────────────────────────────────
-  const [pdfMsg, setPdfMsg] = useState(null); // { type: "success"|"error", text: string }
+  const [pdfMsg, setPdfMsg] = useState(null);
   const showPdfMsg = (type) => {
     const text = type === "success"
       ? "Recibo abierto en nueva pestaña."
       : "Permite ventanas emergentes en tu navegador para exportar el PDF.";
     setPdfMsg({ type, text });
     setTimeout(() => setPdfMsg(null), type === "success" ? 3000 : 5000);
+  };
+
+  // FIX D1: wrapper interno con loading state + toast feedback vía eventBus
+  const handleShareRecibo = async (payment, patient) => {
+    if (reciboLoading) return;
+    setReciboLoading(true);
+    try {
+      await shareRecibo(payment, patient, profile);
+      emit.toast("Recibo generado con éxito", "success", 3500);
+    } catch (err) {
+      console.error("[Finance] shareRecibo error:", err);
+      emit.toast("Error al generar el recibo", "error", 4000);
+    } finally {
+      setReciboLoading(false);
+    }
   };
 
   // ── Ingresos: lógica existente ─────────────────────────────────────────────
@@ -819,8 +859,15 @@ export default function Finance({
             </button>
           )}
           <button onClick={() => toggle(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:6, padding:"3px 8px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
-          <button onClick={() => shareRecibo(p, patient, profile)} title="Generar recibo PDF" style={{ background:T.pA, border:"none", borderRadius:6, padding:"4px 6px", cursor:"pointer", color:T.p }}>
-            <Printer size={12}/>
+          {/* FIX D1: onClick usa handleShareRecibo con loading + toast */}
+          <button
+            onClick={() => handleShareRecibo(p, patient)}
+            disabled={reciboLoading}
+            title="Generar recibo"
+            style={{ background:T.pA, border:"none", borderRadius:6, padding:"4px 6px",
+              cursor:reciboLoading ? "not-allowed" : "pointer", color:T.p,
+              opacity:reciboLoading ? 0.55 : 1, transition:"opacity .15s" }}>
+            {reciboLoading ? <span style={{ fontSize:11, fontFamily:T.fB }}>…</span> : <Printer size={12}/>}
           </button>
           <button onClick={() => del(p.id)} style={{ background:"none", border:"none", color:T.tl, cursor:"pointer", padding:"4px 2px" }}><Trash2 size={13}/></button>
         </div>
@@ -877,7 +924,6 @@ export default function Finance({
     { key:"r4", label:"Proyección"         },
   ];
 
-  // ── Estilos reutilizables ───────────────────────────────────────────────
   const periodOptions = [
     { value:"mes_actual",   label:"Mes actual"   },
     { value:"mes_anterior", label:"Mes anterior" },
@@ -885,7 +931,6 @@ export default function Finance({
   ];
   const periodOptionsWithWeek = [{ value:"semana_actual", label:"Semana actual" }, ...periodOptions];
 
-  // ── Estilos de celda de tabla de gastos ────────────────────────────────
   const expRow = (e) => (
     <div key={e.id} style={{ display:"grid", gridTemplateColumns:`${isMobile?"1fr":"1fr 90px 160px 100px 90px"}`, gap:10, padding:"12px 18px", borderBottom:`1px solid ${T.bdrL}`, alignItems:"center" }}>
       {isMobile ? (
@@ -945,7 +990,7 @@ export default function Finance({
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          TAB: INGRESOS (código original)
+          TAB: INGRESOS
       ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "ingresos" && (
         <>
@@ -1046,7 +1091,6 @@ export default function Finance({
       ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "gastos" && (
         <>
-          {/* KPIs */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
             {[
               { label:"Gastos este mes", value:fmtCur(expMonthKpi), color:T.err, bg:"rgba(184,80,80,0.08)" },
@@ -1059,7 +1103,6 @@ export default function Finance({
             ))}
           </div>
 
-          {/* Tabla gastos */}
           <Card>
             {!isMobile && (
               <div style={{ padding:"12px 18px", borderBottom:`1px solid ${T.bdrL}`, display:"grid", gridTemplateColumns:"1fr 90px 160px 100px 90px", gap:10 }}>
@@ -1081,7 +1124,6 @@ export default function Finance({
       ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "reportes" && (
         <>
-          {/* Sub-reporte selector */}
           <div style={{ display:"flex", gap:6, marginBottom:20, flexWrap:"wrap" }}>
             {REPORTS.map(r => {
               const active = activeReport === r.key;
@@ -1114,8 +1156,6 @@ export default function Finance({
                     </button>
                   </div>
                 </div>
-                {/* KPIs vivos */}
-                {/* [mobile-audit] grid de 3 columnas fijo → colapsa a 1 columna en mobile */}
                 <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:10, marginBottom:20 }}>
                   <div style={{ padding:"14px", borderRadius:12, background:T.sucA }}>
                     <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.suc, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Total período</div>
@@ -1132,7 +1172,6 @@ export default function Finance({
                       : <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>Sin datos</div>}
                   </div>
                 </div>
-                {/* Barras por día */}
                 {r1.days.length > 0 ? (
                   <div style={{ marginBottom:20 }}>
                     <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Desglose por día</div>
@@ -1221,8 +1260,6 @@ export default function Finance({
                     </button>
                   </div>
                 </div>
-                {/* KPIs balance */}
-                {/* [mobile-audit] grid de 4 columnas fijo → colapsa a 2×2 en mobile */}
                 <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:10, marginBottom:20 }}>
                   {[
                     { label:"Ingresos",     value:fmtCur(r3.totalI), color:T.suc, bg:T.sucA },
@@ -1236,7 +1273,6 @@ export default function Finance({
                     </div>
                   ))}
                 </div>
-                {/* Desglose por categoría */}
                 {r3.hasExpenses && Object.keys(r3.byCat).length > 0 ? (
                   <div style={{ marginBottom:20 }}>
                     <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Gastos por categoría</div>
@@ -1273,8 +1309,6 @@ export default function Finance({
                     <FileText size={13}/> Exportar PDF
                   </button>
                 </div>
-                {/* KPIs 7/15/30 */}
-                {/* [mobile-audit] grid de 3 columnas fijo → colapsa a 1 columna en mobile */}
                 <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:10, marginBottom:20 }}>
                   {[
                     { label:"Próximos 7 días",  value:fmtCur(r4.sum7),  count:r4.f7.length  },
@@ -1288,7 +1322,6 @@ export default function Finance({
                     </div>
                   ))}
                 </div>
-                {/* Tabla próximas citas con estimado */}
                 {r4.f30.length > 0 ? (
                   <div style={{ marginBottom:20 }}>
                     <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Detalle — próximos 30 días</div>
@@ -1310,7 +1343,6 @@ export default function Finance({
                 ) : (
                   <div style={{ padding:"20px 0", fontFamily:T.fB, fontSize:13, color:T.tl, textAlign:"center" }}>Sin citas agendadas en los próximos 30 días.</div>
                 )}
-                {/* Nota legal */}
                 <div style={{ padding:"12px 14px", background:T.warA, borderRadius:10, fontFamily:T.fB, fontSize:11.5, color:"#7A5E0A", marginBottom:20, lineHeight:1.6 }}>
                   ⚠️ Proyección basada en citas agendadas y tarifas configuradas. Sujeta a cambios por cancelaciones o modificaciones.
                 </div>
@@ -1321,12 +1353,9 @@ export default function Finance({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          MODALES: PAGOS (código original sin cambios)
+          MODAL: AGREGAR PAGO
       ══════════════════════════════════════════════════════════════════ */}
-
-      {/* Modal agregar pago */}
       <Modal open={showAdd} onClose={() => { setShowAdd(false); setCobroFromPending(null); }} title="Registrar pago">
-        {/* Cambio 3: Si se abrió desde "Cobrar" en un pago pendiente, mostrar paciente como texto fijo */}
         {cobroFromPending ? (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Paciente</div>
@@ -1403,9 +1432,14 @@ export default function Finance({
             {savedPayment.folio && <div style={{ fontFamily:"monospace", fontSize:11, color:T.p, fontWeight:700 }}>{savedPayment.folio}</div>}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <button onClick={() => { const patient=patients.find(pt=>pt.id===savedPayment.patientId); shareRecibo(savedPayment,patient,profile); }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"11px", borderRadius:10, border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.p, cursor:"pointer" }}>
-              <Share2 size={14}/> Compartir
+            {/* FIX D1: usa handleShareRecibo en lugar de llamada directa a shareRecibo */}
+            <button
+              onClick={() => { const patient = patients.find(pt => pt.id === savedPayment.patientId); handleShareRecibo(savedPayment, patient); }}
+              disabled={reciboLoading}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"11px", borderRadius:10,
+                border:`1.5px solid ${T.p}`, background:T.pA, fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.p,
+                cursor:reciboLoading?"not-allowed":"pointer", opacity:reciboLoading?0.6:1 }}>
+              <Share2 size={14}/> {reciboLoading ? "Generando…" : "Compartir"}
             </button>
             <button onClick={() => setSavedPayment(null)}
               style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm, cursor:"pointer" }}>
@@ -1453,9 +1487,14 @@ export default function Finance({
               style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"11px", borderRadius:10, border:`1.5px solid ${T.errA}`, background:"transparent", fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.err, cursor:"pointer" }}>
               <Trash2 size={14}/> Eliminar
             </button>
-            <button onClick={() => { const patient=patients.find(pt=>pt.id===editPayment.patientId); shareRecibo(editPayment,patient,profile); }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"11px", borderRadius:10, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              <Share2 size={14}/> Compartir
+            {/* FIX D1: usa handleShareRecibo en modal de edición */}
+            <button
+              onClick={() => { const patient = patients.find(pt => pt.id === editPayment.patientId); handleShareRecibo(editPayment, patient); }}
+              disabled={reciboLoading}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"11px", borderRadius:10, border:"none",
+                background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:600,
+                cursor:reciboLoading?"not-allowed":"pointer", opacity:reciboLoading?0.7:1 }}>
+              <Share2 size={14}/> {reciboLoading ? "Generando…" : "Compartir"}
             </button>
           </div>
         </Modal>

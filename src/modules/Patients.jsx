@@ -2272,6 +2272,15 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             const expanded    = !!expandedRows[p.id];
             const diagShort   = p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim() : null;
 
+            // FIX D4: calcular próxima cita futura del paciente para mostrar en fila compacta
+            const todayStr    = new Date().toISOString().split("T")[0];
+            const nextAppt    = appointments
+              .filter(a => a.patientId === p.id && a.date >= todayStr)
+              .sort((a, b) => a.date.localeCompare(b.date))[0];
+            const nextApptLabel = nextAppt
+              ? new Date(nextAppt.date + "T12:00").toLocaleDateString("es-MX", { day:"numeric", month:"short" })
+              : null;
+
             // Avatar colors — riesgo alto usa colores de error
             const avatarBg    = isHighRisk ? T.errA : T.pA;
             const avatarColor = isHighRisk ? T.err  : T.p;
@@ -2319,9 +2328,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                     )}
                   </div>
 
-                  {/* Sesiones count */}
+                  {/* FIX D4: sesiones count + próxima cita */}
                   <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm, flexShrink:0 }}>
-                    {ptSess.length} ses.
+                    {ptSess.length} ses.{nextApptLabel ? ` · Próx: ${nextApptLabel}` : ""}
                   </span>
 
                   {/* Status badge */}
