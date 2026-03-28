@@ -1,6 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════════════════════╗
-// ║  Dashboard.jsx — Rediseño Visual / PsychoCore                               ║
-// ║  Jerarquía: Awareness → Acción → Vigilancia → Inteligencia → Historia       ║
+// ║  Dashboard.jsx — Centro de Control / PsychoCore                             ║
+// ║  Jerarquía: Awareness → Urgencia → Acción → Vigilancia → Inteligencia       ║
+// ║  Refactor: minimalismo cálido, whitespace máximo, EmptyState nuevo          ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 import { useState, useMemo, useEffect } from "react";
@@ -20,15 +21,15 @@ import {
 import {
   Users, Calendar, TrendingUp, AlertCircle, Clock,
   FileText, ChevronRight, ShieldAlert, DollarSign,
-  ClipboardList, Target, UserX, Activity, ArrowRight,
+  ClipboardList, Target, Activity, ArrowRight,
   AlertTriangle, Zap, CheckCircle2,
   ChevronDown, ChevronUp, Camera, BadgeCheck, Briefcase,
-  CalendarClock, ListChecks, Sparkles,
+  CalendarClock, ListChecks, Sparkles, UserX,
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus } from "./Consent.jsx";
 
-// ── Chart colors (CSS vars don't work in SVG attrs) ─────────────────────────
+// ── Chart colors fijos (CSS vars no funcionan en attrs SVG) ─────────────────
 const CC = {
   income:   "#2D9B91",
   sessions: "#6B5B9E",
@@ -59,6 +60,10 @@ if (typeof document !== "undefined" && !window.__pc_dash_styles__) {
     }
     @keyframes dash-bar-grow {
       from { width: 0%; }
+    }
+    @keyframes dash-shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
     }
   `;
   document.head.appendChild(s);
@@ -112,10 +117,61 @@ function usePendingTasks() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MICRO-COMPONENTS
+// PRIMITIVOS DE LAYOUT
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Inline "Ver todo" link with hover */
+/** Wrapper con animación fade+slide, aplicado en cascada */
+function FadeUp({ children, delay = 0, style: sx = {} }) {
+  return (
+    <div
+      style={{
+        animation: `dash-fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${delay}s both`,
+        ...sx,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Separador sutil */
+function Divider({ style: sx = {} }) {
+  return <div style={{ height: 1, background: T.bdrL, margin: "2px 0", ...sx }} />;
+}
+
+/** Encabezado de sección: Cormorant + acción opcional */
+function SectionHead({ title, subtitle, action, delay = 0 }) {
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "flex-start",
+        justifyContent: "space-between",
+        marginBottom: subtitle ? 14 : 16,
+        gap: 8,
+        animation: `dash-fadeUp 0.35s ease ${delay}s both`,
+      }}
+    >
+      <div>
+        <h3
+          style={{
+            fontFamily: T.fH, fontSize: 21, fontWeight: 500,
+            color: T.t, margin: 0, letterSpacing: "-0.01em", lineHeight: 1.2,
+          }}
+        >
+          {title}
+        </h3>
+        {subtitle && (
+          <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, margin: "3px 0 0" }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {action && <div style={{ flexShrink: 0, marginTop: 2 }}>{action}</div>}
+    </div>
+  );
+}
+
+/** Enlace "Ver todo" inline */
 function SeeAll({ label = "Ver todo", onClick, delay = 0 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -138,55 +194,11 @@ function SeeAll({ label = "Ver todo", onClick, delay = 0 }) {
   );
 }
 
-/** Section heading: Cormorant title + optional action */
-function SectionHead({ title, action, delay = 0 }) {
-  return (
-    <div
-      style={{
-        display: "flex", alignItems: "center",
-        justifyContent: "space-between", marginBottom: 16,
-        animation: `dash-fadeUp 0.35s ease ${delay}s both`,
-      }}
-    >
-      <h3
-        style={{
-          fontFamily: T.fH, fontSize: 21, fontWeight: 500,
-          color: T.t, margin: 0, letterSpacing: "-0.01em", lineHeight: 1.2,
-        }}
-      >
-        {title}
-      </h3>
-      {action}
-    </div>
-  );
-}
-
-/** Divider */
-function Divider() {
-  return (
-    <div style={{ height: 1, background: T.bdrL, margin: "4px 0" }} />
-  );
-}
-
-/** Animated entrance wrapper */
-function FadeUp({ children, delay = 0, style: sx = {} }) {
-  return (
-    <div
-      style={{
-        animation: `dash-fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) ${delay}s both`,
-        ...sx,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// KPI CARDS
+// KPI CARDS — Operativos y Financieros
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Small operational KPI: icon + number + label */
+/** KPI compacto: icono + número grande + etiqueta */
 function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick, delay = 0 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -198,7 +210,7 @@ function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick, delay = 0 
       <Card
         onClick={onClick}
         style={{
-          padding: "16px 18px",
+          padding: "18px 20px",
           cursor: onClick ? "pointer" : "default",
           transform: hover && onClick ? "translateY(-2px)" : "none",
           boxShadow: hover && onClick ? `0 10px 32px rgba(26,43,40,0.11)` : T.sh,
@@ -210,15 +222,15 @@ function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick, delay = 0 
           style={{
             width: 36, height: 36, borderRadius: 10, background: bg,
             display: "flex", alignItems: "center", justifyContent: "center",
-            marginBottom: 12,
+            marginBottom: 14,
           }}
         >
           <Icon size={15} color={color} strokeWidth={1.8} />
         </div>
         <div
           style={{
-            fontFamily: T.fH, fontSize: 30, fontWeight: 500,
-            color: T.t, lineHeight: 1, marginBottom: 4, letterSpacing: "-0.02em",
+            fontFamily: T.fH, fontSize: 32, fontWeight: 500,
+            color: T.t, lineHeight: 1, marginBottom: 4, letterSpacing: "-0.025em",
           }}
         >
           {value}
@@ -232,14 +244,14 @@ function KpiCard({ label, value, icon: Icon, color, bg, sub, onClick, delay = 0 
           {label}
         </div>
         {sub && (
-          <div style={{ fontFamily: T.fB, fontSize: 11, color, marginTop: 4 }}>{sub}</div>
+          <div style={{ fontFamily: T.fB, fontSize: 11, color, marginTop: 5 }}>{sub}</div>
         )}
       </Card>
     </div>
   );
 }
 
-/** Financial KPI: larger, left-border accent */
+/** KPI financiero: borde izquierdo de color + valor grande */
 function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick, delay = 0 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -256,10 +268,10 @@ function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick, de
           borderLeft: `3px solid ${color}`,
           transform: hover && onClick ? "translateY(-2px)" : "none",
           boxShadow: hover && onClick ? `0 10px 32px rgba(26,43,40,0.11)` : T.sh,
-          transition: "box-shadow 0.22s ease, transform 0.2s ease, border-color 0.2s ease",
+          transition: "box-shadow 0.22s ease, transform 0.2s ease",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               style={{
@@ -269,36 +281,21 @@ function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick, de
             >
               <Icon size={14} color={color} strokeWidth={1.8} />
             </div>
-            <span
-              style={{
-                fontFamily: T.fB, fontSize: 10.5, fontWeight: 700,
-                color: T.tl, textTransform: "uppercase", letterSpacing: "0.065em",
-              }}
-            >
+            <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.065em" }}>
               {label}
             </span>
           </div>
           {tag && (
-            <span
-              style={{
-                padding: "2px 9px", borderRadius: 9999, fontSize: 10.5,
-                fontWeight: 700, fontFamily: T.fB, color, background: bg,
-              }}
-            >
+            <span style={{ padding: "2px 9px", borderRadius: 9999, fontSize: 10.5, fontWeight: 700, fontFamily: T.fB, color, background: bg }}>
               {tag}
             </span>
           )}
         </div>
-        <div
-          style={{
-            fontFamily: T.fH, fontSize: 28, fontWeight: 500,
-            color: T.t, lineHeight: 1, marginBottom: 2, letterSpacing: "-0.02em",
-          }}
-        >
+        <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 500, color: T.t, lineHeight: 1, marginBottom: 2, letterSpacing: "-0.02em" }}>
           {value}
         </div>
         {sub && (
-          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginTop: 4 }}>{sub}</div>
+          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginTop: 5 }}>{sub}</div>
         )}
       </Card>
     </div>
@@ -310,14 +307,14 @@ function FinKpiCard({ label, value, icon: Icon, color, bg, sub, tag, onClick, de
 // ─────────────────────────────────────────────────────────────────────────────
 function PeriodFilter({ value, onChange }) {
   const opts = [
-    { id: "month",   label: "Este mes" },
+    { id: "month",   label: "Mes" },
     { id: "quarter", label: "Trimestre" },
     { id: "year",    label: "Año" },
   ];
   return (
     <div
       style={{
-        display: "flex", gap: 4,
+        display: "flex", gap: 2,
         background: T.cardAlt, borderRadius: 9999,
         padding: "3px", border: `1px solid ${T.bdrL}`,
       }}
@@ -370,7 +367,185 @@ function ChartTooltip({ active, payload, label }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TODAY'S APPOINTMENT CARD
+// ZONA 1 — HEADER CONTEXTUAL
+// ─────────────────────────────────────────────────────────────────────────────
+function DashboardHeader({ todayAppts, criticalAlerts, isMobile }) {
+  return (
+    <FadeUp delay={0} style={{ marginBottom: 32 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "space-between",
+          gap: 12, flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: T.fH,
+              fontSize: isMobile ? 32 : 40,
+              fontWeight: 500, color: T.t, margin: 0,
+              letterSpacing: "-0.022em", lineHeight: 1.1,
+            }}
+          >
+            {greeting()} 🌿
+          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>
+              {todayDate.toLocaleDateString("es-MX", {
+                weekday: "long", day: "numeric", month: "long", year: "numeric",
+              })}
+            </span>
+            {todayAppts.length > 0 && (
+              <Badge variant="default" dot>
+                {todayAppts.length} cita{todayAppts.length > 1 ? "s" : ""} hoy
+              </Badge>
+            )}
+            {criticalAlerts.length > 0 && (
+              <Badge variant="error" dot>
+                {criticalAlerts.length} alerta{criticalAlerts.length > 1 ? "s" : ""}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    </FadeUp>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONA 2 — ALERTAS CRÍTICAS (solo si existen)
+// ─────────────────────────────────────────────────────────────────────────────
+function CriticalAlertsBanner({ criticalAlerts, patients, onNavigate }) {
+  if (criticalAlerts.length === 0) return null;
+
+  const imminent = criticalAlerts.filter(a => a.riskLevel === "inminente");
+  const high     = criticalAlerts.filter(a => a.riskLevel === "alto");
+
+  return (
+    <FadeUp delay={0.04} style={{ marginBottom: 24 }}>
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${T.errA} 0%, rgba(184,80,80,0.04) 100%)`,
+          border: `1.5px solid rgba(184,80,80,0.2)`,
+          borderRadius: 18, padding: "18px 22px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: "rgba(184,80,80,0.1)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <ShieldAlert size={15} color={T.err} strokeWidth={2} />
+            </div>
+            <div>
+              <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.err, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                Alertas clínicas activas
+              </span>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                {imminent.length > 0 && <Badge variant="error" dot>{imminent.length} inminente{imminent.length > 1 ? "s" : ""}</Badge>}
+                {high.length > 0 && <Badge variant="warning" dot>{high.length} alto{high.length > 1 ? "s" : ""}</Badge>}
+              </div>
+            </div>
+          </div>
+          <SeeAll label="Ver evaluaciones" onClick={() => onNavigate("risk")} />
+        </div>
+
+        {/* Chips de pacientes */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+          {criticalAlerts.slice(0, 6).map(a => {
+            const pt = patients.find(p => p.id === a.patientId);
+            const rc = RISK_CONFIG[a.riskLevel] || {};
+            return (
+              <div
+                key={a.id}
+                onClick={() => onNavigate("risk")}
+                onMouseEnter={e => e.currentTarget.style.borderColor = `${rc.color || T.err}80`}
+                onMouseLeave={e => e.currentTarget.style.borderColor = `${rc.color || T.err}30`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 7,
+                  padding: "6px 10px 6px 7px",
+                  background: T.card, borderRadius: 9999,
+                  border: `1.5px solid ${rc.color || T.err}30`,
+                  cursor: "pointer", transition: "border-color 0.18s ease",
+                }}
+              >
+                <div
+                  style={{
+                    width: 24, height: 24, borderRadius: "50%",
+                    background: rc.bg, border: `1.5px solid ${rc.color || T.err}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{ fontFamily: T.fH, fontSize: 11, color: rc.color }}>
+                    {pt?.name?.[0] || "?"}
+                  </span>
+                </div>
+                <span style={{ fontFamily: T.fB, fontSize: 12.5, fontWeight: 600, color: T.t }}>
+                  {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
+                </span>
+                <span style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 800, color: rc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {rc.label}
+                </span>
+              </div>
+            );
+          })}
+          {criticalAlerts.length > 6 && (
+            <div
+              onClick={() => onNavigate("risk")}
+              style={{
+                display: "inline-flex", alignItems: "center",
+                padding: "6px 12px", background: T.errA, borderRadius: 9999,
+                fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              +{criticalAlerts.length - 6} más →
+            </div>
+          )}
+        </div>
+      </div>
+    </FadeUp>
+  );
+}
+
+/** Alerta de saldo pendiente — más compacta y menos alarmista */
+function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
+  if (pendingCount === 0) return null;
+  return (
+    <FadeUp delay={0.02} style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          background: T.warA, border: `1px solid rgba(185,144,10,0.18)`,
+          borderRadius: 14, padding: "11px 16px",
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <AlertCircle size={14} color={T.war} strokeWidth={2} />
+          <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.war }}>
+            {pendingCount} paciente{pendingCount !== 1 ? "s" : ""} con saldo pendiente{" "}
+            <span style={{ fontWeight: 800 }}>{fmtCur(pendingTotal)} MXN</span>
+          </span>
+        </div>
+        <Btn variant="ghost" small onClick={() => onNavigate("finance")}
+          style={{ color: T.war, borderColor: `${T.war}50`, fontSize: 12 }}>
+          Ver en Finanzas <ArrowRight size={12} />
+        </Btn>
+      </div>
+    </FadeUp>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONA 3 — AGENDA DEL DÍA
 // ─────────────────────────────────────────────────────────────────────────────
 function ApptCard({ appt, onStart }) {
   const done = appt.status === "completada";
@@ -383,17 +558,17 @@ function ApptCard({ appt, onStart }) {
         background: done ? T.cardAlt : T.card,
         border: `1.5px solid ${hover && !done ? T.bdr : T.bdrL}`,
         borderRadius: 14, padding: "12px 14px",
-        opacity: done ? 0.6 : 1,
+        opacity: done ? 0.62 : 1,
         transition: "all .2s ease",
         transform: hover && !done ? "translateY(-1px)" : "none",
         boxShadow: hover && !done ? `0 6px 20px rgba(26,43,40,0.08)` : "none",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {/* Time bubble */}
+        {/* Burbuja de hora */}
         <div
           style={{
-            width: 44, height: 44, borderRadius: 12,
+            width: 46, height: 46, borderRadius: 12,
             background: done ? T.sucA : T.pA,
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -401,25 +576,14 @@ function ApptCard({ appt, onStart }) {
         >
           <Clock size={13} color={done ? T.suc : T.p} strokeWidth={1.8} />
           {appt.time && (
-            <span
-              style={{
-                fontFamily: T.fB, fontSize: 9.5, fontWeight: 700,
-                color: done ? T.suc : T.p, marginTop: 1, lineHeight: 1,
-              }}
-            >
+            <span style={{ fontFamily: T.fB, fontSize: 9.5, fontWeight: 700, color: done ? T.suc : T.p, marginTop: 1, lineHeight: 1 }}>
               {appt.time}
             </span>
           )}
         </div>
 
-        {/* Patient info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t,
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            }}
-          >
+          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {appt.patientName?.split(" ").slice(0, 2).join(" ")}
           </div>
           <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, marginTop: 1 }}>
@@ -427,7 +591,6 @@ function ApptCard({ appt, onStart }) {
           </div>
         </div>
 
-        {/* Action */}
         {done ? (
           <Badge variant="success" dot>Completada</Badge>
         ) : (
@@ -445,34 +608,58 @@ function ApptCard({ appt, onStart }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUICK ACTION BAR
-// ─────────────────────────────────────────────────────────────────────────────
-function QuickBar({ onQuickNav, onNewSession, isMobile }) {
-  const actions = [
-    { label: "Nuevo paciente",  icon: Users,      color: T.p,   bg: T.pA,   module: "patients", handler: null },
-    { label: "Agendar cita",    icon: Calendar,   color: T.acc, bg: T.accA, module: "agenda",   handler: null },
-    { label: "Registrar nota",  icon: FileText,   color: T.suc, bg: T.sucA, module: "sessions", handler: onNewSession },
-    { label: "Registrar pago",  icon: DollarSign, color: T.war, bg: T.warA, module: "finance",  handler: null },
-  ];
-
+function AgendaSection({ todayAppts, pendingAppts, onNavigate, onStartSession, isMobile }) {
   return (
-    <FadeUp delay={0.08}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-          gap: 8, marginBottom: 32,
-        }}
-      >
-        {actions.map((a, i) => (
-          <QuickAction key={a.label} action={a} onQuickNav={onQuickNav} delay={i * 0.04} />
-        ))}
+    <FadeUp delay={0.1} style={{ marginBottom: 36 }}>
+      {/* Header de sección */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <h2
+            style={{
+              fontFamily: T.fH, fontSize: isMobile ? 24 : 28,
+              fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.015em",
+            }}
+          >
+            Citas de hoy
+          </h2>
+          {pendingAppts.length > 0 && (
+            <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, margin: "3px 0 0" }}>
+              {pendingAppts.length} pendiente{pendingAppts.length > 1 ? "s" : ""} por documentar
+            </p>
+          )}
+        </div>
+        <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
       </div>
+
+      {todayAppts.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title="Sin citas hoy"
+          desc="No hay consultas programadas para este día."
+          action={{ label: "Agendar cita", onClick: () => onNavigate("agenda") }}
+        />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 10,
+          }}
+        >
+          {todayAppts.map((a, idx) => (
+            <div key={a.id} style={{ animation: `dash-fadeUp 0.38s ease ${idx * 0.05}s both` }}>
+              <ApptCard appt={a} onStart={onStartSession} />
+            </div>
+          ))}
+        </div>
+      )}
     </FadeUp>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONA 4 — QUICK ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
 function QuickAction({ action: a, onQuickNav, delay }) {
   const [hover, setHover] = useState(false);
   return (
@@ -482,8 +669,8 @@ function QuickAction({ action: a, onQuickNav, delay }) {
       onMouseLeave={() => setHover(false)}
       style={{
         display: "flex", alignItems: "center", gap: 10,
-        padding: "12px 14px", borderRadius: 13,
-        border: `1.5px solid ${hover ? a.color + "60" : T.bdrL}`,
+        padding: "12px 16px", borderRadius: 14,
+        border: `1.5px solid ${hover ? a.color + "50" : T.bdrL}`,
         background: hover ? a.bg : T.card,
         cursor: "pointer", transition: "all .2s ease",
         fontFamily: T.fB, textAlign: "left",
@@ -509,486 +696,32 @@ function QuickAction({ action: a, onQuickNav, delay }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CRITICAL ALERTS BANNER
-// ─────────────────────────────────────────────────────────────────────────────
-function CriticalAlertsBanner({ criticalAlerts, patients, onNavigate }) {
-  if (criticalAlerts.length === 0) return null;
-
-  const imminent = criticalAlerts.filter(a => a.riskLevel === "inminente");
-  const high     = criticalAlerts.filter(a => a.riskLevel === "alto");
-
-  return (
-    <FadeUp delay={0}>
-      <div
-        style={{
-          marginBottom: 28,
-          background: `linear-gradient(135deg, ${T.errA} 0%, rgba(184,80,80,0.06) 100%)`,
-          border: `1.5px solid rgba(184,80,80,0.25)`,
-          borderRadius: 16, padding: "16px 20px",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex", alignItems: "center",
-            justifyContent: "space-between", marginBottom: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: "rgba(184,80,80,0.12)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <ShieldAlert size={15} color={T.err} strokeWidth={2} />
-            </div>
-            <div>
-              <span
-                style={{
-                  fontFamily: T.fB, fontSize: 12, fontWeight: 700,
-                  color: T.err, textTransform: "uppercase", letterSpacing: "0.07em",
-                }}
-              >
-                Alertas clínicas activas
-              </span>
-              <div style={{ display: "flex", gap: 6, marginTop: 3 }}>
-                {imminent.length > 0 && (
-                  <Badge variant="error" dot>{imminent.length} inminente{imminent.length > 1 ? "s" : ""}</Badge>
-                )}
-                {high.length > 0 && (
-                  <Badge variant="warning" dot>{high.length} alto{high.length > 1 ? "s" : ""}</Badge>
-                )}
-              </div>
-            </div>
-          </div>
-          <SeeAll label="Ver evaluaciones" onClick={() => onNavigate("risk")} />
-        </div>
-
-        {/* Patient chips */}
-        <div
-          style={{
-            display: "flex", flexWrap: "wrap", gap: 7,
-          }}
-        >
-          {criticalAlerts.slice(0, 6).map(a => {
-            const pt = patients.find(p => p.id === a.patientId);
-            const rc = RISK_CONFIG[a.riskLevel] || {};
-            return (
-              <div
-                key={a.id}
-                onClick={() => onNavigate("risk")}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 7,
-                  padding: "6px 10px 6px 7px",
-                  background: T.card, borderRadius: 9999,
-                  border: `1.5px solid ${rc.color || T.err}40`,
-                  cursor: "pointer", transition: "border-color 0.18s ease",
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = `${rc.color || T.err}90`}
-                onMouseLeave={e => e.currentTarget.style.borderColor = `${rc.color || T.err}40`}
-              >
-                <div
-                  style={{
-                    width: 24, height: 24, borderRadius: "50%",
-                    background: rc.bg, border: `1.5px solid ${rc.color || T.err}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ fontFamily: T.fH, fontSize: 11, color: rc.color }}>
-                    {pt?.name?.[0] || "?"}
-                  </span>
-                </div>
-                <span style={{ fontFamily: T.fB, fontSize: 12.5, fontWeight: 600, color: T.t }}>
-                  {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
-                </span>
-                <span
-                  style={{
-                    fontFamily: T.fB, fontSize: 10, fontWeight: 800,
-                    color: rc.color, textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  {rc.label}
-                </span>
-              </div>
-            );
-          })}
-          {criticalAlerts.length > 6 && (
-            <div
-              style={{
-                display: "inline-flex", alignItems: "center",
-                padding: "6px 12px", background: T.errA, borderRadius: 9999,
-                fontFamily: T.fB, fontSize: 12, color: T.err, fontWeight: 700,
-                cursor: "pointer",
-              }}
-              onClick={() => onNavigate("risk")}
-            >
-              +{criticalAlerts.length - 6} más →
-            </div>
-          )}
-        </div>
-      </div>
-    </FadeUp>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PENDING BALANCE ALERT
-// ─────────────────────────────────────────────────────────────────────────────
-function PendingBalanceAlert({ pendingCount, pendingTotal, onNavigate }) {
-  if (pendingCount === 0) return null;
-  return (
-    <FadeUp delay={0.02}>
-      <div
-        style={{
-          marginBottom: 16,
-          background: T.warA, border: `1.5px solid rgba(185,144,10,0.22)`,
-          borderRadius: 13, padding: "12px 16px",
-          display: "flex", alignItems: "center",
-          justifyContent: "space-between", gap: 12, flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <AlertCircle size={15} color={T.war} strokeWidth={2} />
-          <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.war }}>
-            {pendingCount} paciente{pendingCount !== 1 ? "s" : ""} con saldo pendiente —{" "}
-            <span style={{ fontWeight: 800 }}>{fmtCur(pendingTotal)} MXN</span>
-          </span>
-        </div>
-        <Btn variant="ghost" small onClick={() => onNavigate("finance")}
-          style={{ color: T.war, borderColor: `${T.war}60`, fontSize: 12 }}>
-          Ver en Finanzas <ArrowRight size={12} />
-        </Btn>
-      </div>
-    </FadeUp>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROFILE SETUP BAR
-// ─────────────────────────────────────────────────────────────────────────────
-function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }) {
-  const [open, setOpen] = useState(true);
-
-  const ITEM_TAB = {
-    photo:    "profile",
-    cedula:   "profile",
-    services: "services",
-    schedule: "horario",
-  };
-
-  const handleConfigure = (key) => {
-    const tab = ITEM_TAB[key] || "profile";
-    if (onQuickNav) onQuickNav("settings", null, tab);
-    else onNavigate("settings");
-  };
-
-  const items = useMemo(() => [
-    { key: "photo",    label: "Foto de perfil",                icon: Camera,      done: !!(profile?.photo || profile?.avatar) },
-    { key: "cedula",   label: "Número de cédula",              icon: BadgeCheck,  done: !!(profile?.cedula) },
-    { key: "services", label: "Al menos un servicio",          icon: Briefcase,   done: services.length > 0 },
-    { key: "schedule", label: "Horario de disponibilidad",     icon: CalendarClock, done: !!(profile?.schedule?.workDays?.length > 0) },
-  ], [profile, services]);
-
-  const completed = items.filter(i => i.done).length;
-  const total     = items.length;
-  if (completed === total) return null;
-
-  const pct = Math.round((completed / total) * 100);
-
-  return (
-    <FadeUp delay={0.06}>
-      <div
-        style={{
-          marginBottom: 24,
-          background: T.card,
-          border: `1.5px solid ${T.bdrL}`,
-          borderRadius: 14, overflow: "hidden",
-        }}
-      >
-        <button
-          onClick={() => setOpen(v => !v)}
-          style={{
-            width: "100%", background: "none", border: "none", cursor: "pointer",
-            padding: "13px 16px", display: "flex", alignItems: "center",
-            justifyContent: "space-between", gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <ListChecks size={15} color={T.p} strokeWidth={1.8} />
-            <span style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t }}>
-              Completa tu perfil
-            </span>
-            <Badge variant="default">{completed} de {total}</Badge>
-          </div>
-          {open ? <ChevronUp size={15} color={T.tl} /> : <ChevronDown size={15} color={T.tl} />}
-        </button>
-
-        {/* Progress bar */}
-        <div style={{ padding: "0 16px", marginBottom: open ? 4 : 12 }}>
-          <div style={{ height: 5, borderRadius: 9999, background: T.bdrL, overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%", borderRadius: 9999,
-                width: `${pct}%`, background: T.p,
-                transition: "width 0.5s cubic-bezier(0.34,1.56,0.64,1)",
-                animation: "dash-bar-grow 0.6s ease 0.2s both",
-              }}
-            />
-          </div>
-        </div>
-
-        {open && (
-          <div style={{ padding: "6px 16px 14px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {items.map(item => {
-                const ItemIcon = item.icon;
-                return (
-                  <div
-                    key={item.key}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "9px 12px", borderRadius: 10,
-                      background: item.done ? T.sucA : T.cardAlt,
-                      border: `1px solid ${item.done ? T.suc + "30" : T.bdrL}`,
-                      opacity: item.done ? 0.7 : 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        background: item.done ? `${T.suc}18` : T.pA,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
-                      {item.done
-                        ? <CheckCircle2 size={13} color={T.suc} strokeWidth={2.2} />
-                        : <ItemIcon size={13} color={T.p} strokeWidth={1.8} />}
-                    </div>
-                    <span
-                      style={{
-                        flex: 1, fontFamily: T.fB, fontSize: 13,
-                        color: item.done ? T.tl : T.t,
-                        textDecoration: item.done ? "line-through" : "none",
-                      }}
-                    >
-                      {item.label}
-                    </span>
-                    {!item.done && (
-                      <Btn
-                        variant="ghost"
-                        small
-                        onClick={() => handleConfigure(item.key)}
-                        style={{ fontSize: 11.5, padding: "4px 12px" }}
-                      >
-                        Configurar
-                      </Btn>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </FadeUp>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WELCOME GUIDE (zero patients state)
-// ─────────────────────────────────────────────────────────────────────────────
-function WelcomeGuide({ onNavigate }) {
-  const steps = [
-    { num: 1, title: "Registra tu primer paciente", desc: "Agrega sus datos, historial y motivo de consulta.", icon: Users, color: T.p, bg: T.pA, btnLabel: "Nuevo paciente", module: "patients", isBtn: true },
-    { num: 2, title: "Agenda su primera cita",       desc: "Programa la sesión inicial en el calendario integrado.", icon: Calendar, color: T.acc, bg: T.accA, btnLabel: "Ir a Agenda", module: "agenda", isBtn: true },
-    { num: 3, title: "Mensaje de bienvenida",        desc: "PsychoCore enviará automáticamente la confirmación al agendar. No necesitas hacer nada adicional.", icon: FileText, color: T.suc, bg: T.sucA, btnLabel: null, module: null, isBtn: false },
+function QuickBar({ onQuickNav, onNewSession, isMobile }) {
+  const actions = [
+    { label: "Nuevo paciente",  icon: Users,      color: T.p,   bg: T.pA,   module: "patients", handler: null },
+    { label: "Agendar cita",    icon: Calendar,   color: T.acc, bg: T.accA, module: "agenda",   handler: null },
+    { label: "Registrar nota",  icon: FileText,   color: T.suc, bg: T.sucA, module: "sessions", handler: onNewSession },
+    { label: "Registrar pago",  icon: DollarSign, color: T.war, bg: T.warA, module: "finance",  handler: null },
   ];
-
   return (
-    <FadeUp delay={0.1}>
-      <Card
+    <FadeUp delay={0.07} style={{ marginBottom: 36 }}>
+      <div
         style={{
-          padding: "40px 32px 36px",
-          textAlign: "center",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+          gap: 8,
         }}
       >
-        <div
-          style={{
-            width: 60, height: 60, borderRadius: 16,
-            background: T.pA, display: "flex",
-            alignItems: "center", justifyContent: "center",
-            margin: "0 auto 20px",
-          }}
-        >
-          <Sparkles size={26} color={T.p} strokeWidth={1.5} />
-        </div>
-        <h2
-          style={{
-            fontFamily: T.fH, fontSize: 30, fontWeight: 500,
-            color: T.t, margin: "0 0 8px", letterSpacing: "-0.02em",
-          }}
-        >
-          ¡Bienvenido a PsychoCore!
-        </h2>
-        <p
-          style={{
-            fontFamily: T.fB, fontSize: 14, color: T.tm,
-            margin: "0 auto 32px", maxWidth: 440, lineHeight: 1.65,
-          }}
-        >
-          Sigue estos tres pasos para comenzar a gestionar tu práctica clínica.
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: 14, marginBottom: 28, textAlign: "left",
-          }}
-        >
-          {steps.map((step, idx) => {
-            const StepIcon = step.icon;
-            return (
-              <FadeUp key={step.num} delay={0.12 + idx * 0.08}>
-                <div
-                  style={{
-                    background: T.cardAlt,
-                    border: `1.5px solid ${T.bdrL}`,
-                    borderRadius: 14, padding: "20px 16px",
-                    display: "flex", flexDirection: "column", gap: 10,
-                    position: "relative", overflow: "hidden",
-                    height: "100%",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute", top: -8, right: 8,
-                      fontFamily: T.fH, fontSize: 80, fontWeight: 700,
-                      color: `${step.color}07`, lineHeight: 1, userSelect: "none",
-                    }}
-                  >
-                    {step.num}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <div
-                      style={{
-                        width: 36, height: 36, borderRadius: 10, background: step.bg,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        border: `1.5px solid ${step.color}25`,
-                      }}
-                    >
-                      <StepIcon size={16} color={step.color} strokeWidth={1.8} />
-                    </div>
-                    <span
-                      style={{
-                        fontFamily: T.fB, fontSize: 10, fontWeight: 800,
-                        color: step.color, textTransform: "uppercase", letterSpacing: "0.08em",
-                      }}
-                    >
-                      Paso {step.num}
-                    </span>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 4 }}>
-                      {step.title}
-                    </div>
-                    <div style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, lineHeight: 1.6 }}>
-                      {step.desc}
-                    </div>
-                  </div>
-                  {step.isBtn && (
-                    <Btn
-                      variant="ghost"
-                      small
-                      onClick={() => onNavigate(step.module)}
-                      style={{ alignSelf: "flex-start", marginTop: "auto", color: step.color, borderColor: `${step.color}50` }}
-                    >
-                      {step.btnLabel}
-                    </Btn>
-                  )}
-                </div>
-              </FadeUp>
-            );
-          })}
-        </div>
-
-        <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, margin: 0 }}>
-          Consulta esta guía en{" "}
-          <span style={{ fontWeight: 700, color: T.tm }}>Configuración → Ayuda</span>.
-        </p>
-      </Card>
+        {actions.map((a, i) => (
+          <QuickAction key={a.label} action={a} onQuickNav={onQuickNav} delay={i * 0.04} />
+        ))}
+      </div>
     </FadeUp>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TREND CHART
-// ─────────────────────────────────────────────────────────────────────────────
-function TrendChart({ data, isMobile }) {
-  return (
-    <Card style={{ padding: "20px 20px 10px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.t, margin: 0 }}>
-          Tendencia — 6 meses
-        </h3>
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          {[{ color: CC.income, label: "Ingresos" }, { color: CC.sessions, label: "Sesiones" }].map(l => (
-            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
-              <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{l.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={isMobile ? 170 : 210}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: isMobile ? -24 : 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={CC.income}   stopOpacity={0.22} />
-              <stop offset="95%" stopColor={CC.income}   stopOpacity={0.01} />
-            </linearGradient>
-            <linearGradient id="gradSessions" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={CC.sessions} stopOpacity={0.2} />
-              <stop offset="95%" stopColor={CC.sessions} stopOpacity={0.01} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(150,150,150,0.08)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: "#999" }}
-            axisLine={false} tickLine={false}
-          />
-          <YAxis
-            yAxisId="income" orientation="left"
-            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 10, fill: "#999" }}
-            axisLine={false} tickLine={false}
-            tickFormatter={v => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
-          />
-          <YAxis
-            yAxisId="sessions" orientation="right"
-            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 10, fill: "#999" }}
-            axisLine={false} tickLine={false} allowDecimals={false}
-          />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(150,150,150,0.12)", strokeWidth: 1 }} />
-          <Area yAxisId="income"   type="monotone" dataKey="ingresos" name="Ingresos"
-            stroke={CC.income}   strokeWidth={2.2} fill="url(#gradIncome)"
-            dot={{ r: 3, fill: CC.income, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-          <Area yAxisId="sessions" type="monotone" dataKey="sesiones" name="Sesiones"
-            stroke={CC.sessions} strokeWidth={2} fill="url(#gradSessions)"
-            dot={{ r: 3, fill: CC.sessions, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RISK VIGILANCE PANEL
+// ZONA 5 — VIGILANCIA CLÍNICA
 // ─────────────────────────────────────────────────────────────────────────────
 function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
   const latestByPt = useMemo(() => {
@@ -1016,34 +749,35 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
   }, [vigilance]);
 
   return (
-    <Card style={{ padding: 24, borderTop: `2.5px solid ${CC.risk}40` }}>
+    <Card style={{ padding: 24, borderTop: `2.5px solid ${CC.risk}35` }}>
       <SectionHead
         title="Vigilancia Clínica"
+        subtitle="Pacientes con evaluación de riesgo activa"
         action={<SeeAll label="Ver evaluaciones" onClick={() => onNavigate("risk")} />}
       />
 
-      {/* Risk summary badges */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+      {/* Resumen de conteos por nivel */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {[
           { key: "inminente", variant: "error" },
           { key: "alto",      variant: "warning" },
           { key: "moderado",  variant: "accent" },
-        ].map(({ key, variant }) => {
+        ].map(({ key }) => {
           const rc = RISK_CONFIG[key];
           return (
             <div
               key={key}
               style={{
                 flex: 1, textAlign: "center",
-                padding: "10px 6px", borderRadius: 11,
+                padding: "12px 6px", borderRadius: 12,
                 background: rc?.bg || T.cardAlt,
-                border: `1px solid ${rc?.color || T.bdr}20`,
+                border: `1px solid ${rc?.color || T.bdr}18`,
               }}
             >
               <div
                 style={{
-                  fontFamily: T.fH, fontSize: 24, fontWeight: 500,
-                  color: rc?.color || T.t, lineHeight: 1, marginBottom: 3,
+                  fontFamily: T.fH, fontSize: 26, fontWeight: 500,
+                  color: rc?.color || T.t, lineHeight: 1, marginBottom: 4,
                 }}
               >
                 {riskCounts[key]}
@@ -1068,7 +802,7 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
           desc="Todos los pacientes evaluados están en niveles seguros."
         />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {vigilance.slice(0, 5).map((a, idx) => {
             const pt = patients.find(p => p.id === a.patientId);
             const rc = RISK_CONFIG[a.riskLevel] || {};
@@ -1076,21 +810,21 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
               <div
                 key={a.id}
                 onClick={() => onNavigate("risk")}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = `${rc.color || T.bdr}45`;
+                  e.currentTarget.style.background = T.card;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = `${rc.color || T.bdr}18`;
+                  e.currentTarget.style.background = T.cardAlt;
+                }}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 12px", borderRadius: 11, cursor: "pointer",
                   background: T.cardAlt,
-                  border: `1.5px solid ${rc.color || T.bdr}20`,
+                  border: `1.5px solid ${rc.color || T.bdr}18`,
                   transition: "all .18s ease",
                   animation: `dash-fadeUp 0.35s ease ${idx * 0.05}s both`,
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${rc.color || T.bdr}55`;
-                  e.currentTarget.style.background = T.card;
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = `${rc.color || T.bdr}20`;
-                  e.currentTarget.style.background = T.cardAlt;
                 }}
               >
                 {/* Avatar */}
@@ -1107,12 +841,7 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
                   </span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}
-                  >
+                  <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
                   </div>
                   <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 1 }}>
@@ -1123,12 +852,7 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
                     }
                   </div>
                 </div>
-                <Badge
-                  color={rc.color}
-                  bg={rc.bg}
-                >
-                  {rc.label || a.riskLevel}
-                </Badge>
+                <Badge color={rc.color} bg={rc.bg}>{rc.label || a.riskLevel}</Badge>
               </div>
             );
           })}
@@ -1151,7 +875,7 @@ function RiskVigilancePanel({ patients, riskAssessments, onNavigate }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RETENTION / ABANDONMENT PANEL
+// ZONA 5b — RIESGO DE ABANDONO (RetentionPanel)
 // ─────────────────────────────────────────────────────────────────────────────
 function RetentionPanel({ patients, sessions, onNavigate }) {
   const threshold21 = useMemo(() => {
@@ -1189,20 +913,18 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
 
   return (
     <Card style={{ padding: 24 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-        <div>
-          <h3 style={{ fontFamily: T.fH, fontSize: 21, fontWeight: 500, color: T.t, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-            Riesgo de abandono
-          </h3>
-          <span style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl }}>Sin sesión en +21 días</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {inactivePatients.length > 0 && (
-            <Badge variant="warning" dot>{inactivePatients.length}</Badge>
-          )}
-          <SeeAll label="Pacientes" onClick={() => onNavigate("patients")} />
-        </div>
-      </div>
+      <SectionHead
+        title="Riesgo de abandono"
+        subtitle="Sin sesión en más de 21 días"
+        action={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {inactivePatients.length > 0 && (
+              <Badge variant="warning" dot>{inactivePatients.length}</Badge>
+            )}
+            <SeeAll label="Pacientes" onClick={() => onNavigate("patients")} />
+          </div>
+        }
+      />
 
       {inactivePatients.length === 0 ? (
         <EmptyState
@@ -1219,21 +941,21 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
               <div
                 key={p.id}
                 onClick={() => onNavigate("sessions")}
+                onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "9px 12px", borderRadius: 10,
                   background: urgency ? T.warA : T.cardAlt,
-                  border: `1.5px solid ${urgency ? T.war + "30" : T.bdrL}`,
+                  border: `1.5px solid ${urgency ? T.war + "25" : T.bdrL}`,
                   cursor: "pointer", transition: "all .18s ease",
                   animation: `dash-fadeUp 0.35s ease ${idx * 0.05}s both`,
                 }}
-                onMouseEnter={e => e.currentTarget.style.opacity = "0.82"}
-                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
               >
                 <div
                   style={{
                     width: 32, height: 32, borderRadius: "50%",
-                    background: urgency ? `${T.war}25` : T.bdrL,
+                    background: urgency ? `${T.war}22` : T.bdrL,
                     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   }}
                 >
@@ -1242,35 +964,23 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
                   </span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}
-                  >
+                  <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {p.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
                   </div>
                   <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>
                     {p.lastSession ? `Última: ${fmtDate(p.lastSession)}` : "Sin sesiones"}
                   </div>
                 </div>
-                <span
-                  style={{
-                    fontFamily: T.fB, fontSize: 12, fontWeight: 700, flexShrink: 0,
-                    color: urgency ? T.war : T.tl,
-                  }}
-                >
+                <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, flexShrink: 0, color: urgency ? T.war : T.tl }}>
                   {days !== null ? `${days}d` : "—"}
                 </span>
               </div>
             );
           })}
           {inactivePatients.length > 5 && (
-            <div
-              style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, textAlign: "center", padding: "4px 0" }}
-            >
+            <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, textAlign: "center", padding: "4px 0", margin: 0 }}>
               +{inactivePatients.length - 5} más
-            </div>
+            </p>
           )}
         </div>
       )}
@@ -1279,8 +989,240 @@ function RetentionPanel({ patients, sessions, onNavigate }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PENDING PANEL (consents + follow-ups)
+// ZONA 6 — SALUD FINANCIERA
 // ─────────────────────────────────────────────────────────────────────────────
+function TrendChart({ data, isMobile }) {
+  return (
+    <Card style={{ padding: "22px 20px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <h3 style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.01em" }}>
+          Tendencia — 6 meses
+        </h3>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          {[{ color: CC.income, label: "Ingresos" }, { color: CC.sessions, label: "Sesiones" }].map(l => (
+            <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
+              <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{l.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={isMobile ? 170 : 210}>
+        <AreaChart data={data} margin={{ top: 4, right: 4, left: isMobile ? -24 : 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={CC.income}   stopOpacity={0.22} />
+              <stop offset="95%" stopColor={CC.income}   stopOpacity={0.01} />
+            </linearGradient>
+            <linearGradient id="gradSessions" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={CC.sessions} stopOpacity={0.20} />
+              <stop offset="95%" stopColor={CC.sessions} stopOpacity={0.01} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(150,150,150,0.07)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 11, fill: "#999" }}
+            axisLine={false} tickLine={false}
+          />
+          <YAxis
+            yAxisId="income" orientation="left"
+            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 10, fill: "#999" }}
+            axisLine={false} tickLine={false}
+            tickFormatter={v => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+          />
+          <YAxis
+            yAxisId="sessions" orientation="right"
+            tick={{ fontFamily: "DM Sans, sans-serif", fontSize: 10, fill: "#999" }}
+            axisLine={false} tickLine={false} allowDecimals={false}
+          />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(150,150,150,0.12)", strokeWidth: 1 }} />
+          <Area yAxisId="income"   type="monotone" dataKey="ingresos" name="Ingresos"
+            stroke={CC.income}   strokeWidth={2.2} fill="url(#gradIncome)"
+            dot={{ r: 3, fill: CC.income, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+          <Area yAxisId="sessions" type="monotone" dataKey="sesiones" name="Sesiones"
+            stroke={CC.sessions} strokeWidth={2} fill="url(#gradSessions)"
+            dot={{ r: 3, fill: CC.sessions, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+function FinancialSection({
+  period, setPeriod, periodIncome, projectedIncome, avgTicket,
+  periodSessions, pendingPay, pendingFut30, activeCount,
+  todayAppts, pendingTasks, trendData, periodLabel, isMobile,
+  onNavigate,
+}) {
+  return (
+    <FadeUp delay={0.18} style={{ marginBottom: 36 }}>
+      {/* Encabezado con filtro de período */}
+      <div
+        style={{
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16, flexWrap: "wrap", gap: 10,
+        }}
+      >
+        <h2
+          style={{
+            fontFamily: T.fH, fontSize: isMobile ? 24 : 28,
+            fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.015em",
+          }}
+        >
+          Salud Financiera
+        </h2>
+        <PeriodFilter value={period} onChange={setPeriod} />
+      </div>
+
+      {/* KPIs financieros */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+          gap: 12, marginBottom: 12,
+        }}
+      >
+        <FinKpiCard
+          label="Ingresos"
+          value={fmtCur(periodIncome)}
+          icon={TrendingUp}
+          color={CC.income}
+          bg={`${CC.income}18`}
+          sub={periodLabel}
+          delay={0}
+          onClick={() => onNavigate("finance")}
+        />
+        <FinKpiCard
+          label="Proyección"
+          value={fmtCur(projectedIncome)}
+          icon={Zap}
+          color={CC.sessions}
+          bg={`${CC.sessions}15`}
+          sub="próx. 30 días"
+          tag={pendingFut30 > 0 ? `${pendingFut30} citas` : null}
+          delay={0.04}
+        />
+        <FinKpiCard
+          label="Ticket prom."
+          value={avgTicket > 0 ? fmtCur(avgTicket) : "—"}
+          icon={Target}
+          color="#5B8DB8"
+          bg="rgba(91,141,184,0.12)"
+          sub={`${periodSessions.length} sesiones`}
+          delay={0.08}
+        />
+        <FinKpiCard
+          label="Pagos pend."
+          value={pendingPay}
+          icon={AlertCircle}
+          color={T.war}
+          bg={T.warA}
+          sub={pendingPay > 0 ? "sin confirmar" : "al día ✓"}
+          delay={0.12}
+          onClick={() => onNavigate("finance")}
+        />
+      </div>
+
+      {/* KPIs operativos compactos */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+          gap: 10, marginBottom: 14,
+        }}
+      >
+        <KpiCard
+          label="Pacientes activos" value={activeCount}
+          icon={Users} color={T.p} bg={T.pA} delay={0}
+          onClick={() => onNavigate("patients")}
+        />
+        <KpiCard
+          label="Citas hoy" value={todayAppts.length}
+          icon={Calendar} color={T.acc} bg={T.accA} delay={0.04}
+          onClick={() => onNavigate("agenda")}
+        />
+        <KpiCard
+          label="Sesiones período" value={periodSessions.length}
+          icon={Activity} color={CC.sessions} bg={`${CC.sessions}15`} delay={0.08}
+          onClick={() => onNavigate("sessions")}
+        />
+        <KpiCard
+          label="Tareas pend." value={pendingTasks ?? "…"}
+          icon={ClipboardList} color={T.p} bg={T.pA} delay={0.12}
+          onClick={() => onNavigate("tasks")}
+        />
+      </div>
+
+      {/* Gráfica de tendencia */}
+      <TrendChart data={trendData} isMobile={isMobile} />
+    </FadeUp>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONA 7 — HISTORIAL Y PENDIENTES
+// ─────────────────────────────────────────────────────────────────────────────
+function RecentSessionsPanel({ sessions: recentSess, onNavigate }) {
+  return (
+    <Card style={{ padding: 24 }}>
+      <SectionHead
+        title="Sesiones recientes"
+        action={<SeeAll label="Ver todas" onClick={() => onNavigate("sessions")} />}
+      />
+      {recentSess.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Sin sesiones aún"
+          desc="Las notas de sesión aparecerán aquí al registrar tu primera consulta."
+        />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {recentSess.map((s, idx) => {
+            const MoodIcon = moodIcon(s.mood);
+            const ps       = progressStyle(s.progress);
+            return (
+              <div key={s.id}>
+                <div
+                  onClick={() => onNavigate("sessions")}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "0.72"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "10px 0", cursor: "pointer",
+                    transition: "opacity 0.15s ease",
+                    animation: `dash-fadeUp 0.35s ease ${idx * 0.05}s both`,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32, height: 32, borderRadius: 9, background: T.cardAlt,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}
+                  >
+                    <MoodIcon size={15} color={moodColor(s.mood)} strokeWidth={1.7} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 500, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.patientName?.split(" ").slice(0, 2).join(" ")}
+                    </div>
+                    <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl }}>
+                      {fmtDate(s.date)}
+                    </div>
+                  </div>
+                  <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
+                </div>
+                {idx < recentSess.length - 1 && <Divider />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, todayStr, onNavigate }) {
   const hasContent = consentIssues.length > 0 || followUps.length > 0 || overdueFollowUps.length > 0;
   if (!hasContent) return null;
@@ -1289,6 +1231,7 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
     <Card style={{ padding: 24 }}>
       <SectionHead title="Pendientes" />
 
+      {/* Consentimientos */}
       {consentIssues.length > 0 && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -1308,25 +1251,20 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "8px 10px", borderRadius: 9,
-                    background: `${color}10`,
-                    border: `1px solid ${color}20`,
+                    background: `${color}0C`,
+                    border: `1px solid ${color}18`,
                   }}
                 >
                   <div
                     style={{
                       width: 26, height: 26, borderRadius: "50%",
-                      background: `${color}18`, display: "flex",
+                      background: `${color}15`, display: "flex",
                       alignItems: "center", justifyContent: "center", flexShrink: 0,
                     }}
                   >
                     <span style={{ fontFamily: T.fH, fontSize: 11, color }}>{p.name[0]}</span>
                   </div>
-                  <span
-                    style={{
-                      fontFamily: T.fB, fontSize: 13, color: T.t, flex: 1,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}
-                  >
+                  <span style={{ fontFamily: T.fB, fontSize: 13, color: T.t, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {p.name.split(" ").slice(0, 2).join(" ")}
                   </span>
                   <Badge color={color} bg={`${color}15`}>{label}</Badge>
@@ -1334,18 +1272,19 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
               );
             })}
             {consentIssues.length > 3 && (
-              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, textAlign: "center", paddingTop: 2 }}>
+              <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, textAlign: "center", margin: "2px 0 0" }}>
                 +{consentIssues.length - 3} más
-              </div>
+              </p>
             )}
           </div>
         </div>
       )}
 
+      {/* Follow-ups post-alta */}
       {(overdueFollowUps.length > 0 || followUps.length > 0) && (
         <div>
-          {consentIssues.length > 0 && <Divider />}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, marginTop: consentIssues.length > 0 ? 14 : 0 }}>
+          {consentIssues.length > 0 && <Divider style={{ margin: "0 0 14px" }} />}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <span style={{ fontFamily: T.fB, fontSize: 10.5, fontWeight: 800, color: "#5B8DB8", textTransform: "uppercase", letterSpacing: "0.07em" }}>
               Post-alta
             </span>
@@ -1362,14 +1301,14 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "8px 10px", borderRadius: 9,
-                    background: overdue ? T.warA : "rgba(91,141,184,0.07)",
-                    border: `1px solid ${color}20`,
+                    background: overdue ? T.warA : "rgba(91,141,184,0.06)",
+                    border: `1px solid ${color}18`,
                   }}
                 >
                   <div
                     style={{
                       width: 26, height: 26, borderRadius: "50%",
-                      background: `${color}18`, display: "flex",
+                      background: `${color}15`, display: "flex",
                       alignItems: "center", justifyContent: "center", flexShrink: 0,
                     }}
                   >
@@ -1378,12 +1317,7 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
                     </span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontFamily: T.fB, fontSize: 13, color: T.t,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      }}
-                    >
+                    <div style={{ fontFamily: T.fB, fontSize: 13, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {pt?.name?.split(" ").slice(0, 2).join(" ") || "Paciente"}
                     </div>
                     <div style={{ fontFamily: T.fB, fontSize: 10.5, color: T.tl }}>
@@ -1404,69 +1338,256 @@ function PendingPanel({ consentIssues, followUps, overdueFollowUps, patients, to
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RECENT SESSIONS PANEL
+// PROFILE SETUP BAR (collapsible)
 // ─────────────────────────────────────────────────────────────────────────────
-function RecentSessionsPanel({ sessions: recentSess, onNavigate }) {
+function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }) {
+  const [open, setOpen] = useState(true);
+
+  const ITEM_TAB = {
+    photo:    "profile",
+    cedula:   "profile",
+    services: "services",
+    schedule: "horario",
+  };
+
+  const handleConfigure = (key) => {
+    const tab = ITEM_TAB[key] || "profile";
+    if (onQuickNav) onQuickNav("settings", null, tab);
+    else onNavigate("settings");
+  };
+
+  const items = useMemo(() => [
+    { key: "photo",    label: "Foto de perfil",            icon: Camera,        done: !!(profile?.photo || profile?.avatar) },
+    { key: "cedula",   label: "Número de cédula",          icon: BadgeCheck,    done: !!(profile?.cedula) },
+    { key: "services", label: "Al menos un servicio",      icon: Briefcase,     done: services.length > 0 },
+    { key: "schedule", label: "Horario de disponibilidad", icon: CalendarClock, done: !!(profile?.schedule?.workDays?.length > 0) },
+  ], [profile, services]);
+
+  const completed = items.filter(i => i.done).length;
+  const total     = items.length;
+  if (completed === total) return null;
+
+  const pct = Math.round((completed / total) * 100);
+
   return (
-    <Card style={{ padding: 24 }}>
-      <SectionHead
-        title="Sesiones recientes"
-        action={<SeeAll label="Ver todas" onClick={() => onNavigate("sessions")} />}
-      />
-      {recentSess.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Sin sesiones aún"
-          desc="Las notas de sesión aparecerán aquí una vez que registres tu primera consulta."
-        />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {recentSess.map((s, idx) => {
-            const MoodIcon = moodIcon(s.mood);
-            const ps       = progressStyle(s.progress);
+    <FadeUp delay={0.06} style={{ marginBottom: 24 }}>
+      <div
+        style={{
+          background: T.card,
+          border: `1.5px solid ${T.bdrL}`,
+          borderRadius: 16, overflow: "hidden",
+        }}
+      >
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{
+            width: "100%", background: "none", border: "none", cursor: "pointer",
+            padding: "13px 18px", display: "flex", alignItems: "center",
+            justifyContent: "space-between", gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <ListChecks size={15} color={T.p} strokeWidth={1.8} />
+            <span style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t }}>
+              Completa tu perfil
+            </span>
+            <Badge variant="default">{completed} de {total}</Badge>
+          </div>
+          {open ? <ChevronUp size={15} color={T.tl} /> : <ChevronDown size={15} color={T.tl} />}
+        </button>
+
+        {/* Progress bar */}
+        <div style={{ padding: "0 18px", marginBottom: open ? 4 : 14 }}>
+          <div style={{ height: 4, borderRadius: 9999, background: T.bdrL, overflow: "hidden" }}>
+            <div
+              style={{
+                height: "100%", borderRadius: 9999,
+                width: `${pct}%`, background: T.p,
+                transition: "width 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+                animation: "dash-bar-grow 0.6s ease 0.2s both",
+              }}
+            />
+          </div>
+        </div>
+
+        {open && (
+          <div style={{ padding: "6px 18px 16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {items.map(item => {
+                const ItemIcon = item.icon;
+                return (
+                  <div
+                    key={item.key}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 12px", borderRadius: 10,
+                      background: item.done ? T.sucA : T.cardAlt,
+                      border: `1px solid ${item.done ? T.suc + "28" : T.bdrL}`,
+                      opacity: item.done ? 0.7 : 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                        background: item.done ? `${T.suc}15` : T.pA,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      {item.done
+                        ? <CheckCircle2 size={13} color={T.suc} strokeWidth={2.2} />
+                        : <ItemIcon size={13} color={T.p} strokeWidth={1.8} />}
+                    </div>
+                    <span
+                      style={{
+                        flex: 1, fontFamily: T.fB, fontSize: 13,
+                        color: item.done ? T.tl : T.t,
+                        textDecoration: item.done ? "line-through" : "none",
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                    {!item.done && (
+                      <Btn variant="ghost" small onClick={() => handleConfigure(item.key)}
+                        style={{ fontSize: 11.5, padding: "4px 12px" }}>
+                        Configurar
+                      </Btn>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </FadeUp>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WELCOME GUIDE (estado cero — sin pacientes)
+// ─────────────────────────────────────────────────────────────────────────────
+function WelcomeGuide({ onNavigate }) {
+  const steps = [
+    {
+      num: 1, title: "Registra tu primer paciente",
+      desc: "Agrega sus datos, historial y motivo de consulta.",
+      icon: Users, color: T.p, bg: T.pA, btnLabel: "Nuevo paciente", module: "patients", isBtn: true,
+    },
+    {
+      num: 2, title: "Agenda su primera cita",
+      desc: "Programa la sesión inicial en el calendario integrado.",
+      icon: Calendar, color: T.acc, bg: T.accA, btnLabel: "Ir a Agenda", module: "agenda", isBtn: true,
+    },
+    {
+      num: 3, title: "Mensaje de bienvenida",
+      desc: "PsychoCore enviará automáticamente la confirmación al agendar.",
+      icon: FileText, color: T.suc, bg: T.sucA, btnLabel: null, module: null, isBtn: false,
+    },
+  ];
+
+  return (
+    <FadeUp delay={0.1}>
+      <Card style={{ padding: "44px 36px 40px", textAlign: "center" }}>
+        <div
+          style={{
+            width: 64, height: 64, borderRadius: 18,
+            background: T.pA, display: "flex",
+            alignItems: "center", justifyContent: "center",
+            margin: "0 auto 22px",
+          }}
+        >
+          <Sparkles size={28} color={T.p} strokeWidth={1.5} />
+        </div>
+        <h2
+          style={{
+            fontFamily: T.fH, fontSize: 32, fontWeight: 500,
+            color: T.t, margin: "0 0 10px", letterSpacing: "-0.02em",
+          }}
+        >
+          ¡Bienvenido a PsychoCore!
+        </h2>
+        <p
+          style={{
+            fontFamily: T.fB, fontSize: 14, color: T.tm,
+            margin: "0 auto 36px", maxWidth: 440, lineHeight: 1.7,
+          }}
+        >
+          Sigue estos tres pasos para comenzar a gestionar tu práctica clínica.
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 14, marginBottom: 30, textAlign: "left",
+          }}
+        >
+          {steps.map((step, idx) => {
+            const StepIcon = step.icon;
             return (
-              <div key={s.id}>
+              <FadeUp key={step.num} delay={0.12 + idx * 0.08}>
                 <div
-                  onClick={() => onNavigate("sessions")}
                   style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 0", cursor: "pointer",
-                    transition: "opacity 0.15s ease",
-                    animation: `dash-fadeUp 0.35s ease ${idx * 0.05}s both`,
+                    background: T.cardAlt,
+                    border: `1.5px solid ${T.bdrL}`,
+                    borderRadius: 16, padding: "20px 18px",
+                    display: "flex", flexDirection: "column", gap: 10,
+                    position: "relative", overflow: "hidden", height: "100%",
                   }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = "0.75"}
-                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                 >
                   <div
                     style={{
-                      width: 32, height: 32, borderRadius: 9, background: T.cardAlt,
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      position: "absolute", top: -8, right: 8,
+                      fontFamily: T.fH, fontSize: 80, fontWeight: 700,
+                      color: `${step.color}07`, lineHeight: 1, userSelect: "none",
                     }}
                   >
-                    <MoodIcon size={15} color={moodColor(s.mood)} strokeWidth={1.7} />
+                    {step.num}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                     <div
                       style={{
-                        fontFamily: T.fB, fontSize: 13.5, fontWeight: 500, color: T.t,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        width: 36, height: 36, borderRadius: 10, background: step.bg,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1.5px solid ${step.color}22`,
                       }}
                     >
-                      {s.patientName?.split(" ").slice(0, 2).join(" ")}
+                      <StepIcon size={16} color={step.color} strokeWidth={1.8} />
                     </div>
-                    <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl }}>
-                      {fmtDate(s.date)}
+                    <span style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 800, color: step.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Paso {step.num}
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 4 }}>
+                      {step.title}
+                    </div>
+                    <div style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, lineHeight: 1.6 }}>
+                      {step.desc}
                     </div>
                   </div>
-                  <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
+                  {step.isBtn && (
+                    <Btn
+                      variant="ghost"
+                      small
+                      onClick={() => onNavigate(step.module)}
+                      style={{ alignSelf: "flex-start", marginTop: "auto", color: step.color, borderColor: `${step.color}45` }}
+                    >
+                      {step.btnLabel}
+                    </Btn>
+                  )}
                 </div>
-                {idx < recentSess.length - 1 && <Divider />}
-              </div>
+              </FadeUp>
             );
           })}
         </div>
-      )}
-    </Card>
+
+        <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, margin: 0 }}>
+          Consulta esta guía en{" "}
+          <span style={{ fontWeight: 700, color: T.tm }}>Configuración → Ayuda</span>.
+        </p>
+      </Card>
+    </FadeUp>
   );
 }
 
@@ -1492,11 +1613,11 @@ export default function Dashboard({
   const todayStr     = fmt(todayDate);
   const [period, setPeriod] = useState("month");
 
-  // ── Period range ─────────────────────────────────────────────────────────
+  // ── Rango de período ──────────────────────────────────────────────────────
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
   const isInPeriod  = (dateStr) => dateStr >= periodStart && dateStr <= todayStr;
 
-  // ── Financials ────────────────────────────────────────────────────────────
+  // ── Financieros ───────────────────────────────────────────────────────────
   const periodPayments = useMemo(() =>
     payments.filter(p => p.status === "pagado" && isInPeriod(p.date)),
     [payments, periodStart, todayStr]
@@ -1527,7 +1648,7 @@ export default function Dashboard({
 
   const pendingPay = payments.filter(p => p.status === "pendiente").length;
 
-  // ── Trend chart ───────────────────────────────────────────────────────────
+  // ── Gráfica tendencia ─────────────────────────────────────────────────────
   const trendData = useMemo(() =>
     getLast6Months().map(({ key, label }) => ({
       label,
@@ -1539,7 +1660,7 @@ export default function Dashboard({
     [payments, sessions]
   );
 
-  // ── Today ─────────────────────────────────────────────────────────────────
+  // ── Agenda hoy ────────────────────────────────────────────────────────────
   const todayAppts = useMemo(() =>
     appointments
       .filter(a => a.date === todayStr)
@@ -1548,7 +1669,7 @@ export default function Dashboard({
   );
   const pendingAppts = todayAppts.filter(a => a.status !== "completada");
 
-  // ── Risk alerts ───────────────────────────────────────────────────────────
+  // ── Alertas de riesgo ─────────────────────────────────────────────────────
   const latestByPt = useMemo(() => {
     const m = {};
     riskAssessments.forEach(a => {
@@ -1563,7 +1684,7 @@ export default function Dashboard({
     [latestByPt]
   );
 
-  // ── Consents ──────────────────────────────────────────────────────────────
+  // ── Consentimientos ───────────────────────────────────────────────────────
   const consentIssues = useMemo(() =>
     patients
       .filter(p => (p.status || "activo") === "activo")
@@ -1592,16 +1713,16 @@ export default function Dashboard({
     [appointments, todayStr]
   );
 
-  // ── Recent sessions ───────────────────────────────────────────────────────
+  // ── Sesiones recientes ────────────────────────────────────────────────────
   const recentSess = useMemo(() =>
     [...sessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
     [sessions]
   );
 
-  // ── Operational KPIs ──────────────────────────────────────────────────────
+  // ── KPIs operativos ───────────────────────────────────────────────────────
   const activeCount = patients.filter(p => (p.status || "activo") === "activo").length;
 
-  // ── Pending balance ───────────────────────────────────────────────────────
+  // ── Saldo pendiente ───────────────────────────────────────────────────────
   const currentMonthKey = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -1620,8 +1741,8 @@ export default function Dashboard({
   }, [payments, currentMonthKey]);
 
   // ── Misc ──────────────────────────────────────────────────────────────────
-  const periodLabel  = period === "month" ? "este mes" : period === "quarter" ? "este trimestre" : "este año";
-  const pendingFut30 = appointments.filter(a => a.status === "pendiente" && a.date > todayStr && a.date <= future30Str).length;
+  const periodLabel        = period === "month" ? "este mes" : period === "quarter" ? "este trimestre" : "este año";
+  const pendingFut30       = appointments.filter(a => a.status === "pendiente" && a.date > todayStr && a.date <= future30Str).length;
   const hasSecondaryAlerts = consentIssues.length > 0 || followUps.length > 0 || overdueFollowUps.length > 0;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1630,49 +1751,24 @@ export default function Dashboard({
   return (
     <div style={{ maxWidth: 1200 }}>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* ZONE 1 — AWARENESS: Header + date + summary chips                */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      <FadeUp delay={0} style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <h1
-              style={{
-                fontFamily: T.fH,
-                fontSize: isMobile ? 30 : 38,
-                fontWeight: 500, color: T.t, margin: 0,
-                letterSpacing: "-0.02em", lineHeight: 1.1,
-              }}
-            >
-              {greeting()} 🌿
-            </h1>
-            <div
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                marginTop: 6, flexWrap: "wrap",
-              }}
-            >
-              <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>
-                {todayDate.toLocaleDateString("es-MX", {
-                  weekday: "long", day: "numeric", month: "long", year: "numeric",
-                })}
-              </span>
-              {todayAppts.length > 0 && (
-                <Badge variant="default" dot>
-                  {todayAppts.length} cita{todayAppts.length > 1 ? "s" : ""} hoy
-                </Badge>
-              )}
-              {criticalAlerts.length > 0 && (
-                <Badge variant="error" dot>
-                  {criticalAlerts.length} alerta{criticalAlerts.length > 1 ? "s" : ""}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-      </FadeUp>
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ZONA 1 — AWARENESS: Saludo + fecha + chips de estado              */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      <DashboardHeader
+        todayAppts={todayAppts}
+        criticalAlerts={criticalAlerts}
+        isMobile={isMobile}
+      />
 
-      {/* Pending balance alert */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ZONA 2 — URGENCIA: Alertas críticas (condicionales)               */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      <CriticalAlertsBanner
+        criticalAlerts={criticalAlerts}
+        patients={patients}
+        onNavigate={onNavigate}
+      />
+
       {pendingBalanceData.hasPending && (
         <PendingBalanceAlert
           pendingCount={pendingBalanceData.count}
@@ -1681,25 +1777,15 @@ export default function Dashboard({
         />
       )}
 
-      {/* Critical risk banner */}
-      <CriticalAlertsBanner
-        criticalAlerts={criticalAlerts}
-        patients={patients}
-        onNavigate={onNavigate}
-      />
-
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* ZONE 2 — ACTION: Quick bar + profile setup + today's agenda       */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
-
-      {/* Quick actions */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ZONA 3 — ACCIÓN RÁPIDA: Quick bar + perfil                        */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       <QuickBar
         onQuickNav={onQuickNav}
         onNewSession={onNewSession}
         isMobile={isMobile}
       />
 
-      {/* Profile setup */}
       <ProfileSetupBar
         profile={profile}
         services={services}
@@ -1707,68 +1793,28 @@ export default function Dashboard({
         onQuickNav={onQuickNav}
       />
 
-      {/* ── Empty state (no patients) ───────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ESTADO VACÍO — Sin pacientes registrados                          */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       {patients.length === 0 ? (
         <WelcomeGuide onNavigate={onNavigate} />
       ) : (
         <>
-          {/* ── TODAY'S AGENDA ────────────────────────────────────────────── */}
-          <FadeUp delay={0.1} style={{ marginBottom: 32 }}>
-            <div
-              style={{
-                display: "flex", alignItems: "center",
-                justifyContent: "space-between", marginBottom: 14,
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    fontFamily: T.fH, fontSize: isMobile ? 22 : 26,
-                    fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.015em",
-                  }}
-                >
-                  Citas de hoy
-                </h2>
-                {pendingAppts.length > 0 && (
-                  <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginTop: 3 }}>
-                    {pendingAppts.length} pendiente{pendingAppts.length > 1 ? "s" : ""} por documentar
-                  </div>
-                )}
-              </div>
-              <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
-            </div>
-
-            {todayAppts.length === 0 ? (
-              <EmptyState
-                icon={Calendar}
-                title="Sin citas hoy"
-                desc="No hay consultas programadas para este día."
-                action={{ label: "Agendar cita", onClick: () => onNavigate("agenda") }}
-              />
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(270px, 1fr))",
-                  gap: 10,
-                }}
-              >
-                {todayAppts.map((a, idx) => (
-                  <div
-                    key={a.id}
-                    style={{ animation: `dash-fadeUp 0.38s ease ${idx * 0.05}s both` }}
-                  >
-                    <ApptCard appt={a} onStart={onStartSession} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </FadeUp>
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* ZONA 4 — AGENDA DEL DÍA                                       */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <AgendaSection
+            todayAppts={todayAppts}
+            pendingAppts={pendingAppts}
+            onNavigate={onNavigate}
+            onStartSession={onStartSession}
+            isMobile={isMobile}
+          />
 
           {/* ══════════════════════════════════════════════════════════════ */}
-          {/* ZONE 3 — VIGILANCE: Risk + Retention (side by side)           */}
+          {/* ZONA 5 — VIGILANCIA: Riesgo clínico + Abandono                */}
           {/* ══════════════════════════════════════════════════════════════ */}
-          <FadeUp delay={0.14} style={{ marginBottom: 32 }}>
+          <FadeUp delay={0.14} style={{ marginBottom: 36 }}>
             <div
               style={{
                 display: "grid",
@@ -1790,120 +1836,36 @@ export default function Dashboard({
           </FadeUp>
 
           {/* ══════════════════════════════════════════════════════════════ */}
-          {/* ZONE 4 — INTELLIGENCE: Period KPIs + Trend chart              */}
+          {/* ZONA 6 — INTELIGENCIA FINANCIERA                              */}
           {/* ══════════════════════════════════════════════════════════════ */}
-          <FadeUp delay={0.18} style={{ marginBottom: 32 }}>
-
-            {/* Section header + period filter */}
-            <div
-              style={{
-                display: "flex", alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 14, flexWrap: "wrap", gap: 10,
-              }}
-            >
-              <h2
-                style={{
-                  fontFamily: T.fH, fontSize: isMobile ? 22 : 26,
-                  fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.015em",
-                }}
-              >
-                Salud Financiera
-              </h2>
-              <PeriodFilter value={period} onChange={setPeriod} />
-            </div>
-
-            {/* Financial KPIs */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-                gap: 12, marginBottom: 14,
-              }}
-            >
-              <FinKpiCard
-                label="Ingresos"
-                value={fmtCur(periodIncome)}
-                icon={TrendingUp}
-                color={CC.income}
-                bg={`${CC.income}18`}
-                sub={periodLabel}
-                delay={0}
-                onClick={() => onNavigate("finance")}
-              />
-              <FinKpiCard
-                label="Proyección"
-                value={fmtCur(projectedIncome)}
-                icon={Zap}
-                color={CC.sessions}
-                bg={`${CC.sessions}15`}
-                sub="próx. 30 días"
-                tag={pendingFut30 > 0 ? `${pendingFut30} citas` : null}
-                delay={0.04}
-              />
-              <FinKpiCard
-                label="Ticket prom."
-                value={avgTicket > 0 ? fmtCur(avgTicket) : "—"}
-                icon={Target}
-                color="#5B8DB8"
-                bg="rgba(91,141,184,0.12)"
-                sub={`${periodSessions.length} sesiones`}
-                delay={0.08}
-              />
-              <FinKpiCard
-                label="Pagos pend."
-                value={pendingPay}
-                icon={AlertCircle}
-                color={T.war}
-                bg={T.warA}
-                sub={pendingPay > 0 ? "sin confirmar" : "al día ✓"}
-                delay={0.12}
-                onClick={() => onNavigate("finance")}
-              />
-            </div>
-
-            {/* Operational KPIs */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                gap: 10, marginBottom: 16,
-              }}
-            >
-              <KpiCard
-                label="Pacientes activos" value={activeCount}
-                icon={Users} color={T.p} bg={T.pA} delay={0}
-                onClick={() => onNavigate("patients")}
-              />
-              <KpiCard
-                label="Citas hoy" value={todayAppts.length}
-                icon={Calendar} color={T.acc} bg={T.accA} delay={0.04}
-                onClick={() => onNavigate("agenda")}
-              />
-              <KpiCard
-                label="Sesiones período" value={periodSessions.length}
-                icon={Activity} color={CC.sessions} bg={`${CC.sessions}15`} delay={0.08}
-                onClick={() => onNavigate("sessions")}
-              />
-              <KpiCard
-                label="Tareas pend." value={pendingTasks ?? "…"}
-                icon={ClipboardList} color={T.p} bg={T.pA} delay={0.12}
-                onClick={() => onNavigate("tasks")}
-              />
-            </div>
-
-            {/* Trend chart */}
-            <TrendChart data={trendData} isMobile={isMobile} />
-          </FadeUp>
+          <FinancialSection
+            period={period}
+            setPeriod={setPeriod}
+            periodIncome={periodIncome}
+            projectedIncome={projectedIncome}
+            avgTicket={avgTicket}
+            periodSessions={periodSessions}
+            pendingPay={pendingPay}
+            pendingFut30={pendingFut30}
+            activeCount={activeCount}
+            todayAppts={todayAppts}
+            pendingTasks={pendingTasks}
+            trendData={trendData}
+            periodLabel={periodLabel}
+            isMobile={isMobile}
+            onNavigate={onNavigate}
+          />
 
           {/* ══════════════════════════════════════════════════════════════ */}
-          {/* ZONE 5 — HISTORY: Recent sessions + pending secondary alerts  */}
+          {/* ZONA 7 — HISTORIAL: Sesiones recientes + Pendientes           */}
           {/* ══════════════════════════════════════════════════════════════ */}
           <FadeUp delay={0.22}>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : hasSecondaryAlerts ? "1fr 1fr" : "1fr",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : hasSecondaryAlerts ? "1fr 1fr" : "1fr",
                 gap: 20,
               }}
             >
