@@ -149,7 +149,6 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
   const dateStr = now.toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long",
   });
-  // Capitalize first letter
   const dateFormatted = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
   const displayName = profile?.name
     ? `Psic. ${profile.name.split(" ")[0]}`
@@ -157,51 +156,48 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
   const allSync = urgentCount === 0;
 
   return (
-    <FadeUp delay={0} style={{ marginBottom: isMobile ? 20 : 24 }}>
+    <FadeUp delay={0} style={{ marginBottom: isMobile ? 12 : 16 }}>
       <div style={{
-        borderRadius: isMobile ? 16 : 20,
+        borderRadius: isMobile ? 16 : 18,
         background: `linear-gradient(135deg, ${T.pA} 0%, ${T.card} 60%, ${T.accA} 100%)`,
         border: `1px solid ${T.bdrL}`,
-        padding: isMobile ? "18px 20px" : "22px 28px",
+        padding: isMobile ? "18px 18px 16px" : "22px 28px",
         display: "flex",
         alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 12,
         flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 12 : 20,
       }}>
-        {/* Left: greeting + date */}
+        {/* Left */}
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <h1 style={{
-              fontFamily: T.fH,
-              fontSize: isMobile ? 26 : 32,
-              fontWeight: 500,
-              color: T.t,
-              margin: 0,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
-            }}>
-              {greeting()}, {displayName}
-            </h1>
-          </div>
+          <h1 style={{
+            fontFamily: T.fH,
+            fontSize: isMobile ? 26 : 32,
+            fontWeight: 500,
+            color: T.t,
+            margin: "0 0 4px",
+            letterSpacing: "-0.025em",
+            lineHeight: 1.05,
+          }}>
+            {greeting()},<br style={{ display: isMobile ? "block" : "none" }} /> {displayName}
+          </h1>
           <p style={{
-            fontFamily: T.fB, fontSize: 13, color: T.tm,
-            margin: 0, letterSpacing: "0.005em",
+            fontFamily: T.fB, fontSize: isMobile ? 12 : 13,
+            color: T.tm, margin: 0, letterSpacing: "0.005em",
           }}>
             {dateFormatted}
           </p>
         </div>
 
         {/* Right: status pills */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
           {todayAppts.length > 0 && (
             <div style={{
               display: "flex", alignItems: "center", gap: 6,
               background: T.card, border: `1px solid ${T.bdrL}`,
-              borderRadius: 9999, padding: "6px 12px",
+              borderRadius: 9999, padding: "5px 11px",
             }}>
-              <Calendar size={12} color={T.p} strokeWidth={2} />
+              <Calendar size={11} color={T.p} strokeWidth={2} />
               <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.t }}>
                 {todayAppts.length} cita{todayAppts.length > 1 ? "s" : ""} hoy
               </span>
@@ -211,7 +207,7 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
             display: "flex", alignItems: "center", gap: 6,
             background: allSync ? T.sucA : T.warA,
             border: `1px solid ${allSync ? T.suc + "30" : T.war + "30"}`,
-            borderRadius: 9999, padding: "6px 12px",
+            borderRadius: 9999, padding: "5px 11px",
             animation: allSync ? "dash-pulse 3s ease infinite" : "none",
           }}>
             <div style={{
@@ -223,6 +219,107 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
             </span>
           </div>
         </div>
+      </div>
+    </FadeUp>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAT STRIP — solo desktop (isMobile === false, ancho > 900)
+// ─────────────────────────────────────────────────────────────────────────────
+function StatStrip({ patients, sessions, todayAppts, urgentCount, payments, isMobile }) {
+  if (isMobile) return null;
+
+  const activePatients = patients.filter(p => (p.status || "activo") === "activo").length;
+  const completedToday = todayAppts.filter(a => a.status === "completada").length;
+
+  // Ingresos del mes actual
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthlyIncome = payments
+    .filter(p => p.date?.startsWith(monthStr) && p.status === "pagado")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const stats = [
+    {
+      label: "Pacientes activos",
+      value: activePatients,
+      icon: Users,
+      color: T.p,
+      bg: T.pA,
+    },
+    {
+      label: "Sesiones hoy",
+      value: `${completedToday}/${todayAppts.length}`,
+      icon: CheckCircle2,
+      color: T.suc,
+      bg: T.sucA,
+    },
+    {
+      label: "Alertas activas",
+      value: urgentCount,
+      icon: AlertTriangle,
+      color: urgentCount > 0 ? T.war : T.suc,
+      bg: urgentCount > 0 ? T.warA : T.sucA,
+    },
+    {
+      label: "Ingresos este mes",
+      value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—",
+      icon: DollarSign,
+      color: T.acc,
+      bg: T.accA,
+      small: true,
+    },
+  ];
+
+  return (
+    <FadeUp delay={0.04} style={{ marginBottom: 14 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: 10,
+      }}>
+        {stats.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div
+              key={s.label}
+              style={{
+                background: T.card,
+                border: `1px solid ${T.bdrL}`,
+                borderRadius: 14,
+                padding: "14px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                animation: `op-up 0.4s ease ${0.04 + i * 0.04}s both`,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: s.bg, border: `1px solid ${s.color}18`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={13} color={s.color} strokeWidth={1.8} />
+                </div>
+              </div>
+              <div style={{
+                fontFamily: T.fH,
+                fontSize: s.small ? 22 : 28,
+                fontWeight: 500,
+                color: T.t,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}>
+                {s.value}
+              </div>
+              <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, fontWeight: 500 }}>
+                {s.label}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </FadeUp>
   );
@@ -270,6 +367,7 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
   );
 
   const total = riskItems.length + absentPatients.length;
+  const hasImminent = riskItems.some(r => r.riskLevel === "inminente");
 
   if (total === 0) {
     return (
@@ -277,7 +375,7 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
         <SectionLabel text="Radar de riesgo" icon={ShieldAlert} color={T.suc} />
         <div style={{
           display: "flex", alignItems: "center", gap: 12,
-          padding: "14px 16px", borderRadius: 12,
+          padding: "12px 14px", borderRadius: 12,
           background: T.sucA, border: `1px solid ${T.suc}22`,
         }}>
           <CheckCircle2 size={18} color={T.suc} strokeWidth={1.8} />
@@ -294,8 +392,8 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
     <Card
       style={{
         padding: isMobile ? "16px 18px" : "20px 22px",
-        border: riskItems.some(r => r.riskLevel === "inminente") ? `1.5px solid ${T.err}30` : undefined,
-        animation: riskItems.some(r => r.riskLevel === "inminente") ? "risk-glow 2.5s ease infinite" : "none",
+        border: hasImminent ? `1.5px solid ${T.err}30` : undefined,
+        animation: hasImminent ? "risk-glow 2.5s ease infinite" : "none",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -426,13 +524,11 @@ function AbsentRow({ name, days, lastSession, isLast, onClick }) {
 // 2 — HERO DE SESIÓN (Siguiente Paciente)
 // ─────────────────────────────────────────────────────────────────────────────
 function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobile }) {
-  // Find the next pending appointment
   const nextPending = useMemo(() =>
     todayAppts.filter(a => a.status !== "completada")[0] || null,
     [todayAppts]
   );
 
-  // Find last session for this patient
   const lastSession = useMemo(() => {
     if (!nextPending) return null;
     return sessions
@@ -444,7 +540,7 @@ function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobil
 
   if (todayAppts.length === 0) {
     return (
-      <Card style={{ padding: isMobile ? "22px 20px" : "28px 28px", display: "flex", flexDirection: "column", gap: 0, justifyContent: "center" }}>
+      <Card style={{ padding: isMobile ? "20px 18px" : "26px 28px", display: "flex", flexDirection: "column", gap: 0, justifyContent: "center" }}>
         <SectionLabel text="Próxima sesión" icon={Play} color={T.p} />
         <EmptyState
           icon={Calendar}
@@ -458,16 +554,16 @@ function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobil
 
   if (!nextPending) {
     return (
-      <Card style={{ padding: isMobile ? "22px 20px" : "28px 28px" }}>
+      <Card style={{ padding: isMobile ? "20px 18px" : "26px 28px" }}>
         <SectionLabel text="Sesiones de hoy" icon={CheckCircle2} color={T.suc} />
         <div style={{
           display: "flex", alignItems: "center", gap: 14,
-          padding: "16px 20px", borderRadius: 14,
+          padding: "16px 18px", borderRadius: 14,
           background: T.sucA, border: `1px solid ${T.suc}25`,
         }}>
-          <CheckCircle2 size={28} color={T.suc} strokeWidth={1.5} />
+          <CheckCircle2 size={26} color={T.suc} strokeWidth={1.5} />
           <div>
-            <p style={{ fontFamily: T.fH, fontSize: 20, fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.01em" }}>
+            <p style={{ fontFamily: T.fH, fontSize: isMobile ? 20 : 22, fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.01em" }}>
               Jornada completada
             </p>
             <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: "4px 0 0" }}>
@@ -480,34 +576,34 @@ function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobil
   }
 
   return (
-    <Card style={{ padding: isMobile ? "20px 20px" : "26px 28px", position: "relative", overflow: "hidden" }}>
-      {/* Subtle background accent */}
+    <Card style={{ padding: isMobile ? "18px 18px" : "24px 28px", position: "relative", overflow: "hidden" }}>
+      {/* Orb decorativo */}
       <div style={{
         position: "absolute", top: -40, right: -40,
         width: 160, height: 160, borderRadius: "50%",
-        background: T.pA, opacity: 0.5, pointerEvents: "none",
+        background: T.pA, opacity: 0.6, pointerEvents: "none",
       }} />
 
       <SectionLabel text="Próxima sesión" icon={Play} color={T.p} />
 
-      {/* Time badge */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 18 }}>
+      {/* Time badge + nombre */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
         <div style={{
-          flexShrink: 0, background: T.p, borderRadius: 14,
-          padding: "10px 14px", textAlign: "center",
-          minWidth: 56,
+          flexShrink: 0, background: T.p, borderRadius: 13,
+          padding: "9px 13px", textAlign: "center", minWidth: 54,
+          position: "relative", zIndex: 1,
         }}>
-          <div style={{ fontFamily: T.fB, fontSize: isMobile ? 20 : 22, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
+          <div style={{ fontFamily: T.fB, fontSize: isMobile ? 19 : 22, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
             {nextPending.time?.split(":").slice(0, 2).join(":") || "—"}
           </div>
           {nextPending.time && (
-            <div style={{ fontFamily: T.fB, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.65)", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ fontFamily: T.fB, fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,0.6)", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               HOY
             </div>
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, position: "relative", zIndex: 1 }}>
           <h2 style={{
             fontFamily: T.fH,
             fontSize: isMobile ? 24 : 30,
@@ -528,23 +624,20 @@ function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobil
         </div>
       </div>
 
-      {/* Last session summary */}
+      {/* Nota de última sesión */}
       {lastSession && (
         <div style={{
-          background: T.cardAlt,
-          border: `1px solid ${T.bdrL}`,
-          borderRadius: 12,
-          padding: "12px 16px",
-          marginBottom: 18,
+          background: T.cardAlt, border: `1px solid ${T.bdrL}`,
+          borderRadius: 11, padding: "11px 14px", marginBottom: 16,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
             <NotebookPen size={10} color={T.tl} strokeWidth={2} />
-            <span style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <span style={{ fontFamily: T.fB, fontSize: 9.5, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Última sesión · {fmtDate(lastSession.date)}
             </span>
           </div>
           <p style={{
-            fontFamily: T.fB, fontSize: 13, color: T.tm, margin: 0, lineHeight: 1.6,
+            fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: 0, lineHeight: 1.6,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
           }}>
             {lastSession.notes || lastSession.summary || "Sin notas registradas de la sesión anterior."}
@@ -552,9 +645,9 @@ function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobil
         </div>
       )}
 
-      {/* Progress: sessions done today */}
+      {/* Progreso del día */}
       {completedToday > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
           <div style={{ flex: 1, height: 3, borderRadius: 9999, background: T.bdrL, overflow: "hidden" }}>
             <div style={{
               height: "100%", borderRadius: 9999, background: T.p,
@@ -594,11 +687,12 @@ function AgendaTimeline({ todayAppts, nextAppt, onStartSession, onNavigate, isMo
         {nextAppt ? (
           <div style={{
             display: "flex", alignItems: "center", gap: 12,
-            padding: "12px 14px", borderRadius: 12,
+            padding: "12px 14px", borderRadius: 11,
             background: T.cardAlt, border: `1px solid ${T.bdrL}`,
           }}>
             <div style={{
-              width: 38, height: 38, borderRadius: 10, background: T.pA,
+              width: 40, height: 40, borderRadius: 10, background: T.pA,
+              border: `1px solid ${T.p}18`,
               display: "flex", flexDirection: "column", alignItems: "center",
               justifyContent: "center", flexShrink: 0,
             }}>
@@ -653,27 +747,20 @@ function AgendaRow({ appt, onStart, isLast, isFirst }) {
   const [hov, setHov] = useState(false);
   const isPending = !done;
   return (
-    <div style={{
-      display: "flex", alignItems: "stretch", gap: 0,
-    }}>
+    <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
       {/* Timeline column */}
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center",
-        width: 40, flexShrink: 0, marginRight: 12,
+        width: 36, flexShrink: 0, marginRight: 10,
       }}>
-        {/* Time dot */}
         <div style={{
-          width: 10, height: 10, borderRadius: "50%", flexShrink: 0, marginTop: 14,
-          background: done ? T.suc : isPending ? T.p : T.bdr,
+          width: 9, height: 9, borderRadius: "50%", flexShrink: 0, marginTop: 14,
+          background: done ? T.suc : T.p,
           border: done ? `2px solid ${T.suc}40` : `2px solid ${T.p}30`,
-          transition: "all 0.15s ease",
           zIndex: 1,
         }} />
-        {/* Connector line */}
         {!isLast && (
-          <div style={{
-            flex: 1, width: 1.5, background: T.bdrL, minHeight: 16, marginTop: 2,
-          }} />
+          <div style={{ flex: 1, width: 1.5, background: T.bdrL, minHeight: 14, marginTop: 2 }} />
         )}
       </div>
 
@@ -682,13 +769,13 @@ function AgendaRow({ appt, onStart, isLast, isFirst }) {
         onMouseEnter={() => setHov(true)}
         onMouseLeave={() => setHov(false)}
         style={{
-          flex: 1, display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 10px 10px 0",
+          flex: 1, display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 8px 10px 0",
           opacity: done ? 0.55 : 1, transition: "opacity 0.15s ease",
           borderRadius: 8,
         }}
       >
-        <div style={{ flexShrink: 0, textAlign: "right", width: 42 }}>
+        <div style={{ flexShrink: 0, textAlign: "right", width: 40 }}>
           <span style={{
             fontFamily: T.fB, fontSize: 12.5, fontWeight: 700,
             color: done ? T.tl : T.p, letterSpacing: "0.01em",
@@ -698,13 +785,13 @@ function AgendaRow({ appt, onStart, isLast, isFirst }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontFamily: T.fH, fontSize: 15, fontWeight: 500, color: T.t,
+            fontFamily: T.fH, fontSize: 14.5, fontWeight: 500, color: T.t,
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             letterSpacing: "-0.01em",
           }}>
             {appt.patientName?.split(" ").slice(0, 2).join(" ")}
           </div>
-          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 1 }}>{appt.type}</div>
+          <div style={{ fontFamily: T.fB, fontSize: 10.5, color: T.tl, marginTop: 1 }}>{appt.type}</div>
         </div>
         {done ? (
           <Badge variant="success" dot>Completada</Badge>
@@ -730,7 +817,6 @@ function AgendaRow({ appt, onStart, isLast, isFirst }) {
 // 4 — CHECKLIST DE COMPLIANCE
 // ─────────────────────────────────────────────────────────────────────────────
 function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isMobile }) {
-  // Consentimientos con problema
   const consentIssues = useMemo(() =>
     patients
       .filter(p => (p.status || "activo") === "activo")
@@ -739,7 +825,6 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
     [patients]
   );
 
-  // Sesiones sin notas de cierre (heurístico: status completada pero sin notes)
   const unclosedSessions = useMemo(() =>
     sessions
       .filter(s => s.status === "completada" && !s.notes && !s.summary)
@@ -755,7 +840,11 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
     <Card style={{ padding: isMobile ? "16px 18px" : "20px 22px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <SectionLabel text="Compliance" icon={ListChecks} color={allClear ? T.suc : T.war} />
-        {!allClear && <Badge variant={allClear ? "success" : "warning"} dot>{totalIssues} pendiente{totalIssues > 1 ? "s" : ""}</Badge>}
+        {!allClear && (
+          <Badge variant={allClear ? "success" : "warning"} dot>
+            {totalIssues} pendiente{totalIssues > 1 ? "s" : ""}
+          </Badge>
+        )}
       </div>
 
       {allClear ? (
@@ -769,8 +858,7 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {/* Consentimientos */}
-          {consentIssues.map((p, idx) => {
+          {consentIssues.map((p) => {
             const cs = consentStatus(p);
             const cfg = CONSENT_STATUS_CONFIG[cs];
             return (
@@ -785,8 +873,7 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
             );
           })}
 
-          {/* Notas sin cerrar */}
-          {unclosedSessions.map((s, idx) => {
+          {unclosedSessions.map((s) => {
             const patient = patients.find(p => p.id === s.patientId);
             return (
               <ComplianceItem
@@ -800,7 +887,6 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
             );
           })}
 
-          {/* Tareas pendientes */}
           {(pendingTasks ?? 0) > 0 && (
             <ComplianceItem
               icon={ClipboardList}
@@ -832,7 +918,7 @@ function ComplianceItem({ icon: Icon, label, color, bg, onClick }) {
       }}
     >
       <div style={{
-        width: 28, height: 28, borderRadius: 7, background: bg,
+        width: 27, height: 27, borderRadius: 7, background: bg,
         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
         border: `1px solid ${color}20`,
       }}>
@@ -854,13 +940,19 @@ function ComplianceItem({ icon: Icon, label, color, bg, onClick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,                       module: "sessions" },
-    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: null,                                module: "agenda" },
-    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: null,                                module: "finance" },
+    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,  module: "sessions" },
+    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: null,           module: "agenda" },
+    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: null,           module: "finance" },
   ];
+
   return (
     <FadeUp delay={0.22}>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 8, marginTop: 16 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+        gap: isMobile ? 6 : 8,
+        marginTop: isMobile ? 12 : 16,
+      }}>
         {actions.map((a, idx) => {
           const [hov, setHov] = useState(false);
           const ActionIcon = a.icon;
@@ -871,12 +963,14 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
               onMouseEnter={() => setHov(true)}
               onMouseLeave={() => setHov(false)}
               style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "11px 16px", borderRadius: 12,
+                display: "flex", alignItems: "center", gap: 10,
+                padding: isMobile ? "12px 16px" : "11px 16px",
+                borderRadius: 12,
                 border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
                 background: hov ? a.bg : T.card,
                 cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "left",
                 transform: hov ? "translateY(-1px)" : "none",
-                boxShadow: hov ? `0 4px 14px rgba(26,43,40,0.07)` : "none",
+                boxShadow: hov ? T.shM : "none",
                 animation: `op-up 0.38s ease ${idx * 0.04}s both`,
               }}
             >
@@ -887,7 +981,10 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
               }}>
                 <ActionIcon size={14} color={a.color} strokeWidth={1.7} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: hov ? T.t : T.tm }}>{a.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: hov ? T.t : T.tm, flex: 1 }}>
+                {a.label}
+              </span>
+              <ChevronRight size={13} color={hov ? a.color : T.tl} strokeWidth={2.5} strokeOpacity={0.7} />
             </button>
           );
         })}
@@ -918,7 +1015,7 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }
   const pct = Math.round((completed / total) * 100);
 
   return (
-    <FadeUp delay={0.03} style={{ marginBottom: 16 }}>
+    <FadeUp delay={0.03} style={{ marginBottom: 12 }}>
       <div style={{ background: T.card, border: `1px solid ${T.bdrL}`, borderRadius: 12, overflow: "hidden" }}>
         <button
           onClick={() => setOpen(v => !v)}
@@ -1097,12 +1194,11 @@ export default function Dashboard({
   }, [riskAssessments, sessions, patients]);
 
   // ── Layout helpers ────────────────────────────────────────────────────────
-  const twoCol   = !isMobile;
-  const gridGap  = isMobile ? 12 : 14;
-  const outerPad = isMobile ? 0 : 0;
+  // [mobile-audit] Grid system: móvil = 1 col, no-móvil = 2 col con variaciones
+  const gridGap = isMobile ? 10 : 14;
 
   return (
-    <div style={{ maxWidth: 900, paddingBottom: 40 }}>
+    <div style={{ maxWidth: 960, paddingBottom: 40 }}>
 
       {/* ── 0. WELCOME BANNER ─────────────────────────────────────────── */}
       <WelcomeBanner
@@ -1125,64 +1221,125 @@ export default function Dashboard({
         <WelcomeGuide onNavigate={onNavigate} />
       ) : (
         <>
-          {/* ── FILA SUPERIOR: Radar + Hero ────────────────────────────── */}
-          <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: twoCol ? "1fr 1.15fr" : "1fr",
-              gap: gridGap,
-              alignItems: "start",
-            }}>
-              {/* RADAR DE RIESGO */}
-              <RiskRadar
-                patients={patients}
-                sessions={sessions}
-                riskAssessments={riskAssessments}
-                todayStr={todayStr}
-                onNavigate={onNavigate}
-                isMobile={isMobile}
-              />
+          {/* ── STAT STRIP — solo desktop ──────────────────────────────── */}
+          <StatStrip
+            patients={patients}
+            sessions={sessions}
+            todayAppts={todayAppts}
+            urgentCount={urgentCount}
+            payments={payments}
+            isMobile={isMobile}
+          />
 
-              {/* HERO DE SESIÓN */}
-              <SessionHero
-                todayAppts={todayAppts}
-                sessions={sessions}
-                onStartSession={onStartSession}
-                onNavigate={onNavigate}
-                isMobile={isMobile}
-              />
-            </div>
-          </FadeUp>
+          {/* ── MÓVIL: Hero primero, luego Radar ──────────────────────── */}
+          {isMobile && (
+            <>
+              {/* [mobile-audit] Próxima sesión al tope — acción principal */}
+              <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
+                <SessionHero
+                  todayAppts={todayAppts}
+                  sessions={sessions}
+                  onStartSession={onStartSession}
+                  onNavigate={onNavigate}
+                  isMobile={isMobile}
+                />
+              </FadeUp>
 
-          {/* ── FLUJO DE TRABAJO: Agenda + Compliance ──────────────────── */}
-          <FadeUp delay={0.14} style={{ marginBottom: gridGap }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: twoCol ? "1.15fr 1fr" : "1fr",
-              gap: gridGap,
-              alignItems: "start",
-            }}>
-              {/* AGENDA DEL DÍA */}
-              <AgendaTimeline
-                todayAppts={todayAppts}
-                nextAppt={nextAppt}
-                onStartSession={onStartSession}
-                onNavigate={onNavigate}
-                isMobile={isMobile}
-              />
+              {/* [mobile-audit] Radar compacto debajo del hero */}
+              <FadeUp delay={0.12} style={{ marginBottom: gridGap }}>
+                <RiskRadar
+                  patients={patients}
+                  sessions={sessions}
+                  riskAssessments={riskAssessments}
+                  todayStr={todayStr}
+                  onNavigate={onNavigate}
+                  isMobile={isMobile}
+                />
+              </FadeUp>
 
-              {/* CHECKLIST DE COMPLIANCE */}
-              <ComplianceChecklist
-                patients={patients}
-                pendingTasks={pendingTasks}
-                sessions={sessions}
-                onNavigate={onNavigate}
-                isMobile={isMobile}
-              />
-            </div>
-          </FadeUp>
+              {/* [mobile-audit] Agenda timeline */}
+              <FadeUp delay={0.16} style={{ marginBottom: gridGap }}>
+                <AgendaTimeline
+                  todayAppts={todayAppts}
+                  nextAppt={nextAppt}
+                  onStartSession={onStartSession}
+                  onNavigate={onNavigate}
+                  isMobile={isMobile}
+                />
+              </FadeUp>
 
-          {/* ── ACCESO RÁPIDO ──────────────────────────────────────────── */}
+              {/* [mobile-audit] Compliance */}
+              <FadeUp delay={0.20} style={{ marginBottom: gridGap }}>
+                <ComplianceChecklist
+                  patients={patients}
+                  pendingTasks={pendingTasks}
+                  sessions={sessions}
+                  onNavigate={onNavigate}
+                  isMobile={isMobile}
+                />
+              </FadeUp>
+            </>
+          )}
+
+          {/* ── TABLET / DESKTOP: Grid 2 col ──────────────────────────── */}
+          {!isMobile && (
+            <>
+              {/* FILA 1: Radar + Hero */}
+              {/* [mobile-audit] grid 2 col — radar izq, sesión der */}
+              <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1.15fr",
+                  gap: gridGap,
+                  alignItems: "start",
+                }}>
+                  <RiskRadar
+                    patients={patients}
+                    sessions={sessions}
+                    riskAssessments={riskAssessments}
+                    todayStr={todayStr}
+                    onNavigate={onNavigate}
+                    isMobile={isMobile}
+                  />
+                  <SessionHero
+                    todayAppts={todayAppts}
+                    sessions={sessions}
+                    onStartSession={onStartSession}
+                    onNavigate={onNavigate}
+                    isMobile={isMobile}
+                  />
+                </div>
+              </FadeUp>
+
+              {/* FILA 2: Agenda + Compliance */}
+              {/* [mobile-audit] grid 2 col — agenda más ancha */}
+              <FadeUp delay={0.14} style={{ marginBottom: gridGap }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.15fr 1fr",
+                  gap: gridGap,
+                  alignItems: "start",
+                }}>
+                  <AgendaTimeline
+                    todayAppts={todayAppts}
+                    nextAppt={nextAppt}
+                    onStartSession={onStartSession}
+                    onNavigate={onNavigate}
+                    isMobile={isMobile}
+                  />
+                  <ComplianceChecklist
+                    patients={patients}
+                    pendingTasks={pendingTasks}
+                    sessions={sessions}
+                    onNavigate={onNavigate}
+                    isMobile={isMobile}
+                  />
+                </div>
+              </FadeUp>
+            </>
+          )}
+
+          {/* ── ACCIONES RÁPIDAS — todos los breakpoints ──────────────── */}
           <QuickBar
             onQuickNav={onQuickNav}
             onNewSession={onNewSession}
