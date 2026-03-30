@@ -1152,7 +1152,20 @@ export default function Dashboard({
   onStartSession,
   onNewSession,
 }) {
-  const isMobile     = useIsMobile();
+  // [mobile-audit] useIsMobile() puede usar un threshold distinto según el proyecto.
+  // Guard adicional sobre window.innerWidth para garantizar que el layout de 2 col
+  // y la StatStrip nunca aparezcan en pantallas < 768px.
+  const isMobileHook = useIsMobile();
+  const [winWidth, setWinWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
+  useEffect(() => {
+    const handler = () => setWinWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  const isMobile = isMobileHook || winWidth < 768;
+
   const pendingTasks = usePendingTasks();
   const todayStr     = fmt(todayDate);
 
