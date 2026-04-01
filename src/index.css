@@ -22,6 +22,8 @@
   --border-l:    #EDF1F0;
   --shadow:      0 2px 8px rgba(0,0,0,0.06);
   --shadow-m:    0 8px 28px rgba(0,0,0,0.10);
+  /* Ancho máximo de contenido — se expande en pantallas anchas */
+  --content-max: 960px;
 }
 
 [data-theme="dark"] {
@@ -125,3 +127,16 @@ select:focus {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ── WIDE LAYOUT (≥1280px) ───────────────────────────────────────────────── */
+/* Amplía el ancho máximo del contenido aprovechando el espacio lateral       */
+@media (min-width: 1280px) {
+  :root {
+    --content-max: none;
+  }
+}
+
+/* Clamp suave para módulos que usan maxWidth fijo (Sessions, Finance, etc.)  */
+/* Permite que el contenido respire en pantallas grandes sin saltar a full-   */
+/* width de forma brusca. Usar: className no aplica aquí — se usa via JS     */
+/* en módulos que lo necesiten con: style={{ maxWidth: "var(--content-max)" }}*/

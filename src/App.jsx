@@ -7,6 +7,7 @@ import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { Menu, Brain } from "lucide-react";
 import { T } from "./theme.js";
 import { useIsMobile }      from "./hooks/useIsMobile.js";
+import { useIsWide }        from "./hooks/useIsWide.js";
 import { useNotifications } from "./hooks/useNotifications.js";
 import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
@@ -75,6 +76,7 @@ export default function App() {
   const darkMode = darkPref === "auto" ? systemDark : darkPref === "dark";
 
   const isMobile      = useIsMobile();
+  const isWide        = useIsWide();
   const patientsNavRef= useRef(null);
 
   console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
@@ -373,7 +375,7 @@ export default function App() {
           <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
         </div>
 
-        <main style={{ flex:1, padding:isMobile?"20px 18px 32px":"36px 40px", overflowY:"auto", minHeight:0 }}>
+        <main style={{ flex:1, padding:isMobile?"20px 18px 32px":isWide?"40px 56px":"36px 40px", overflowY:"auto", minHeight:0 }}>
           <Suspense fallback={
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"60vh" }}>
               <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
