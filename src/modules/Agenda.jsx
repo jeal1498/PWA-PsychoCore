@@ -5,6 +5,7 @@ import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 import DynamicSummary from "../components/DynamicSummary.jsx";
 
 // ── Keyframes — mismos que Dashboard ─────────────────────────────────────────
@@ -863,6 +864,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const fld  = k => v => setForm(f => ({ ...f, [k]: v }));
   const sfld = k => v => setSessionForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
+  const isWide   = useIsWide();
 
   const year = current.getFullYear(), month = current.getMonth();
   const firstDay    = new Date(year, month, 1).getDay();
@@ -1061,7 +1063,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   );
 
   return (
-    <div style={{ maxWidth:960, paddingBottom:40 }}>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom:40 }}>
 
       <PageHeader
         title="Agenda"

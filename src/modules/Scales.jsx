@@ -3,6 +3,8 @@ import { ClipboardList, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, Tr
 import { T } from "../theme.js";
 import { uid, fmt, todayDate, fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCALE DEFINITIONS
@@ -993,6 +995,8 @@ function PatientSummary({ patient, results, profile }) {
 // MAIN MODULE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Scales({ scaleResults = [], setScaleResults, patients = [], profile }) {
+  const isMobile = useIsMobile();
+  const isWide   = useIsWide();
   const [tab,        setTab]       = useState("results");
   const [showForm,   setShowForm]  = useState(false);
   const [activeScale,setActiveScale] = useState("PHQ9");
@@ -1036,7 +1040,7 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
   const [showAllScales, setShowAllScales] = useState(false);
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Escalas Psicométricas"
         subtitle={`${scaleResults.length} ${scaleResults.length !== 1 ? "aplicaciones" : "aplicación"} registrada${scaleResults.length !== 1 ? "s" : ""}`}

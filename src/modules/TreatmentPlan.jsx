@@ -3,6 +3,7 @@ import { Target, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, CheckCirc
 import { T } from "../theme.js";
 import { uid, fmt, todayDate, fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
+import { useIsWide } from "../hooks/useIsWide.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -962,6 +963,7 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
   const [showNew,   setShowNew]   = useState(false);
   const [newForm,   setNewForm]   = useState(BLANK_PLAN);
   const [filterStatus, setFilterStatus] = useState("todos");
+  const isWide = useIsWide();
 
   const filtered = useMemo(() =>
     treatmentPlans.filter(p => filterStatus === "todos" || p.status === filterStatus),
@@ -1011,7 +1013,7 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
 
   // List view
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Tratamiento"
         subtitle={`${treatmentPlans.length} plan${treatmentPlans.length !== 1 ? "es" : ""} · ${totalActive} activo${totalActive !== 1 ? "s" : ""} · ${patientsWithPlan} paciente${patientsWithPlan !== 1 ? "s" : ""}`}

@@ -8,6 +8,7 @@ import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { emit } from "../lib/eventBus.js"; // FASE 2
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
 
@@ -1016,6 +1017,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     return () => window.removeEventListener("resize", onResize);
   }, []);
   const isMobileView = windowWidth < 768;
+  const isWide   = useIsWide();
 
   const [filterPt,     setFilterPt]     = useState("");
   const [showAdd,      setShowAdd]      = useState(!!prefill);
@@ -1532,7 +1534,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   };
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader title="Notas de Sesión"
         subtitle={`${sessions.length} nota${sessions.length!==1?"s":""} registrada${sessions.length!==1?"s":""}`}
         action={<Btn onClick={() => { setForm(blankForm); setShowAdd(true); }}><Plus size={15}/> Nueva nota</Btn>}

@@ -9,6 +9,7 @@ import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur } from "../utils.js";
 import { Card, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 // FIX D1: import emit para ui:toast desde el event bus existente
 import { emit } from "../lib/eventBus.js";
 
@@ -690,6 +691,7 @@ export default function Finance({
   };
 
   const isMobile = useIsMobile();
+  const isWide   = useIsWide();
 
   const availableYears = useMemo(() => {
     const ys = new Set([String(new Date().getFullYear())]);
@@ -964,7 +966,7 @@ export default function Finance({
   );
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Finanzas"
         subtitle="Ingresos, gastos y reportes del consultorio"

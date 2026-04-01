@@ -4,6 +4,7 @@ import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { Btn, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 import { SCALES, getSeverity } from "./Scales.jsx";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 
@@ -559,6 +560,7 @@ export default function Reports({ patients = [], sessions = [], scaleResults = [
   const [customFields, setCustomFields]            = useState({});
   const [generated, setGenerated]                 = useState(false);
   const isMobile = useIsMobile();
+  const isWide   = useIsWide();
 
   const patient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
 
@@ -604,7 +606,7 @@ export default function Reports({ patients = [], sessions = [], scaleResults = [
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Informes"
         subtitle="Generación automática de informes a partir del expediente clínico"

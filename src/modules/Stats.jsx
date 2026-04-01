@@ -4,6 +4,7 @@ import { T, MONTHS_ES } from "../theme.js";
 import { fmtCur, fmt, todayDate } from "../utils.js";
 import { Card, PageHeader, Badge, Select, EmptyState } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
@@ -439,6 +440,7 @@ function AdherenciaSection({ patients, sessions, isMobile }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Stats({ patients = [], appointments = [], sessions = [], payments = [], services = [], riskAssessments = [], scaleResults = [] }) {
   const isMobile = useIsMobile();
+  const isWide   = useIsWide();
   const now = new Date();
 
   // ── Last 6 months labels ──
@@ -621,7 +623,7 @@ export default function Stats({ patients = [], appointments = [], sessions = [],
   const DIAG_COLORS = [T.p, T.acc, T.suc, "#6B5B9E", T.war, T.err];
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader title="Estadísticas" subtitle="Análisis de tu práctica clínica"/>
 
       {/* ══ KPI row ══════════════════════════════════════════════════════════ */}

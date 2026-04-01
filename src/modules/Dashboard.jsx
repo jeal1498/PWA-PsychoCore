@@ -13,6 +13,7 @@ import {
 } from "../utils.js";
 import { Card, Badge, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 import {
   Users, Calendar, Clock, FileText, ChevronRight,
   ShieldAlert, DollarSign, CheckCircle2, AlertCircle,
@@ -994,6 +995,128 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// QUICK SIDEBAR — columna derecha exclusiva de layout wide (≥1280px)
+// Acciones rápidas + resumen numérico del día para el clínico
+// ─────────────────────────────────────────────────────────────────────────────
+function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }) {
+  const actions = [
+    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,                      module: "sessions" },
+    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: () => onQuickNav("agenda",  "add"), module: "agenda"   },
+    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: () => onQuickNav("finance", "add"), module: "finance"  },
+    { label: "Nuevo paciente",     icon: Users,      color: T.acc, bg: T.accA, handler: () => onQuickNav("patients","add"), module: "patients" },
+  ];
+
+  const now = new Date();
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthlyIncome = payments
+    .filter(p => p.date?.startsWith(monthStr) && p.status === "pagado")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const activePatients = patients.filter(p => (p.status || "activo") === "activo").length;
+
+  const thisMonthSessions = sessions.filter(s => s.date?.startsWith(monthStr)).length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Acciones rápidas */}
+      <div style={{
+        background: T.card,
+        border: `1px solid ${T.bdrL}`,
+        borderRadius: 16,
+        padding: "16px 16px 12px",
+      }}>
+        <SectionLabel text="Acciones rápidas" icon={Sparkles} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {actions.map((a, idx) => {
+            const [hov, setHov] = useState(false);
+            const ActionIcon = a.icon;
+            return (
+              <button
+                key={a.label}
+                onClick={a.handler}
+                onMouseEnter={() => setHov(true)}
+                onMouseLeave={() => setHov(false)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
+                  background: hov ? a.bg : "transparent",
+                  cursor: "pointer", transition: "all .16s ease",
+                  fontFamily: T.fB, textAlign: "left",
+                  animation: `op-up 0.35s ease ${idx * 0.04}s both`,
+                }}
+              >
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, background: a.bg, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <ActionIcon size={13} color={a.color} strokeWidth={1.7} />
+                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 500, color: hov ? T.t : T.tm, flex: 1 }}>
+                  {a.label}
+                </span>
+                <ChevronRight size={12} color={hov ? a.color : T.tl} strokeWidth={2.5} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Resumen del mes */}
+      <div style={{
+        background: T.card,
+        border: `1px solid ${T.bdrL}`,
+        borderRadius: 16,
+        padding: "16px 16px 14px",
+      }}>
+        <SectionLabel text="Resumen del mes" icon={TrendingUp} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { label: "Pacientes activos", value: activePatients, icon: Users,    color: T.p   },
+            { label: "Sesiones realizadas", value: thisMonthSessions, icon: FileText, color: T.suc },
+            { label: "Ingresos cobrados",  value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—", icon: DollarSign, color: T.acc, small: true },
+          ].map(s => {
+            const StatIcon = s.icon;
+            return (
+              <div key={s.label} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 10px",
+                borderRadius: 10,
+                background: T.bg,
+                border: `1px solid ${T.bdrL}`,
+              }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: 7,
+                  background: s.color + "14",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <StatIcon size={12} color={s.color} strokeWidth={1.8} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, lineHeight: 1 }}>{s.label}</div>
+                </div>
+                <div style={{
+                  fontFamily: T.fH,
+                  fontSize: s.small ? 16 : 20,
+                  fontWeight: 500,
+                  color: T.t,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}>
+                  {s.value}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PROFILE SETUP BAR (intacto, colapsado por defecto)
 // ─────────────────────────────────────────────────────────────────────────────
 function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }) {
@@ -1211,7 +1334,7 @@ export default function Dashboard({
   const gridGap = isMobile ? 10 : 14;
 
   return (
-    <div style={{ maxWidth: 960, paddingBottom: 40 }}>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
 
       {/* ── 0. WELCOME BANNER ─────────────────────────────────────────── */}
       <WelcomeBanner
@@ -1294,8 +1417,8 @@ export default function Dashboard({
             </>
           )}
 
-          {/* ── TABLET / DESKTOP: Grid 2 col ──────────────────────────── */}
-          {!isMobile && (
+          {/* ── TABLET / DESKTOP (768–1279px): Grid 2 col ────────────── */}
+          {!isMobile && !isWide && (
             <>
               {/* FILA 1: Radar + Hero */}
               {/* [mobile-audit] grid 2 col — radar izq, sesión der */}
@@ -1352,12 +1475,82 @@ export default function Dashboard({
             </>
           )}
 
-          {/* ── ACCIONES RÁPIDAS — todos los breakpoints ──────────────── */}
-          <QuickBar
-            onQuickNav={onQuickNav}
-            onNewSession={onNewSession}
-            isMobile={isMobile}
-          />
+          {/* ── WIDE ≥1280px: Grid 3 col (izq · centro · der) ────────── */}
+          {!isMobile && isWide && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1.55fr 1fr",
+              gap: 18,
+              alignItems: "start",
+            }}>
+              {/* COLUMNA IZQUIERDA — vigilancia clínica */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <FadeUp delay={0.06}>
+                  <RiskRadar
+                    patients={patients}
+                    sessions={sessions}
+                    riskAssessments={riskAssessments}
+                    todayStr={todayStr}
+                    onNavigate={onNavigate}
+                    isMobile={false}
+                  />
+                </FadeUp>
+                <FadeUp delay={0.10}>
+                  <ComplianceChecklist
+                    patients={patients}
+                    pendingTasks={pendingTasks}
+                    sessions={sessions}
+                    onNavigate={onNavigate}
+                    isMobile={false}
+                  />
+                </FadeUp>
+              </div>
+
+              {/* COLUMNA CENTRAL — acción principal del día */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <FadeUp delay={0.08}>
+                  <SessionHero
+                    todayAppts={todayAppts}
+                    sessions={sessions}
+                    onStartSession={onStartSession}
+                    onNavigate={onNavigate}
+                    isMobile={false}
+                  />
+                </FadeUp>
+                <FadeUp delay={0.12}>
+                  <AgendaTimeline
+                    todayAppts={todayAppts}
+                    nextAppt={nextAppt}
+                    onStartSession={onStartSession}
+                    onNavigate={onNavigate}
+                    isMobile={false}
+                  />
+                </FadeUp>
+              </div>
+
+              {/* COLUMNA DERECHA — acciones rápidas + resumen contextual */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <FadeUp delay={0.10}>
+                  <QuickSidebar
+                    onQuickNav={onQuickNav}
+                    onNewSession={onNewSession}
+                    patients={patients}
+                    sessions={sessions}
+                    payments={payments}
+                  />
+                </FadeUp>
+              </div>
+            </div>
+          )}
+
+          {/* ── ACCIONES RÁPIDAS — solo móvil y tablet ────────────────── */}
+          {(isMobile || !isWide) && (
+            <QuickBar
+              onQuickNav={onQuickNav}
+              onNewSession={onNewSession}
+              isMobile={isMobile}
+            />
+          )}
         </>
       )}
     </div>

@@ -10,6 +10,8 @@ import { Card, Badge, Modal, Select, Textarea, Btn, EmptyState, PageHeader } fro
 import { TEMPLATES_LIST, TASK_CATEGORIES, getTemplate } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getAllAssignments, deleteAssignment, getResponsesByAssignment } from "../lib/supabase.js";
 import { emit } from "../lib/eventBus.js"; // FASE 3
+import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
@@ -361,6 +363,8 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Tasks({ patients, sessions = [], onNavigate }) {
+  const isMobile = useIsMobile();
+  const isWide   = useIsWide();
   const [view,          setView]          = useState("dashboard"); // "dashboard" | "manage"
   const [assignments,   setAssignments]   = useState([]);
   const [loading,       setLoading]       = useState(false);
@@ -449,7 +453,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
   const canSave = selPatient && selTemplate;
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Tareas"
         subtitle="Respuestas de pacientes y gestión de tareas"

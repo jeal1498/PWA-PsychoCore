@@ -3,6 +3,8 @@ import { ShieldAlert, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, Aler
 import { T } from "../theme.js";
 import { uid, fmt, todayDate, fmtDate } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
+import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 // ── Risk level config ─────────────────────────────────────────────────────────
 export const RISK_CONFIG = {
@@ -534,6 +536,8 @@ Esta acción no se puede deshacer.`)) onDelete(a.id);
 
 // ── Main module ───────────────────────────────────────────────────────────────
 export default function RiskAssessment({ riskAssessments = [], setRiskAssessments, patients = [], profile }) {
+  const isMobile = useIsMobile();
+  const isWide   = useIsWide();
   const [showForm, setShowForm] = useState(false);
   const [filterPt, setFilterPt] = useState("");
   const [filterLevel, setFilterLevel] = useState("todos");
@@ -570,7 +574,7 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
   const del = (id) => setRiskAssessments(prev => prev.filter(a => a.id !== id));
 
   return (
-    <div>
+    <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Riesgo"
         subtitle={`${riskAssessments.length} ${riskAssessments.length !== 1 ? "evaluaciones" : "evaluación"} registrada${riskAssessments.length !== 1 ? "s" : ""}${alertCount > 0 ? ` · ${alertCount} en nivel alto/inminente` : ""}`}
