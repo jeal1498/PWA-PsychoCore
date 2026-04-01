@@ -1109,7 +1109,6 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
 export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [], appointments = [], setAppointments }) {
   const [search,       setSearch]       = useState("");
   const [filterChip,   setFilterChip]   = useState("todos");
-  const [expandedRows, setExpandedRows] = useState({});
   const [showAdd,      setShowAdd]      = useState(false);
   const [showPC,       setShowPC]       = useState(false);
   const [editTarget,   setEditTarget]   = useState(null);
@@ -1491,8 +1490,13 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             display:isMobile ? "none" : "flex", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
             <span style={{ fontFamily:T.fH, fontSize:30, color:T.p, lineHeight:1 }}>{selected.name[0]}</span>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-            <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+            <select value={selected.status || "activo"} onChange={e => setStatus(selected.id, e.target.value)}
+              style={{ appearance:"none", padding:"4px 10px", borderRadius:9999, fontFamily:T.fB,
+                fontSize:11, fontWeight:700, letterSpacing:"0.04em", border:"none",
+                cursor:"pointer", background:sc.bg, color:sc.color, flexShrink:0 }}>
+              {Object.entries(STATUS_CONFIG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
             <Badge color={tc.color} bg={tc.bg}>{tc.label}</Badge>
             {selected.linkedTo && (
               <Badge color={T.p} bg={T.pA}>🔗 Reingreso</Badge>
@@ -1913,7 +1917,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   <span style={{ padding:"4px 11px", borderRadius:9999, fontFamily:T.fB, fontSize:11.5, fontWeight:700, background:sc.bg, color:sc.color }}>{sc.label}</span>
                   {selected.activeRiskAlert && (
                     <span style={{ padding:"4px 11px", borderRadius:9999, fontFamily:T.fB, fontSize:11.5, fontWeight:700, background:"rgba(184,80,80,0.25)", color:"#D4837A", display:"flex", alignItems:"center", gap:4 }}>
-                      <div style={{ width:6, height:6, borderRadius:"50%", background:"#D4837A", animation:"pulse 2s ease-in-out infinite" }}/>
+                      <div style={{ width:6, height:6, borderRadius:"50%", background:"#D4837A", animation:"pc-pulse 2s ease-in-out infinite" }}/>
                       Riesgo alto
                     </span>
                   )}
