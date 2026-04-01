@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 export const NAV_ITEMS = [
   { id:"dashboard",  icon:Home,           label:"Inicio"            },
@@ -19,6 +20,7 @@ export const NAV_ITEMS = [
 
 export default function Sidebar({ active, setActive, onLock, open, onClose, profile, riskAlert = false }) {
   const isMobile = useIsMobile();
+  const isWide   = useIsWide();
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape" && open) onClose(); };
@@ -34,7 +36,7 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
 
   const sidebarStyle = isMobile
     ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
-    : { width:220, background:T.nav, display:"flex", flexDirection:"column", flexShrink:0, minHeight:"100vh", position:"sticky", top:0 };
+    : { width: isWide ? 248 : 220, background:T.nav, display:"flex", flexDirection:"column", flexShrink:0, minHeight:"100vh", position:"sticky", top:0 };
 
   return (
     <>
