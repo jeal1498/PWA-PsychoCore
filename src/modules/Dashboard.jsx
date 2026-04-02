@@ -1288,6 +1288,7 @@ export default function Dashboard({
     return () => window.removeEventListener("resize", handler);
   }, []);
   const isMobile = isMobileHook || winWidth < 768;
+  const isWide   = useIsWide();
 
   const pendingTasks = usePendingTasks();
   const todayStr     = fmt(todayDate);
