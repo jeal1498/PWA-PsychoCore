@@ -10,6 +10,7 @@
 //
 // CATÁLOGO DE EVENTOS:
 //   session:created  { patientId, patientName, sessionId, date }
+//   session:save     {}  — dispara guardado desde Ctrl+S global
 //   risk:elevated    { patientId, patientName, sessionId, level }
 //   task:assigned    { patientId, patientName, sessionId, count }
 //   payment:created  { patientId, patientName, sessionId, amount, method }
@@ -39,6 +40,7 @@ export const bus = createBus();
 // ── Helpers semánticos ────────────────────────────────────────────────────────
 export const emit = {
   sessionCreated: (data) => bus.emit("session:created",  data),
+  sessionSave:   ()     => bus.emit("session:save",      {}),
   riskElevated:   (data) => bus.emit("risk:elevated",    data),
   taskAssigned:   (data) => bus.emit("task:assigned",    data),
   paymentCreated: (data) => bus.emit("payment:created",  data),
