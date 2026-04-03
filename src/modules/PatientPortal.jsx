@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CheckCircle2, ChevronRight, ClipboardList, ArrowLeft, Send, Loader,
-  FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2,
+  FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2, Brain,
 } from "lucide-react";
 import {
   getAssignmentsByPhone,
@@ -500,7 +500,7 @@ function SuccessScreen({ onBack }) {
           background:"transparent", color:P.p,
           fontFamily:P.fB, fontSize:14, fontWeight:600, cursor:"pointer",
         }}>
-        Ver mis tareas
+        Ver mis actividades
       </button>
     </div>
   );
@@ -529,7 +529,7 @@ function ConsentDoneScreen({ onBack }) {
           background:"transparent", color:P.p,
           fontFamily:P.fB, fontSize:14, fontWeight:600, cursor:"pointer",
         }}>
-        Volver a mis tareas
+        Volver a mi espacio
       </button>
     </div>
   );
@@ -946,14 +946,15 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{
-              width:42, height:42, borderRadius:13,
+              width:42, height:42, borderRadius:"50%",
               background:"rgba(255,255,255,0.15)",
+              border:"1.5px solid rgba(255,255,255,0.25)",
               display:"flex", alignItems:"center", justifyContent:"center",
             }}>
-              <ClipboardList size={20} color="#fff" strokeWidth={1.5}/>
+              <Brain size={20} color="#fff" strokeWidth={1.6}/>
             </div>
             <div>
-              <div style={{ fontSize:11, opacity:0.7, fontWeight:400 }}>Portal del Paciente</div>
+              <div style={{ fontSize:11, opacity:0.7, fontWeight:400 }}>Mi Espacio</div>
               <div style={{ fontFamily:P.fH, fontSize:20, fontWeight:600, lineHeight:1.2 }}>
                 {name ? `¡Hola, ${name}!` : "Bienvenido/a"}
               </div>
@@ -988,7 +989,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         borderBottom:`1px solid ${P.bdrL}`,
       }}>
         {[
-          { key:"tasks",        label:"Mis tareas",  icon:<ClipboardList size={14}/> },
+          { key:"tasks",        label:"Mis actividades",  icon:<ClipboardList size={14}/> },
           { key:"appointments", label:"Mis citas",   icon:<Calendar size={14}/> },
         ].map(tab => {
           const active = activeTab === tab.key;
@@ -1031,8 +1032,8 @@ function TaskList({ phone, assignments: initial, onLogout }) {
             {!loading && assignments.length === 0 && (
               <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
                 <div style={{ fontSize:48, marginBottom:16 }}>📋</div>
-                <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin tareas por ahora</div>
-                <div style={{ fontSize:14, lineHeight:1.6 }}>Tu psicólogo(a) te asignará tareas después de cada sesión.</div>
+                <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin actividades por ahora</div>
+                <div style={{ fontSize:14, lineHeight:1.6 }}>Tu psicólogo(a) te asignará actividades después de cada sesión.</div>
               </div>
             )}
 
@@ -1077,28 +1078,39 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
   const [input,   setInput]   = useState(initialPhone);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(autoError);
+  const [focused, setFocused] = useState(false);
+
+  const digits   = input.replace(/\D/g, "");
+  const isValid  = digits.length >= 10;
 
   const handleAccess = async () => {
-    const clean = input.replace(/\D/g, "");
-    if (clean.length < 10) {
+    if (!isValid) {
       setError("Ingresa un número válido (10 dígitos mínimo)");
       return;
     }
-    const normalized = clean;
     setLoading(true); setError("");
     try {
-      const data = await getAssignmentsByPhone(normalized);
+      const data = await getAssignmentsByPhone(digits);
       if (data.length === 0) {
-        setError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado correctamente.");
+        setError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
         return;
       }
-      onLogin(normalized, data);
+      onLogin(digits, data);
     } catch {
       setError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
     } finally {
       setLoading(false);
     }
   };
+
+  // Color del borde del input según estado
+  const inputBorder = error
+    ? `2px solid ${P.err}`
+    : isValid
+      ? `2px solid ${P.p}`
+      : focused
+        ? `2px solid ${P.p}`
+        : `2px solid ${P.bdr}`;
 
   return (
     <div style={{
@@ -1107,77 +1119,175 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
       alignItems:"center", justifyContent:"center",
       padding:"32px 24px", fontFamily:P.fB,
     }}>
-      {/* Decorative top bar */}
-      <div style={{ position:"fixed", top:0, left:0, right:0, height:4, background:`linear-gradient(90deg, ${P.p}, #5A9497)` }}/>
+      {/* Barra superior de acento de marca */}
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:P.p, opacity:0.7 }}/>
 
       <div style={{ width:"100%", maxWidth:380 }}>
 
-        {/* Logo + welcome */}
-        <div style={{ textAlign:"center", marginBottom:40 }}>
+        {/* ── Logo + bienvenida ─────────────────────────────────────── */}
+        <div style={{ textAlign:"center", marginBottom:36 }}>
+          {/* Ícono circular — lenguaje consistente con LockScreen */}
           <div style={{
-            width:72, height:72, borderRadius:20, background:P.p,
+            width:80, height:80, borderRadius:"50%",
+            background:"rgba(58,107,110,0.10)",
+            border:"2px solid rgba(58,107,110,0.35)",
             display:"flex", alignItems:"center", justifyContent:"center",
-            margin:"0 auto 20px",
-            boxShadow:`0 8px 24px rgba(58,107,110,0.3)`,
+            margin:"0 auto 18px",
           }}>
-            <ClipboardList size={32} color="#fff" strokeWidth={1.5}/>
+            <Brain size={38} strokeWidth={1.6} color={P.p}/>
           </div>
-          <h1 style={{ fontFamily:P.fH, fontSize:32, fontWeight:600, color:P.t, marginBottom:8 }}>
-            Mis Tareas
+
+          {/* Supertítulo contextual */}
+          <div style={{
+            fontSize:11, fontWeight:600, color:"#5A8A8D",
+            letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6,
+          }}>
+            Tu espacio terapéutico
+          </div>
+
+          <h1 style={{
+            fontFamily:P.fH, fontSize:32, fontWeight:300,
+            color:P.t, letterSpacing:"0.01em", marginBottom:8,
+          }}>
+            Mi Espacio
           </h1>
-          <p style={{ fontSize:14, color:P.tm, lineHeight:1.6, maxWidth:280, margin:"0 auto" }}>
-            Accede a las actividades que tu psicólogo(a) preparó especialmente para ti.
+          <p style={{ fontSize:13, color:"#3D5C59", lineHeight:1.55, margin:0 }}>
+            Ingresa tu número para acceder a tu espacio.
           </p>
         </div>
 
-        {/* Card */}
-        <div style={{ background:P.card, borderRadius:20, padding:"28px 24px", boxShadow:`0 4px 24px rgba(0,0,0,0.08)` }}>
+        {/* ── Card de formulario ────────────────────────────────────── */}
+        <div style={{
+          background:P.card, borderRadius:20,
+          padding:"26px 22px 20px",
+          boxShadow:"0 2px 16px rgba(0,0,0,0.07)",
+        }}>
           <label style={{
             display:"block", fontSize:11, fontWeight:700, color:P.tm,
-            textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10,
+            textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10,
           }}>
-            Tu número de celular
+            Número de celular
           </label>
-          <input
-            type="tel"
-            value={input}
-            onChange={e => { setInput(e.target.value); setError(""); }}
-            onKeyDown={e => e.key === "Enter" && handleAccess()}
-            placeholder="Ej. 998 123 4567"
-            style={{
-              width:"100%", padding:"14px 16px",
-              border:`2px solid ${error ? P.err : P.bdr}`, borderRadius:12,
-              fontFamily:P.fB, fontSize:16, color:P.t, background:P.alt,
-              outline:"none", boxSizing:"border-box",
-              marginBottom:error ? 8 : 16, transition:"border .15s",
-            }}
-            autoFocus
-          />
+
+          {/* Input con badge de validación inline */}
+          <div style={{ position:"relative", marginBottom: error ? 8 : 14 }}>
+            <input
+              type="tel"
+              value={input}
+              onChange={e => { setInput(e.target.value); setError(""); }}
+              onKeyDown={e => e.key === "Enter" && handleAccess()}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="Ej. 998 123 4567"
+              autoFocus
+              style={{
+                width:"100%", padding:"14px 16px",
+                paddingRight: isValid ? 72 : 16,
+                border: inputBorder, borderRadius:12,
+                fontFamily:P.fB, fontSize:16, color:P.t,
+                background:"#EFF3F2",
+                outline:"none", boxSizing:"border-box",
+                transition:"border .15s",
+              }}
+            />
+            {/* Badge de validación — aparece al tener ≥10 dígitos */}
+            {isValid && !error && (
+              <div style={{
+                position:"absolute", right:12, top:"50%",
+                transform:"translateY(-50%)",
+                background:"rgba(58,107,110,0.10)",
+                color:P.p, fontSize:11, fontWeight:700,
+                padding:"3px 9px", borderRadius:100,
+                pointerEvents:"none",
+              }}>
+                ✓ válido
+              </div>
+            )}
+          </div>
+
+          {/* Mensaje de error — contenedor suave, no alarmante */}
           {error && (
-            <p style={{ fontSize:13, color:P.err, marginBottom:16, lineHeight:1.4 }}>{error}</p>
-          )}
-          <button onClick={handleAccess} disabled={loading}
-            style={{
-              width:"100%", padding:"15px", borderRadius:12, border:"none",
-              background: loading ? P.bdr : P.p,
-              color: loading ? P.tl : "#fff",
-              fontFamily:P.fB, fontSize:15, fontWeight:700,
-              cursor: loading ? "not-allowed" : "pointer",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              transition:"all .15s",
-              boxShadow: loading ? "none" : `0 4px 12px rgba(58,107,110,0.3)`,
+            <div style={{
+              display:"flex", alignItems:"flex-start", gap:8,
+              background:P.errA, border:`1px solid rgba(184,80,80,0.18)`,
+              borderRadius:10, padding:"10px 13px",
+              marginBottom:14,
             }}>
+              <div style={{
+                width:16, height:16, borderRadius:"50%", flexShrink:0,
+                background:"rgba(184,80,80,0.15)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                marginTop:1,
+              }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:P.err }}/>
+              </div>
+              <span style={{ fontSize:12, color:"#7A3030", lineHeight:1.5 }}>{error}</span>
+            </div>
+          )}
+
+          {/* Botón — píldora, habilitado solo con número válido */}
+          <button
+            onClick={handleAccess}
+            disabled={loading || (!isValid && !error)}
+            style={{
+              width:"100%", padding:"15px", borderRadius:100, border:"none",
+              background: loading
+                ? P.bdr
+                : isValid
+                  ? P.p
+                  : P.bdr,
+              color: loading || !isValid ? P.tl : "#fff",
+              fontFamily:P.fB, fontSize:15, fontWeight:700,
+              cursor: loading || !isValid ? "not-allowed" : "pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              transition:"background .2s, box-shadow .2s",
+              boxShadow: isValid && !loading ? `0 4px 14px rgba(58,107,110,0.32)` : "none",
+            }}
+          >
             {loading
-              ? <><Loader size={16} style={{ animation:"spin 0.8s linear infinite" }}/> Buscando...</>
+              ? <><Loader size={16} style={{ animation:"spin 0.8s linear infinite" }}/> Buscando…</>
               : "Entrar →"
             }
           </button>
+
+          {/* ── Cláusula legal LFPDPPP ───────────────────────────────── */}
+          <p style={{
+            fontSize:11, color:"rgba(58,92,89,0.55)",
+            lineHeight:1.65, marginTop:14, marginBottom:0, textAlign:"center",
+          }}>
+            Al continuar, aceptas los{" "}
+            <a href="/terminos-paciente" style={{ color:P.p, textDecoration:"underline", cursor:"pointer" }}>
+              Términos de Uso
+            </a>
+            {" "}y el{" "}
+            <a href="/privacidad" style={{ color:P.p, textDecoration:"underline", cursor:"pointer" }}>
+              Aviso de Privacidad
+            </a>
+            .
+          </p>
         </div>
 
-        <p style={{ textAlign:"center", fontSize:12, color:P.tl, marginTop:24, lineHeight:1.6 }}>
-          Si tienes problemas para entrar, contacta a tu psicólogo(a) para verificar el número registrado.
-        </p>
+        {/* ── Bloque de ayuda — contraste corregido, tono empático ──── */}
+        <div style={{
+          display:"flex", alignItems:"flex-start", gap:10,
+          marginTop:18, padding:"11px 15px",
+          background:"rgba(58,107,110,0.06)",
+          borderRadius:12,
+        }}>
+          <div style={{
+            width:18, height:18, borderRadius:"50%", flexShrink:0,
+            background:"rgba(58,107,110,0.12)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            marginTop:1,
+          }}>
+            <div style={{ width:2, height:8, background:P.p, borderRadius:2 }}/>
+          </div>
+          <p style={{ fontSize:12, color:"#3D5C59", lineHeight:1.6, margin:0 }}>
+            ¿Número incorrecto? Avísale a tu psicólogo(a) para que lo verifique.
+          </p>
+        </div>
       </div>
+
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -1220,15 +1330,21 @@ export default function PatientPortal() {
       minHeight:"100vh", background:P.bg,
       display:"flex", flexDirection:"column",
       alignItems:"center", justifyContent:"center",
-      fontFamily:P.fB,
+      fontFamily:P.fB, position:"relative",
     }}>
-      <div style={{ position:"fixed", top:0, left:0, right:0, height:4, background:`linear-gradient(90deg, ${P.p}, #5A9497)` }}/>
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:P.p, opacity:0.7 }}/>
       <div style={{ textAlign:"center" }}>
-        <div style={{ width:56, height:56, borderRadius:16, background:P.p, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px", boxShadow:`0 8px 24px rgba(58,107,110,0.3)` }}>
-          <ClipboardList size={24} color="#fff" strokeWidth={1.5}/>
+        <div style={{
+          width:72, height:72, borderRadius:"50%",
+          background:"rgba(58,107,110,0.10)",
+          border:"2px solid rgba(58,107,110,0.35)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          margin:"0 auto 20px",
+        }}>
+          <Brain size={32} strokeWidth={1.6} color={P.p}/>
         </div>
         <Spinner/>
-        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Cargando tu portal…</p>
+        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Cargando tu espacio…</p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
