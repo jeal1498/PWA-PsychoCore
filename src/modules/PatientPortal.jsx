@@ -1073,29 +1073,62 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   );
 }
 
+// ── Catálogo de países con código y longitud exacta de número local ───────────
+// longitud = dígitos del número SIN el código de país
+const COUNTRIES = [
+  { code:"+52", flag:"🇲🇽", name:"México",        len:10 },
+  { code:"+1",  flag:"🇺🇸", name:"EE.UU. / CAN",  len:10 },
+  { code:"+34", flag:"🇪🇸", name:"España",         len:9  },
+  { code:"+54", flag:"🇦🇷", name:"Argentina",      len:10 },
+  { code:"+57", flag:"🇨🇴", name:"Colombia",       len:10 },
+  { code:"+56", flag:"🇨🇱", name:"Chile",          len:9  },
+  { code:"+51", flag:"🇵🇪", name:"Perú",           len:9  },
+  { code:"+58", flag:"🇻🇪", name:"Venezuela",      len:10 },
+  { code:"+593",flag:"🇪🇨", name:"Ecuador",        len:9  },
+  { code:"+502",flag:"🇬🇹", name:"Guatemala",      len:8  },
+  { code:"+503",flag:"🇸🇻", name:"El Salvador",    len:8  },
+  { code:"+504",flag:"🇭🇳", name:"Honduras",       len:8  },
+  { code:"+505",flag:"🇳🇮", name:"Nicaragua",      len:8  },
+  { code:"+506",flag:"🇨🇷", name:"Costa Rica",     len:8  },
+  { code:"+507",flag:"🇵🇦", name:"Panamá",         len:8  },
+  { code:"+595",flag:"🇵🇾", name:"Paraguay",       len:9  },
+  { code:"+598",flag:"🇺🇾", name:"Uruguay",        len:8  },
+  { code:"+591",flag:"🇧🇴", name:"Bolivia",        len:8  },
+  { code:"+44", flag:"🇬🇧", name:"Reino Unido",    len:10 },
+  { code:"+49", flag:"🇩🇪", name:"Alemania",       len:10 },
+  { code:"+33", flag:"🇫🇷", name:"Francia",        len:9  },
+  { code:"+39", flag:"🇮🇹", name:"Italia",         len:10 },
+  { code:"+55", flag:"🇧🇷", name:"Brasil",         len:11 },
+];
+
 // ── Login screen ──────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
-  const [input,   setInput]   = useState(initialPhone);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(autoError);
-  const [focused, setFocused] = useState(false);
+  const [countryIdx, setCountryIdx] = useState(0);           // México por defecto
+  const [input,      setInput]      = useState(initialPhone);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState(autoError);
+  const [focused,    setFocused]    = useState(false);
 
+  const country  = COUNTRIES[countryIdx];
   const digits   = input.replace(/\D/g, "");
-  const isValid  = digits.length >= 10;
+  // Válido solo si coincide EXACTAMENTE con la longitud esperada para ese país
+  const isValid  = digits.length === country.len;
 
   const handleAccess = async () => {
     if (!isValid) {
-      setError("Ingresa un número válido (10 dígitos mínimo)");
+      setError(`Ingresa un número de ${country.len} dígitos para ${country.name}`);
       return;
     }
+    // Número completo que se guarda: código + dígitos locales
+    const fullPhone = `${country.code}${digits}`;
     setLoading(true); setError("");
     try {
-      const data = await getAssignmentsByPhone(digits);
+      const data = await getAssignmentsByPhone(fullPhone);
       if (data.length === 0) {
         setError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
         return;
       }
-      onLogin(digits, data);
+      onLogin(fullPhone, data);
     } catch {
       setError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
     } finally {
@@ -1103,7 +1136,6 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
     }
   };
 
-  // Color del borde del input según estado
   const inputBorder = error
     ? `2px solid ${P.err}`
     : isValid
@@ -1126,7 +1158,6 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
 
         {/* ── Logo + bienvenida ─────────────────────────────────────── */}
         <div style={{ textAlign:"center", marginBottom:36 }}>
-          {/* Ícono circular — lenguaje consistente con LockScreen */}
           <div style={{
             width:80, height:80, borderRadius:"50%",
             background:"rgba(58,107,110,0.10)",
@@ -1136,15 +1167,12 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
           }}>
             <Brain size={38} strokeWidth={1.6} color={P.p}/>
           </div>
-
-          {/* Supertítulo contextual */}
           <div style={{
             fontSize:11, fontWeight:600, color:"#5A8A8D",
             letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6,
           }}>
             Tu espacio terapéutico
           </div>
-
           <h1 style={{
             fontFamily:P.fH, fontSize:32, fontWeight:300,
             color:P.t, letterSpacing:"0.01em", marginBottom:8,
@@ -1169,43 +1197,92 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             Número de celular
           </label>
 
-          {/* Input con badge de validación inline */}
-          <div style={{ position:"relative", marginBottom: error ? 8 : 14 }}>
-            <input
-              type="tel"
-              value={input}
-              onChange={e => { setInput(e.target.value); setError(""); }}
-              onKeyDown={e => e.key === "Enter" && handleAccess()}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              placeholder="Ej. 998 123 4567"
-              autoFocus
-              style={{
-                width:"100%", padding:"14px 16px",
-                paddingRight: isValid ? 72 : 16,
-                border: inputBorder, borderRadius:12,
-                fontFamily:P.fB, fontSize:16, color:P.t,
-                background:"#EFF3F2",
-                outline:"none", boxSizing:"border-box",
-                transition:"border .15s",
-              }}
-            />
-            {/* Badge de validación — aparece al tener ≥10 dígitos */}
-            {isValid && !error && (
+          {/* ── Fila: selector de país + input ───────────────────────── */}
+          <div style={{
+            display:"flex", gap:8,
+            marginBottom: error ? 8 : 14,
+          }}>
+            {/* Selector de país */}
+            <div style={{ position:"relative", flexShrink:0 }}>
+              <select
+                value={countryIdx}
+                onChange={e => { setCountryIdx(Number(e.target.value)); setInput(""); setError(""); }}
+                style={{
+                  appearance:"none", WebkitAppearance:"none",
+                  height:"100%", padding:"0 32px 0 12px",
+                  border:`2px solid ${focused || isValid ? P.p : P.bdr}`,
+                  borderRadius:12, background:"#EFF3F2",
+                  fontFamily:P.fB, fontSize:14, color:P.t,
+                  cursor:"pointer", outline:"none",
+                  transition:"border .15s", minWidth:90,
+                }}
+              >
+                {COUNTRIES.map((c, i) => (
+                  <option key={c.code + c.name} value={i}>
+                    {c.flag} {c.code}
+                  </option>
+                ))}
+              </select>
+              {/* Chevron custom */}
               <div style={{
-                position:"absolute", right:12, top:"50%",
+                position:"absolute", right:10, top:"50%",
                 transform:"translateY(-50%)",
-                background:"rgba(58,107,110,0.10)",
-                color:P.p, fontSize:11, fontWeight:700,
-                padding:"3px 9px", borderRadius:100,
-                pointerEvents:"none",
+                pointerEvents:"none", lineHeight:1,
               }}>
-                ✓ válido
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                  <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
-            )}
+            </div>
+
+            {/* Input numérico */}
+            <div style={{ position:"relative", flex:1 }}>
+              <input
+                type="tel"
+                value={input}
+                onChange={e => { setInput(e.target.value); setError(""); }}
+                onKeyDown={e => e.key === "Enter" && handleAccess()}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                placeholder={`${"0".repeat(country.len)}`}
+                autoFocus
+                style={{
+                  width:"100%", padding:"14px 16px",
+                  paddingRight: isValid ? 68 : 16,
+                  border: inputBorder, borderRadius:12,
+                  fontFamily:P.fB, fontSize:16, color:P.t,
+                  background:"#EFF3F2",
+                  outline:"none", boxSizing:"border-box",
+                  transition:"border .15s",
+                }}
+              />
+              {/* Badge ✓ válido */}
+              {isValid && !error && (
+                <div style={{
+                  position:"absolute", right:10, top:"50%",
+                  transform:"translateY(-50%)",
+                  background:"rgba(58,107,110,0.10)",
+                  color:P.p, fontSize:11, fontWeight:700,
+                  padding:"3px 8px", borderRadius:100,
+                  pointerEvents:"none",
+                }}>
+                  ✓
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Mensaje de error — contenedor suave, no alarmante */}
+          {/* Hint de longitud esperada */}
+          {!error && (
+            <p style={{
+              fontSize:11, color:P.tl, margin:"-6px 0 12px",
+              paddingLeft:2,
+            }}>
+              {country.name} · {country.len} dígitos · {country.code}
+            </p>
+          )}
+
+          {/* Mensaje de error */}
           {error && (
             <div style={{
               display:"flex", alignItems:"flex-start", gap:8,
@@ -1225,17 +1302,13 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             </div>
           )}
 
-          {/* Botón — píldora, habilitado solo con número válido */}
+          {/* Botón Entrar */}
           <button
             onClick={handleAccess}
-            disabled={loading || (!isValid && !error)}
+            disabled={loading || !isValid}
             style={{
               width:"100%", padding:"15px", borderRadius:100, border:"none",
-              background: loading
-                ? P.bdr
-                : isValid
-                  ? P.p
-                  : P.bdr,
+              background: loading ? P.bdr : isValid ? P.p : P.bdr,
               color: loading || !isValid ? P.tl : "#fff",
               fontFamily:P.fB, fontSize:15, fontWeight:700,
               cursor: loading || !isValid ? "not-allowed" : "pointer",
@@ -1250,7 +1323,7 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             }
           </button>
 
-          {/* ── Cláusula legal LFPDPPP ───────────────────────────────── */}
+          {/* Cláusula legal LFPDPPP */}
           <p style={{
             fontSize:11, color:"rgba(58,92,89,0.55)",
             lineHeight:1.65, marginTop:14, marginBottom:0, textAlign:"center",
@@ -1267,7 +1340,7 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
           </p>
         </div>
 
-        {/* ── Bloque de ayuda — contraste corregido, tono empático ──── */}
+        {/* Bloque de ayuda */}
         <div style={{
           display:"flex", alignItems:"flex-start", gap:10,
           marginTop:18, padding:"11px 15px",
