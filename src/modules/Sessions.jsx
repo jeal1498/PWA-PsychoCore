@@ -937,57 +937,60 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Render reutilizable de card secundaria (items[1..N])
-  const renderCard = (item) => (
-    <button
-      key={item.label}
-      onClick={item.action}
-      style={{
-        width:"100%", display:"flex", alignItems:"center", gap:12,
-        padding:"11px 12px", background:"none",
-        border:`1.5px solid transparent`,
-        borderRadius:11, cursor:"pointer", textAlign:"left",
-        transition:"all .14s", marginBottom:4,
-        fontFamily:T.fB,
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background = item.accentA;
-        e.currentTarget.style.borderColor = item.border;
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = "none";
-        e.currentTarget.style.borderColor = "transparent";
-      }}>
-      {/* Icon bubble */}
-      <div style={{
-        width:38, height:38, borderRadius:10, flexShrink:0,
-        background: item.accentA,
-        border:`1.5px solid ${item.border}`,
-        display:"flex", alignItems:"center", justifyContent:"center",
-      }}>
-        <item.icon size={17} color={item.accent} strokeWidth={1.8}/>
-      </div>
-      {/* Text */}
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
-          <span style={{ fontSize:13.5, fontWeight:700, color:T.t, lineHeight:1.3 }}>
-            {item.label}
-          </span>
-          {item.badge && (
-            <span style={{
-              padding:"1px 7px", borderRadius:9999, flexShrink:0,
-              background:`${item.badgeClr}16`, color:item.badgeClr,
-              border:`1px solid ${item.badgeClr}35`,
-              fontSize:9.5, fontWeight:700, letterSpacing:"0.04em",
-            }}>
-              {item.badge}
-            </span>
-          )}
+  const renderCard = (item) => {
+    const CardIcon = item.icon;
+    return (
+      <button
+        key={item.label}
+        onClick={item.action}
+        style={{
+          width:"100%", display:"flex", alignItems:"center", gap:12,
+          padding:"11px 12px", background:"none",
+          border:`1.5px solid transparent`,
+          borderRadius:11, cursor:"pointer", textAlign:"left",
+          transition:"all .14s", marginBottom:4,
+          fontFamily:T.fB,
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = item.accentA;
+          e.currentTarget.style.borderColor = item.border;
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = "none";
+          e.currentTarget.style.borderColor = "transparent";
+        }}>
+        {/* Icon bubble */}
+        <div style={{
+          width:38, height:38, borderRadius:10, flexShrink:0,
+          background: item.accentA,
+          border:`1.5px solid ${item.border}`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>
+          <CardIcon size={17} color={item.accent} strokeWidth={1.8}/>
         </div>
-        <span style={{ fontSize:11, color:T.tl, lineHeight:1.4 }}>{item.desc}</span>
-      </div>
-      <ChevronRight size={14} color={T.tl} style={{ flexShrink:0 }}/>
-    </button>
-  );
+        {/* Text */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
+            <span style={{ fontSize:13.5, fontWeight:700, color:T.t, lineHeight:1.3 }}>
+              {item.label}
+            </span>
+            {item.badge && (
+              <span style={{
+                padding:"1px 7px", borderRadius:9999, flexShrink:0,
+                background:`${item.badgeClr}16`, color:item.badgeClr,
+                border:`1px solid ${item.badgeClr}35`,
+                fontSize:9.5, fontWeight:700, letterSpacing:"0.04em",
+              }}>
+                {item.badge}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize:11, color:T.tl, lineHeight:1.4 }}>{item.desc}</span>
+        </div>
+        <ChevronRight size={14} color={T.tl} style={{ flexShrink:0 }}/>
+      </button>
+    );
+  };
 
   return (
     <>
@@ -1040,21 +1043,26 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
         <div style={{ padding:"10px 8px 4px" }}>
 
           {/* [1] Botón primario — items[0]: Nota de Evolución */}
-          <button
-            onClick={items[0].action}
-            style={{
-              width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
-              gap:8, padding:"10px 16px", marginBottom:8,
-              background:T.p, color:"#fff",
-              border:"none", borderRadius:11,
-              fontFamily:T.fB, fontSize:13.5, fontWeight:700,
-              cursor:"pointer", transition:"opacity .13s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-            <items[0].icon size={14} strokeWidth={2}/>
-            {items[0].label}
-          </button>
+          {(() => {
+            const PrimaryIcon = items[0].icon;
+            return (
+              <button
+                onClick={items[0].action}
+                style={{
+                  width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+                  gap:8, padding:"10px 16px", marginBottom:8,
+                  background:T.p, color:"#fff",
+                  border:"none", borderRadius:11,
+                  fontFamily:T.fB, fontSize:13.5, fontWeight:700,
+                  cursor:"pointer", transition:"opacity .13s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+                <PrimaryIcon size={14} strokeWidth={2}/>
+                {items[0].label}
+              </button>
+            );
+          })()}
 
           {/* [2] Toggle "Más opciones" — solo si hay items secundarios */}
           {items.length > 1 && (
