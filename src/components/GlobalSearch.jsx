@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Users, Calendar, FileText, X, ArrowRight, DollarSign } from "lucide-react";
+import { Search, Users, Calendar, FileText, X, ArrowRight, DollarSign, ClipboardList, CalendarDays, UserCircle } from "lucide-react";
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
@@ -29,7 +29,7 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
     if (!q || q.length < 2) return [];
     const out = [];
 
-    // Patients
+    // Patients — se añade data: p para los botones de acción
     patients.filter(p =>
       p.name.toLowerCase().includes(q) ||
       (p.diagnosis||"").toLowerCase().includes(q) ||
@@ -39,6 +39,7 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
       sub: p.diagnosis || "Sin diagnóstico",
       color: T.p, bg: T.pA,
       action: () => { onNavigate("patients", p); setOpen(false); setQuery(""); },
+      data: p,
     }));
 
     // Appointments
@@ -141,22 +142,26 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
               <div style={{ padding: "32px 20px", textAlign: "center", fontFamily: T.fB, fontSize: 13, color: T.tl }}>
                 Sin resultados para «{query}»
               </div>
-            ) : results.map((r, i) => (
-              <button key={i} onClick={r.action}
-                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 20px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${T.bdrL}`, transition: "background .12s" }}
-                onMouseEnter={e => e.currentTarget.style.background = T.bg}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: r.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <r.icon size={16} color={r.color} strokeWidth={1.6} />
-                </div>
-                <div style={{ flex: 1, overflow: "hidden" }}>
-                  <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.label}</div>
-                  <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub}</div>
-                </div>
-                <ArrowRight size={14} color={T.tl} style={{ flexShrink: 0 }} />
-              </button>
-            ))}
+            ) : results.map((r, i) =>
+              r.type === "patient"
+                ? <PatientResultRow key={i} r={r} isMobile={isMobile} onNavigate={onNavigate} setOpen={setOpen} setQuery={setQuery} />
+                : (
+                  <button key={i} onClick={r.action}
+                    style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 20px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${T.bdrL}`, transition: "background .12s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bg}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: r.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <r.icon size={16} color={r.color} strokeWidth={1.6} />
+                    </div>
+                    <div style={{ flex: 1, overflow: "hidden" }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.label}</div>
+                      <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub}</div>
+                    </div>
+                    <ArrowRight size={14} color={T.tl} style={{ flexShrink: 0 }} />
+                  </button>
+                )
+            )}
           </div>
         )}
 
@@ -168,5 +173,97 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
         )}
       </div>
     </>
+  );
+}
+
+// ─── Row especializado para resultados tipo "patient" ──────────────────────────
+function PatientResultRow({ r, isMobile, onNavigate, setOpen, setQuery }) {
+  const [hovered, setHovered] = useState(false);
+
+  const btnStyle = {
+    background: T.bdrL,
+    border: "1px solid " + T.bdr,
+    borderRadius: 7,
+    padding: "5px 8px",
+    cursor: "pointer",
+    fontSize: 13,
+    transition: "background .12s",
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
+  };
+
+  const close = () => { setOpen(false); setQuery(""); };
+
+  const showActions = isMobile || hovered;
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        width: "100%", padding: "12px 20px",
+        borderBottom: `1px solid ${T.bdrL}`,
+        background: hovered ? T.bg : "transparent",
+        transition: "background .12s",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Área clickeable principal → abre expediente */}
+      <div
+        onClick={r.action}
+        style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, cursor: "pointer", overflow: "hidden" }}
+      >
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: r.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <r.icon size={16} color={r.color} strokeWidth={1.6} />
+        </div>
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: T.t, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.label}</div>
+          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub}</div>
+        </div>
+      </div>
+
+      {/* Botones de acción — visibles en hover (desktop) o siempre (mobile) */}
+      <div style={{
+        display: "flex", gap: 5, flexShrink: 0,
+        opacity: showActions ? 1 : 0,
+        pointerEvents: showActions ? "auto" : "none",
+        transition: "opacity .15s",
+      }}>
+        {/* Nueva sesión */}
+        <button
+          title="Nueva sesión"
+          onClick={e => { e.stopPropagation(); onNavigate("sessions"); close(); }}
+          style={btnStyle}
+          onMouseEnter={e => e.currentTarget.style.background = T.bdr}
+          onMouseLeave={e => e.currentTarget.style.background = T.bdrL}
+        >
+          <ClipboardList size={14} color={T.tl} strokeWidth={1.6} />
+        </button>
+
+        {/* Ver agenda */}
+        <button
+          title="Ver agenda"
+          onClick={e => { e.stopPropagation(); onNavigate("agenda"); close(); }}
+          style={btnStyle}
+          onMouseEnter={e => e.currentTarget.style.background = T.bdr}
+          onMouseLeave={e => e.currentTarget.style.background = T.bdrL}
+        >
+          <CalendarDays size={14} color={T.tl} strokeWidth={1.6} />
+        </button>
+
+        {/* Abrir expediente */}
+        <button
+          title="Abrir expediente"
+          onClick={e => { e.stopPropagation(); onNavigate("patients", r.data); close(); }}
+          style={btnStyle}
+          onMouseEnter={e => e.currentTarget.style.background = T.bdr}
+          onMouseLeave={e => e.currentTarget.style.background = T.bdrL}
+        >
+          <UserCircle size={14} color={T.tl} strokeWidth={1.6} />
+        </button>
+      </div>
+    </div>
   );
 }
