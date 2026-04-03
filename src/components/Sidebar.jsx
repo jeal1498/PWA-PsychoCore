@@ -1,24 +1,41 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 
-export const NAV_ITEMS = [
-  { id:"dashboard",  icon:Home,           label:"Inicio"            },
-  { id:"patients",   icon:Users,          label:"Pacientes"         },
-  { id:"agenda",     icon:Calendar,       label:"Agenda"            },
-  { id:"sessions",   icon:FileText,       label:"Sesiones"          },
-  { id:"tasks",      icon:CheckSquare,    label:"Tareas"            },
-  { id:"treatment",  icon:Target,         label:"Tratamiento"       },
-  { id:"scales",     icon:ClipboardList,  label:"Escalas"           },
-  { id:"risk",       icon:ShieldAlert,    label:"Riesgo", alert:true },
-  { id:"reports",    icon:ScrollText,     label:"Informes"          },
-  { id:"finance",    icon:DollarSign,     label:"Finanzas"          },
-  { id:"stats",      icon:BarChart2,      label:"Estadísticas"      },
+export const NAV_GROUPS = [
+  {
+    id: 'clinical', label: 'Clínica diaria',
+    items: [
+      { id:'dashboard', icon:Home,         label:'Inicio'     },
+      { id:'agenda',    icon:Calendar,     label:'Agenda'     },
+      { id:'sessions',  icon:FileText,     label:'Sesiones'   },
+      { id:'patients',  icon:Users,        label:'Pacientes'  },
+    ]
+  },
+  {
+    id: 'tools', label: 'Herramientas clínicas',
+    items: [
+      { id:'risk',      icon:ShieldAlert,   label:'Riesgo',      alert:true },
+      { id:'treatment', icon:Target,        label:'Tratamiento' },
+      { id:'scales',    icon:ClipboardList, label:'Escalas'     },
+      { id:'tasks',     icon:CheckSquare,   label:'Tareas'      },
+    ]
+  },
+  {
+    id: 'admin', label: 'Gestión',
+    items: [
+      { id:'finance',  icon:DollarSign, label:'Finanzas'      },
+      { id:'reports',  icon:ScrollText, label:'Informes'      },
+      { id:'stats',    icon:BarChart2,  label:'Estadísticas'  },
+    ]
+  }
 ];
+// Export de compatibilidad — no rompe imports externos
+export const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
-export default function Sidebar({ active, setActive, onLock, open, onClose, profile, riskAlert = false }) {
+export default function Sidebar({ active, setActive, open, onClose, profile, riskAlert = false }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
 
@@ -63,24 +80,35 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
         </div>
 
         <nav style={{ flex:1, padding:"0 12px", overflowY:"auto", minHeight:0 }}>
-          {NAV_ITEMS.map(({ id, icon:Icon, label, alert }) => {
-            const isActive = active === id;
-            const showDot  = alert && riskAlert;
-            return (
-              <button key={id} onClick={() => handleNav(id)}
-                style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"12px 14px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13.5, fontWeight:isActive?600:400, marginBottom:2, transition:"all .15s", background:isActive?T.p:"transparent", color:isActive?"#fff":"rgba(255,255,255,0.50)", position:"relative" }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; } }}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="rgba(255,255,255,0.50)"; } }}>
-                <span style={{ position:"relative", display:"inline-flex" }}>
-                  <Icon size={16} strokeWidth={1.8}/>
-                  {showDot && (
-                    <span style={{ position:"absolute", top:-3, right:-3, width:7, height:7, borderRadius:"50%", background:"#E05252", border:"1.5px solid #1A2B28" }}/>
-                  )}
-                </span>
-                {label}
-              </button>
-            );
-          })}
+          {NAV_GROUPS.map((group, gi) => (
+            <React.Fragment key={group.id}>
+              <div style={{
+                fontSize:9, fontWeight:800, letterSpacing:'0.13em',
+                textTransform:'uppercase', color:'rgba(255,255,255,0.25)',
+                padding: gi === 0 ? '6px 14px 4px' : '14px 14px 4px'
+              }}>
+                {group.label}
+              </div>
+              {group.items.map(({ id, icon:Icon, label, alert }) => {
+                const isActive = active === id;
+                const showDot  = alert && riskAlert;
+                return (
+                  <button key={id} onClick={() => handleNav(id)}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"12px 14px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13.5, fontWeight:isActive?600:400, marginBottom:2, transition:"all .15s", background:isActive?T.p:"transparent", color:isActive?"#fff":"rgba(255,255,255,0.50)", position:"relative" }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; } }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="rgba(255,255,255,0.50)"; } }}>
+                    <span style={{ position:"relative", display:"inline-flex" }}>
+                      <Icon size={16} strokeWidth={1.8}/>
+                      {showDot && (
+                        <span style={{ position:"absolute", top:-3, right:-3, width:7, height:7, borderRadius:"50%", background:"#E05252", border:"1.5px solid #1A2B28" }}/>
+                      )}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </nav>
 
         <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
