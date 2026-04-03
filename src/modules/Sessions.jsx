@@ -7,7 +7,7 @@ import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeade
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
-import { emit } from "../lib/eventBus.js"; // FASE 2
+import { emit, bus } from "../lib/eventBus.js"; // FASE 2
 import { useIsWide }   from "../hooks/useIsWide.js";
 
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
@@ -1198,7 +1198,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     } catch {}
   }, [showAdd, editingSessionId]);
 
-  const fld  = k => v => setForm(f => ({ ...f, [k]:v }));
+  // ── Ctrl+S global → guardar nota si el modal está abierto ─────────────────
+  useEffect(() => {
+    const unsub = (data) => {
+      if (showAdd && canSave) save();
+    };
+    bus.on("session:save", unsub);
+    return () => bus.off("session:save", unsub);
+  }, [showAdd, canSave, save]);
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
   const rld  = k => v => setQuickRisk(r => ({ ...r, [k]:v }));
 
