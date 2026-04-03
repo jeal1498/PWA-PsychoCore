@@ -11,6 +11,7 @@ import { useIsWide }        from "./hooks/useIsWide.js";
 import { useNotifications } from "./hooks/useNotifications.js";
 import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
+import { emit } from "./lib/eventBus.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
 import PatientPortalComp from "./modules/PatientPortal.jsx";
@@ -203,6 +204,26 @@ export default function App() {
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
+
+  // ── Atajos de teclado globales ────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      // Guard: no actuar si el foco está en un input/textarea/select
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target?.tagName)) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+
+      if (e.key === "s" && activeModule === "sessions") {
+        e.preventDefault();
+        emit.sessionSave();
+      }
+      if (e.key === "n") {
+        e.preventDefault();
+        handleNewSession();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [activeModule]);
 
   // ── Handlers de sesión ───────────────────────────────────────────────────
 
