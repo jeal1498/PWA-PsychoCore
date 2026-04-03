@@ -1203,18 +1203,18 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             marginBottom: error ? 8 : 14,
           }}>
             {/* Selector de país */}
-            <div style={{ position:"relative", flexShrink:0 }}>
+            <div style={{ position:"relative", flexShrink:0, width:"28%" }}>
               <select
                 value={countryIdx}
                 onChange={e => { setCountryIdx(Number(e.target.value)); setInput(""); setError(""); }}
                 style={{
                   appearance:"none", WebkitAppearance:"none",
-                  height:"100%", padding:"0 32px 0 12px",
+                  width:"100%", height:"100%", padding:"0 28px 0 10px",
                   border:`2px solid ${focused || isValid ? P.p : P.bdr}`,
                   borderRadius:12, background:"#EFF3F2",
-                  fontFamily:P.fB, fontSize:14, color:P.t,
+                  fontFamily:P.fB, fontSize:13, color:P.t,
                   cursor:"pointer", outline:"none",
-                  transition:"border .15s", minWidth:90,
+                  transition:"border .15s",
                 }}
               >
                 {COUNTRIES.map((c, i) => (
@@ -1236,11 +1236,15 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             </div>
 
             {/* Input numérico */}
-            <div style={{ position:"relative", flex:1 }}>
+            <div style={{ position:"relative", flex:1, minWidth:0 }}>
               <input
                 type="tel"
                 value={input}
-                onChange={e => { setInput(e.target.value); setError(""); }}
+                onChange={e => {
+                  const cleaned = e.target.value.replace(/\D/g, "").slice(0, country.len);
+                  setInput(cleaned);
+                  setError("");
+                }}
                 onKeyDown={e => e.key === "Enter" && handleAccess()}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
