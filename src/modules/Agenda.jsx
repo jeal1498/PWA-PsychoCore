@@ -728,12 +728,17 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
 }
 
 // ── Main Agenda component ─────────────────────────────────────────────────────
-export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto, onStartSession }) {
+export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], setPatients, profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto, onStartSession }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
   const [weekAnchor,    setWeekAnchor]    = useState(new Date(todayDate));
   const [showAdd,       setShowAdd]       = useState(false);
   const [calCollapsed,  setCalCollapsed]  = useState(false);
+
+  const blankQuickPt = { name: "", phone: "", reason: "" };
+  const [newPtMode, setNewPtMode] = useState(false);
+  const [quickPt,   setQuickPt]   = useState(blankQuickPt);
+  const resetNewPtMode = () => { setNewPtMode(false); setQuickPt(blankQuickPt); };
 
   // ── Mejora 1: estado del día seleccionado para Vista Día ─────────────────
   const [selectedDayView, setSelectedDayView] = useState(fmt(todayDate));
@@ -904,6 +909,23 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const openAddWithPreset = (date, time) => {
     setForm(f => ({ ...f, date, time }));
     setShowAdd(true);
+  };
+
+  // ── Fase 2: crear paciente pre-registro y agendar ────────────────────────
+  const handleCreateAndSchedule = () => {
+    if (!quickPt.name.trim()) return;
+    const newPt = {
+      id:            "p" + uid(),
+      name:          quickPt.name.trim(),
+      phone:         quickPt.phone.trim(),
+      diagnosis:     quickPt.reason.trim(),
+      status:        "activo",
+      createdAt:     fmt(todayDate),
+      isPreRegistro: true,
+    };
+    setPatients(prev => [...prev, newPt]);
+    setForm(f => ({ ...f, patientId: newPt.id }));
+    resetNewPtMode();
   };
 
   // ── Mejora 3: guardar cita con lógica de sugerencia ──────────────────────
@@ -1433,9 +1455,49 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       )}
 
       {/* ── New appointment modal ──────────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setRecurring(false); setDateError(""); setConflictError(""); }} title="Nueva cita" width={520}>
-        <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
-          options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setRecurring(false); setDateError(""); setConflictError(""); resetNewPtMode(); }} title="Nueva cita" width={520}>
+
+        {/* ── Fase 2: segmented control paciente existente / nuevo ───────── */}
+        <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, marginBottom:16 }}>
+          {[{v:false, label:"Paciente existente"}, {v:true, label:"✦ Nuevo paciente"}].map(({v, label}) => (
+            <button key={String(v)}
+              onClick={() => { setNewPtMode(v); if (v) setForm(f => ({...f, patientId:""})); }}
+              style={{ flex:1, padding:"7px 8px", borderRadius:8, border:"none",
+                cursor:"pointer", fontFamily:T.fB, fontSize:12.5, fontWeight:600,
+                transition:"all .15s",
+                background: newPtMode === v ? (v ? T.acc : T.card) : "transparent",
+                color:      newPtMode === v ? (v ? "#fff" : T.p) : T.tl,
+                boxShadow:  newPtMode === v ? "0 1px 4px rgba(0,0,0,0.10)" : "none" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Selector de paciente existente ───────────────────────────── */}
+        {!newPtMode && (
+          <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
+            options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
+        )}
+
+        {/* ── Mini-form nuevo paciente (pre-registro) ───────────────────── */}
+        {newPtMode && (
+          <div style={{ marginBottom:16, padding:"14px 16px", background:T.pA, borderRadius:12, border:`1.5px solid ${T.acc}33` }}>
+            <Input label="Nombre *" value={quickPt.name}
+              onChange={e => setQuickPt(q => ({...q, name: e.target.value}))}
+              placeholder="Nombre completo del paciente" />
+            <Input label="Teléfono" value={quickPt.phone}
+              onChange={e => setQuickPt(q => ({...q, phone: e.target.value}))}
+              placeholder="10 dígitos" />
+            <Input label="Motivo de consulta" value={quickPt.reason}
+              onChange={e => setQuickPt(q => ({...q, reason: e.target.value}))}
+              placeholder="Opcional" />
+            <Btn onClick={handleCreateAndSchedule}
+              disabled={!quickPt.name.trim()}
+              style={{ width:"100%", marginTop:4 }}>
+              Crear y agendar
+            </Btn>
+          </div>
+        )}
 
         {/* ── Fecha con validación de días hábiles ─────────────────────── */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:dateError ? 4 : 16 }}>
