@@ -1,24 +1,42 @@
-import { useEffect } from "react";
-import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare, LogOut } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 
-export const NAV_ITEMS = [
-  { id:"dashboard",  icon:Home,           label:"Inicio"            },
-  { id:"patients",   icon:Users,          label:"Pacientes"         },
-  { id:"agenda",     icon:Calendar,       label:"Agenda"            },
-  { id:"sessions",   icon:FileText,       label:"Sesiones"          },
-  { id:"tasks",      icon:CheckSquare,    label:"Tareas"            },
-  { id:"treatment",  icon:Target,         label:"Tratamiento"       },
-  { id:"scales",     icon:ClipboardList,  label:"Escalas"           },
-  { id:"risk",       icon:ShieldAlert,    label:"Riesgo", alert:true },
-  { id:"reports",    icon:ScrollText,     label:"Informes"          },
-  { id:"finance",    icon:DollarSign,     label:"Finanzas"          },
-  { id:"stats",      icon:BarChart2,      label:"Estadísticas"      },
+export const NAV_GROUPS = [
+  {
+    id: 'clinical', label: 'Clínica diaria',
+    items: [
+      { id:'dashboard', icon:Home,         label:'Inicio'     },
+      { id:'agenda',    icon:Calendar,     label:'Agenda'     },
+      { id:'sessions',  icon:FileText,     label:'Sesiones'   },
+      { id:'patients',  icon:Users,        label:'Pacientes'  },
+    ]
+  },
+  {
+    id: 'tools', label: 'Herramientas clínicas',
+    items: [
+      { id:'risk',      icon:ShieldAlert,   label:'Riesgo',      alert:true },
+      { id:'treatment', icon:Target,        label:'Tratamiento' },
+      { id:'scales',    icon:ClipboardList, label:'Escalas'     },
+      { id:'tasks',     icon:CheckSquare,   label:'Tareas'      },
+    ]
+  },
+  {
+    id: 'admin', label: 'Gestión',
+    items: [
+      { id:'finance',  icon:DollarSign, label:'Finanzas'      },
+      { id:'reports',  icon:ScrollText, label:'Informes'      },
+      { id:'stats',    icon:BarChart2,  label:'Estadísticas'  },
+    ]
+  }
 ];
+// Export de compatibilidad — no rompe imports externos
+export const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
-export default function Sidebar({ active, setActive, onLock, open, onClose, profile, riskAlert = false, onSignOut }) {
+export default function Sidebar({ active, setActive, open, onClose, profile, riskAlert = false, onSignOut }) {
   const isMobile = useIsMobile();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape" && open) onClose(); };
@@ -61,31 +79,66 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
         </div>
 
         <nav style={{ flex:1, padding:"0 12px", overflowY:"auto", minHeight:0 }}>
-          {NAV_ITEMS.map(({ id, icon:Icon, label, alert }) => {
-            const isActive = active === id;
-            const showDot  = alert && riskAlert;
-            return (
-              <button key={id} onClick={() => handleNav(id)}
-                style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"12px 14px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13.5, fontWeight:isActive?600:400, marginBottom:2, transition:"all .15s", background:isActive?T.p:"transparent", color:isActive?"#fff":"rgba(255,255,255,0.50)", position:"relative" }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; } }}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="rgba(255,255,255,0.50)"; } }}>
-                <span style={{ position:"relative", display:"inline-flex" }}>
-                  <Icon size={16} strokeWidth={1.8}/>
-                  {showDot && (
-                    <span style={{ position:"absolute", top:-3, right:-3, width:7, height:7, borderRadius:"50%", background:"#E05252", border:"1.5px solid #1A2B28" }}/>
-                  )}
-                </span>
-                {label}
-              </button>
-            );
-          })}
+          {NAV_GROUPS.map((group, gi) => (
+            <React.Fragment key={group.id}>
+              <div style={{
+                fontSize:9, fontWeight:800, letterSpacing:'0.13em',
+                textTransform:'uppercase', color:'rgba(255,255,255,0.25)',
+                padding: gi === 0 ? '6px 14px 4px' : '14px 14px 4px'
+              }}>
+                {group.label}
+              </div>
+              {group.items.map(({ id, icon:Icon, label, alert }) => {
+                const isActive = active === id;
+                const showDot  = alert && riskAlert;
+                return (
+                  <button key={id} onClick={() => handleNav(id)}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"12px 14px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13.5, fontWeight:isActive?600:400, marginBottom:2, transition:"all .15s", background:isActive?T.p:"transparent", color:isActive?"#fff":"rgba(255,255,255,0.50)", position:"relative" }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.color="#fff"; } }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="rgba(255,255,255,0.50)"; } }}>
+                    <span style={{ position:"relative", display:"inline-flex" }}>
+                      <Icon size={16} strokeWidth={1.8}/>
+                      {showDot && (
+                        <span style={{ position:"absolute", top:-3, right:-3, width:7, height:7, borderRadius:"50%", background:"#E05252", border:"1.5px solid #1A2B28" }}/>
+                      )}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </nav>
 
         <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
           <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:12 }}/>
 
-          {/* Perfil → Ajustes */}
-          <button onClick={() => handleNav("settings")}
+          {profileOpen && (
+            <div style={{
+              background: 'rgba(255,255,255,0.08)',
+              borderRadius: 10, overflow:'hidden',
+              marginBottom: 6,
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <button onClick={() => { handleNav("settings"); setProfileOpen(false); }}
+                style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
+                  padding:"9px 12px", border:"none", cursor:"pointer",
+                  background:"transparent", fontFamily:T.fB, fontSize:12.5,
+                  color:"rgba(255,255,255,0.65)" }}>
+                ⚙ Ajustes
+              </button>
+              <button onClick={() => { onSignOut(); setProfileOpen(false); }}
+                style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
+                  padding:"9px 12px", border:"none", cursor:"pointer",
+                  background:"transparent", fontFamily:T.fB, fontSize:12.5,
+                  color:"rgba(184,80,80,0.8)" }}>
+                ↗ Cerrar sesión
+              </button>
+            </div>
+          )}
+
+          {/* Perfil → dropdown */}
+          <button onClick={() => setProfileOpen(o => !o)}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:4 }}
             onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.08)"}
             onMouseLeave={e => e.currentTarget.style.background=active==="settings"?"rgba(255,255,255,0.08)":"transparent"}>
@@ -97,15 +150,6 @@ export default function Sidebar({ active, setActive, onLock, open, onClose, prof
               <div style={{ fontFamily:T.fB, fontSize:11, color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{displaySpec}</div>
             </div>
             <Settings size={14} color="rgba(255,255,255,0.4)"/>
-          </button>
-
-          {/* Cerrar sesión — siempre visible */}
-          <button onClick={onSignOut}
-            style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:"rgba(255,255,255,0.04)", transition:"all .15s" }}
-            onMouseEnter={e => { e.currentTarget.style.background="rgba(255,255,255,0.10)"; e.currentTarget.style.color="#fff"; }}
-            onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.04)"; }}>
-            <LogOut size={14} color="rgba(255,255,255,0.55)"/>
-            <span style={{ fontFamily:T.fB, fontSize:13, color:"rgba(255,255,255,0.55)", fontWeight:500 }}>Cerrar sesión</span>
           </button>
 
         </div>
