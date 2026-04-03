@@ -218,6 +218,57 @@ ${formData.notes?`<p class="body-text">${formData.notes}</p>`:""}
 // ─────────────────────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// MoodProgressPicker — botones visuales de un clic para Ánimo y Progreso
+// Valores mood: "bajo"|"moderado"|"bueno"  (crítico: alimentan moodIcon() en utils.js)
+// Valores progress: "excelente"|"bueno"|"moderado"|"bajo"  (crítico: alimentan progressStyle())
+function MoodProgressPicker({ mood, progress, onMood, onProgress }) {
+  const MOOD_OPTS = [
+    { value:"bajo",     label:"Bajo",     icon:"😟" },
+    { value:"moderado", label:"Moderado", icon:"😐" },
+    { value:"bueno",    label:"Bueno",    icon:"🙂" },
+  ];
+  const PROGRESS_OPTS = [
+    { value:"excelente", label:"Excelente", icon:"↗" },
+    { value:"bueno",     label:"Bueno",     icon:"→" },
+    { value:"moderado",  label:"Moderado",  icon:"↔" },
+    { value:"bajo",      label:"Bajo",      icon:"↘" },
+  ];
+  const pill = (opt, active, onSelect) => (
+    <button
+      key={opt.value}
+      onClick={() => onSelect(opt.value)}
+      style={{
+        flex:1, padding:"8px 4px", borderRadius:9,
+        border:`1.5px solid ${active ? T.p : T.bdr}`,
+        background: active ? T.pA : "transparent",
+        color: active ? T.p : T.tm,
+        fontFamily:T.fB, fontSize:12, fontWeight: active ? 700 : 400,
+        cursor:"pointer", transition:"all .13s", textAlign:"center",
+        display:"flex", alignItems:"center", justifyContent:"center", gap:4,
+      }}>
+      <span style={{ fontSize:13, lineHeight:1 }}>{opt.icon}</span>
+      {opt.label}
+    </button>
+  );
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+      <div>
+        <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:8, letterSpacing:"0.06em", textTransform:"uppercase" }}>Ánimo</label>
+        <div style={{ display:"flex", gap:4 }}>
+          {MOOD_OPTS.map(opt => pill(opt, mood === opt.value, onMood))}
+        </div>
+      </div>
+      <div>
+        <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:8, letterSpacing:"0.06em", textTransform:"uppercase" }}>Progreso</label>
+        <div style={{ display:"flex", gap:4 }}>
+          {PROGRESS_OPTS.map(opt => pill(opt, progress === opt.value, onProgress))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormatSelector({ value, onChange }) {
   // [mobile-audit] Patrón 1: hook local para detectar mobile sin prop drilling
   const [_fsMobile, _setFsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -627,7 +678,7 @@ function TaskResponseModal({ assignment, template, onClose }) {
 // Columna lateral sticky (desktop) / Acordeón colapsable (mobile < 768px)
 // ─────────────────────────────────────────────────────────────────────────────
 function ClinicalReferencePanel({ patientId, sessions, treatmentPlans, isMobile, riskAssessments = [], patients = [] }) {
-  const [accordionOpen, setAccordionOpen] = useState(false);
+  const [accordionOpen, setAccordionOpen] = useState(true);
 
   // ── Última nota de sesión del paciente (por fecha desc) ─────────────────────
   const lastSession = useMemo(() => {
@@ -882,8 +933,61 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
     }] : []),
   ];
 
-  // Cerrar con Escape
   const menuRef = useRef(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Render reutilizable de card secundaria (items[1..N])
+  const renderCard = (item) => (
+    <button
+      key={item.label}
+      onClick={item.action}
+      style={{
+        width:"100%", display:"flex", alignItems:"center", gap:12,
+        padding:"11px 12px", background:"none",
+        border:`1.5px solid transparent`,
+        borderRadius:11, cursor:"pointer", textAlign:"left",
+        transition:"all .14s", marginBottom:4,
+        fontFamily:T.fB,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = item.accentA;
+        e.currentTarget.style.borderColor = item.border;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = "none";
+        e.currentTarget.style.borderColor = "transparent";
+      }}>
+      {/* Icon bubble */}
+      <div style={{
+        width:38, height:38, borderRadius:10, flexShrink:0,
+        background: item.accentA,
+        border:`1.5px solid ${item.border}`,
+        display:"flex", alignItems:"center", justifyContent:"center",
+      }}>
+        <item.icon size={17} color={item.accent} strokeWidth={1.8}/>
+      </div>
+      {/* Text */}
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
+          <span style={{ fontSize:13.5, fontWeight:700, color:T.t, lineHeight:1.3 }}>
+            {item.label}
+          </span>
+          {item.badge && (
+            <span style={{
+              padding:"1px 7px", borderRadius:9999, flexShrink:0,
+              background:`${item.badgeClr}16`, color:item.badgeClr,
+              border:`1px solid ${item.badgeClr}35`,
+              fontSize:9.5, fontWeight:700, letterSpacing:"0.04em",
+            }}>
+              {item.badge}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize:11, color:T.tl, lineHeight:1.4 }}>{item.desc}</span>
+      </div>
+      <ChevronRight size={14} color={T.tl} style={{ flexShrink:0 }}/>
+    </button>
+  );
 
   return (
     <>
@@ -901,6 +1005,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
           boxShadow:"0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08)",
           overflow:"hidden",
         }}>
+
         {/* Header del menú */}
         <div style={{
           padding:"11px 16px 10px",
@@ -931,61 +1036,46 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
           </button>
         </div>
 
-        {/* Cards de acción */}
-        <div style={{ padding:"8px 8px 4px" }}>
-          {items.map((item, idx) => (
+        {/* Cuerpo */}
+        <div style={{ padding:"10px 8px 4px" }}>
+
+          {/* [1] Botón primario — items[0]: Nota de Evolución */}
+          <button
+            onClick={items[0].action}
+            style={{
+              width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+              gap:8, padding:"10px 16px", marginBottom:8,
+              background:T.p, color:"#fff",
+              border:"none", borderRadius:11,
+              fontFamily:T.fB, fontSize:13.5, fontWeight:700,
+              cursor:"pointer", transition:"opacity .13s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+            <items[0].icon size={14} strokeWidth={2}/>
+            {items[0].label}
+          </button>
+
+          {/* [2] Toggle "Más opciones" — solo si hay items secundarios */}
+          {items.length > 1 && (
             <button
-              key={item.label}
-              onClick={item.action}
+              onClick={() => setMoreOpen(o => !o)}
               style={{
-                width:"100%", display:"flex", alignItems:"center", gap:12,
-                padding:"11px 12px", background:"none",
-                border:`1.5px solid transparent`,
-                borderRadius:11, cursor:"pointer", textAlign:"left",
-                transition:"all .14s", marginBottom:4,
-                fontFamily:T.fB,
+                width:"100%", padding:"7px 12px", marginBottom: moreOpen ? 6 : 0,
+                background:"none", border:`1px solid ${T.bdrL}`,
+                borderRadius:9, cursor:"pointer",
+                fontFamily:T.fB, fontSize:12, color:T.tm,
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                transition:"all .13s",
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = item.accentA;
-                e.currentTarget.style.borderColor = item.border;
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "none";
-                e.currentTarget.style.borderColor = "transparent";
-              }}>
-              {/* Icon bubble */}
-              <div style={{
-                width:38, height:38, borderRadius:10, flexShrink:0,
-                background: item.accentA,
-                border:`1.5px solid ${item.border}`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-              }}>
-                <item.icon size={17} color={item.accent} strokeWidth={1.8}/>
-              </div>
-
-              {/* Text */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
-                  <span style={{ fontSize:13.5, fontWeight:700, color:T.t, lineHeight:1.3 }}>
-                    {item.label}
-                  </span>
-                  {item.badge && (
-                    <span style={{
-                      padding:"1px 7px", borderRadius:9999, flexShrink:0,
-                      background:`${item.badgeClr}16`, color:item.badgeClr,
-                      border:`1px solid ${item.badgeClr}35`,
-                      fontSize:9.5, fontWeight:700, letterSpacing:"0.04em",
-                    }}>
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize:11, color:T.tl, lineHeight:1.4 }}>{item.desc}</span>
-              </div>
-
-              <ChevronRight size={14} color={T.tl} style={{ flexShrink:0 }}/>
+              onMouseEnter={e => { e.currentTarget.style.borderColor = T.p; e.currentTarget.style.color = T.p; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = T.bdrL; e.currentTarget.style.color = T.tm; }}>
+              Más opciones <span style={{ fontSize:10 }}>{moreOpen ? "▴" : "▾"}</span>
             </button>
-          ))}
+          )}
+
+          {/* [3] Items secundarios items[1..N] — visibles cuando moreOpen */}
+          {moreOpen && items.slice(1).map(renderCard)}
         </div>
 
         {/* Footer — aviso si no hay riesgo */}
@@ -1043,7 +1133,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [patientTasks,     setPatientTasks]     = useState([]);
   const [viewTaskResponse, setViewTaskResponse] = useState(null);
 
-  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat:"libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
+  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat: localStorage.getItem("pc_last_note_format") || "libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
   const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
 
   // ── Autoguardado de notas clínicas ──────────────────────────────────────────
@@ -1828,14 +1918,21 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
           <Input label="Fecha"      value={form.date}     onChange={fld("date")}     type="date"/>
           <Input label="Duración"   value={form.duration} onChange={fld("duration")} type="number"/>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Select label="Progreso" value={form.progress} onChange={fld("progress")}
-            options={["excelente","bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
-          <Select label="Ánimo" value={form.mood} onChange={fld("mood")}
-            options={["bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
-        </div>
+        <MoodProgressPicker
+          mood={form.mood}
+          progress={form.progress}
+          onMood={fld("mood")}
+          onProgress={fld("progress")}
+        />
 
-        <FormatSelector value={form.noteFormat} onChange={(f) => { handleFormatChange(f); setShowTpl(false); }}/>
+        {(() => {
+          const onFormatChange = (f) => {
+            localStorage.setItem("pc_last_note_format", f);
+            handleFormatChange(f);
+            setShowTpl(false);
+          };
+          return <FormatSelector value={form.noteFormat} onChange={onFormatChange}/>;
+        })()}
 
         {/* ── Template selector ─────────────────────────────────── */}
         {form.patientId && (
