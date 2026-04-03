@@ -15,7 +15,7 @@ import { Card, Badge, Btn, EmptyState, PageHeader } from "../components/ui/index
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 import {
-  Users, Calendar, Clock, FileText, ChevronRight,
+  Users, Calendar, CalendarDays, Clock, FileText, ChevronRight,
   ShieldAlert, DollarSign, CheckCircle2, AlertCircle,
   ArrowRight, Sparkles, ListChecks, Camera, BadgeCheck,
   Briefcase, CalendarClock, ChevronDown, ChevronUp,
@@ -522,7 +522,94 @@ function AbsentRow({ name, days, lastSession, isLast, onClick }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2 — HERO DE SESIÓN (Siguiente Paciente)
+// 2 — HOY WIDGET (unifica SessionHero + AgendaTimeline)
+// ─────────────────────────────────────────────────────────────────────────────
+const HOY_STATUS_CFG = {
+  pendiente:           { label: "Pendiente",  color: T.p,   bg: T.pA   },
+  completada:          { label: "Completada", color: T.suc, bg: T.sucA },
+  cancelada_paciente:  { label: "Cancelada",  color: T.err, bg: T.errA ?? `${T.err}14` },
+  cancelada_psicologa: { label: "Cancelada",  color: T.err, bg: T.errA ?? `${T.err}14` },
+  no_asistio:          { label: "No asistió", color: T.war, bg: T.warA },
+};
+
+function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate, isMobile }) {
+  if (todayAppts.length === 0) {
+    return (
+      <Card style={{ padding: isMobile ? "20px 18px" : "26px 28px" }}>
+        <SectionLabel text="Hoy" icon={CalendarDays} color={T.p} />
+        <EmptyState
+          icon={Calendar}
+          title="Sin citas hoy"
+          desc="No hay consultas programadas."
+          action={{ label: "Agendar cita", onClick: () => onNavigate("agenda") }}
+        />
+      </Card>
+    );
+  }
+
+  const today = new Date().toLocaleDateString("es-MX", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  const todayFmt = today.charAt(0).toUpperCase() + today.slice(1);
+  const sorted = [...todayAppts].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+  return (
+    <Card style={{ padding: isMobile ? "16px" : "22px 26px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <SectionLabel text={todayFmt} icon={CalendarDays} color={T.p} />
+        <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
+      </div>
+      {sorted.map((appt, i) => {
+        const isPending = appt.status !== "completada"
+          && appt.status !== "cancelada_paciente"
+          && appt.status !== "cancelada_psicologa";
+        const cfg = HOY_STATUS_CFG[appt.status] || HOY_STATUS_CFG.pendiente;
+        const isFirst = i === 0;
+        return (
+          <div key={appt.id} style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "10px 12px",
+            borderRadius: 10,
+            marginBottom: i < sorted.length - 1 ? 6 : 0,
+            background: isPending && isFirst ? T.pA : "transparent",
+            border: isPending && isFirst ? `1px solid ${T.p}22` : "1px solid transparent",
+          }}>
+            <Avatar name={appt.patientName} size={34} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+                {appt.patientName?.split(" ").slice(0, 2).join(" ")}
+              </div>
+              <div style={{ fontSize: 11, color: T.tl }}>
+                {appt.time}{appt.type ? ` · ${appt.type}` : ""}
+              </div>
+            </div>
+            <Badge color={cfg.color} bg={cfg.bg}>{cfg.label}</Badge>
+            {isPending && (
+              <button
+                onClick={() => onStartSession(appt)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", borderRadius: 8, border: "none",
+                  cursor: "pointer", background: T.p, color: "#fff",
+                  fontFamily: T.fB, fontSize: 12, fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                ▶ Iniciar
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b — HERO DE SESIÓN (Siguiente Paciente) — mantenido para compatibilidad
 // ─────────────────────────────────────────────────────────────────────────────
 function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobile }) {
   const nextPending = useMemo(() =>
@@ -1371,35 +1458,25 @@ export default function Dashboard({
           {/* ── MÓVIL: Hero primero, luego Radar ──────────────────────── */}
           {isMobile && (
             <>
-              {/* [mobile-audit] Próxima sesión al tope — acción principal */}
+              {/* [mobile-audit] Citas de hoy unificadas — HoyWidget */}
               <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
-                <SessionHero
+                <HoyWidget
                   todayAppts={todayAppts}
                   sessions={sessions}
+                  nextAppt={nextAppt}
                   onStartSession={onStartSession}
                   onNavigate={onNavigate}
                   isMobile={isMobile}
                 />
               </FadeUp>
 
-              {/* [mobile-audit] Radar compacto debajo del hero */}
+              {/* [mobile-audit] Radar compacto debajo del HoyWidget */}
               <FadeUp delay={0.12} style={{ marginBottom: gridGap }}>
                 <RiskRadar
                   patients={patients}
                   sessions={sessions}
                   riskAssessments={riskAssessments}
                   todayStr={todayStr}
-                  onNavigate={onNavigate}
-                  isMobile={isMobile}
-                />
-              </FadeUp>
-
-              {/* [mobile-audit] Agenda timeline */}
-              <FadeUp delay={0.16} style={{ marginBottom: gridGap }}>
-                <AgendaTimeline
-                  todayAppts={todayAppts}
-                  nextAppt={nextAppt}
-                  onStartSession={onStartSession}
                   onNavigate={onNavigate}
                   isMobile={isMobile}
                 />
@@ -1438,9 +1515,10 @@ export default function Dashboard({
                     onNavigate={onNavigate}
                     isMobile={isMobile}
                   />
-                  <SessionHero
+                  <HoyWidget
                     todayAppts={todayAppts}
                     sessions={sessions}
+                    nextAppt={nextAppt}
                     onStartSession={onStartSession}
                     onNavigate={onNavigate}
                     isMobile={isMobile}
@@ -1448,30 +1526,16 @@ export default function Dashboard({
                 </div>
               </FadeUp>
 
-              {/* FILA 2: Agenda + Compliance */}
-              {/* [mobile-audit] grid 2 col — agenda más ancha */}
+              {/* FILA 2: HoyWidget + Compliance */}
+              {/* [mobile-audit] grid 2 col — hoy más ancha */}
               <FadeUp delay={0.14} style={{ marginBottom: gridGap }}>
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.15fr 1fr",
-                  gap: gridGap,
-                  alignItems: "start",
-                }}>
-                  <AgendaTimeline
-                    todayAppts={todayAppts}
-                    nextAppt={nextAppt}
-                    onStartSession={onStartSession}
-                    onNavigate={onNavigate}
-                    isMobile={isMobile}
-                  />
-                  <ComplianceChecklist
-                    patients={patients}
-                    pendingTasks={pendingTasks}
-                    sessions={sessions}
-                    onNavigate={onNavigate}
-                    isMobile={isMobile}
-                  />
-                </div>
+                <ComplianceChecklist
+                  patients={patients}
+                  pendingTasks={pendingTasks}
+                  sessions={sessions}
+                  onNavigate={onNavigate}
+                  isMobile={isMobile}
+                />
               </FadeUp>
             </>
           )}
@@ -1510,17 +1574,9 @@ export default function Dashboard({
               {/* COLUMNA CENTRAL — acción principal del día */}
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <FadeUp delay={0.08}>
-                  <SessionHero
+                  <HoyWidget
                     todayAppts={todayAppts}
                     sessions={sessions}
-                    onStartSession={onStartSession}
-                    onNavigate={onNavigate}
-                    isMobile={false}
-                  />
-                </FadeUp>
-                <FadeUp delay={0.12}>
-                  <AgendaTimeline
-                    todayAppts={todayAppts}
                     nextAppt={nextAppt}
                     onStartSession={onStartSession}
                     onNavigate={onNavigate}
