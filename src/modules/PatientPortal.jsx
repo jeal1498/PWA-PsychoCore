@@ -14,10 +14,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CheckCircle2, ChevronRight, ClipboardList, ArrowLeft, Send, Loader,
-  FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2, Brain,
+  FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2, Brain, History,
 } from "lucide-react";
 import {
   getAssignmentsByPhone,
+  getAllResponsesByPhone,
   submitResponse,
   getConsentByPhone,
   savePatientConsent,
@@ -861,6 +862,85 @@ function ConsentBanner({ onReview }) {
 }
 
 // ── Task list ─────────────────────────────────────────────────────────────────
+// ── TaskResponseView — respuestas guardadas en modo lectura ───────────────────
+function TaskResponseView({ assignment, responses, onBack }) {
+  const template = getTemplate(assignment.template_id);
+  const date     = new Date(assignment.completed_at || assignment.assigned_at)
+    .toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+
+  if (!template) return (
+    <div style={{ padding:24, textAlign:"center", color:P.tm, fontFamily:P.fB }}>
+      Plantilla no encontrada.
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:"100vh", background:P.bg, fontFamily:P.fB }}>
+      {/* Header */}
+      <div style={{ background:P.p, padding:"16px 20px 24px", color:"#fff" }}>
+        <button onClick={onBack}
+          style={{
+            background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8,
+            padding:"6px 12px", color:"#fff", fontFamily:P.fB, fontSize:13,
+            cursor:"pointer", display:"flex", alignItems:"center", gap:6, marginBottom:14,
+          }}>
+          <ArrowLeft size={14}/> Volver
+        </button>
+        <div style={{ fontSize:28 }}>{template.icon}</div>
+        <h2 style={{ fontFamily:P.fH, fontSize:22, fontWeight:600, margin:"6px 0 2px" }}>
+          {template.title}
+        </h2>
+        <div style={{ fontSize:12, opacity:0.75, display:"flex", alignItems:"center", gap:6 }}>
+          <CheckCircle2 size={13}/> Completada el {date}
+        </div>
+      </div>
+
+      <div style={{ padding:"20px 20px 60px" }}>
+        {template.fields.map((field, i) => {
+          const val = responses?.[field.key];
+          return (
+            <div key={field.key} style={{
+              background:P.card, borderRadius:14, padding:"16px",
+              marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
+            }}>
+              {/* Número + pregunta */}
+              <div style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:10 }}>
+                <div style={{
+                  width:20, height:20, borderRadius:"50%", background:P.pA, color:P.p,
+                  fontFamily:P.fB, fontSize:10, fontWeight:700,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  flexShrink:0, marginTop:1,
+                }}>
+                  {i + 1}
+                </div>
+                <div style={{ fontFamily:P.fB, fontSize:13.5, fontWeight:600, color:P.tm, lineHeight:1.4 }}>
+                  {field.label}
+                </div>
+              </div>
+              {/* Respuesta */}
+              <div style={{
+                fontFamily:P.fB, fontSize:15, color: val ? P.t : P.tl,
+                lineHeight:1.6, paddingLeft:28,
+                fontStyle: val ? "normal" : "italic",
+              }}>
+                {field.type === "scale10" && val
+                  ? <span style={{
+                      display:"inline-flex", alignItems:"center", justifyContent:"center",
+                      width:36, height:36, borderRadius:"50%",
+                      background:P.pA, color:P.p,
+                      fontFamily:P.fB, fontSize:18, fontWeight:700,
+                    }}>{val}</span>
+                  : (val ?? "Sin respuesta")
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TaskList({ phone, assignments: initial, onLogout }) {
   const [assignments, setAssignments] = useState(initial);
   const [selected,    setSelected]    = useState(null);
@@ -868,7 +948,12 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [loading,     setLoading]     = useState(false);
 
   // Tabs
-  const [activeTab,   setActiveTab]   = useState("tasks"); // "tasks" | "appointments"
+  const [activeTab,   setActiveTab]   = useState("tasks"); // "tasks" | "appointments" | "history"
+
+  // Historial de respuestas
+  const [responses,        setResponses]        = useState([]);   // array de task_responses
+  const [responsesLoading, setResponsesLoading] = useState(true);
+  const [selectedResponse, setSelectedResponse] = useState(null); // { assignment, responses }
 
   // Consent
   const [consent,        setConsent]        = useState(null);
@@ -892,6 +977,22 @@ function TaskList({ phone, assignments: initial, onLogout }) {
     return () => { cancelled = true; };
   }, [phone]);
 
+  // Cargar historial de respuestas al montar
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getAllResponsesByPhone(phone);
+        if (!cancelled) setResponses(data || []);
+      } catch {
+        // No bloquear el portal si falla
+      } finally {
+        if (!cancelled) setResponsesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [phone]);
+
   const reload = async () => {
     setLoading(true);
     try {
@@ -906,6 +1007,8 @@ function TaskList({ phone, assignments: initial, onLogout }) {
     setSubmitted(false);
     setSelected(null);
     reload();
+    // Recargar historial de respuestas tras completar una tarea
+    getAllResponsesByPhone(phone).then(data => setResponses(data || [])).catch(() => {});
   };
 
   const handleConsentSigned = () => {
@@ -920,8 +1023,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   };
 
   // Sub-pantallas: prioridad de arriba hacia abajo
-  if (submitted)    return <SuccessScreen onBack={handleBackFromSubmit}/>;
-  if (selected)     return <TaskForm assignment={selected} onBack={() => setSelected(null)} onSubmitted={handleSubmitted}/>;
+  if (submitted)        return <SuccessScreen onBack={handleBackFromSubmit}/>;
+  if (selected)         return <TaskForm assignment={selected} onBack={() => setSelected(null)} onSubmitted={handleSubmitted}/>;
+  if (selectedResponse) return <TaskResponseView assignment={selectedResponse.assignment} responses={selectedResponse.responses} onBack={() => setSelectedResponse(null)}/>;
   if (consentDone)  return <ConsentDoneScreen onBack={handleBackFromConsentDone}/>;
   if (showConsent)  return (
     <ConsentSignScreen
@@ -990,7 +1094,8 @@ function TaskList({ phone, assignments: initial, onLogout }) {
       }}>
         {[
           { key:"tasks",        label:"Mis actividades",  icon:<ClipboardList size={14}/> },
-          { key:"appointments", label:"Mis citas",   icon:<Calendar size={14}/> },
+          { key:"appointments", label:"Mis citas",        icon:<Calendar size={14}/> },
+          { key:"history",      label:"Mi historial",     icon:<History size={14}/> },
         ].map(tab => {
           const active = activeTab === tab.key;
           return (
@@ -1058,7 +1163,10 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 }}>
                   Completadas
                 </div>
-                {completed.map(a => <TaskCard key={a.id} assignment={a} onOpen={() => {}}/>)}
+                {completed.map(a => {
+                  const r = responses.find(res => res.assignment_id === a.id);
+                  return <TaskCard key={a.id} assignment={a} onOpen={r ? () => setSelectedResponse({ assignment: { ...a, completed_at: r.submitted_at }, responses: r.responses }) : undefined}/>;
+                })}
               </>
             )}
           </>
@@ -1068,6 +1176,60 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         {activeTab === "appointments" && (
           <AppointmentsSection phone={phone}/>
         )}
+
+        {/* Tab: Mi historial */}
+        {activeTab === "history" && (() => {
+          if (responsesLoading) return <Spinner/>;
+
+          if (responses.length === 0) return (
+            <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
+              <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
+              <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin historial aún</div>
+              <div style={{ fontSize:14, lineHeight:1.6 }}>Aquí aparecerán tus actividades completadas.</div>
+            </div>
+          );
+
+          return (
+            <div>
+              <div style={{
+                fontSize:11, fontWeight:700, color:P.tm,
+                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12,
+              }}>
+                {responses.length} actividad{responses.length !== 1 ? "es" : ""} completada{responses.length !== 1 ? "s" : ""}
+              </div>
+              {responses.map(r => {
+                const assignment = assignments.find(a => a.id === r.assignment_id) || { id: r.assignment_id, template_id: null, title: "Actividad", completed_at: r.submitted_at };
+                const template   = getTemplate(assignment.template_id);
+                const date       = new Date(r.submitted_at).toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+                return (
+                  <div key={r.id}
+                    onClick={() => setSelectedResponse({ assignment: { ...assignment, completed_at: r.submitted_at }, responses: r.responses })}
+                    style={{
+                      background:P.card, borderRadius:16, padding:"16px 18px",
+                      marginBottom:12, boxShadow:P.sh,
+                      border:`1.5px solid ${P.bdrL}`,
+                      cursor:"pointer", display:"flex", alignItems:"center", gap:14,
+                      transition:"border .15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = P.p}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = P.bdrL}
+                  >
+                    <div style={{ fontSize:26, lineHeight:1 }}>{template?.icon || "📋"}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t, marginBottom:3 }}>
+                        {template?.title || assignment.title}
+                      </div>
+                      <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl, display:"flex", alignItems:"center", gap:5 }}>
+                        <CheckCircle2 size={11} color={P.suc}/> Completada el {date}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} color={P.tl}/>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
