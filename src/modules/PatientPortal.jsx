@@ -1203,6 +1203,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [patientProfile,        setPatientProfile]        = useState(null);
   const [patientProfileLoading, setPatientProfileLoading] = useState(true);
 
+  // Citas próximas para el widget del dashboard
+  const [upcomingAppts, setUpcomingAppts] = useState([]);
+
   // Consent
   const [consent,        setConsent]        = useState(null);
   const [consentLoading, setConsentLoading] = useState(true);
@@ -1253,6 +1256,23 @@ function TaskList({ phone, assignments: initial, onLogout }) {
       } finally {
         if (!cancelled) setPatientProfileLoading(false);
       }
+    })();
+    return () => { cancelled = true; };
+  }, [phone]);
+
+  // Cargar citas próximas para widget del dashboard
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getAppointmentsByPhone(phone);
+        if (cancelled) return;
+        const today = new Date().toISOString().split("T")[0];
+        const upcoming = (data || [])
+          .filter(a => a.date >= today && !["cancelada_paciente","cancelada_psicologa","no_presentado"].includes(a.status))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        if (!cancelled) setUpcomingAppts(upcoming);
+      } catch { /* silencioso */ }
     })();
     return () => { cancelled = true; };
   }, [phone]);
@@ -1313,8 +1333,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   // Next upcoming appointment
   const nextAppt = (() => {
     const today = new Date().toISOString().split("T")[0];
-    const up = (appointments?.upcoming || []);
-    return up.find(a => a.date >= today) || null;
+    return upcomingAppts.find(a => a.date >= today) || null;
   })();
 
   const newCount = newSince ? pending.filter(a => a.assigned_at > newSince).length : 0;
