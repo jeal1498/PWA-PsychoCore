@@ -1302,7 +1302,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
 
   const pending   = assignments.filter(a => a.status === "pending");
   const completed = assignments.filter(a => a.status === "completed");
-  const name      = assignments[0]?.patient_name?.split(" ")[0] || "";
+  const name = (patientProfile?.name || assignments[0]?.patient_name || "").split(" ")[0];
 
   // Mostrar banner solo si el consentimiento está explícitamente sin firmar
   const showConsentBanner = !consentLoading && consent !== null && !consent.signed;
@@ -1405,6 +1405,24 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         {/* Tab: Tareas */}
         {activeTab === "tasks" && (
           <>
+            {/* Botón actualizar */}
+            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+              <button
+                onClick={reload}
+                disabled={loading}
+                style={{
+                  display:"flex", alignItems:"center", gap:6,
+                  padding:"6px 12px", borderRadius:9999,
+                  border:`1px solid ${P.bdr}`, background:"transparent",
+                  fontFamily:P.fB, fontSize:12, color:P.tm,
+                  cursor:loading ? "wait" : "pointer",
+                  opacity:loading ? 0.5 : 1, transition:"all .15s",
+                }}>
+                <RefreshCw size={12} style={{ animation: loading ? "spin 0.8s linear infinite" : "none" }}/>
+                Actualizar
+              </button>
+            </div>
+
             {loading && <Spinner/>}
 
             {!loading && assignments.length === 0 && (
@@ -1640,7 +1658,8 @@ const COUNTRIES = [
 
 // ── Login screen ──────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
-  const [countryIdx, setCountryIdx] = useState(0);           // México por defecto
+  const [countryIdx,      setCountryIdx]      = useState(0);  // México por defecto
+  const [countryExpanded, setCountryExpanded] = useState(false);
   const [input,      setInput]      = useState(initialPhone);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(autoError);
@@ -1739,37 +1758,69 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
             display:"flex", gap:8,
             marginBottom: error ? 8 : 14,
           }}>
-            {/* Selector de país */}
+            {/* Selector de país — colapsado por defecto, expandible */}
             <div style={{ position:"relative", flexShrink:0, width:"28%" }}>
-              <select
-                value={countryIdx}
-                onChange={e => { setCountryIdx(Number(e.target.value)); setInput(""); setError(""); }}
-                style={{
-                  appearance:"none", WebkitAppearance:"none",
-                  width:"100%", height:"100%", padding:"0 28px 0 10px",
-                  border:`2px solid ${focused || isValid ? P.p : P.bdr}`,
-                  borderRadius:12, background:"#EFF3F2",
-                  fontFamily:P.fB, fontSize:13, color:P.t,
-                  cursor:"pointer", outline:"none",
-                  transition:"border .15s",
-                }}
-              >
-                {COUNTRIES.map((c, i) => (
-                  <option key={c.code + c.name} value={i}>
-                    {c.flag} {c.code}
-                  </option>
-                ))}
-              </select>
-              {/* Chevron custom */}
-              <div style={{
-                position:"absolute", right:10, top:"50%",
-                transform:"translateY(-50%)",
-                pointerEvents:"none", lineHeight:1,
-              }}>
-                <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-                  <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+              {!countryExpanded ? (
+                /* Vista colapsada: solo bandera + código como botón */
+                <button
+                  onClick={() => setCountryExpanded(true)}
+                  style={{
+                    width:"100%", height:"100%", minHeight:52,
+                    padding:"0 10px",
+                    border:`2px solid ${focused || isValid ? P.p : P.bdr}`,
+                    borderRadius:12, background:"#EFF3F2",
+                    fontFamily:P.fB, fontSize:13, color:P.t,
+                    cursor:"pointer", outline:"none",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                    transition:"border .15s",
+                  }}>
+                  <span>{country.flag}</span>
+                  <span style={{ fontWeight:600 }}>{country.code}</span>
+                  <svg width="8" height="5" viewBox="0 0 10 6" fill="none" style={{ opacity:0.5 }}>
+                    <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              ) : (
+                /* Vista expandida: select nativo completo */
+                <>
+                  <select
+                    autoFocus
+                    value={countryIdx}
+                    onChange={e => {
+                      setCountryIdx(Number(e.target.value));
+                      setInput("");
+                      setError("");
+                      setCountryExpanded(false);
+                    }}
+                    onBlur={() => setCountryExpanded(false)}
+                    style={{
+                      appearance:"none", WebkitAppearance:"none",
+                      width:"100%", height:"100%", minHeight:52,
+                      padding:"0 28px 0 10px",
+                      border:`2px solid ${P.p}`,
+                      borderRadius:12, background:"#EFF3F2",
+                      fontFamily:P.fB, fontSize:13, color:P.t,
+                      cursor:"pointer", outline:"none",
+                      transition:"border .15s",
+                    }}
+                  >
+                    {COUNTRIES.map((c, i) => (
+                      <option key={c.code + c.name} value={i}>
+                        {c.flag} {c.code} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{
+                    position:"absolute", right:10, top:"50%",
+                    transform:"translateY(-50%)",
+                    pointerEvents:"none", lineHeight:1,
+                  }}>
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                      <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Input numérico */}
@@ -1917,14 +1968,28 @@ export default function PatientPortal() {
 
   // Auto-login cuando ?phone= viene en la URL (enlace de WhatsApp)
   useEffect(() => {
-    const params  = new URLSearchParams(window.location.search);
-    const urlPhone = (params.get("phone") || "").replace(/\D/g, "");
-    if (!urlPhone || urlPhone.length < 10) return;
+    const params   = new URLSearchParams(window.location.search);
+    const raw      = params.get("phone") || "";
+    if (!raw) return;
 
-    setInitialPhone(urlPhone);
+    // Preservar el + del formato E.164 — solo eliminar espacios y caracteres inválidos
+    const urlPhone = raw.trim().replace(/[^\d+]/g, "");
+    if (urlPhone.length < 10) return;
+
+    setInitialPhone(urlPhone.replace(/\D/g, "")); // input sin + para el campo visual
     setAutoLoading(true);
     getAssignmentsByPhone(urlPhone)
       .then(data => {
+        if (data.length === 0) {
+          setAutoError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
+          return;
+        }
+        // Guardar lastSeen igual que en login manual
+        try {
+          const prev = localStorage.getItem(`lastSeen_${urlPhone}`);
+          if (prev) localStorage.setItem(`lastSeenPrev_${urlPhone}`, prev);
+          localStorage.setItem(`lastSeen_${urlPhone}`, new Date().toISOString());
+        } catch { /* localStorage no disponible */ }
         setPhone(urlPhone);
         setAssignments(data);
       })
@@ -1965,7 +2030,8 @@ export default function PatientPortal() {
           <Brain size={32} strokeWidth={1.6} color={P.p}/>
         </div>
         <Spinner/>
-        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Cargando tu espacio…</p>
+        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Verificando tu acceso…</p>
+        <p style={{ fontSize:12, color:P.tl, marginTop:4 }}>Esto solo tarda unos segundos</p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
