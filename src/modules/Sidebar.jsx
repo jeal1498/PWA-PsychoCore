@@ -66,7 +66,7 @@ function LogoutButton({ onSignOut, onClose }) {
   );
 }
 
-export default function Sidebar({ active, setActive, open, onClose, profile, riskAlert = false, onSignOut }) {
+export default function Sidebar({ active, setActive, open, onClose, profile, googleUser, riskAlert = false, onSignOut }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
 
@@ -78,9 +78,14 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
 
   const handleNav = (id) => { setActive(id); if (isMobile) onClose(); };
 
-  const initials = profile?.initials || (profile?.name ? profile.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase() : "PS");
-  const displayName = profile?.name || "Psicólogo/a";
+  // Fallback chain: perfil guardado → nombre Google OAuth → placeholder
+  const googleName = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
+  const displayName = profile?.name || googleName || "Psicólogo/a";
   const displaySpec = profile?.specialty || "Psicólogo Clínico";
+  const initials = profile?.initials
+    || (displayName && displayName !== "Psicólogo/a"
+        ? displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+        : "PS");
 
   const sidebarStyle = isMobile
     ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
