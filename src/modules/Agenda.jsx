@@ -25,7 +25,9 @@ if (typeof document !== "undefined" && !window.__pc_agenda_styles__) {
 // ── Configuración de estados de cita (Sección 2.6 y 4 del Flujo Clínico) ─────
 const STATUS_CONFIG = {
   pendiente:          { label:"Pendiente",            color:T.war,  bg:T.warA  },
+  confirmada:         { label:"Confirmada ✓",         color:T.suc,  bg:T.sucA  },
   completada:         { label:"Completada",           color:T.suc,  bg:T.sucA  },
+  solicitud_cambio:   { label:"Solicitud cambio 🔔",  color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
   cancelada_paciente: { label:"Cancelada (paciente)", color:T.tl,   bg:T.bdrL  },
   cancelada_psicologa:{ label:"Cancelada (psicóloga)",color:"#6B5B9E", bg:"rgba(107,91,158,0.1)" },
   no_presentado:      { label:"No presentado",        color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
@@ -646,6 +648,29 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                     <Trash2 size={12}/>
                   </button>
                 </div>
+
+                {/* Banner solicitud de cambio del paciente */}
+                {a.status === "solicitud_cambio" && (
+                  <div style={{
+                    display:"flex", alignItems:"flex-start", gap:8,
+                    padding:"8px 10px", borderRadius:8,
+                    background:"rgba(196,98,42,0.08)",
+                    border:"1px solid rgba(196,98,42,0.25)",
+                    marginTop:2,
+                  }}>
+                    <span style={{ fontSize:14, lineHeight:1 }}>🔔</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:"#C4622A", marginBottom:a.patientNote ? 2 : 0 }}>
+                        Paciente solicitó cambio de cita
+                      </div>
+                      {a.patientNote && (
+                        <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, lineHeight:1.4 }}>
+                          "{a.patientNote}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Fila 2: acciones */}
                 {!isDone && (

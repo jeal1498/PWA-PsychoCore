@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CheckCircle2, ChevronRight, ClipboardList, ArrowLeft, Send, Loader,
   FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2, Brain, History,
+  MessageCircle, Check, RefreshCw,
 } from "lucide-react";
 import {
   getAssignmentsByPhone,
@@ -23,6 +24,8 @@ import {
   getConsentByPhone,
   savePatientConsent,
   getAppointmentsByPhone,
+  updateAppointmentStatus,
+  getPsychologistPhoneByPatientPhone,
 } from "../lib/supabase.js";
 import { getTemplate } from "../lib/taskTemplates.js";
 import { DEFAULT_CONSENT_SECTIONS } from "./Consent.jsx";
@@ -700,38 +703,86 @@ function capitalize(str) {
 }
 
 function AppointmentsSection({ phone }) {
-  const [appointments, setAppointments] = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState(false);
+  const [appointments,   setAppointments]   = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState(false);
+  const [psychPhone,     setPsychPhone]     = useState(null);
+  const [cardState,      setCardState]      = useState({});
+  const [noteText,       setNoteText]       = useState({});
+  const [saving,         setSaving]         = useState({});
+
+  const load = async (cancelled = { v: false }) => {
+    setLoading(true); setError(false);
+    try {
+      const [data, pPhone] = await Promise.all([
+        getAppointmentsByPhone(phone),
+        getPsychologistPhoneByPatientPhone(phone),
+      ]);
+      if (cancelled.v) return;
+      const today = new Date().toISOString().split("T")[0];
+      const upcoming = (data || [])
+        .filter(a => a.date >= today && !CANCELLED_STATUSES.has((a.status || "").toLowerCase()))
+        .sort((a, b) => a.date.localeCompare(b.date) || (a.time||"").localeCompare(b.time||""));
+      setAppointments(upcoming);
+      setPsychPhone(pPhone);
+    } catch {
+      if (!cancelled.v) setError(true);
+    } finally {
+      if (!cancelled.v) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(false);
-      try {
-        const data = await getAppointmentsByPhone(phone);
-        if (cancelled) return;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const upcoming = (data || [])
-          .filter(a => {
-            const d = new Date(a.date);
-            return d >= today && !CANCELLED_STATUSES.has((a.status || "").toLowerCase());
-          })
-          .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        setAppointments(upcoming);
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    const cancelled = { v: false };
+    load(cancelled);
+    return () => { cancelled.v = true; };
   }, [phone]);
+
+  const setCS   = (id, s) => setCardState(p => ({ ...p, [id]: s }));
+  const setNote = (id, v) => setNoteText(p => ({ ...p, [id]: v }));
+  const setSav  = (id, v) => setSaving(p => ({ ...p, [id]: v }));
+
+  const handleConfirm = async (appt) => {
+    setSav(appt.id, true);
+    try {
+      await updateAppointmentStatus(appt.id, {
+        status: "confirmada",
+        patientConfirmedAt: new Date().toISOString(),
+      });
+      setAppointments(prev => prev.map(a =>
+        a.id === appt.id ? { ...a, status: "confirmada" } : a
+      ));
+      setCS(appt.id, "done_confirm");
+    } catch { /* silencioso */ }
+    finally { setSav(appt.id, false); }
+  };
+
+  const handleRequestChange = async (appt) => {
+    const note = noteText[appt.id] || "";
+    setSav(appt.id, true);
+    try {
+      await updateAppointmentStatus(appt.id, {
+        status: "solicitud_cambio",
+        patientNote: note,
+        patientRequestedAt: new Date().toISOString(),
+      });
+      setAppointments(prev => prev.map(a =>
+        a.id === appt.id ? { ...a, status: "solicitud_cambio", patientNote: note } : a
+      ));
+      setCS(appt.id, "done_request");
+      if (psychPhone) {
+        const cleanPhone = psychPhone.replace(/\D/g, "");
+        const dateStr = capitalize(
+          new Date(appt.date + "T12:00:00").toLocaleDateString("es-MX", {
+            weekday:"long", day:"numeric", month:"long",
+          })
+        );
+        const msg = `Hola 👋 Soy ${appt.patientName || "tu paciente"}. Quisiera solicitar un cambio en mi cita del *${dateStr}* a las *${appt.time || ""}*.${note ? `\n\nMotivo: ${note}` : ""} ¿Podemos coordinar un nuevo horario? 🙏`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+      }
+    } catch { /* silencioso */ }
+    finally { setSav(appt.id, false); }
+  };
 
   if (loading) return <Spinner/>;
 
@@ -756,60 +807,162 @@ function AppointmentsSection({ phone }) {
   return (
     <div>
       {appointments.map((appt, i) => {
-        const dateStr   = capitalize(
+        const dateStr  = capitalize(
           new Date(appt.date + "T12:00:00").toLocaleDateString("es-MX", {
             weekday:"long", day:"numeric", month:"long",
           })
         );
-        const timeStr   = appt.start_time || appt.time || "";
-        const typeStr   = appt.session_type || appt.type || "Consulta";
-        const st        = apptStatusDisplay(appt.status);
+        const timeStr  = appt.time || appt.start_time || "";
+        const typeStr  = appt.type || appt.session_type || "Consulta";
+        const st       = apptStatusDisplay(appt.status);
+        const cs       = cardState[appt.id] || "idle";
+        const isSaving = saving[appt.id];
+        const isPending   = appt.status === "pendiente";
+        const isConfirmed = appt.status === "confirmada";
+        const isRequested = appt.status === "solicitud_cambio";
 
         return (
-          <div key={appt.id || i}
-            style={{
-              background:P.card, borderRadius:16, padding:"18px",
-              marginBottom:12, boxShadow:P.sh,
-              border:`1.5px solid ${P.bdr}`,
-              display:"flex", alignItems:"flex-start", gap:14,
-            }}>
-            {/* Icono / fecha visual */}
-            <div style={{
-              flexShrink:0, width:48, height:48, borderRadius:12,
-              background:P.pA,
-              display:"flex", flexDirection:"column",
-              alignItems:"center", justifyContent:"center",
-            }}>
-              <Calendar size={20} color={P.p} strokeWidth={1.6}/>
-            </div>
-
-            {/* Datos */}
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t, marginBottom:2 }}>
-                {dateStr}
+          <div key={appt.id || i} style={{
+            background:P.card, borderRadius:16, padding:"18px",
+            marginBottom:12, boxShadow:P.sh,
+            border:`1.5px solid ${P.bdr}`,
+          }}>
+            <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
+              <div style={{
+                flexShrink:0, width:48, height:48, borderRadius:12,
+                background:P.pA,
+                display:"flex", flexDirection:"column",
+                alignItems:"center", justifyContent:"center",
+              }}>
+                <Calendar size={20} color={P.p} strokeWidth={1.6}/>
               </div>
-              {timeStr && (
-                <div style={{ fontFamily:P.fB, fontSize:13, color:P.tm, marginBottom:4 }}>
-                  {timeStr}
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t, marginBottom:2 }}>
+                  {dateStr}
                 </div>
-              )}
-              <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>
-                {typeStr}
+                {timeStr && (
+                  <div style={{ fontFamily:P.fB, fontSize:13, color:P.tm, marginBottom:4 }}>
+                    {timeStr}
+                  </div>
+                )}
+                <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>{typeStr}</div>
+              </div>
+              <div style={{
+                flexShrink:0, padding:"4px 10px", borderRadius:9999,
+                background:st.bg,
+                fontFamily:P.fB, fontSize:11, fontWeight:700, color:st.color,
+              }}>
+                {st.label}
               </div>
             </div>
 
-            {/* Estado */}
-            <div style={{
-              flexShrink:0,
-              padding:"4px 10px", borderRadius:9999,
-              background:st.bg,
-              fontFamily:P.fB, fontSize:11, fontWeight:700, color:st.color,
-            }}>
-              {st.label}
-            </div>
+            {isRequested && appt.patientNote && (
+              <div style={{
+                marginTop:12, padding:"10px 12px",
+                background:"rgba(196,137,90,0.08)", borderRadius:10,
+                border:"1.5px solid rgba(196,137,90,0.2)",
+                fontFamily:P.fB, fontSize:13, color:P.tm, lineHeight:1.5,
+              }}>
+                <span style={{ fontWeight:700, color:P.acc }}>Tu nota: </span>
+                {appt.patientNote}
+              </div>
+            )}
+
+            {(isPending || isConfirmed || isRequested) && (
+              <div style={{ marginTop:14 }}>
+                {cs === "done_confirm" && (
+                  <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:P.sucA, borderRadius:10 }}>
+                    <CheckCircle2 size={16} color={P.suc}/>
+                    <span style={{ fontFamily:P.fB, fontSize:13, color:P.suc, fontWeight:600 }}>
+                      ¡Asistencia confirmada! Tu psicólogo(a) ya lo sabe.
+                    </span>
+                  </div>
+                )}
+                {cs === "done_request" && (
+                  <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:"rgba(196,137,90,0.1)", borderRadius:10 }}>
+                    <MessageCircle size={16} color={P.acc}/>
+                    <span style={{ fontFamily:P.fB, fontSize:13, color:P.acc, fontWeight:600 }}>
+                      Solicitud enviada. {psychPhone ? "Se abrió WhatsApp para contactar a tu psicólogo(a)." : "Tu psicólogo(a) lo verá pronto."}
+                    </span>
+                  </div>
+                )}
+                {cs === "idle" && (
+                  <div style={{ display:"flex", gap:8 }}>
+                    {isPending && (
+                      <button onClick={() => handleConfirm(appt)} disabled={isSaving}
+                        style={{
+                          flex:1, padding:"10px 0", borderRadius:10, border:"none",
+                          background:P.suc, color:"#fff",
+                          fontFamily:P.fB, fontSize:13, fontWeight:700,
+                          cursor:isSaving ? "wait" : "pointer",
+                          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                          opacity:isSaving ? 0.7 : 1, transition:"all .15s",
+                        }}>
+                        {isSaving ? <Loader size={13} style={{ animation:"spin 0.8s linear infinite" }}/> : <Check size={13}/>}
+                        Confirmar asistencia
+                      </button>
+                    )}
+                    {(isPending || isConfirmed) && (
+                      <button onClick={() => setCS(appt.id, "requesting")}
+                        style={{
+                          flex:1, padding:"10px 0", borderRadius:10,
+                          border:`1.5px solid ${P.bdr}`, background:"transparent",
+                          fontFamily:P.fB, fontSize:13, fontWeight:600, color:P.tm,
+                          cursor:"pointer",
+                          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                        }}>
+                        <RefreshCw size={13}/> Solicitar cambio
+                      </button>
+                    )}
+                  </div>
+                )}
+                {cs === "requesting" && (
+                  <div style={{ padding:"14px", background:P.bg, borderRadius:12, border:`1.5px solid ${P.bdr}` }}>
+                    <div style={{ fontFamily:P.fB, fontSize:13, fontWeight:700, color:P.t, marginBottom:8 }}>
+                      ¿Por qué necesitas cambiar la cita? <span style={{ fontWeight:400, color:P.tl }}>(opcional)</span>
+                    </div>
+                    <textarea
+                      value={noteText[appt.id] || ""}
+                      onChange={e => setNote(appt.id, e.target.value)}
+                      placeholder="Ej. Tengo un compromiso de trabajo ese día..."
+                      rows={3}
+                      style={{
+                        width:"100%", padding:"10px 12px", borderRadius:10,
+                        border:`1.5px solid ${P.bdr}`, background:P.card,
+                        fontFamily:P.fB, fontSize:13, color:P.t,
+                        resize:"none", outline:"none", boxSizing:"border-box",
+                      }}
+                    />
+                    <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                      <button onClick={() => setCS(appt.id, "idle")}
+                        style={{
+                          flex:1, padding:"9px 0", borderRadius:10,
+                          border:`1.5px solid ${P.bdr}`, background:"transparent",
+                          fontFamily:P.fB, fontSize:13, color:P.tm, cursor:"pointer",
+                        }}>
+                        Cancelar
+                      </button>
+                      <button onClick={() => handleRequestChange(appt)} disabled={isSaving}
+                        style={{
+                          flex:2, padding:"9px 0", borderRadius:10, border:"none",
+                          background:P.p, color:"#fff",
+                          fontFamily:P.fB, fontSize:13, fontWeight:700,
+                          cursor:isSaving ? "wait" : "pointer",
+                          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                          opacity:isSaving ? 0.7 : 1,
+                        }}>
+                        {isSaving ? <Loader size={13} style={{ animation:"spin 0.8s linear infinite" }}/> : <MessageCircle size={13}/>}
+                        {psychPhone ? "Enviar y abrir WhatsApp" : "Enviar solicitud"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
