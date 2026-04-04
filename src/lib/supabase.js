@@ -137,9 +137,14 @@ export async function getAssignmentsByPhone(phone) {
 export async function completeAssignment(assignmentId) {
   const res = await sb(`/task_assignments?id=eq.${assignmentId}`, {
     method: "PATCH",
+    prefer: "return=minimal",
     body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString() }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[completeAssignment] PATCH failed:", errText);
+    throw new Error(errText);
+  }
 }
 
 export async function deleteAssignment(assignmentId) {
@@ -155,6 +160,7 @@ export async function deleteAssignment(assignmentId) {
 export async function submitResponse({ assignmentId, patientPhone, responses }) {
   const res = await sb("/task_responses", {
     method: "POST",
+    prefer: "return=minimal",
     body: JSON.stringify({ assignment_id: assignmentId, patient_phone: patientPhone, responses }),
   });
   if (!res.ok) {
@@ -163,8 +169,6 @@ export async function submitResponse({ assignmentId, patientPhone, responses }) 
     throw new Error(errText);
   }
   await completeAssignment(assignmentId);
-  const data = await res.json();
-  return data[0];
 }
 
 export async function getResponsesByAssignment(assignmentId) {
