@@ -359,34 +359,3 @@ export async function getPaymentsByPhone(phone) {
   return payments;
 }
 
-/**
- * Guarda un registro de estado de ánimo del paciente.
- */
-export async function saveMoodLog({ phone, score, note }) {
-  const res = await sb("/mood_logs", {
-    method: "POST",
-    prefer: "return=minimal",
-    body: JSON.stringify({
-      patient_phone: phone,
-      mood_score:    score,
-      note:          note || null,
-      logged_at:     new Date().toISOString(),
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("[saveMoodLog] failed:", err);
-    throw new Error(err);
-  }
-}
-
-/**
- * Obtiene los últimos 30 registros de estado de ánimo del paciente.
- */
-export async function getMoodLogsByPhone(phone) {
-  const res = await sb(
-    `/mood_logs?patient_phone=eq.${encodeURIComponent(phone)}&order=logged_at.desc&limit=30`
-  );
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
