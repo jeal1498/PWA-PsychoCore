@@ -207,23 +207,97 @@ export async function savePatientConsent(phone, consentData) {
 
 // ── PORTAL DEL PACIENTE — Citas ───────────────────────────────────────────────
 
-/** Obtiene las citas del paciente identificado por teléfono.
- *  Filtra date >= hoy y devuelve ordenadas cronológicamente.
- *  Asume tabla `sessions` con columnas: id, patient_id, date, start_time, session_type, status. */
+/**
+ * Obtiene las citas del paciente identificado por teléfono.
+ * Lee pc_appointments (JSONB array) filtrando por patientId,
+ * devuelve citas ordenadas cronológicamente.
+ */
 export async function getAppointmentsByPhone(phone) {
-  // 1. Resolver patient_id a partir del teléfono
-  const pRes = await sb(`/patients?phone=eq.${encodeURIComponent(phone)}&select=id&limit=1`);
+  // 1. Resolver patientId desde pc_patients por teléfono
+  const pRes = await sb(`/pc_patients?select=data&limit=100`);
   if (!pRes.ok) throw new Error(await pRes.text());
-  const patients = await pRes.json();
-  if (!patients.length) return [];
+  const rows = await pRes.json();
 
-  const patientId = patients[0].id;
-  const today     = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+  let patientId = null;
+  for (const row of rows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    const match = arr.find(p => p.phone === phone);
+    if (match) { patientId = match.id; break; }
+  }
+  if (!patientId) return [];
 
-  // 2. Consultar sesiones futuras del paciente
-  const sRes = await sb(
-    `/sessions?patient_id=eq.${encodeURIComponent(patientId)}&date=gte.${today}&order=date.asc,start_time.asc&select=id,date,start_time,session_type,status`
+  // 2. Leer pc_appointments y filtrar por patientId en JS
+  const aRes = await sb(`/pc_appointments?select=data&limit=100`);
+  if (!aRes.ok) throw new Error(await aRes.text());
+  const aRows = await aRes.json();
+
+  const today = new Date().toISOString().split("T")[0];
+  const appts = [];
+  for (const row of aRows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    arr.forEach(a => {
+      if (a.patientId === patientId && a.date >= today) appts.push(a);
+    });
+  }
+  appts.sort((a, b) => a.date.localeCompare(b.date) || (a.time||"").localeCompare(b.time||""));
+  return appts;
+}
+
+/**
+ * Actualiza el status de una cita en pc_appointments.
+ * Busca el row del psicólogo que contiene la cita por appointmentId,
+ * y hace PATCH con el array actualizado.
+ */
+export async function updateAppointmentStatus(appointmentId, patch) {
+  // 1. Encontrar qué row (psychologist) contiene esta cita
+  const aRes = await sb(`/pc_appointments?select=psychologist_id,data&limit=100`);
+  if (!aRes.ok) throw new Error(await aRes.text());
+  const rows = await aRes.json();
+
+  let targetRow = null;
+  for (const row of rows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    if (arr.find(a => a.id === appointmentId)) { targetRow = row; break; }
+  }
+  if (!targetRow) throw new Error("Cita no encontrada");
+
+  // 2. Actualizar el item dentro del array
+  const updatedData = targetRow.data.map(a =>
+    a.id === appointmentId ? { ...a, ...patch } : a
   );
-  if (!sRes.ok) throw new Error(await sRes.text());
-  return sRes.json();
+
+  // 3. PATCH al row del psicólogo
+  const pRes = await sb(
+    `/pc_appointments?psychologist_id=eq.${targetRow.psychologist_id}`,
+    {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body: JSON.stringify({ data: updatedData }),
+    }
+  );
+  if (!pRes.ok) throw new Error(await pRes.text());
+}
+
+/**
+ * Obtiene el teléfono del psicólogo dueño del paciente identificado por phone.
+ * Necesario para generar el link de WhatsApp de solicitud de cambio.
+ */
+export async function getPsychologistPhoneByPatientPhone(phone) {
+  // 1. Encontrar psychologist_id que tiene este paciente
+  const pRes = await sb(`/pc_patients?select=psychologist_id,data&limit=100`);
+  if (!pRes.ok) throw new Error(await pRes.text());
+  const rows = await pRes.json();
+
+  let psychologistId = null;
+  for (const row of rows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    if (arr.find(p => p.phone === phone)) { psychologistId = row.psychologist_id; break; }
+  }
+  if (!psychologistId) return null;
+
+  // 2. Leer pc_profile de ese psicólogo
+  const prRes = await sb(`/pc_profile?psychologist_id=eq.${psychologistId}&select=data&limit=1`);
+  if (!prRes.ok) throw new Error(await prRes.text());
+  const prRows = await prRes.json();
+  return prRows[0]?.data?.phone || null;
 }
