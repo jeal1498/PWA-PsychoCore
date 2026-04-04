@@ -230,13 +230,11 @@ export async function getAppointmentsByPhone(phone) {
   const aRes = await sb(`/pc_appointments?select=data&limit=100`);
   if (!aRes.ok) throw new Error(await aRes.text());
   const aRows = await aRes.json();
-
-  const today = new Date().toISOString().split("T")[0];
   const appts = [];
   for (const row of aRows) {
     const arr = Array.isArray(row.data) ? row.data : [];
     arr.forEach(a => {
-      if (a.patientId === patientId && a.date >= today) appts.push(a);
+      if (a.patientId === patientId) appts.push(a);
     });
   }
   appts.sort((a, b) => a.date.localeCompare(b.date) || (a.time||"").localeCompare(b.time||""));
