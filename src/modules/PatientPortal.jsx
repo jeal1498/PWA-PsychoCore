@@ -1377,7 +1377,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           background:P.p, padding:"32px 20px 24px",
           color:"#fff",
         }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
             <div style={{
               width:44, height:44, borderRadius:"50%",
               background:"rgba(255,255,255,0.15)",
@@ -1393,23 +1393,6 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 {name || "Bienvenido/a"}
               </div>
             </div>
-          </div>
-          {/* Mini stats */}
-          <div style={{ display:"flex", gap:8 }}>
-            <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:8, padding:"8px", textAlign:"center" }}>
-              <div style={{ fontSize:18, fontWeight:700 }}>{pending.length}</div>
-              <div style={{ fontSize:10, opacity:0.8 }}>Pendientes</div>
-            </div>
-            <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:8, padding:"8px", textAlign:"center" }}>
-              <div style={{ fontSize:18, fontWeight:700 }}>{completed.length}</div>
-              <div style={{ fontSize:10, opacity:0.8 }}>Completadas</div>
-            </div>
-            {newCount > 0 && (
-              <div style={{ flex:1, background:"rgba(255,255,255,0.2)", borderRadius:8, padding:"8px", textAlign:"center", border:"1px solid rgba(255,255,255,0.4)" }}>
-                <div style={{ fontSize:18, fontWeight:700 }}>{newCount}</div>
-                <div style={{ fontSize:10, opacity:0.9, fontWeight:700 }}>🆕 Nuevas</div>
-              </div>
-            )}
           </div>
         </div>
 
