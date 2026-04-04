@@ -24,13 +24,27 @@ const SYNC_STATES = {
 function SyncIndicator() {
   const [state,   setState]   = useState(SYNC_STATES.hidden);
   const [visible, setVisible] = useState(false);
-  const hideTimer  = useRef(null);
-  const syncCount  = useRef(0);
+  const hideTimer    = useRef(null);
+  const safetyTimer  = useRef(null);
+  const syncCount    = useRef(0);
 
   useEffect(() => {
+    const forceHide = () => {
+      syncCount.current = 0;
+      setState(SYNC_STATES.error);
+      setVisible(true);
+      hideTimer.current = setTimeout(() => {
+        setVisible(false);
+        setState(SYNC_STATES.hidden);
+      }, 4000);
+    };
+
     const onStart = () => {
       syncCount.current += 1;
       clearTimeout(hideTimer.current);
+      // Safety: si en 12s no llega sync:done/error, forzamos cierre
+      clearTimeout(safetyTimer.current);
+      safetyTimer.current = setTimeout(forceHide, 12000);
       setState(SYNC_STATES.syncing);
       setVisible(true);
     };
@@ -38,6 +52,7 @@ function SyncIndicator() {
     const onDone = () => {
       syncCount.current = Math.max(0, syncCount.current - 1);
       if (syncCount.current > 0) return;
+      clearTimeout(safetyTimer.current);
       setState(SYNC_STATES.done);
       hideTimer.current = setTimeout(() => {
         setVisible(false);
@@ -47,6 +62,7 @@ function SyncIndicator() {
 
     const onError = () => {
       syncCount.current = Math.max(0, syncCount.current - 1);
+      clearTimeout(safetyTimer.current);
       setState(SYNC_STATES.error);
       hideTimer.current = setTimeout(() => {
         setVisible(false);
@@ -63,6 +79,7 @@ function SyncIndicator() {
       bus.off("sync:done",  onDone);
       bus.off("sync:error", onError);
       clearTimeout(hideTimer.current);
+      clearTimeout(safetyTimer.current);
     };
   }, []);
 
