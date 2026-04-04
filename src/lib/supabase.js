@@ -326,3 +326,35 @@ export async function getPatientByPhone(phone) {
   }
   return null;
 }
+
+/**
+ * Obtiene los pagos del paciente identificado por teléfono.
+ * Cruza pc_patients → patientId → filtra pc_payments.
+ */
+export async function getPaymentsByPhone(phone) {
+  // 1. Resolver patientId desde pc_patients
+  const pRes = await sb(`/pc_patients?select=data&limit=100`);
+  if (!pRes.ok) throw new Error(await pRes.text());
+  const rows = await pRes.json();
+
+  let patientId = null;
+  for (const row of rows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    const match = arr.find(p => p.phone === phone);
+    if (match) { patientId = match.id; break; }
+  }
+  if (!patientId) return [];
+
+  // 2. Leer pc_payments y filtrar por patientId
+  const payRes = await sb(`/pc_payments?select=data&limit=100`);
+  if (!payRes.ok) throw new Error(await payRes.text());
+  const payRows = await payRes.json();
+
+  const payments = [];
+  for (const row of payRows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    arr.forEach(p => { if (p.patientId === patientId) payments.push(p); });
+  }
+  payments.sort((a, b) => b.date.localeCompare(a.date));
+  return payments;
+}
