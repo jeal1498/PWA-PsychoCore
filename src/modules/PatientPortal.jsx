@@ -704,7 +704,7 @@ function capitalize(str) {
 }
 
 function AppointmentsSection({ phone }) {
-  const [appointments,   setAppointments]   = useState([]);
+  const [appointments,   setAppointments]   = useState({ upcoming: [], past: [] });
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState(false);
   const [psychPhone,     setPsychPhone]     = useState(null);
@@ -721,10 +721,14 @@ function AppointmentsSection({ phone }) {
       ]);
       if (cancelled.v) return;
       const today = new Date().toISOString().split("T")[0];
-      const upcoming = (data || [])
+      const all   = data || [];
+      const upcoming = all
         .filter(a => a.date >= today && !CANCELLED_STATUSES.has((a.status || "").toLowerCase()))
         .sort((a, b) => a.date.localeCompare(b.date) || (a.time||"").localeCompare(b.time||""));
-      setAppointments(upcoming);
+      const past = all
+        .filter(a => a.date < today)
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.time||"").localeCompare(a.time||""));
+      setAppointments({ upcoming, past });
       setPsychPhone(pPhone);
     } catch {
       if (!cancelled.v) setError(true);
@@ -797,7 +801,7 @@ function AppointmentsSection({ phone }) {
     </div>
   );
 
-  if (appointments.length === 0) return (
+  if (appointments.upcoming.length === 0 && appointments.past.length === 0) return (
     <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
       <div style={{ fontSize:48, marginBottom:16 }}>📅</div>
       <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin citas próximas</div>
@@ -807,7 +811,16 @@ function AppointmentsSection({ phone }) {
 
   return (
     <div>
-      {appointments.map((appt, i) => {
+      {/* Citas próximas */}
+      {appointments.upcoming.length > 0 && (
+        <>
+          <div style={{
+            fontSize:11, fontWeight:700, color:P.tm,
+            textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12,
+          }}>
+            Próximas
+          </div>
+          {appointments.upcoming.map((appt, i) => {
         const dateStr  = capitalize(
           new Date(appt.date + "T12:00:00").toLocaleDateString("es-MX", {
             weekday:"long", day:"numeric", month:"long",
@@ -963,6 +976,63 @@ function AppointmentsSection({ phone }) {
           </div>
         );
       })}
+        </>
+      )}
+
+      {/* Citas pasadas */}
+      {appointments.past.length > 0 && (
+        <>
+          <div style={{
+            fontSize:11, fontWeight:700, color:P.tl,
+            textTransform:"uppercase", letterSpacing:"0.08em",
+            margin:"24px 0 12px",
+          }}>
+            Historial · {appointments.past.length} sesión{appointments.past.length !== 1 ? "es" : ""}
+          </div>
+          {appointments.past.map((appt, i) => {
+            const dateStr = capitalize(
+              new Date(appt.date + "T12:00:00").toLocaleDateString("es-MX", {
+                weekday:"long", day:"numeric", month:"long", year:"numeric",
+              })
+            );
+            const timeStr = appt.time || appt.start_time || "";
+            const typeStr = appt.type || appt.session_type || "Consulta";
+            const st      = apptStatusDisplay(appt.status);
+            return (
+              <div key={appt.id || i} style={{
+                background:P.card, borderRadius:14, padding:"14px 16px",
+                marginBottom:8, border:`1px solid ${P.bdrL}`,
+                display:"flex", alignItems:"center", gap:12,
+                opacity:0.75,
+              }}>
+                <div style={{
+                  flexShrink:0, width:36, height:36, borderRadius:10,
+                  background:P.bdrL,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  <Calendar size={15} color={P.tl} strokeWidth={1.6}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:P.fB, fontSize:13.5, fontWeight:600, color:P.t, marginBottom:1 }}>
+                    {dateStr}
+                  </div>
+                  <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>
+                    {timeStr ? `${timeStr} · ` : ""}{typeStr}
+                  </div>
+                </div>
+                <div style={{
+                  padding:"3px 9px", borderRadius:9999,
+                  background:st.bg,
+                  fontFamily:P.fB, fontSize:10, fontWeight:700, color:st.color,
+                }}>
+                  {st.label}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
