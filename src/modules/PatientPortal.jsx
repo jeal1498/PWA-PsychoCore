@@ -1365,10 +1365,10 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         borderBottom:`1px solid ${P.bdrL}`,
       }}>
         {[
-          { key:"tasks",        label:"Mis actividades",  icon:<ClipboardList size={14}/> },
-          { key:"appointments", label:"Mis citas",        icon:<Calendar size={14}/> },
-          { key:"history",      label:"Mi historial",     icon:<History size={14}/> },
-          { key:"profile",      label:"Mi perfil",        icon:<User size={14}/> },
+          { key:"tasks",        label:"Actividades",  icon:<ClipboardList size={14}/> },
+          { key:"appointments", label:"Citas",        icon:<Calendar size={14}/> },
+          { key:"history",      label:"Historial",    icon:<History size={14}/> },
+          { key:"profile",      label:"Perfil",       icon:<User size={14}/> },
         ].map(tab => {
           const active = activeTab === tab.key;
           return (
@@ -1675,16 +1675,18 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
       setError(`Ingresa un número de ${country.len} dígitos para ${country.name}`);
       return;
     }
-    // Número completo que se guarda: código + dígitos locales
     const fullPhone = `${country.code}${digits}`;
     setLoading(true); setError("");
     try {
-      const data = await getAssignmentsByPhone(fullPhone);
-      if (data.length === 0) {
+      // Verificar existencia en pc_patients (no en task_assignments)
+      const patient = await getPatientByPhone(fullPhone);
+      if (!patient) {
         setError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
         return;
       }
-      onLogin(fullPhone, data);
+      // Cargar tareas (puede ser array vacío — está bien)
+      const assignments = await getAssignmentsByPhone(fullPhone).catch(() => []);
+      onLogin(fullPhone, assignments);
     } catch {
       setError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
     } finally {
@@ -1978,13 +1980,16 @@ export default function PatientPortal() {
 
     setInitialPhone(urlPhone.replace(/\D/g, "")); // input sin + para el campo visual
     setAutoLoading(true);
-    getAssignmentsByPhone(urlPhone)
-      .then(data => {
-        if (data.length === 0) {
+
+    getPatientByPhone(urlPhone)
+      .then(async patient => {
+        if (!patient) {
           setAutoError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
           return;
         }
-        // Guardar lastSeen igual que en login manual
+        // Cargar tareas (puede ser array vacío)
+        const data = await getAssignmentsByPhone(urlPhone).catch(() => []);
+        // Guardar lastSeen
         try {
           const prev = localStorage.getItem(`lastSeen_${urlPhone}`);
           if (prev) localStorage.setItem(`lastSeenPrev_${urlPhone}`, prev);
