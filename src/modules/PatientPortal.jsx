@@ -27,6 +27,7 @@ import {
   updateAppointmentStatus,
   getPsychologistPhoneByPatientPhone,
   getPatientByPhone,
+  getPaymentsByPhone,
 } from "../lib/supabase.js";
 import { getTemplate } from "../lib/taskTemplates.js";
 import { DEFAULT_CONSENT_SECTIONS } from "./Consent.jsx";
@@ -1179,6 +1180,452 @@ function TaskResponseView({ assignment, responses, onBack }) {
   );
 }
 
+// ── PaymentsSection ───────────────────────────────────────────────────────────
+function PaymentsSection({ phone }) {
+  const [payments, setPayments] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getPaymentsByPhone(phone);
+        if (!cancelled) setPayments(data || []);
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [phone]);
+
+  if (loading) return <Spinner/>;
+
+  if (error) return (
+    <div style={{ textAlign:"center", padding:"32px 20px", fontFamily:P.fB, fontSize:14, color:P.err, background:P.errA, borderRadius:14 }}>
+      No se pudieron cargar tus pagos. Contacta a tu psicólogo(a).
+    </div>
+  );
+
+  if (payments.length === 0) return (
+    <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm, fontFamily:P.fB }}>
+      <div style={{ fontSize:48, marginBottom:16 }}>💳</div>
+      <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin registros de pago</div>
+      <div style={{ fontSize:14, lineHeight:1.6 }}>Aquí aparecerán tus pagos cuando tu psicólogo(a) los registre.</div>
+    </div>
+  );
+
+  const pendiente = payments.filter(p => p.status === "pendiente");
+  const totalPendiente = pendiente.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const fmtCur = (n) => new Intl.NumberFormat("es-MX", { style:"currency", currency:"MXN" }).format(n);
+
+  return (
+    <div style={{ fontFamily:P.fB }}>
+      {/* Banner saldo pendiente */}
+      {totalPendiente > 0 && (
+        <div style={{
+          background:"rgba(184,144,10,0.08)", borderRadius:14,
+          padding:"14px 18px", marginBottom:16,
+          border:`1.5px solid rgba(184,144,10,0.25)`,
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+        }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:P.war, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:2 }}>
+              Saldo pendiente
+            </div>
+            <div style={{ fontFamily:P.fH, fontSize:24, fontWeight:600, color:P.t }}>
+              {fmtCur(totalPendiente)}
+            </div>
+          </div>
+          <span style={{ fontSize:28 }}>⚠️</span>
+        </div>
+      )}
+
+      {/* Lista de pagos */}
+      <div style={{ fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
+        {payments.length} registro{payments.length !== 1 ? "s" : ""}
+      </div>
+
+      {payments.map((p, i) => {
+        const isPaid = p.status === "pagado";
+        const date   = p.date
+          ? new Date(p.date + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" })
+          : "—";
+        return (
+          <div key={p.id || i} style={{
+            background:P.card, borderRadius:14, padding:"14px 16px",
+            marginBottom:10, boxShadow:P.sh,
+            border:`1.5px solid ${isPaid ? P.bdrL : "rgba(184,144,10,0.3)"}`,
+            display:"flex", alignItems:"center", gap:14,
+          }}>
+            <div style={{
+              width:40, height:40, borderRadius:10, flexShrink:0,
+              background: isPaid ? P.sucA : P.warA,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:18,
+            }}>
+              {isPaid ? "✅" : "⏳"}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:P.fB, fontSize:14, fontWeight:600, color:P.t, marginBottom:2 }}>
+                {p.concept || "Sesión"}
+              </div>
+              <div style={{ fontSize:12, color:P.tl }}>{date}</div>
+              {p.method && (
+                <div style={{ fontSize:11, color:P.tl, marginTop:2 }}>{p.method}</div>
+              )}
+            </div>
+            <div style={{ textAlign:"right", flexShrink:0 }}>
+              <div style={{ fontFamily:P.fH, fontSize:16, fontWeight:600, color:P.t }}>
+                {fmtCur(Number(p.amount) || 0)}
+              </div>
+              <div style={{
+                display:"inline-block", marginTop:4,
+                padding:"2px 8px", borderRadius:9999,
+                background: isPaid ? P.sucA : P.warA,
+                fontSize:10, fontWeight:700,
+                color: isPaid ? P.suc : P.war,
+              }}>
+                {isPaid ? "Pagado" : "Pendiente"}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Catálogo de técnicas de regulación emocional ─────────────────────────────
+const TECHNIQUES = [
+  {
+    id: "respiracion_478",
+    title: "Respiración 4-7-8",
+    category: "Respiración",
+    icon: "🌬️",
+    color: "#3A6B6E",
+    description: "Activa el sistema nervioso parasimpático. Ideal para reducir ansiedad aguda.",
+    duration: "2-3 min",
+    steps: [
+      { label: "Inhala", seconds: 4,  instruction: "Inhala lentamente por la nariz" },
+      { label: "Retén",  seconds: 7,  instruction: "Retén el aire con suavidad" },
+      { label: "Exhala", seconds: 8,  instruction: "Exhala completamente por la boca" },
+    ],
+    cycles: 4,
+  },
+  {
+    id: "box_breathing",
+    title: "Respiración en caja",
+    category: "Respiración",
+    icon: "⬜",
+    color: "#4E6B8E",
+    description: "Técnica usada por fuerzas especiales para mantener la calma bajo presión.",
+    duration: "3-4 min",
+    steps: [
+      { label: "Inhala", seconds: 4, instruction: "Inhala contando hasta 4" },
+      { label: "Retén",  seconds: 4, instruction: "Retén contando hasta 4" },
+      { label: "Exhala", seconds: 4, instruction: "Exhala contando hasta 4" },
+      { label: "Pausa",  seconds: 4, instruction: "Pausa contando hasta 4" },
+    ],
+    cycles: 4,
+  },
+  {
+    id: "grounding_54321",
+    title: "Grounding 5-4-3-2-1",
+    category: "Grounding",
+    icon: "🌱",
+    color: "#4E8B5F",
+    description: "Ancla al presente usando los 5 sentidos. Eficaz en ataques de pánico.",
+    duration: "3-5 min",
+    steps: [
+      { label: "5 cosas", seconds: 30, instruction: "Nombra 5 cosas que puedes VER ahora mismo" },
+      { label: "4 cosas", seconds: 25, instruction: "Nombra 4 cosas que puedes TOCAR" },
+      { label: "3 cosas", seconds: 20, instruction: "Nombra 3 cosas que puedes ESCUCHAR" },
+      { label: "2 cosas", seconds: 15, instruction: "Nombra 2 cosas que puedes OLER" },
+      { label: "1 cosa",  seconds: 10, instruction: "Nombra 1 cosa que puedes SABOREAR" },
+    ],
+    cycles: 1,
+  },
+  {
+    id: "relajacion_muscular",
+    title: "Relajación muscular progresiva",
+    category: "Cuerpo",
+    icon: "💪",
+    color: "#8B5F4E",
+    description: "Tensa y relaja grupos musculares para liberar tensión física acumulada.",
+    duration: "5-7 min",
+    steps: [
+      { label: "Manos",   seconds: 10, instruction: "Aprieta los puños 5 seg, luego suelta y siente la diferencia" },
+      { label: "Brazos",  seconds: 10, instruction: "Tensa los bíceps, luego suelta completamente" },
+      { label: "Hombros", seconds: 10, instruction: "Sube los hombros a las orejas, luego deja caer" },
+      { label: "Cara",    seconds: 10, instruction: "Frunce toda la cara, luego relaja" },
+      { label: "Abdomen", seconds: 10, instruction: "Tensa el abdomen, luego suelta" },
+      { label: "Piernas", seconds: 10, instruction: "Estira las piernas, tensa, luego suelta" },
+    ],
+    cycles: 1,
+  },
+  {
+    id: "mindfulness_5min",
+    title: "Mindfulness 5 minutos",
+    category: "Mindfulness",
+    icon: "🧘",
+    color: "#6B4E8E",
+    description: "Observación sin juicio del momento presente. Reduce el rumio mental.",
+    duration: "5 min",
+    steps: [
+      { label: "Prepara",   seconds: 20,  instruction: "Siéntate cómodamente, cierra los ojos, respira normal" },
+      { label: "Observa",   seconds: 120, instruction: "Observa tus pensamientos como nubes que pasan. Sin juzgarlos, sin seguirlos" },
+      { label: "Respira",   seconds: 60,  instruction: "Vuelve la atención a tu respiración cada vez que te distraigas" },
+      { label: "Termina",   seconds: 20,  instruction: "Mueve los dedos suavemente y abre los ojos poco a poco" },
+    ],
+    cycles: 1,
+  },
+  {
+    id: "autocompasion",
+    title: "Pausa de autocompasión",
+    category: "Emocional",
+    icon: "💙",
+    color: "#3A6B8E",
+    description: "Basada en el trabajo de Kristin Neff. Para momentos de autocrítica intensa.",
+    duration: "2-3 min",
+    steps: [
+      { label: "Reconoce",  seconds: 20, instruction: "Pon una mano en el corazón. Di: 'Esto es un momento difícil'" },
+      { label: "Humanidad", seconds: 20, instruction: "Di: 'El sufrimiento es parte de la vida. No estoy solo/a'" },
+      { label: "Amabilidad",seconds: 20, instruction: "Di: 'Que pueda ser amable conmigo mismo/a en este momento'" },
+      { label: "Siente",    seconds: 30, instruction: "Siente el calor de tu mano en el pecho. Respira suavemente" },
+    ],
+    cycles: 2,
+  },
+];
+
+// ── TechniquesSection ─────────────────────────────────────────────────────────
+function TechniquesSection() {
+  const [selected,   setSelected]   = useState(null);
+  const [running,    setRunning]    = useState(false);
+  const [stepIdx,    setStepIdx]    = useState(0);
+  const [cycleIdx,   setCycleIdx]   = useState(0);
+  const [timeLeft,   setTimeLeft]   = useState(0);
+  const [done,       setDone]       = useState(false);
+  const timerRef = useRef(null);
+
+  const startTechnique = (tech) => {
+    setSelected(tech);
+    setStepIdx(0);
+    setCycleIdx(0);
+    setTimeLeft(tech.steps[0].seconds);
+    setRunning(false);
+    setDone(false);
+  };
+
+  const reset = () => {
+    clearInterval(timerRef.current);
+    setSelected(null);
+    setRunning(false);
+    setDone(false);
+  };
+
+  useEffect(() => {
+    if (!running || !selected) return;
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t > 1) return t - 1;
+        // Avanzar al siguiente paso
+        clearInterval(timerRef.current);
+        const nextStep = stepIdx + 1;
+        if (nextStep < selected.steps.length) {
+          setStepIdx(nextStep);
+          setTimeLeft(selected.steps[nextStep].seconds);
+          // Re-start interval via effect re-run
+        } else {
+          const nextCycle = cycleIdx + 1;
+          if (nextCycle < selected.cycles) {
+            setCycleIdx(nextCycle);
+            setStepIdx(0);
+            setTimeLeft(selected.steps[0].seconds);
+          } else {
+            setRunning(false);
+            setDone(true);
+          }
+        }
+        return 0;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [running, selected, stepIdx, cycleIdx]);
+
+  const categories = [...new Set(TECHNIQUES.map(t => t.category))];
+
+  // Vista de técnica activa
+  if (selected) {
+    const step    = selected.steps[stepIdx];
+    const total   = step?.seconds || 1;
+    const pct     = timeLeft / total;
+    const circumference = 2 * Math.PI * 54;
+
+    return (
+      <div style={{ fontFamily:P.fB }}>
+        {/* Back */}
+        <button onClick={reset}
+          style={{
+            display:"flex", alignItems:"center", gap:6,
+            background:"none", border:"none",
+            fontFamily:P.fB, fontSize:13, color:P.tm,
+            cursor:"pointer", marginBottom:20, padding:0,
+          }}>
+          <ArrowLeft size={14}/> Volver
+        </button>
+
+        {done ? (
+          /* Pantalla de completado */
+          <div style={{ textAlign:"center", padding:"40px 20px" }}>
+            <div style={{ fontSize:64, marginBottom:16 }}>✨</div>
+            <div style={{ fontFamily:P.fH, fontSize:24, fontWeight:600, color:P.t, marginBottom:8 }}>
+              ¡Muy bien!
+            </div>
+            <div style={{ fontSize:14, color:P.tm, marginBottom:24, lineHeight:1.6 }}>
+              Completaste "{selected.title}". Tómate un momento para notar cómo te sientes ahora.
+            </div>
+            <button onClick={reset}
+              style={{
+                padding:"12px 28px", borderRadius:12, border:"none",
+                background:P.p, color:"#fff",
+                fontFamily:P.fB, fontSize:14, fontWeight:700, cursor:"pointer",
+              }}>
+              Volver a técnicas
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign:"center" }}>
+            {/* Header técnica */}
+            <div style={{ fontSize:48, marginBottom:8 }}>{selected.icon}</div>
+            <div style={{ fontFamily:P.fH, fontSize:22, fontWeight:600, color:P.t, marginBottom:4 }}>
+              {selected.title}
+            </div>
+            <div style={{ fontSize:12, color:P.tl, marginBottom:24 }}>
+              Ciclo {cycleIdx + 1} de {selected.cycles} · Paso {stepIdx + 1} de {selected.steps.length}
+            </div>
+
+            {/* Timer circular */}
+            <div style={{ position:"relative", display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:24 }}>
+              <svg width={128} height={128} style={{ transform:"rotate(-90deg)" }}>
+                <circle cx={64} cy={64} r={54} fill="none" stroke={P.bdrL} strokeWidth={8}/>
+                <circle cx={64} cy={64} r={54} fill="none"
+                  stroke={selected.color} strokeWidth={8}
+                  strokeDasharray={circumference}
+                  strokeDashoffset={circumference * (1 - pct)}
+                  strokeLinecap="round"
+                  style={{ transition:"stroke-dashoffset 1s linear" }}
+                />
+              </svg>
+              <div style={{ position:"absolute", textAlign:"center" }}>
+                <div style={{ fontSize:32, fontWeight:700, color:P.t, lineHeight:1 }}>{timeLeft}</div>
+                <div style={{ fontSize:11, color:P.tm }}>{step?.label}</div>
+              </div>
+            </div>
+
+            {/* Instrucción */}
+            <div style={{
+              background:P.card, borderRadius:14, padding:"16px 20px",
+              marginBottom:24, boxShadow:P.sh,
+              fontFamily:P.fB, fontSize:15, color:P.t, lineHeight:1.6,
+            }}>
+              {step?.instruction}
+            </div>
+
+            {/* Pasos */}
+            <div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:28 }}>
+              {selected.steps.map((s, i) => (
+                <div key={i} style={{
+                  width:8, height:8, borderRadius:"50%",
+                  background: i === stepIdx ? selected.color : P.bdrL,
+                  transition:"background .3s",
+                }}/>
+              ))}
+            </div>
+
+            {/* Botón play/pause */}
+            <button
+              onClick={() => setRunning(r => !r)}
+              style={{
+                width:72, height:72, borderRadius:"50%", border:"none",
+                background:selected.color, color:"#fff",
+                fontSize:28, cursor:"pointer",
+                boxShadow:`0 4px 20px ${selected.color}40`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                margin:"0 auto",
+                transition:"transform .15s",
+              }}>
+              {running ? "⏸" : "▶"}
+            </button>
+            <div style={{ fontSize:12, color:P.tl, marginTop:10 }}>
+              {running ? "Toca para pausar" : "Toca para iniciar"}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Vista de catálogo
+  return (
+    <div style={{ fontFamily:P.fB }}>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontFamily:P.fH, fontSize:22, fontWeight:600, color:P.t, marginBottom:4 }}>
+          Técnicas de regulación
+        </div>
+        <div style={{ fontSize:13, color:P.tm }}>
+          Herramientas para momentos difíciles. Sin internet necesario.
+        </div>
+      </div>
+
+      {categories.map(cat => (
+        <div key={cat} style={{ marginBottom:24 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
+            {cat}
+          </div>
+          {TECHNIQUES.filter(t => t.category === cat).map(tech => (
+            <div key={tech.id}
+              onClick={() => startTechnique(tech)}
+              style={{
+                background:P.card, borderRadius:14, padding:"16px",
+                marginBottom:10, boxShadow:P.sh,
+                border:`1.5px solid ${P.bdrL}`,
+                cursor:"pointer", display:"flex", alignItems:"center", gap:14,
+                transition:"border .15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = tech.color}
+              onMouseLeave={e => e.currentTarget.style.borderColor = P.bdrL}
+            >
+              <div style={{
+                width:46, height:46, borderRadius:12, flexShrink:0,
+                background:`${tech.color}15`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:22,
+              }}>
+                {tech.icon}
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:P.fB, fontSize:14, fontWeight:600, color:P.t, marginBottom:2 }}>
+                  {tech.title}
+                </div>
+                <div style={{ fontSize:12, color:P.tm, lineHeight:1.4, marginBottom:4 }}>
+                  {tech.description}
+                </div>
+                <div style={{ fontSize:11, color:tech.color, fontWeight:600 }}>
+                  ⏱ {tech.duration}
+                </div>
+              </div>
+              <ChevronRight size={16} color={P.tl}/>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TaskList({ phone, assignments: initial, onLogout }) {
   const [assignments, setAssignments] = useState(initial);
   const [selected,    setSelected]    = useState(null);
@@ -1342,6 +1789,8 @@ function TaskList({ phone, assignments: initial, onLogout }) {
     { key:"home",         label:"Inicio",       icon:"🏠" },
     { key:"tasks",        label:"Actividades",  icon:"📋" },
     { key:"appointments", label:"Citas",        icon:"📅" },
+    { key:"techniques",   label:"Técnicas",     icon:"🧘" },
+    { key:"payments",     label:"Pagos",        icon:"💳" },
     { key:"history",      label:"Historial",    icon:"🕐" },
     { key:"profile",      label:"Perfil",       icon:"👤" },
   ];
@@ -1710,6 +2159,16 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         {/* ── CITAS ───────────────────────────────────────────────────── */}
         {activeTab === "appointments" && (
           <AppointmentsSection phone={phone}/>
+        )}
+
+        {/* ── TÉCNICAS ────────────────────────────────────────────────── */}
+        {activeTab === "techniques" && (
+          <TechniquesSection/>
+        )}
+
+        {/* ── PAGOS ───────────────────────────────────────────────────── */}
+        {activeTab === "payments" && (
+          <PaymentsSection phone={phone}/>
         )}
 
         {/* ── HISTORIAL ───────────────────────────────────────────────── */}
