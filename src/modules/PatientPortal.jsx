@@ -1186,7 +1186,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [loading,     setLoading]     = useState(false);
 
   // Tabs
-  const [activeTab,   setActiveTab]   = useState("tasks"); // "tasks" | "appointments" | "history" | "profile"
+  const [activeTab,   setActiveTab]   = useState("home"); // "home" | "tasks" | "appointments" | "history" | "profile"
 
   // Timestamp del acceso anterior — tareas asignadas después son "nuevas"
   const newSince = (() => {
