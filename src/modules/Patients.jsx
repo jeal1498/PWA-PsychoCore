@@ -897,7 +897,7 @@ function WaAltaModal({ open, onClose, patient }) {
   const firstName = patient?.name?.split(" ")[0] || "";
   const msg = `Hola, ${firstName}. 🌟 Ha sido un honor acompañarte en este proceso. Hemos registrado tu alta y queremos desearte mucho éxito en tu camino. Recuerda que aquí estaremos si algún día nos necesitas de nuevo. ¡Cuídate mucho! 💙`;
   const waUrl = patient?.phone
-    ? `https://wa.me/52${patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
+    ? `https://wa.me/${patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
     : "";
 
   return (
@@ -1049,7 +1049,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
   };
 
   const msg   = buildWelcomeMsg();
-  const waUrl = saved ? `https://wa.me/52${saved.patient.phone}?text=${encodeURIComponent(msg)}` : "";
+  const waUrl = saved ? `https://wa.me/${saved.patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}` : "";
 
   const inputStyle = {
     width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
