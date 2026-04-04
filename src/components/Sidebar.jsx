@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Home, Users, Calendar, FileText, DollarSign, X, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
+import { Home, Users, Calendar, FileText, DollarSign, LogOut, Brain, Settings, BarChart2, ShieldAlert, ClipboardList, Target, ScrollText, CheckSquare } from "lucide-react";
 import { T } from "../theme.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
@@ -35,7 +35,38 @@ export const NAV_GROUPS = [
 // Export de compatibilidad — no rompe imports externos
 export const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
-export default function Sidebar({ active, setActive, open, onClose, profile, riskAlert = false }) {
+// ── LogoutButton ──────────────────────────────────────────────────────────────
+// Subcomponente aislado para evitar el hover-state inline sobre el padre
+function LogoutButton({ onSignOut, onClose }) {
+  const [hov, setHov] = React.useState(false);
+
+  const handleClick = () => {
+    if (onClose) onClose();
+    if (onSignOut) onSignOut();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        width: "100%", padding: "8px 12px", borderRadius: 10,
+        border: "none", cursor: "pointer", fontFamily: T.fB,
+        fontSize: 13, fontWeight: 400,
+        background: hov ? "rgba(224,82,82,0.10)" : "transparent",
+        color: hov ? "#E05252" : "rgba(255,255,255,0.35)",
+        transition: "background .15s, color .15s",
+      }}
+    >
+      <LogOut size={15} strokeWidth={1.8}/>
+      Cerrar sesión
+    </button>
+  );
+}
+
+export default function Sidebar({ active, setActive, open, onClose, profile, googleUser, riskAlert = false, onSignOut }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
 
@@ -47,9 +78,14 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
 
   const handleNav = (id) => { setActive(id); if (isMobile) onClose(); };
 
-  const initials = profile?.initials || (profile?.name ? profile.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase() : "PS");
-  const displayName = profile?.name || "Psicólogo/a";
+  // Fallback chain: perfil guardado → nombre Google OAuth → placeholder
+  const googleName = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
+  const displayName = profile?.name || googleName || "Psicólogo/a";
   const displaySpec = profile?.specialty || "Psicólogo Clínico";
+  const initials = profile?.initials
+    || (displayName && displayName !== "Psicólogo/a"
+        ? displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+        : "PS");
 
   const sidebarStyle = isMobile
     ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
@@ -62,7 +98,7 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
       )}
 
       <aside style={sidebarStyle}>
-        <div style={{ padding:"24px 20px 20px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ padding:"24px 20px 20px", display:"flex", alignItems:"center" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ width:36, height:36, borderRadius:10, background:T.p, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               <Brain size={18} color="#fff" strokeWidth={1.5}/>
@@ -72,11 +108,6 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
               <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", fontFamily:T.fB, letterSpacing:"0.08em" }}>GESTIÓN CLÍNICA</div>
             </div>
           </div>
-          {isMobile && (
-            <button onClick={onClose} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:8, width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.7)", flexShrink:0 }}>
-              <X size={16}/>
-            </button>
-          )}
         </div>
 
         <nav style={{ flex:1, padding:"0 12px", overflowY:"auto", minHeight:0 }}>
@@ -114,7 +145,7 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
         <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
           <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:12 }}/>
           <button onClick={() => handleNav("settings")}
-            style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:4 }}
+            style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:2 }}
             onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.08)"}
             onMouseLeave={e => e.currentTarget.style.background=active==="settings"?"rgba(255,255,255,0.08)":"transparent"}>
             <div style={{ width:32, height:32, borderRadius:"50%", background:T.p, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
@@ -127,6 +158,9 @@ export default function Sidebar({ active, setActive, open, onClose, profile, ris
             <Settings size={14} color="rgba(255,255,255,0.4)"/>
           </button>
 
+          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"4px 0 4px" }}/>
+
+          <LogoutButton onSignOut={onSignOut} onClose={isMobile ? onClose : undefined} />
         </div>
       </aside>
     </>
