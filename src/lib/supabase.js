@@ -301,3 +301,30 @@ export async function getPsychologistPhoneByPatientPhone(phone) {
   const prRows = await prRes.json();
   return prRows[0]?.data?.phone || null;
 }
+
+/**
+ * Obtiene los datos de perfil del paciente identificado por teléfono.
+ * Solo devuelve campos seguros para mostrar al propio paciente.
+ */
+export async function getPatientByPhone(phone) {
+  const res = await sb(`/pc_patients?select=data&limit=100`);
+  if (!res.ok) throw new Error(await res.text());
+  const rows = await res.json();
+
+  for (const row of rows) {
+    const arr = Array.isArray(row.data) ? row.data : [];
+    const match = arr.find(p => p.phone === phone);
+    if (match) {
+      return {
+        name:              match.name              || "",
+        phone:             match.phone             || "",
+        email:             match.email             || "",
+        birthdate:         match.birthdate         || "",
+        emergencyName:     match.emergencyName     || "",
+        emergencyPhone:    match.emergencyPhone    || "",
+        emergencyRelation: match.emergencyRelation || "",
+      };
+    }
+  }
+  return null;
+}
