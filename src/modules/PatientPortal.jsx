@@ -1307,124 +1307,372 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   // Mostrar banner solo si el consentimiento está explícitamente sin firmar
   const showConsentBanner = !consentLoading && consent !== null && !consent.signed;
 
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Next upcoming appointment
+  const nextAppt = (() => {
+    const today = new Date().toISOString().split("T")[0];
+    const up = (appointments?.upcoming || []);
+    return up.find(a => a.date >= today) || null;
+  })();
+
+  const newCount = newSince ? pending.filter(a => a.assigned_at > newSince).length : 0;
+
+  const NAV_ITEMS = [
+    { key:"home",         label:"Inicio",       icon:"🏠" },
+    { key:"tasks",        label:"Actividades",  icon:"📋" },
+    { key:"appointments", label:"Citas",        icon:"📅" },
+    { key:"history",      label:"Historial",    icon:"🕐" },
+    { key:"profile",      label:"Perfil",       icon:"👤" },
+  ];
+
   return (
     <div style={{ minHeight:"100vh", background:P.bg, fontFamily:P.fB }}>
-      {/* Header */}
-      <div style={{ background:P.p, padding:"24px 20px 28px", color:"#fff" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+
+      {/* ── Drawer overlay ────────────────────────────────────────────── */}
+      {drawerOpen && (
+        <div
+          onClick={() => setDrawerOpen(false)}
+          style={{
+            position:"fixed", inset:0, zIndex:100,
+            background:"rgba(0,0,0,0.45)",
+            backdropFilter:"blur(2px)",
+          }}
+        />
+      )}
+
+      {/* ── Drawer panel ──────────────────────────────────────────────── */}
+      <div style={{
+        position:"fixed", top:0, left:0, bottom:0, zIndex:101,
+        width:270,
+        transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
+        transition:"transform 0.28s cubic-bezier(0.32,0,0.15,1)",
+        background:P.card,
+        boxShadow:"4px 0 24px rgba(0,0,0,0.15)",
+        display:"flex", flexDirection:"column",
+        overflowY:"auto",
+      }}>
+        {/* Drawer header */}
+        <div style={{
+          background:P.p, padding:"32px 20px 24px",
+          color:"#fff",
+        }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
             <div style={{
-              width:42, height:42, borderRadius:"50%",
+              width:44, height:44, borderRadius:"50%",
               background:"rgba(255,255,255,0.15)",
-              border:"1.5px solid rgba(255,255,255,0.25)",
+              border:"1.5px solid rgba(255,255,255,0.3)",
               display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:20,
             }}>
-              <Brain size={20} color="#fff" strokeWidth={1.6}/>
+              {(patientProfile?.name || name || "?").charAt(0).toUpperCase()}
             </div>
             <div>
-              <div style={{ fontSize:11, opacity:0.7, fontWeight:400 }}>Mi Espacio</div>
-              <div style={{ fontFamily:P.fH, fontSize:20, fontWeight:600, lineHeight:1.2 }}>
-                {name ? `¡Hola, ${name}!` : "Bienvenido/a"}
+              <div style={{ fontSize:11, opacity:0.7 }}>Mi Espacio</div>
+              <div style={{ fontFamily:P.fH, fontSize:18, fontWeight:600 }}>
+                {name || "Bienvenido/a"}
               </div>
             </div>
           </div>
+          {/* Mini stats */}
+          <div style={{ display:"flex", gap:8 }}>
+            <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:8, padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:18, fontWeight:700 }}>{pending.length}</div>
+              <div style={{ fontSize:10, opacity:0.8 }}>Pendientes</div>
+            </div>
+            <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:8, padding:"8px", textAlign:"center" }}>
+              <div style={{ fontSize:18, fontWeight:700 }}>{completed.length}</div>
+              <div style={{ fontSize:10, opacity:0.8 }}>Completadas</div>
+            </div>
+            {newCount > 0 && (
+              <div style={{ flex:1, background:"rgba(255,255,255,0.2)", borderRadius:8, padding:"8px", textAlign:"center", border:"1px solid rgba(255,255,255,0.4)" }}>
+                <div style={{ fontSize:18, fontWeight:700 }}>{newCount}</div>
+                <div style={{ fontSize:10, opacity:0.9, fontWeight:700 }}>🆕 Nuevas</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex:1, padding:"16px 0" }}>
+          {NAV_ITEMS.map(item => {
+            const active = activeTab === item.key;
+            return (
+              <button key={item.key}
+                onClick={() => { setActiveTab(item.key); setDrawerOpen(false); }}
+                style={{
+                  width:"100%", padding:"14px 20px",
+                  display:"flex", alignItems:"center", gap:14,
+                  border:"none", background: active ? P.pA : "transparent",
+                  borderLeft: active ? `3px solid ${P.p}` : "3px solid transparent",
+                  fontFamily:P.fB, fontSize:14,
+                  fontWeight: active ? 700 : 400,
+                  color: active ? P.p : P.t,
+                  cursor:"pointer", textAlign:"left",
+                  transition:"all .15s",
+                }}>
+                <span style={{ fontSize:18 }}>{item.icon}</span>
+                {item.label}
+                {item.key === "tasks" && newCount > 0 && (
+                  <span style={{
+                    marginLeft:"auto",
+                    background:P.p, color:"#fff",
+                    borderRadius:9999, padding:"1px 7px",
+                    fontSize:11, fontWeight:700,
+                  }}>{newCount}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Drawer footer */}
+        <div style={{ padding:"16px 20px", borderTop:`1px solid ${P.bdrL}` }}>
           <button onClick={onLogout}
             style={{
-              background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
-              padding:"6px 12px", color:"rgba(255,255,255,0.8)",
-              fontFamily:P.fB, fontSize:12, cursor:"pointer",
+              width:"100%", padding:"11px", borderRadius:10,
+              border:`1.5px solid ${P.bdr}`, background:"transparent",
+              fontFamily:P.fB, fontSize:13, color:P.tm,
+              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
             }}>
-            Salir
+            Cerrar sesión
           </button>
         </div>
-        <div style={{ display:"flex", gap:12 }}>
-          <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", textAlign:"center" }}>
-            <div style={{ fontSize:22, fontWeight:700 }}>{pending.length}</div>
-            <div style={{ fontSize:11, opacity:0.8 }}>Pendiente{pending.length!==1?"s":""}</div>
-          </div>
-          <div style={{ flex:1, background:"rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", textAlign:"center" }}>
-            <div style={{ fontSize:22, fontWeight:700 }}>{completed.length}</div>
-            <div style={{ fontSize:11, opacity:0.8 }}>Completada{completed.length!==1?"s":""}</div>
-          </div>
-          {newSince && pending.filter(a => a.assigned_at > newSince).length > 0 && (
-            <div style={{ flex:1, background:"rgba(255,255,255,0.18)", borderRadius:10, padding:"10px 14px", textAlign:"center", border:"1.5px solid rgba(255,255,255,0.4)" }}>
-              <div style={{ fontSize:22, fontWeight:700 }}>
-                {pending.filter(a => a.assigned_at > newSince).length}
-              </div>
-              <div style={{ fontSize:11, opacity:0.9, fontWeight:700 }}>🆕 Nueva{pending.filter(a => a.assigned_at > newSince).length !== 1 ? "s" : ""}</div>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Tab bar */}
+      {/* ── Header fijo ───────────────────────────────────────────────── */}
       <div style={{
-        display:"flex", gap:8,
-        padding:"14px 16px 0",
-        background:P.bg,
-        borderBottom:`1px solid ${P.bdrL}`,
+        position:"sticky", top:0, zIndex:50,
+        background:P.p, padding:"0 16px",
+        height:56,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        boxShadow:"0 2px 8px rgba(0,0,0,0.12)",
       }}>
-        {[
-          { key:"tasks",        label:"Actividades",  icon:<ClipboardList size={14}/> },
-          { key:"appointments", label:"Citas",        icon:<Calendar size={14}/> },
-          { key:"history",      label:"Historial",    icon:<History size={14}/> },
-          { key:"profile",      label:"Perfil",       icon:<User size={14}/> },
-        ].map(tab => {
-          const active = activeTab === tab.key;
-          return (
-            <button key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                display:"flex", alignItems:"center", gap:6,
-                padding:"9px 14px",
-                borderRadius:"10px 10px 0 0",
-                border:"none",
-                background: active ? P.card : "transparent",
-                color: active ? P.p : P.tm,
-                fontFamily:P.fB, fontSize:13,
-                fontWeight: active ? 700 : 400,
-                cursor:"pointer",
-                borderBottom: active ? `2px solid ${P.p}` : "2px solid transparent",
-                transition:"all .15s",
-              }}>
-              {tab.icon}
-              {tab.label}
-            </button>
-          );
-        })}
+        {/* Hamburguesa */}
+        <button onClick={() => setDrawerOpen(true)}
+          style={{
+            background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
+            width:36, height:36, cursor:"pointer",
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4,
+            position:"relative",
+          }}>
+          <span style={{ display:"block", width:16, height:1.5, background:"#fff", borderRadius:2 }}/>
+          <span style={{ display:"block", width:16, height:1.5, background:"#fff", borderRadius:2 }}/>
+          <span style={{ display:"block", width:16, height:1.5, background:"#fff", borderRadius:2 }}/>
+          {newCount > 0 && (
+            <span style={{
+              position:"absolute", top:4, right:4,
+              width:8, height:8, borderRadius:"50%",
+              background:"#FF6B6B", border:"1.5px solid #fff",
+            }}/>
+          )}
+        </button>
+
+        {/* Título */}
+        <div style={{ color:"#fff", textAlign:"center" }}>
+          <div style={{ fontSize:10, opacity:0.7, letterSpacing:"0.1em", textTransform:"uppercase" }}>Mi Espacio</div>
+          <div style={{ fontFamily:P.fH, fontSize:16, fontWeight:600, lineHeight:1 }}>
+            {NAV_ITEMS.find(i => i.key === activeTab)?.label || "Inicio"}
+          </div>
+        </div>
+
+        {/* Botón salir compacto */}
+        <button onClick={onLogout}
+          style={{
+            background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
+            padding:"6px 10px", color:"rgba(255,255,255,0.85)",
+            fontFamily:P.fB, fontSize:11, cursor:"pointer",
+          }}>
+          Salir
+        </button>
       </div>
 
-      {/* Body */}
-      <div style={{ padding:"20px 16px" }}>
+      {/* ── Contenido principal ───────────────────────────────────────── */}
+      <div style={{ padding:"20px 16px 40px" }}>
 
-        {/* Banner de consentimiento (siempre visible, cualquier tab) */}
+        {/* Banner consentimiento — siempre visible */}
         {showConsentBanner && (
           <ConsentBanner onReview={() => setShowConsent(true)}/>
         )}
 
-        {/* Tab: Tareas */}
+        {/* ── INICIO (Dashboard) ──────────────────────────────────────── */}
+        {activeTab === "home" && (
+          <div>
+            {/* Saludo */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontFamily:P.fH, fontSize:26, fontWeight:600, color:P.t, lineHeight:1.2 }}>
+                {name ? `¡Hola, ${name}!` : "¡Bienvenido/a!"}
+              </div>
+              <div style={{ fontSize:13, color:P.tm, marginTop:4 }}>
+                {new Date().toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" })}
+              </div>
+            </div>
+
+            {/* Widget: Actividades */}
+            <div style={{
+              background:P.card, borderRadius:16, padding:"18px",
+              marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:18 }}>📋</span>
+                  <span style={{ fontFamily:P.fB, fontSize:14, fontWeight:700, color:P.t }}>Actividades</span>
+                </div>
+                <button onClick={() => setActiveTab("tasks")}
+                  style={{ background:"none", border:"none", fontFamily:P.fB, fontSize:12, color:P.p, cursor:"pointer", fontWeight:600 }}>
+                  Ver todas →
+                </button>
+              </div>
+              {/* Barra de progreso */}
+              {assignments.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                    <span style={{ fontSize:12, color:P.tm }}>Progreso</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:P.p }}>
+                      {completed.length}/{assignments.length}
+                    </span>
+                  </div>
+                  <div style={{ height:6, background:P.bdrL, borderRadius:9999, overflow:"hidden" }}>
+                    <div style={{
+                      height:"100%", borderRadius:9999,
+                      background:P.p,
+                      width: assignments.length ? `${(completed.length/assignments.length)*100}%` : "0%",
+                      transition:"width 0.6s ease",
+                    }}/>
+                  </div>
+                </div>
+              )}
+              {pending.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"12px 0", color:P.tl, fontSize:13 }}>
+                  ✅ Sin actividades pendientes
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize:12, color:P.tm, marginBottom:8 }}>
+                    {pending.length} pendiente{pending.length !== 1 ? "s" : ""}
+                    {newCount > 0 && <span style={{ marginLeft:6, color:P.p, fontWeight:700 }}>· {newCount} nueva{newCount !== 1 ? "s" : ""} 🆕</span>}
+                  </div>
+                  {/* Primera tarea pendiente */}
+                  <TaskCard
+                    assignment={pending[0]}
+                    onOpen={() => setSelected(pending[0])}
+                    isNew={newSince ? pending[0]?.assigned_at > newSince : false}
+                  />
+                  {pending.length > 1 && (
+                    <button onClick={() => setActiveTab("tasks")}
+                      style={{
+                        width:"100%", padding:"8px", borderRadius:10, border:"none",
+                        background:P.pA, color:P.p,
+                        fontFamily:P.fB, fontSize:12, fontWeight:600, cursor:"pointer",
+                        marginTop:4,
+                      }}>
+                      +{pending.length - 1} actividad{pending.length - 1 !== 1 ? "es" : ""} más
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Widget: Próxima cita */}
+            <div style={{
+              background:P.card, borderRadius:16, padding:"18px",
+              marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:18 }}>📅</span>
+                  <span style={{ fontFamily:P.fB, fontSize:14, fontWeight:700, color:P.t }}>Próxima cita</span>
+                </div>
+                <button onClick={() => setActiveTab("appointments")}
+                  style={{ background:"none", border:"none", fontFamily:P.fB, fontSize:12, color:P.p, cursor:"pointer", fontWeight:600 }}>
+                  Ver todas →
+                </button>
+              </div>
+              {!nextAppt ? (
+                <div style={{ textAlign:"center", padding:"12px 0", color:P.tl, fontSize:13 }}>
+                  Sin citas próximas agendadas
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                  <div style={{
+                    flexShrink:0, width:48, height:48, borderRadius:12,
+                    background:P.pA,
+                    display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center",
+                  }}>
+                    <div style={{ fontSize:16, fontWeight:700, color:P.p, lineHeight:1 }}>
+                      {new Date(nextAppt.date + "T12:00:00").getDate()}
+                    </div>
+                    <div style={{ fontSize:9, color:P.tm, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                      {new Date(nextAppt.date + "T12:00:00").toLocaleDateString("es-MX", { month:"short" })}
+                    </div>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:P.fB, fontSize:14, fontWeight:600, color:P.t }}>
+                      {capitalize(new Date(nextAppt.date + "T12:00:00").toLocaleDateString("es-MX", { weekday:"long" }))}
+                    </div>
+                    <div style={{ fontSize:12, color:P.tm }}>
+                      {nextAppt.time || ""}{nextAppt.type ? ` · ${nextAppt.type}` : ""}
+                    </div>
+                  </div>
+                  <div style={{
+                    padding:"4px 10px", borderRadius:9999,
+                    background:apptStatusDisplay(nextAppt.status).bg,
+                    fontSize:11, fontWeight:700,
+                    color:apptStatusDisplay(nextAppt.status).color,
+                  }}>
+                    {apptStatusDisplay(nextAppt.status).label}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Widget: Consentimiento pendiente */}
+            {showConsentBanner && (
+              <div style={{
+                background:"#FFF8F0", borderRadius:16, padding:"16px 18px",
+                marginBottom:12, border:"1.5px solid rgba(196,137,90,0.35)",
+                display:"flex", alignItems:"center", gap:12,
+              }}>
+                <span style={{ fontSize:24 }}>📝</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:P.fB, fontSize:13, fontWeight:700, color:P.acc, marginBottom:2 }}>
+                    Consentimiento pendiente
+                  </div>
+                  <div style={{ fontSize:12, color:P.tm }}>Revisa y firma tu consentimiento informado</div>
+                </div>
+                <button onClick={() => setShowConsent(true)}
+                  style={{
+                    padding:"8px 12px", borderRadius:9, border:"none",
+                    background:P.acc, color:"#fff",
+                    fontFamily:P.fB, fontSize:12, fontWeight:700, cursor:"pointer",
+                  }}>
+                  Firmar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ACTIVIDADES ─────────────────────────────────────────────── */}
         {activeTab === "tasks" && (
           <>
-            {/* Botón actualizar */}
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-              <button
-                onClick={reload}
-                disabled={loading}
+              <button onClick={reload} disabled={loading}
                 style={{
                   display:"flex", alignItems:"center", gap:6,
                   padding:"6px 12px", borderRadius:9999,
                   border:`1px solid ${P.bdr}`, background:"transparent",
                   fontFamily:P.fB, fontSize:12, color:P.tm,
                   cursor:loading ? "wait" : "pointer",
-                  opacity:loading ? 0.5 : 1, transition:"all .15s",
+                  opacity:loading ? 0.5 : 1,
                 }}>
                 <RefreshCw size={12} style={{ animation: loading ? "spin 0.8s linear infinite" : "none" }}/>
                 Actualizar
               </button>
             </div>
-
             {loading && <Spinner/>}
-
             {!loading && assignments.length === 0 && (
               <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
                 <div style={{ fontSize:48, marginBottom:16 }}>📋</div>
@@ -1432,13 +1680,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 <div style={{ fontSize:14, lineHeight:1.6 }}>Tu psicólogo(a) te asignará actividades después de cada sesión.</div>
               </div>
             )}
-
             {pending.length > 0 && (
               <>
-                <div style={{
-                  fontSize:11, fontWeight:700, color:P.tm,
-                  textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12,
-                }}>
+                <div style={{ fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
                   Por completar
                 </div>
                 {pending.map(a => {
@@ -1447,14 +1691,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 })}
               </>
             )}
-
             {completed.length > 0 && (
               <>
-                <div style={{
-                  fontSize:11, fontWeight:700, color:P.tl,
-                  textTransform:"uppercase", letterSpacing:"0.08em",
-                  margin:"24px 0 12px",
-                }}>
+                <div style={{ fontSize:11, fontWeight:700, color:P.tl, textTransform:"uppercase", letterSpacing:"0.08em", margin:"24px 0 12px" }}>
                   Completadas
                 </div>
                 {completed.map(a => {
@@ -1466,15 +1705,14 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           </>
         )}
 
-        {/* Tab: Citas */}
+        {/* ── CITAS ───────────────────────────────────────────────────── */}
         {activeTab === "appointments" && (
           <AppointmentsSection phone={phone}/>
         )}
 
-        {/* Tab: Mi historial */}
+        {/* ── HISTORIAL ───────────────────────────────────────────────── */}
         {activeTab === "history" && (() => {
           if (responsesLoading) return <Spinner/>;
-
           if (responses.length === 0) return (
             <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
               <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
@@ -1482,13 +1720,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
               <div style={{ fontSize:14, lineHeight:1.6 }}>Aquí aparecerán tus actividades completadas.</div>
             </div>
           );
-
           return (
             <div>
-              <div style={{
-                fontSize:11, fontWeight:700, color:P.tm,
-                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12,
-              }}>
+              <div style={{ fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
                 {responses.length} actividad{responses.length !== 1 ? "es" : ""} completada{responses.length !== 1 ? "s" : ""}
               </div>
               {responses.map(r => {
@@ -1503,7 +1737,6 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                       marginBottom:12, boxShadow:P.sh,
                       border:`1.5px solid ${P.bdrL}`,
                       cursor:"pointer", display:"flex", alignItems:"center", gap:14,
-                      transition:"border .15s",
                     }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = P.p}
                     onMouseLeave={e => e.currentTarget.style.borderColor = P.bdrL}
@@ -1525,10 +1758,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           );
         })()}
 
-        {/* Tab: Mi perfil */}
+        {/* ── PERFIL ──────────────────────────────────────────────────── */}
         {activeTab === "profile" && (() => {
           if (patientProfileLoading) return <Spinner/>;
-
           const p = patientProfile;
           if (!p) return (
             <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
@@ -1537,13 +1769,11 @@ function TaskList({ phone, assignments: initial, onLogout }) {
               <div style={{ fontSize:14, lineHeight:1.6 }}>Contacta a tu psicólogo(a) para registrar tu información.</div>
             </div>
           );
-
           const calcAge = (bd) => {
             if (!bd) return null;
             const diff = Date.now() - new Date(bd).getTime();
             return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
           };
-
           const ProfileRow = ({ label, value }) => {
             if (!value) return null;
             return (
@@ -1551,79 +1781,51 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 <div style={{ fontFamily:P.fB, fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.07em" }}>
                   {label}
                 </div>
-                <div style={{ fontFamily:P.fB, fontSize:15, color:P.t }}>
-                  {value}
-                </div>
+                <div style={{ fontFamily:P.fB, fontSize:15, color:P.t }}>{value}</div>
               </div>
             );
           };
-
-          const age      = calcAge(p.birthdate);
-          const bdLabel  = p.birthdate
+          const age     = calcAge(p.birthdate);
+          const bdLabel = p.birthdate
             ? new Date(p.birthdate + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" }) + (age ? ` · ${age} años` : "")
             : null;
-
           const hasEmergency = p.emergencyName || p.emergencyPhone;
-
           return (
             <div>
-              {/* Sección: Mis datos */}
-              <div style={{
-                background:P.card, borderRadius:16, padding:"18px 20px",
-                marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
-              }}>
+              <div style={{ background:P.card, borderRadius:16, padding:"18px 20px", marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-                  <div style={{
-                    width:40, height:40, borderRadius:"50%",
-                    background:P.pA, display:"flex", alignItems:"center", justifyContent:"center",
-                  }}>
+                  <div style={{ width:40, height:40, borderRadius:"50%", background:P.pA, display:"flex", alignItems:"center", justifyContent:"center" }}>
                     <User size={18} color={P.p}/>
                   </div>
-                  <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>
-                    Mis datos
-                  </div>
+                  <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>Mis datos</div>
                 </div>
-                <ProfileRow label="Nombre completo"    value={p.name}/>
+                <ProfileRow label="Nombre completo"     value={p.name}/>
                 <ProfileRow label="Teléfono registrado" value={p.phone}/>
-                <ProfileRow label="Correo electrónico" value={p.email}/>
+                <ProfileRow label="Correo electrónico"  value={p.email}/>
                 <ProfileRow label="Fecha de nacimiento" value={bdLabel}/>
               </div>
-
-              {/* Sección: Contacto de emergencia */}
               {hasEmergency && (
-                <div style={{
-                  background:P.card, borderRadius:16, padding:"18px 20px",
-                  marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
-                }}>
+                <div style={{ background:P.card, borderRadius:16, padding:"18px 20px", marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}` }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-                    <div style={{
-                      width:40, height:40, borderRadius:"50%",
-                      background:"rgba(184,80,80,0.08)", display:"flex", alignItems:"center", justifyContent:"center",
-                    }}>
+                    <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(184,80,80,0.08)", display:"flex", alignItems:"center", justifyContent:"center" }}>
                       <span style={{ fontSize:18 }}>🚨</span>
                     </div>
-                    <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>
-                      Contacto de emergencia
-                    </div>
+                    <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>Contacto de emergencia</div>
                   </div>
-                  <ProfileRow label="Nombre"             value={p.emergencyName}/>
-                  <ProfileRow label="Teléfono"           value={p.emergencyPhone}/>
-                  <ProfileRow label="Parentesco"         value={p.emergencyRelation}/>
+                  <ProfileRow label="Nombre"    value={p.emergencyName}/>
+                  <ProfileRow label="Teléfono"  value={p.emergencyPhone}/>
+                  <ProfileRow label="Parentesco" value={p.emergencyRelation}/>
                 </div>
               )}
-
-              {/* Nota informativa */}
-              <div style={{
-                padding:"12px 16px", borderRadius:12,
-                background:P.pA, border:`1px solid ${P.p}30`,
-                fontFamily:P.fB, fontSize:13, color:P.tm, lineHeight:1.6,
-              }}>
+              <div style={{ padding:"12px 16px", borderRadius:12, background:P.pA, border:`1px solid ${P.p}30`, fontFamily:P.fB, fontSize:13, color:P.tm, lineHeight:1.6 }}>
                 ℹ️ Si necesitas actualizar algún dato, comunícalo a tu psicólogo(a) en tu próxima sesión.
               </div>
             </div>
           );
         })()}
       </div>
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
