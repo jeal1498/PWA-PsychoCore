@@ -24,6 +24,89 @@ const PC_TIME_SLOTS = (() => {
   return slots;
 })();
 
+// ── Phone countries (shared by PrimerContacto + Expediente forms) ────────────
+const PHONE_COUNTRIES = [
+  { code:"+52",  flag:"🇲🇽", name:"México",       len:10 },
+  { code:"+1",   flag:"🇺🇸", name:"EE.UU./CAN",   len:10 },
+  { code:"+34",  flag:"🇪🇸", name:"España",        len:9  },
+  { code:"+54",  flag:"🇦🇷", name:"Argentina",     len:10 },
+  { code:"+57",  flag:"🇨🇴", name:"Colombia",      len:10 },
+  { code:"+56",  flag:"🇨🇱", name:"Chile",         len:9  },
+  { code:"+51",  flag:"🇵🇪", name:"Perú",          len:9  },
+  { code:"+55",  flag:"🇧🇷", name:"Brasil",        len:11 },
+  { code:"+44",  flag:"🇬🇧", name:"Reino Unido",   len:10 },
+  { code:"+49",  flag:"🇩🇪", name:"Alemania",      len:10 },
+];
+
+// ── PhoneInput — selector de país + campo numérico reutilizable ───────────────
+function PhoneInput({ countryCode, phone, onChangeCountry, onChangePhone, error }) {
+  const [focused, setFocused] = useState(false);
+  const countryIdx = PHONE_COUNTRIES.findIndex(c => c.code === countryCode);
+  const idx        = countryIdx >= 0 ? countryIdx : 0;
+  const country    = PHONE_COUNTRIES[idx];
+
+  const border = error
+    ? `1.5px solid ${T.err}`
+    : focused
+      ? `1.5px solid ${T.p}`
+      : `1.5px solid ${T.bdr}`;
+
+  return (
+    <div style={{ display:"flex", gap:8 }}>
+      {/* Selector de país */}
+      <div style={{ position:"relative", flexShrink:0, width:"28%" }}>
+        <select
+          value={idx}
+          onChange={e => {
+            onChangeCountry(PHONE_COUNTRIES[Number(e.target.value)].code);
+            onChangePhone("");
+          }}
+          style={{
+            appearance:"none", WebkitAppearance:"none",
+            width:"100%", height:"100%", padding:"10px 26px 10px 10px",
+            border:`1.5px solid ${focused ? T.p : T.bdr}`,
+            borderRadius:10, background:T.card,
+            fontFamily:T.fB, fontSize:13, color:T.t,
+            cursor:"pointer", outline:"none",
+            transition:"border .15s", boxSizing:"border-box",
+          }}
+        >
+          {PHONE_COUNTRIES.map((c, i) => (
+            <option key={c.code} value={i}>{c.flag} {c.code}</option>
+          ))}
+        </select>
+        <div style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }}>
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+            <path d="M1 1l4 4 4-4" stroke={T.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      {/* Input numérico */}
+      <div style={{ position:"relative", flex:1, minWidth:0 }}>
+        <input
+          type="tel"
+          inputMode="numeric"
+          value={phone}
+          onChange={e => {
+            const cleaned = e.target.value.replace(/\D/g, "").slice(0, country.len);
+            onChangePhone(cleaned);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={"0".repeat(country.len)}
+          style={{
+            width:"100%", padding:"10px 14px",
+            border, borderRadius:10,
+            fontFamily:T.fB, fontSize:15, color:T.t,
+            background:T.card, outline:"none",
+            boxSizing:"border-box", transition:"border .15s",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── STATUS ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   activo: { label:"Activo",   color:T.suc, bg:T.sucA },
@@ -926,26 +1009,22 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
   const [saved,   setSaved]   = useState(null);
   const [dupWarn, setDupWarn] = useState(null);
   const [form, setForm] = useState({
-    name:"", phone:"", initialReason:"",
+    name:"", countryCode:"+52", phone:"", initialReason:"",
     appointmentDate:"", appointmentTime:"09:00",
   });
 
-  const handleClose = () => { setStep(1); setSaved(null); setDupWarn(null); setForm({ name:"", phone:"", initialReason:"", appointmentDate:"", appointmentTime:"09:00" }); onClose(); };
+  const handleClose = () => { setStep(1); setSaved(null); setDupWarn(null); setForm({ name:"", countryCode:"+52", phone:"", initialReason:"", appointmentDate:"", appointmentTime:"09:00" }); onClose(); };
 
   const fld = (k) => (e) => {
     const raw = e.target ? e.target.value : e;
-    if (k === "phone") {
-      setForm(f => ({ ...f, phone: raw.replace(/\D/g, "") }));
-    } else {
-      setForm(f => ({ ...f, [k]: raw }));
-    }
+    setForm(f => ({ ...f, [k]: raw }));
     if (k === "phone") setDupWarn(null);
   };
 
   const checkDup = () => {
-    const phone = form.phone.replace(/\D/g, "");
-    if (!phone) return;
-    const dup = patients.find(p => p.phone?.replace(/\D/g, "") === phone);
+    const fullPhone = `${form.countryCode}${form.phone.replace(/\D/g, "")}`;
+    if (!form.phone) return;
+    const dup = patients.find(p => p.phone === fullPhone || p.phone?.replace(/\D/g, "") === form.phone.replace(/\D/g, ""));
     if (dup) setDupWarn({ name: dup.name, id: dup.id });
     else setDupWarn(null);
   };
@@ -998,16 +1077,15 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
 
           <div style={{ marginBottom: dupWarn ? 8 : 14 }}>
             <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-              Teléfono * <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>(solo números)</span>
+              Teléfono *
             </label>
-            <input
-              value={form.phone}
-              onChange={fld("phone")}
+            <PhoneInput
+              countryCode={form.countryCode}
+              phone={form.phone}
+              onChangeCountry={code => setForm(f => ({ ...f, countryCode: code, phone: "" }))}
+              onChangePhone={val => { setForm(f => ({ ...f, phone: val })); setDupWarn(null); }}
+              error={!!dupWarn}
               onBlur={checkDup}
-              placeholder="9981234567"
-              inputMode="numeric"
-              maxLength={15}
-              style={{ ...inputStyle, borderColor: dupWarn ? T.err : T.bdr }}
             />
           </div>
 
@@ -1121,7 +1199,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   const [detailTab,    setDetailTab]    = useState("sessions");
   const [showAddDx,    setShowAddDx]    = useState(false);
   const [newDx,        setNewDx]        = useState({ diagnosis:"", cie11Code:"", date:fmt(todayDate), notes:"" });
-  const [form, setForm] = useState({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+  const [form, setForm] = useState({ name:"", birthdate:"", phone:"", countryCode:"+52", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const isMobile = useIsMobile();
   const [showAltaModal,      setShowAltaModal]      = useState(false);
@@ -1186,15 +1264,17 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
   const save = () => {
     if (!form.name.trim()) return;
+    const fullPhone = form.phone ? `${form.countryCode || "+52"}${form.phone.replace(/\D/g, "")}` : "";
+    const formToSave = { ...form, phone: fullPhone };
     if (editTarget) {
       setPatients(prev => prev.map(p =>
-        p.id === editTarget ? { ...p, ...form, age: calcAge(form.birthdate) } : p
+        p.id === editTarget ? { ...p, ...formToSave, age: calcAge(form.birthdate) } : p
       ));
-      setSelected(prev => prev ? { ...prev, ...form, age: calcAge(form.birthdate) } : prev);
+      setSelected(prev => prev ? { ...prev, ...formToSave, age: calcAge(form.birthdate) } : prev);
     } else {
-      setPatients(prev => [...prev, { ...form, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
+      setPatients(prev => [...prev, { ...formToSave, age: calcAge(form.birthdate), id:"p"+uid(), createdAt:fmt(todayDate) }]);
     }
-    setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
+    setForm({ name:"", birthdate:"", phone:"", countryCode:"+52", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" });
     setEditTarget(null);
     setShowAdd(false);
   };
@@ -1209,7 +1289,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     const newPatient = {
       id:            newId,
       name:          pcForm.name.trim(),
-      phone:         pcForm.phone.replace(/\D/g, ""),
+      phone:         `${pcForm.countryCode || "+52"}${pcForm.phone.replace(/\D/g, "")}`,
       status:        "activo",
       initialReason: pcForm.initialReason.trim(),
       reason:        pcForm.initialReason.trim(),
@@ -1759,10 +1839,15 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${T.bdrL}` }}>
           <button
             onClick={() => {
+              const rawPhone   = selected.phone || "";
+              const match      = PHONE_COUNTRIES.find(c => rawPhone.startsWith(c.code));
+              const countryCode = match ? match.code : "+52";
+              const phoneDigits = match ? rawPhone.slice(match.code.length) : rawPhone.replace(/\D/g, "");
               setForm({
                 name:              selected.name || "",
                 birthdate:         selected.birthdate || "",
-                phone:             selected.phone || "",
+                phone:             phoneDigits,
+                countryCode,
                 email:             selected.email || "",
                 diagnosis:         selected.diagnosis || "",
                 cie11Code:         selected.cie11Code || "",
@@ -2191,7 +2276,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         </div>
 
         {/* Modals */}
-        <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditTarget(null); setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" }); }} title={editTarget ? "Editar expediente" : "Expediente completo"}>
+        <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditTarget(null); setForm({ name:"", birthdate:"", phone:"", countryCode:"+52", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" }); }} title={editTarget ? "Editar expediente" : "Expediente completo"}>
           {/* Form content (same as desktop) */}
           <div style={{ marginBottom:16 }}>
             <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Tipo de expediente</div>
@@ -2218,9 +2303,19 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                 style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
                   fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
             </div>
-            <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-123-4567"/>
+            <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
           </div>
-          <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
+          <div style={{ marginBottom:12 }}>
+            <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+              Teléfono
+            </label>
+            <PhoneInput
+              countryCode={form.countryCode}
+              phone={form.phone}
+              onChangeCountry={code => fld("countryCode")(code)}
+              onChangePhone={val => fld("phone")(val)}
+            />
+          </div>
           {(form.type === "pareja" || form.type === "grupo") && (
             <Textarea
               label={form.type === "pareja" ? "Nombre de los participantes (pareja)" : "Integrantes del grupo"}
@@ -2461,7 +2556,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
       )}
 
       {/* Modal expediente completo */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditTarget(null); setForm({ name:"", birthdate:"", phone:"", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" }); }} title={editTarget ? "Editar expediente" : "Expediente completo"}>
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditTarget(null); setForm({ name:"", birthdate:"", phone:"", countryCode:"+52", email:"", diagnosis:"", cie11Code:"", reason:"", notes:"", status:"activo", type:"individual", coParticipants:"", rate:"", serviceId:"", emergencyName:"", emergencyPhone:"", emergencyRelation:"" }); }} title={editTarget ? "Editar expediente" : "Expediente completo"}>
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Tipo de expediente</div>
           <div style={{ display:"flex", gap:8 }}>
@@ -2487,9 +2582,19 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
                 fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
           </div>
-          <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-123-4567"/>
+          <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
         </div>
-        <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
+        <div style={{ marginBottom:12 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+            Teléfono
+          </label>
+          <PhoneInput
+            countryCode={form.countryCode}
+            phone={form.phone}
+            onChangeCountry={code => fld("countryCode")(code)}
+            onChangePhone={val => fld("phone")(val)}
+          />
+        </div>
         {(form.type === "pareja" || form.type === "grupo") && (
           <Textarea
             label={form.type === "pareja" ? "Nombre de los participantes (pareja)" : "Integrantes del grupo"}
