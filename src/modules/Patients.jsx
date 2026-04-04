@@ -8,7 +8,7 @@ import { RiskBadge } from "./RiskAssessment.jsx";
 import { getSeverity, SCALES } from "./Scales.jsx";
 import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
 import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "./InterSessions.jsx";
-import { getAssignmentsByPatient, getResponsesByAssignment, getMoodLogsByPhone } from "../lib/supabase.js";
+import { getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { printAlta, printDerivacion } from "./Reports.jsx";
 
@@ -412,171 +412,6 @@ ${ptS.map(s => `<div class="sess"><div class="date">${fmtDate(s.date)} · ${s.du
 </body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 600);
-}
-
-// ── Tab de estado de ánimo del paciente (vista psicólogo) ────────────────────
-const MOOD_EMOJIS_P = ["😢","😞","😔","😟","😐","🙂","😊","😄","😁","🤩"];
-const MOOD_LABELS_P = ["Muy mal","Mal","Bastante mal","No muy bien","Regular","Bien","Bastante bien","Muy bien","Excelente","¡Increíble!"];
-
-function PatientMoodTab({ phone }) {
-  const [logs,    setLogs]    = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!phone) { setLoading(false); return; }
-    getMoodLogsByPhone(phone)
-      .then(data => setLogs(data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [phone]);
-
-  if (loading) return (
-    <div style={{ padding:24, textAlign:"center", color:T.tm, fontFamily:T.fB }}>
-      Cargando registros...
-    </div>
-  );
-
-  if (!phone) return (
-    <div style={{ padding:24, textAlign:"center", color:T.tm, fontFamily:T.fB }}>
-      Este paciente no tiene teléfono registrado.
-    </div>
-  );
-
-  if (logs.length === 0) return (
-    <div style={{ padding:"40px 20px", textAlign:"center", color:T.tm, fontFamily:T.fB }}>
-      <div style={{ fontSize:40, marginBottom:12 }}>😊</div>
-      <div style={{ fontSize:15, fontWeight:600, color:T.t, marginBottom:6 }}>Sin registros aún</div>
-      <div style={{ fontSize:13, lineHeight:1.6 }}>
-        El paciente aún no ha registrado su estado de ánimo desde el portal.
-      </div>
-    </div>
-  );
-
-  // Promedio últimos 7 días
-  const last7 = (() => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d  = new Date();
-      d.setDate(d.getDate() - i);
-      const ds = d.toISOString().split("T")[0];
-      const log = logs.find(l => l.logged_at?.startsWith(ds));
-      days.push({
-        label:  d.toLocaleDateString("es-MX", { weekday:"short" }),
-        score:  log?.mood_score || null,
-        isToday: i === 0,
-      });
-    }
-    return days;
-  })();
-
-  const scored  = last7.filter(d => d.score !== null);
-  const average = scored.length
-    ? (scored.reduce((s, d) => s + d.score, 0) / scored.length).toFixed(1)
-    : null;
-
-  return (
-    <div style={{ fontFamily:T.fB }}>
-      {/* Resumen */}
-      {average && (
-        <div style={{
-          display:"flex", gap:12, marginBottom:20,
-        }}>
-          <div style={{
-            flex:1, background:T.pA, borderRadius:12, padding:"14px",
-            textAlign:"center", border:`1px solid ${T.p}20`,
-          }}>
-            <div style={{ fontSize:28, fontWeight:700, color:T.p, fontFamily:T.fH }}>{average}</div>
-            <div style={{ fontSize:11, color:T.tm, marginTop:2 }}>Promedio 7 días</div>
-          </div>
-          <div style={{
-            flex:1, background:T.pA, borderRadius:12, padding:"14px",
-            textAlign:"center", border:`1px solid ${T.p}20`,
-          }}>
-            <div style={{ fontSize:28 }}>{MOOD_EMOJIS_P[Math.round(Number(average)) - 1]}</div>
-            <div style={{ fontSize:11, color:T.tm, marginTop:2 }}>
-              {MOOD_LABELS_P[Math.round(Number(average)) - 1]}
-            </div>
-          </div>
-          <div style={{
-            flex:1, background:T.pA, borderRadius:12, padding:"14px",
-            textAlign:"center", border:`1px solid ${T.p}20`,
-          }}>
-            <div style={{ fontSize:28, fontWeight:700, color:T.p, fontFamily:T.fH }}>{logs.length}</div>
-            <div style={{ fontSize:11, color:T.tm, marginTop:2 }}>Registros totales</div>
-          </div>
-        </div>
-      )}
-
-      {/* Gráfica de barras 7 días */}
-      <div style={{
-        background:T.card, borderRadius:12, padding:"16px",
-        marginBottom:16, border:`1px solid ${T.bdrL}`,
-      }}>
-        <div style={{ fontSize:12, fontWeight:700, color:T.tm, marginBottom:12 }}>
-          Últimos 7 días
-        </div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:80 }}>
-          {last7.map((d, i) => (
-            <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-              <div style={{ fontSize:10, color:T.tl }}>{d.score ?? "—"}</div>
-              <div style={{
-                width:"100%", borderRadius:"4px 4px 0 0",
-                background: d.score
-                  ? d.score >= 7 ? T.suc : d.score >= 4 ? T.p : T.err
-                  : T.bdrL,
-                height: d.score ? `${(d.score / 10) * 60}px` : "4px",
-                transition:"height 0.5s ease",
-                opacity: d.isToday ? 1 : 0.75,
-              }}/>
-              <div style={{
-                fontSize:9, color: d.isToday ? T.p : T.tl,
-                fontWeight: d.isToday ? 700 : 400,
-                textTransform:"capitalize",
-              }}>
-                {d.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Historial */}
-      <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>
-        Historial completo
-      </div>
-      {logs.map((log, i) => {
-        const date = new Date(log.logged_at).toLocaleDateString("es-MX", {
-          weekday:"short", day:"numeric", month:"short", year:"numeric",
-        });
-        const scoreColor = log.mood_score >= 7 ? T.suc : log.mood_score >= 4 ? T.p : T.err;
-        return (
-          <div key={log.id || i} style={{
-            display:"flex", alignItems:"center", gap:12,
-            padding:"10px 14px", borderRadius:10, marginBottom:6,
-            background:T.card, border:`1px solid ${T.bdrL}`,
-          }}>
-            <div style={{ fontSize:22 }}>{MOOD_EMOJIS_P[log.mood_score - 1]}</div>
-            <div style={{ flex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:scoreColor }}>
-                  {log.mood_score}/10
-                </span>
-                <span style={{ fontSize:12, color:T.tm }}>
-                  {MOOD_LABELS_P[log.mood_score - 1]}
-                </span>
-              </div>
-              <div style={{ fontSize:11, color:T.tl }}>{date}</div>
-              {log.note && (
-                <div style={{ fontSize:12, color:T.tm, marginTop:2, fontStyle:"italic" }}>
-                  "{log.note}"
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 // ── Tab de tareas del paciente ────────────────────────────────────────────────
@@ -1723,11 +1558,6 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         {detailTab === "tasks" && (
           <PatientTasksTab patient={selected} sessions={sessions}/>
         )}
-
-        {/* Estado de ánimo */}
-        {detailTab === "mood" && (
-          <PatientMoodTab phone={selected.phone}/>
-        )}
       </div>
     );
 
@@ -2075,7 +1905,6 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
       { id:"contacts",    label:`Contactos (${(interSessions||[]).filter(c=>c.patientId===selected.id).length})` },
       { id:"medications", label:`Medicación (${(medications||[]).filter(m=>m.patientId===selected.id&&m.status==="activo").length})` },
       { id:"tasks",       label:"Tareas" },
-      { id:"mood",        label:"😊 Estado de ánimo" },
     ];
 
     // ── Alta banner (top) ─────────────────────────────────────────────────
