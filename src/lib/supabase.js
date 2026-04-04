@@ -157,7 +157,11 @@ export async function submitResponse({ assignmentId, patientPhone, responses }) 
     method: "POST",
     body: JSON.stringify({ assignment_id: assignmentId, patient_phone: patientPhone, responses }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("[submitResponse] POST /task_responses failed:", errText);
+    throw new Error(errText);
+  }
   await completeAssignment(assignmentId);
   const data = await res.json();
   return data[0];
