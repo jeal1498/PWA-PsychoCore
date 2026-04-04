@@ -142,7 +142,7 @@ export default function Sidebar({ active, setActive, open, onClose, profile, goo
           ))}
         </nav>
 
-        <div style={{ padding:"12px 12px 24px", flexShrink:0 }}>
+        <div style={{ padding:"10px 12px 16px", flexShrink:0 }}>
           <div style={{ height:1, background:"rgba(255,255,255,0.08)", marginBottom:12 }}/>
           <button onClick={() => handleNav("settings")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:2 }}
@@ -158,7 +158,7 @@ export default function Sidebar({ active, setActive, open, onClose, profile, goo
             <Settings size={14} color="rgba(255,255,255,0.4)"/>
           </button>
 
-          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"4px 0 4px" }}/>
+          <div style={{ height:1, background:"rgba(255,255,255,0.06)", margin:"2px 0" }}/>
 
           <LogoutButton onSignOut={onSignOut} onClose={isMobile ? onClose : undefined} />
         </div>
