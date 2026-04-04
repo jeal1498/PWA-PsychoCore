@@ -442,7 +442,7 @@ function TaskForm({ assignment, onBack, onSubmitted }) {
 }
 
 // ── Task card ─────────────────────────────────────────────────────────────────
-function TaskCard({ assignment, onOpen }) {
+function TaskCard({ assignment, onOpen, isNew }) {
   const template = getTemplate(assignment.template_id);
   const done     = assignment.status === "completed";
   const date     = new Date(assignment.assigned_at).toLocaleDateString("es-MX", { day:"numeric", month:"long" });
@@ -451,14 +451,28 @@ function TaskCard({ assignment, onOpen }) {
     <div onClick={done ? undefined : onOpen}
       style={{
         background:P.card, borderRadius:16, padding:"18px 18px", marginBottom:12,
-        boxShadow:P.sh, border:`1.5px solid ${done ? P.bdrL : P.bdr}`,
+        boxShadow:P.sh, border:`1.5px solid ${isNew ? P.p : done ? P.bdrL : P.bdr}`,
         opacity:done ? 0.7 : 1, cursor:done ? "default" : "pointer",
         transition:"all .15s", display:"flex", alignItems:"center", gap:14,
       }}>
       <div style={{ fontSize:28, lineHeight:1 }}>{template?.icon || "📋"}</div>
       <div style={{ flex:1 }}>
-        <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t, marginBottom:3 }}>
-          {assignment.title}
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+          <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t }}>
+            {assignment.title}
+          </div>
+          {isNew && (
+            <div style={{
+              display:"flex", alignItems:"center", gap:4,
+              padding:"2px 8px", borderRadius:9999,
+              background:P.p, color:"#fff",
+              fontFamily:P.fB, fontSize:10, fontWeight:700,
+              flexShrink:0,
+            }}>
+              <div style={{ width:5, height:5, borderRadius:"50%", background:"#fff" }}/>
+              Nueva
+            </div>
+          )}
         </div>
         <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>Asignada el {date}</div>
         {assignment.notes && (
@@ -1172,7 +1186,13 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [loading,     setLoading]     = useState(false);
 
   // Tabs
-  const [activeTab,   setActiveTab]   = useState("tasks"); // "tasks" | "appointments" | "history"
+  const [activeTab,   setActiveTab]   = useState("tasks"); // "tasks" | "appointments" | "history" | "profile"
+
+  // Timestamp del acceso anterior — tareas asignadas después son "nuevas"
+  const newSince = (() => {
+    try { return localStorage.getItem(`lastSeenPrev_${phone}`) || null; }
+    catch { return null; }
+  })();
 
   // Historial de respuestas
   const [responses,        setResponses]        = useState([]);   // array de task_responses
@@ -1326,6 +1346,14 @@ function TaskList({ phone, assignments: initial, onLogout }) {
             <div style={{ fontSize:22, fontWeight:700 }}>{completed.length}</div>
             <div style={{ fontSize:11, opacity:0.8 }}>Completada{completed.length!==1?"s":""}</div>
           </div>
+          {newSince && pending.filter(a => a.assigned_at > newSince).length > 0 && (
+            <div style={{ flex:1, background:"rgba(255,255,255,0.18)", borderRadius:10, padding:"10px 14px", textAlign:"center", border:"1.5px solid rgba(255,255,255,0.4)" }}>
+              <div style={{ fontSize:22, fontWeight:700 }}>
+                {pending.filter(a => a.assigned_at > newSince).length}
+              </div>
+              <div style={{ fontSize:11, opacity:0.9, fontWeight:700 }}>🆕 Nueva{pending.filter(a => a.assigned_at > newSince).length !== 1 ? "s" : ""}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1395,7 +1423,10 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 }}>
                   Por completar
                 </div>
-                {pending.map(a => <TaskCard key={a.id} assignment={a} onOpen={() => setSelected(a)}/>)}
+                {pending.map(a => {
+                  const isNew = newSince ? a.assigned_at > newSince : false;
+                  return <TaskCard key={a.id} assignment={a} onOpen={() => setSelected(a)} isNew={isNew}/>;
+                })}
               </>
             )}
 
@@ -1904,6 +1935,13 @@ export default function PatientPortal() {
   }, []);
 
   const handleLogin = (normalizedPhone, data) => {
+    // Guardar timestamp de este acceso (para detectar tareas nuevas en el próximo)
+    try {
+      const prev = localStorage.getItem(`lastSeen_${normalizedPhone}`);
+      // Guardamos el anterior en lastSeenPrev para que TaskList lo use
+      if (prev) localStorage.setItem(`lastSeenPrev_${normalizedPhone}`, prev);
+      localStorage.setItem(`lastSeen_${normalizedPhone}`, new Date().toISOString());
+    } catch { /* localStorage no disponible */ }
     setPhone(normalizedPhone);
     setAssignments(data);
   };
