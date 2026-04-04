@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CheckCircle2, ChevronRight, ClipboardList, ArrowLeft, Send, Loader,
   FileText, Calendar, ChevronDown, ChevronUp, PenLine, Trash2, Brain, History,
-  MessageCircle, Check, RefreshCw,
+  MessageCircle, Check, RefreshCw, User,
 } from "lucide-react";
 import {
   getAssignmentsByPhone,
@@ -26,6 +26,7 @@ import {
   getAppointmentsByPhone,
   updateAppointmentStatus,
   getPsychologistPhoneByPatientPhone,
+  getPatientByPhone,
 } from "../lib/supabase.js";
 import { getTemplate } from "../lib/taskTemplates.js";
 import { DEFAULT_CONSENT_SECTIONS } from "./Consent.jsx";
@@ -1108,6 +1109,10 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [responsesLoading, setResponsesLoading] = useState(true);
   const [selectedResponse, setSelectedResponse] = useState(null); // { assignment, responses }
 
+  // Perfil del paciente
+  const [patientProfile,        setPatientProfile]        = useState(null);
+  const [patientProfileLoading, setPatientProfileLoading] = useState(true);
+
   // Consent
   const [consent,        setConsent]        = useState(null);
   const [consentLoading, setConsentLoading] = useState(true);
@@ -1141,6 +1146,22 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         // No bloquear el portal si falla
       } finally {
         if (!cancelled) setResponsesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [phone]);
+
+  // Cargar perfil del paciente al montar
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getPatientByPhone(phone);
+        if (!cancelled) setPatientProfile(data);
+      } catch {
+        // No bloquear el portal si falla
+      } finally {
+        if (!cancelled) setPatientProfileLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -1249,6 +1270,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           { key:"tasks",        label:"Mis actividades",  icon:<ClipboardList size={14}/> },
           { key:"appointments", label:"Mis citas",        icon:<Calendar size={14}/> },
           { key:"history",      label:"Mi historial",     icon:<History size={14}/> },
+          { key:"profile",      label:"Mi perfil",        icon:<User size={14}/> },
         ].map(tab => {
           const active = activeTab === tab.key;
           return (
@@ -1380,6 +1402,105 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                   </div>
                 );
               })}
+            </div>
+          );
+        })()}
+
+        {/* Tab: Mi perfil */}
+        {activeTab === "profile" && (() => {
+          if (patientProfileLoading) return <Spinner/>;
+
+          const p = patientProfile;
+          if (!p) return (
+            <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
+              <div style={{ fontSize:48, marginBottom:16 }}>👤</div>
+              <div style={{ fontFamily:P.fH, fontSize:20, color:P.t, marginBottom:8 }}>Sin datos de perfil</div>
+              <div style={{ fontSize:14, lineHeight:1.6 }}>Contacta a tu psicólogo(a) para registrar tu información.</div>
+            </div>
+          );
+
+          const calcAge = (bd) => {
+            if (!bd) return null;
+            const diff = Date.now() - new Date(bd).getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+          };
+
+          const ProfileRow = ({ label, value }) => {
+            if (!value) return null;
+            return (
+              <div style={{ display:"flex", flexDirection:"column", gap:2, padding:"12px 0", borderBottom:`1px solid ${P.bdrL}` }}>
+                <div style={{ fontFamily:P.fB, fontSize:11, fontWeight:700, color:P.tm, textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                  {label}
+                </div>
+                <div style={{ fontFamily:P.fB, fontSize:15, color:P.t }}>
+                  {value}
+                </div>
+              </div>
+            );
+          };
+
+          const age      = calcAge(p.birthdate);
+          const bdLabel  = p.birthdate
+            ? new Date(p.birthdate + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" }) + (age ? ` · ${age} años` : "")
+            : null;
+
+          const hasEmergency = p.emergencyName || p.emergencyPhone;
+
+          return (
+            <div>
+              {/* Sección: Mis datos */}
+              <div style={{
+                background:P.card, borderRadius:16, padding:"18px 20px",
+                marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+                  <div style={{
+                    width:40, height:40, borderRadius:"50%",
+                    background:P.pA, display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <User size={18} color={P.p}/>
+                  </div>
+                  <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>
+                    Mis datos
+                  </div>
+                </div>
+                <ProfileRow label="Nombre completo"    value={p.name}/>
+                <ProfileRow label="Teléfono registrado" value={p.phone}/>
+                <ProfileRow label="Correo electrónico" value={p.email}/>
+                <ProfileRow label="Fecha de nacimiento" value={bdLabel}/>
+              </div>
+
+              {/* Sección: Contacto de emergencia */}
+              {hasEmergency && (
+                <div style={{
+                  background:P.card, borderRadius:16, padding:"18px 20px",
+                  marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
+                }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+                    <div style={{
+                      width:40, height:40, borderRadius:"50%",
+                      background:"rgba(184,80,80,0.08)", display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                      <span style={{ fontSize:18 }}>🚨</span>
+                    </div>
+                    <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>
+                      Contacto de emergencia
+                    </div>
+                  </div>
+                  <ProfileRow label="Nombre"             value={p.emergencyName}/>
+                  <ProfileRow label="Teléfono"           value={p.emergencyPhone}/>
+                  <ProfileRow label="Parentesco"         value={p.emergencyRelation}/>
+                </div>
+              )}
+
+              {/* Nota informativa */}
+              <div style={{
+                padding:"12px 16px", borderRadius:12,
+                background:P.pA, border:`1px solid ${P.p}30`,
+                fontFamily:P.fB, fontSize:13, color:P.tm, lineHeight:1.6,
+              }}>
+                ℹ️ Si necesitas actualizar algún dato, comunícalo a tu psicólogo(a) en tu próxima sesión.
+              </div>
             </div>
           );
         })()}
