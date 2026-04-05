@@ -829,12 +829,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
     const fecha     = fmtDate(appt.date);
-  const psicologa = profile?.name?.trim() || "tu psicóloga";
+    const psicologa = profile?.name?.trim() || "tu psicóloga";
     if (!phone) return null;
     const msg = encodeURIComponent(
       `Hola ${nombre} 🙏\n\nLamentamos informarte que necesitamos reprogramar tu sesión del *${fecha}*. Por favor escríbenos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\n— ${psicologa}`
     );
-     return `https://wa.me/${phone}?text=${msg}`;
+      return `https://wa.me/${phone}?text=${msg}`;
   };
 
   // Build type options from services + clinical fallback

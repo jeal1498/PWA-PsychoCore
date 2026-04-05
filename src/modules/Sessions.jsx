@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+﻿import { useState, useMemo, useEffect, useRef } from "react";
 import { FileText, Trash2, Printer, Tag, Check, Plus, Send, Copy, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp, LayoutList, ClipboardCheck, Lock, Eye, Sparkles, X, ShieldCheck, Download, FileCheck, ChevronRight } from "lucide-react";
 import { printNotaEvolucion, printConsentimientoInformado, printPlanSeguridad, printReferralLetter } from "../utils/pdfUtils.js";
 import { T } from "../theme.js";
@@ -6,7 +6,7 @@ import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
-import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
+import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment, createPortalAccessLink } from "../lib/supabase.js";
 import { emit, bus } from "../lib/eventBus.js"; // FASE 2
 import { useIsWide }   from "../hooks/useIsWide.js";
 
@@ -1292,13 +1292,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     const phone = pt?.phone?.replace(/\D/g, "");
     if (!phone || !closeNextAppt.date) return null;
     const nombre   = pt.name?.split(" ")[0] || "";
-    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    const psicologa = profile?.name?.trim() || "tu psicólogo(a)";
     const fecha    = new Date(closeNextAppt.date + "T12:00:00")
       .toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" });
     const msg = encodeURIComponent(
       `Hola ${nombre}. 📅 Tu próxima sesión está confirmada para el ${fecha} a las ${closeNextAppt.time}. Si tienes alguna duda, no dudes en escribirnos. ¡Hasta pronto! 💙\n— ${psicologa}`
     );
-    return `https://wa.me/52${phone}?text=${msg}`;
+    return `https://wa.me/${phone}?text=${msg}`;
   };
 
   // Service helpers
@@ -1588,20 +1588,22 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
           sessionId,
         }).then(() => ({ ok: true })).catch(e => ({ ok: false, error: e }));
       });
-      Promise.allSettled(assignPromises).then((results) => {
+      Promise.allSettled(assignPromises).then(async (results) => {
         const failed = results.filter(r => r.value?.ok === false).length;
         if (failed > 0) {
           setTaskError(`⚠️ ${failed} tarea(s) no se pudieron guardar en Supabase. Verifica la conexión.`);
           setTimeout(() => setTaskError(""), 6000);
         }
         const nombre = pt.name?.split(" ")[0] || "";
+        const psicologa = profile?.name?.trim() || "tu psicólogo(a)";
         const listaTareas = form.tasksAssigned
           .map(id => TASK_TEMPLATES[id])
           .filter(Boolean)
           .map((tpl, i) => `${i + 1}. ${tpl.icon} *${tpl.title}*`)
           .join("\n");
+        const { accessUrl } = await createPortalAccessLink(cleanPhone);
         const msg = encodeURIComponent(
-          `Hola ${nombre}! 👋\n\nTe asigné ${form.tasksAssigned.length === 1 ? "una tarea" : "estas tareas"} para trabajar antes de nuestra próxima sesión:\n\n${listaTareas}\n\nPuedes verlas y completarlas aquí:\n${PORTAL_URL}\n\n_Ingresa con tu número de celular._`
+          `Hola ${nombre}! 👋\n\nTe asigné ${form.tasksAssigned.length === 1 ? "una tarea" : "estas tareas"} para trabajar antes de nuestra próxima sesión:\n\n${listaTareas}\n\nPuedes verlas y completarlas aquí:\n${accessUrl}\n\nEste enlace vence en 24 horas.\n— ${psicologa}`
         );
         window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
       });
@@ -2982,3 +2984,4 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
     </div>
   );
 }
+

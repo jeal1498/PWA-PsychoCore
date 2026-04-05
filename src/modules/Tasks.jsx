@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // src/modules/Tasks.jsx
 // Módulo de Tareas Terapéuticas — vista de Karen
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,18 +14,21 @@ import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const buildTaskMessage = (patientName, taskTitle, accessUrl) => (
+const getPsychologistName = (profile) => profile?.name?.trim() || "tu psicólogo(a)";
+
+const buildTaskMessage = (patientName, taskTitle, accessUrl, profile) => (
   `Hola ${patientName?.split(" ")[0] || ""}! 👋\n\n` +
   `Te comparto tu tarea terapéutica: *${taskTitle}*\n\n` +
   `Accede aquí:\n${accessUrl}\n\n` +
-  `_Este enlace vence en 24 horas. Ábrelo pronto para ver y responder tus tareas._`
+  `_Este enlace vence en 24 horas. Ábrelo pronto para ver y responder tus tareas._\n\n` +
+  `— ${getPsychologistName(profile)}`
 );
 
-const openTaskWhatsApp = async (phone, patientName, taskTitle) => {
+const openTaskWhatsApp = async (phone, patientName, taskTitle, profile) => {
   if (!phone) return;
   try {
     const { accessUrl } = await createPortalAccessLink(phone);
-    const msg = encodeURIComponent(buildTaskMessage(patientName, taskTitle, accessUrl));
+    const msg = encodeURIComponent(buildTaskMessage(patientName, taskTitle, accessUrl, profile));
     const waUrl = `https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`;
     window.open(waUrl, "_blank", "noopener,noreferrer");
   } catch (error) {
@@ -152,7 +155,7 @@ function ResponsesModal({ assignment, onClose }) {
 }
 
 // ── Assignment card ───────────────────────────────────────────────────────────
-function AssignmentCard({ assignment, onDelete, onViewResponses }) {
+function AssignmentCard({ assignment, onDelete, onViewResponses, profile }) {
   const template = getTemplate(assignment.template_id);
   const done     = assignment.status === "completed";
   const phone    = assignment.patient_phone;
@@ -184,7 +187,7 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
           {/* WhatsApp */}
-          <button type="button" onClick={() => void openTaskWhatsApp(phone, assignment.patient_name, assignment.title)}
+          <button type="button" onClick={() => void openTaskWhatsApp(phone, assignment.patient_name, assignment.title, profile)}
             style={{ background:"#25D366", border:"none", borderRadius:8, padding:8, cursor:"pointer", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}
             title="Enviar por WhatsApp">
             <MessageCircle size={14}/>
@@ -350,7 +353,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
                   </button>
                 )}
                 {pt?.phone && !done && (
-                  <button type="button" onClick={() => void openTaskWhatsApp(pt.phone, a.patient_name, a.title)}
+                  <button type="button" onClick={() => void openTaskWhatsApp(pt.phone, a.patient_name, a.title, profile)}
                     style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
                     <MessageCircle size={13}/> Recordar
                   </button>
@@ -372,7 +375,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function Tasks({ patients, sessions = [], onNavigate }) {
+export default function Tasks({ patients, sessions = [], onNavigate, profile }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
   const [view,          setView]          = useState("dashboard"); // "dashboard" | "manage"
@@ -529,7 +532,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
           )}
 
           {!loading && assignments.map(a => (
-            <AssignmentCard key={a.id} assignment={a} onDelete={handleDelete} onViewResponses={setViewResponses}/>
+            <AssignmentCard key={a.id} assignment={a} onDelete={handleDelete} onViewResponses={setViewResponses} profile={profile}/>
           ))}
         </div>
       )}
@@ -600,6 +603,8 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
     </div>
   );
 }
+
+
 
 
 

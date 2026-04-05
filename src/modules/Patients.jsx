@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X, LogOut } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
@@ -893,9 +893,10 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
 }
 
 // ── WA Alta Modal ─────────────────────────────────────────────────────────────
-function WaAltaModal({ open, onClose, patient }) {
+function WaAltaModal({ open, onClose, patient, profile }) {
   const firstName = patient?.name?.split(" ")[0] || "";
-  const msg = `Hola, ${firstName}. 🌟 Ha sido un honor acompañarte en este proceso. Hemos registrado tu alta y queremos desearte mucho éxito en tu camino. Recuerda que aquí estaremos si algún día nos necesitas de nuevo. ¡Cuídate mucho! 💙`;
+  const psychName = profile?.name?.trim() || "tu psicólogo(a)";
+  const msg = `Hola, ${firstName}. 🌟 Ha sido un honor acompañarte en este proceso. Hemos registrado tu alta y queremos desearte mucho éxito en tu camino. Recuerda que aquí estaremos si algún día nos necesitas de nuevo. ¡Cuídate mucho! 💙\n\n— ${psychName}`;
   const waUrl = patient?.phone
     ? `https://wa.me/${patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
     : "";
@@ -1004,7 +1005,7 @@ function ConsentRenewalModal({ open, onClose, patient }) {
 }
 
 // ── Primer Contacto modal ─────────────────────────────────────────────────────
-function PrimerContactoModal({ open, onClose, patients, onSave }) {
+function PrimerContactoModal({ open, onClose, patients, onSave, profile }) {
   const [step,    setStep]    = useState(1);
   const [saved,   setSaved]   = useState(null);
   const [dupWarn, setDupWarn] = useState(null);
@@ -1038,12 +1039,13 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
     setStep(2);
   };
 
-    const buildWelcomeMsg = () => {
+  const buildWelcomeMsg = () => {
     if (!saved) return "";
     const firstName = saved.patient.name.split(" ")[0];
     const dateLabel = fmtDate(saved.appointment.date);
     const time      = saved.appointment.time;
-    return `Hola, ${firstName}. 👋\n\nEs un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartiremos un enlace temporal y seguro para revisar y firmar tu Consentimiento Informado. Este enlace vence en 24 horas. ¡Estamos para apoyarte! 😊`;
+    const psychName = profile?.name?.trim() || "tu psicólogo(a)";
+    return `Hola, ${firstName}. 👋\n\nEs un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartiremos un enlace temporal y seguro para revisar y firmar tu Consentimiento Informado. Este enlace vence en 24 horas. ¡Estamos para apoyarte! 😊\n\n— ${psychName}`;
   };
 
   const msg   = buildWelcomeMsg();
@@ -2049,7 +2051,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
           {/* Modals */}
           <DischargeProtocolModal open={showAltaModal} onClose={() => setShowAltaModal(false)} patient={selected} ptSessions={sessions.filter(s => s.patientId === selected.id)} onConfirm={confirmAlta}/>
-          <WaAltaModal open={showWaModal} onClose={() => setShowWaModal(false)} patient={selected}/>
+          <WaAltaModal open={showWaModal} onClose={() => setShowWaModal(false)} patient={selected} profile={profile}/>
           <ReingresoModal open={showReingresoModal} onClose={() => setShowReingresoModal(false)} patient={selected} onConfirm={confirmReingreso}/>
           <ConsentRenewalModal open={showConsentExpired} onClose={() => setShowConsentExpired(false)} patient={selected}/>
         </div>
@@ -2135,7 +2137,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
         {/* Modals */}
         <DischargeProtocolModal open={showAltaModal} onClose={() => setShowAltaModal(false)} patient={selected} ptSessions={sessions.filter(s => s.patientId === selected.id)} onConfirm={confirmAlta}/>
-        <WaAltaModal open={showWaModal} onClose={() => setShowWaModal(false)} patient={selected}/>
+        <WaAltaModal open={showWaModal} onClose={() => setShowWaModal(false)} patient={selected} profile={profile}/>
         <ReingresoModal open={showReingresoModal} onClose={() => setShowReingresoModal(false)} patient={selected} onConfirm={confirmReingreso}/>
         <ConsentRenewalModal open={showConsentExpired} onClose={() => setShowConsentExpired(false)} patient={selected}/>
       </div>
@@ -2369,7 +2371,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           </div>
         </Modal>
 
-        <PrimerContactoModal open={showPC} onClose={() => setShowPC(false)} patients={patients} onSave={savePrimerContacto}/>
+        <PrimerContactoModal open={showPC} onClose={() => setShowPC(false)} patients={patients} onSave={savePrimerContacto} profile={profile}/>
       </div>
     );
   }
@@ -2649,10 +2651,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         </div>
       </Modal>
 
-      <PrimerContactoModal open={showPC} onClose={() => setShowPC(false)} patients={patients} onSave={savePrimerContacto}/>
+      <PrimerContactoModal open={showPC} onClose={() => setShowPC(false)} patients={patients} onSave={savePrimerContacto} profile={profile}/>
     </div>
   );
 }
+
+
 
 
 
