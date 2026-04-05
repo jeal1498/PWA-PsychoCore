@@ -89,7 +89,7 @@ El paciente tiene también acceso a un **portal propio** (sin registro) donde pu
 > VITE_SUPABASE_URL=https://<tu-proyecto>.supabase.co
 > VITE_SUPABASE_ANON_KEY=<tu-anon-key>
 > ```
-> Sin estas variables el proyecto caerá a los valores hardcodeados del proyecto de desarrollo.
+> Estas variables son obligatorias. Si faltan, la app fallará al iniciar para evitar configuraciones inseguras.
 
 ---
 

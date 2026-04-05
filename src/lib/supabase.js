@@ -3,9 +3,16 @@
 // Cliente Supabase + Auth + funciones de tareas
 // ─────────────────────────────────────────────────────────────────────────────
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger.js";
 
-const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  ?? "https://mxcmfhxnjcwoueqwvzyb.supabase.co";
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14Y21maHhuamN3b3VlcXd2enliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMjk1NDAsImV4cCI6MjA4OTcwNTU0MH0.gHuDbZPUXSE6ocz0KWPq8G5zdwEzcd4ia2N6kp1x4JU";
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON) {
+  throw new Error(
+    "Missing Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required."
+  );
+}
 
 // ── Cliente oficial (usado para Auth) ─────────────────────────────────────────
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
@@ -142,7 +149,7 @@ export async function completeAssignment(assignmentId) {
   });
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[completeAssignment] PATCH failed:", errText);
+    logger.error("[completeAssignment] PATCH failed:", errText);
     throw new Error(errText);
   }
 }
@@ -165,7 +172,7 @@ export async function submitResponse({ assignmentId, patientPhone, responses }) 
   });
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[submitResponse] POST /task_responses failed:", errText);
+    logger.error("[submitResponse] POST /task_responses failed:", errText);
     throw new Error(errText);
   }
   await completeAssignment(assignmentId);
@@ -358,4 +365,3 @@ export async function getPaymentsByPhone(phone) {
   payments.sort((a, b) => b.date.localeCompare(a.date));
   return payments;
 }
-
