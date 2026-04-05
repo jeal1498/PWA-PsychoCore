@@ -75,7 +75,7 @@ function AccessRequired({ error, onRetry }) {
               marginBottom: 6,
             }}
           >
-            Tu espacio terapÃ©utico
+            Tu espacio terapéutico
           </div>
           <h1
             style={{
@@ -89,7 +89,7 @@ function AccessRequired({ error, onRetry }) {
             Mi Espacio
           </h1>
           <p style={{ fontSize: 13, color: "#3D5C59", lineHeight: 1.65, margin: 0 }}>
-            Este portal ahora requiere un enlace temporal y seguro compartido por tu psicÃ³logo(a).
+            Este portal ahora requiere un enlace temporal y seguro compartido por tu psicólogo(a).
           </p>
         </div>
 
@@ -113,7 +113,7 @@ function AccessRequired({ error, onRetry }) {
               lineHeight: 1.7,
             }}
           >
-            El acceso por nÃºmero de telÃ©fono quedÃ³ deshabilitado para proteger tus datos clÃ­nicos.
+            El acceso por número de teléfono quedó deshabilitado para proteger tus datos clínicos.
           </div>
 
           {error && (
@@ -181,7 +181,7 @@ export default function PatientPortalSecure() {
         const session = await getPortalSession();
         const phone = session?.patient?.phone;
         if (!phone) {
-          throw new Error("No se pudo resolver la sesiÃƒÂ³n del portal.");
+          throw new Error("No se pudo resolver la sesión del portal.");
         }
 
         if (cancelled) return;
@@ -194,8 +194,8 @@ export default function PatientPortalSecure() {
         setReady(false);
         setError(
           err?.message?.includes("expired") || err?.message?.includes("Invalid")
-            ? "Tu enlace ya no es vÃƒÂ¡lido o expirÃƒÂ³. Pide a tu psicÃƒÂ³logo(a) un nuevo acceso seguro."
-            : "Abre el enlace temporal y seguro que te compartiÃƒÂ³ tu psicÃƒÂ³logo(a)."
+            ? "Tu enlace ya no es válido o expiró. Pide a tu psicólogo(a) un nuevo acceso seguro."
+            : "Abre el enlace temporal y seguro que te compartió tu psicólogo(a)."
         );
       }
     })();
