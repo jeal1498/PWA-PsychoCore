@@ -12,6 +12,7 @@ import { useNotifications } from "./hooks/useNotifications.js";
 import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
 import { emit } from "./lib/eventBus.js";
+import { logger } from "./lib/logger.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
 import PatientPortalComp from "./modules/PatientPortal.jsx";
@@ -80,7 +81,7 @@ export default function App() {
   const isWide        = useIsWide();
   const patientsNavRef= useRef(null);
 
-  console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
+  logger.debug("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function App() {
           const psyData = await getOrCreatePsychologist(session.user.id);
           setPsychologist(psyData);
         } catch (e) {
-          console.error("Trial check error:", e);
+          logger.error("Trial check error:", e);
         }
         setPsychologistLoaded(true);
         if (window.location.search || window.location.hash) {
@@ -109,7 +110,7 @@ export default function App() {
           const psyData = await getOrCreatePsychologist(session.user.id);
           setPsychologist(psyData);
         } catch (e) {
-          console.error("Trial check error:", e);
+          logger.error("Trial check error:", e);
         }
         setPsychologistLoaded(true);
         if (window.location.search || window.location.hash) {

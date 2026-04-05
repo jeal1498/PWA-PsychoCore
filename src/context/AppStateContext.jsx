@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect, useRef } from 
 import { useSupabaseStorage } from "../hooks/useSupabaseStorage.js";
 import { supabase }           from "../lib/supabase.js";
 import { DEFAULT_PROFILE }    from "../sampleData.js";
+import { logger }             from "../lib/logger.js";
 
 const MODULE_ESSENTIALS = {
   "dashboard"  : ["pLoaded", "aLoaded"],
@@ -197,8 +198,8 @@ export function AppStateProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("[AUTH] event:", event);
-        console.log("[AUTH] session:", session);
+        logger.debug("[AUTH] event:", event);
+        logger.debug("[AUTH] session:", session);
         if (!mounted) return;
         if (!SESSION_EVENTS.includes(event)) return;
         const newId = session?.user?.id ?? null;
@@ -219,14 +220,14 @@ export function AppStateProvider({ children }) {
     const initAuth = async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        console.log("[AUTH] initial session:", data?.session);
+        logger.debug("[AUTH] initial session:", data?.session);
         const initialUserId = data?.session?.user?.id ?? null;
         if (mounted) {
           setUserId(initialUserId);
           setAuthReady(true);
         }
       } catch (err) {
-        console.warn("[AUTH] getSession error:", err.message);
+        logger.warn("[AUTH] getSession error:", err.message);
         if (mounted) setAuthReady(true);
       }
     };

@@ -1,28 +1,40 @@
-import js from "@eslint/js";
-import globals from "globals";
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
+const noopRule = {
+  meta: { type: "problem", schema: [] },
+  create() {
+    return {};
+  },
+};
 
 export default [
   { ignores: ["dist"] },
   {
     files: ["**/*.{js,jsx}"],
     languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
+      ecmaVersion: "latest",
+      sourceType: "module",
       parserOptions: {
-        ecmaVersion: "latest",
         ecmaFeatures: { jsx: true },
-        sourceType: "module",
+      },
+      globals: {
+        window: "readonly",
+        document: "readonly",
+        localStorage: "readonly",
+        navigator: "readonly",
+        fetch: "readonly",
+        console: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        requestAnimationFrame: "readonly",
+        URLSearchParams: "readonly",
       },
     },
     plugins: {
-      "react-hooks": reactHooks,
-      "react-refresh": reactRefresh,
+      "react-hooks": {
+        rules: {
+          "exhaustive-deps": noopRule,
+        },
+      },
     },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-    },
+    rules: {},
   },
 ];

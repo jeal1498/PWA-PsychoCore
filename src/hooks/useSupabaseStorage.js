@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
 import { bus }      from "../lib/eventBus.js";
+import { logger }   from "../lib/logger.js";
 
 if (typeof window !== "undefined") {
   window.__supabase = supabase;
@@ -40,39 +41,39 @@ export function useSupabaseStorage(key, initialValue, userId) {
         { onConflict: "psychologist_id" }
       );
     if (error) {
-      console.error(`[storage] ❌ ${key}:`, error.message);
+      logger.error(`[storage] ❌ ${key}:`, error.message);
       bus.emit("sync:error", { key, message: error.message });
     } else {
-      console.log(`[storage] ✅ ${key}`);
+      logger.debug(`[storage] ✅ ${key}`);
       bus.emit("sync:done", { key });
     }
   }, [key, table]);
 
   useEffect(() => {
-    console.log(`[storage:${key}] useEffect: userId=${userId}, prevUserId=${prevUserId.current}, table=${table}`);
+    logger.debug(`[storage:${key}] useEffect: userId=${userId}, prevUserId=${prevUserId.current}, table=${table}`);
 
     if (!userId) {
       if (prevUserId.current !== null) {
-        console.log(`[storage:${key}] Logout: reset`);
+        logger.debug(`[storage:${key}] Logout: reset`);
         prevUserId.current   = null;
         userModified.current = false;
         clearTimeout(saveTimerRef.current);
         setValue_(initialValue);
         setLoaded(true);
       } else {
-        console.log(`[storage:${key}] Sin userId, loaded=true`);
+        logger.debug(`[storage:${key}] Sin userId, loaded=true`);
         setLoaded(true);
       }
       return;
     }
 
     if (!table) {
-      console.log(`[storage:${key}] Sin tabla, loaded=true`);
+      logger.debug(`[storage:${key}] Sin tabla, loaded=true`);
       setLoaded(true);
       return;
     }
 
-    console.log(`[storage:${key}] Iniciando fetch para userId=${userId}`);
+    logger.debug(`[storage:${key}] Iniciando fetch para userId=${userId}`);
     let cancelled = false;
     prevUserId.current   = userId;
     userModified.current = false;
@@ -87,32 +88,32 @@ export function useSupabaseStorage(key, initialValue, userId) {
           .maybeSingle();
 
         if (cancelled) {
-          console.log(`[storage:${key}] Fetch cancelado`);
+          logger.debug(`[storage:${key}] Fetch cancelado`);
           return;
         }
 
         if (error) {
-          console.warn(`[storage:${key}] Error cargando:`, error.message);
+          logger.warn(`[storage:${key}] Error cargando:`, error.message);
           return;
         }
 
-        console.log(`[storage:${key}] Datos recibidos:`, data);
+        logger.debug(`[storage:${key}] Datos recibidos:`, data);
         if (data?.data !== null && data?.data !== undefined) {
           setValue_(data.data);
         }
       } catch (e) {
-        if (!cancelled) console.warn(`[storage:${key}] Excepción:`, e);
+        if (!cancelled) logger.warn(`[storage:${key}] Excepción:`, e);
       } finally {
         if (!cancelled) {
           setLoaded(true);
-          console.log(`[storage:${key}] Fetch completado, loaded=true`);
+          logger.debug(`[storage:${key}] Fetch completado, loaded=true`);
         }
       }
     })();
 
     return () => {
       cancelled = true;
-      console.log(`[storage:${key}] Cleanup: cancelando fetch`);
+      logger.debug(`[storage:${key}] Cleanup: cancelando fetch`);
     };
   }, [userId, key, table]); // ✅ initialValue eliminado
 
