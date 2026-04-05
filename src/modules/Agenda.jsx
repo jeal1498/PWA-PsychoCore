@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText, LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle, CalendarDays, Play, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { emit } from "../lib/eventBus.js";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
@@ -8,7 +8,7 @@ import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 import DynamicSummary from "../components/DynamicSummary.jsx";
 
-// ── Keyframes — mismos que Dashboard ─────────────────────────────────────────
+// â”€â”€ Keyframes â€” mismos que Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if (typeof document !== "undefined" && !window.__pc_agenda_styles__) {
   window.__pc_agenda_styles__ = true;
   const s = document.createElement("style");
@@ -22,18 +22,18 @@ if (typeof document !== "undefined" && !window.__pc_agenda_styles__) {
   document.head.appendChild(s);
 }
 
-// ── Configuración de estados de cita (Sección 2.6 y 4 del Flujo Clínico) ─────
+// â”€â”€ ConfiguraciÃ³n de estados de cita (SecciÃ³n 2.6 y 4 del Flujo ClÃ­nico) â”€â”€â”€â”€â”€
 const STATUS_CONFIG = {
   pendiente:          { label:"Pendiente",            color:T.war,  bg:T.warA  },
-  confirmada:         { label:"Confirmada ✓",         color:T.suc,  bg:T.sucA  },
+  confirmada:         { label:"Confirmada âœ“",         color:T.suc,  bg:T.sucA  },
   completada:         { label:"Completada",           color:T.suc,  bg:T.sucA  },
-  solicitud_cambio:   { label:"Solicitud cambio 🔔",  color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
+  solicitud_cambio:   { label:"Solicitud cambio ðŸ””",  color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
   cancelada_paciente: { label:"Cancelada (paciente)", color:T.tl,   bg:T.bdrL  },
-  cancelada_psicologa:{ label:"Cancelada (psicóloga)",color:"#6B5B9E", bg:"rgba(107,91,158,0.1)" },
+  cancelada_psicologa:{ label:"Cancelada (psicÃ³loga)",color:"#6B5B9E", bg:"rgba(107,91,158,0.1)" },
   no_presentado:      { label:"No presentado",        color:"#C4622A", bg:"rgba(196,98,42,0.1)" },
 };
 
-// ── FadeUp — idéntico al del Dashboard ───────────────────────────────────────
+// â”€â”€ FadeUp â€” idÃ©ntico al del Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FadeUp({ children, delay = 0, style: sx = {} }) {
   return (
     <div style={{ animation:`pc-agenda-up 0.45s cubic-bezier(0.22,1,0.36,1) ${delay}s both`, ...sx }}>
@@ -42,7 +42,7 @@ function FadeUp({ children, delay = 0, style: sx = {} }) {
   );
 }
 
-// ── SectionLabel — idéntico al del Dashboard ─────────────────────────────────
+// â”€â”€ SectionLabel â€” idÃ©ntico al del Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SectionLabel({ text, icon: Icon, color }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:12 }}>
@@ -57,7 +57,7 @@ function SectionLabel({ text, icon: Icon, color }) {
   );
 }
 
-// ── SeeAll — idéntico al del Dashboard ───────────────────────────────────────
+// â”€â”€ SeeAll â€” idÃ©ntico al del Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SeeAll({ label = "Ver todo", onClick }) {
   const [hov, setHov] = useState(false);
   return (
@@ -77,7 +77,7 @@ function SeeAll({ label = "Ver todo", onClick }) {
   );
 }
 
-// ── Avatar — idéntico al del Dashboard ───────────────────────────────────────
+// â”€â”€ Avatar â€” idÃ©ntico al del Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Avatar({ name, size = 34, color = T.p, bg = T.pA }) {
   const initials = name
     ? name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()
@@ -95,31 +95,31 @@ function Avatar({ name, size = 34, color = T.p, bg = T.pA }) {
   );
 }
 
-// ── WhatsApp reminder ────────────────────────────────────────────────────────
+// â”€â”€ WhatsApp reminder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const whatsappReminder = (appointment, patient, profile) => {
   const nombre    = patient?.name?.split(" ")[0] || appointment.patientName?.split(" ")[0] || "";
   const phone     = patient?.phone?.replace(/\D/g, "");
   const fecha     = fmtDate(appointment.date);
   const hora      = appointment.time;
   const tipo      = appointment.type || "consulta";
-  const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+  const psicologa = profile?.name?.split(" ")[0] || "tu psicÃ³loga";
   const clinica   = profile?.clinic ? ` en ${profile.clinic}` : "";
 
   if (!phone) return null;
 
   const msg = encodeURIComponent(
-    `Hola ${nombre} 👋\n\nTe escribo para recordarte tu cita de *${tipo}* programada para:\n\n📅 *${fecha}* a las *${hora}*${clinica}\n\nSi necesitas reagendar o tienes alguna duda, no dudes en escribirme.\n\n¡Hasta pronto! 😊\n— ${psicologa}`
+    `Hola ${nombre} ðŸ‘‹\n\nTe escribo para recordarte tu cita de *${tipo}* programada para:\n\nðŸ“… *${fecha}* a las *${hora}*${clinica}\n\nSi necesitas reagendar o tienes alguna duda, no dudes en escribirme.\n\nÂ¡Hasta pronto! ðŸ˜Š\nâ€” ${psicologa}`
   );
   return `https://wa.me/52${phone}?text=${msg}`;
 };
 
-// ── Weekly availability helpers ───────────────────────────────────────────────
+// â”€â”€ Weekly availability helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const WORK_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
 
-// ── Mejora 1: horas para la Vista Día (08:00–20:00) ─────────────────────────
+// â”€â”€ Mejora 1: horas para la Vista DÃ­a (08:00â€“20:00) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DAY_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20];
 
-// ── Schedule helpers ──────────────────────────────────────────────────────────
+// â”€â”€ Schedule helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function buildTimeSlots(profile) {
   const start = profile?.workingStart;
   const end   = profile?.workingEnd;
@@ -169,7 +169,7 @@ function getWeekDays(anchor) {
 
 function apptHour(time) { return parseInt(time?.split(":")?.[0] || "0"); }
 
-// ── Generate recurring appointments ──────────────────────────────────────────
+// â”€â”€ Generate recurring appointments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function generateRecurring(base, frequency, occurrences, pt) {
   const results = [];
   const groupId = "rg" + uid();
@@ -198,7 +198,7 @@ function generateRecurring(base, frequency, occurrences, pt) {
   return results;
 }
 
-// ── StatStrip — Dashboard pattern, solo desktop ───────────────────────────────
+// â”€â”€ StatStrip â€” Dashboard pattern, solo desktop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StatStrip({ appointments, todayStr, recurringCount, isMobile }) {
   if (isMobile) return null;
 
@@ -255,7 +255,7 @@ function StatStrip({ appointments, todayStr, recurringCount, isMobile }) {
   );
 }
 
-// ── Weekly view ───────────────────────────────────────────────────────────────
+// â”€â”€ Weekly view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, today, profile }) {
   const weekDays = useMemo(() => getWeekDays(weekAnchor), [weekAnchor]);
   const todayStr = fmt(today);
@@ -299,7 +299,7 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
             <ChevronLeft size={14}/>
           </button>
           <span style={{ fontFamily:T.fH, fontSize:20, color:T.t, letterSpacing:"-0.02em" }}>
-            {startStr} — {endStr}
+            {startStr} â€” {endStr}
           </span>
           <button onClick={nextWeek} style={{ width:30, height:30, background:T.bdrL, border:"none", borderRadius:8, cursor:"pointer", color:T.tm, display:"flex", alignItems:"center", justifyContent:"center" }}>
             <ChevronRight size={14}/>
@@ -321,7 +321,7 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
       <div style={{ position:"relative" }}>
         <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
           <div style={{ minWidth:480 }}>
-            {/* Cabecera de días */}
+            {/* Cabecera de dÃ­as */}
             <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:4, position:"sticky", top:0, background:T.card, zIndex:1 }}>
               <div/>
               {weekDays.map((d, i) => {
@@ -331,7 +331,7 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
                 return (
                   <div key={i} style={{ textAlign:"center", padding:"6px 2px", borderRadius:8, background:isToday ? T.pA : "transparent" }}>
                     <div style={{ fontFamily:T.fB, fontSize:9, fontWeight:700, color:T.tl, letterSpacing:"0.06em" }}>
-                      {["LUN","MAR","MIÉ","JUE","VIE","SÁB"][i]}
+                      {["LUN","MAR","MIÃ‰","JUE","VIE","SÃB"][i]}
                     </div>
                     <div style={{ fontFamily:T.fH, fontSize:19, color:isToday ? T.p : T.t, fontWeight:isToday ? 600 : 400, lineHeight:1.15 }}>
                       {d.getDate()}
@@ -353,7 +353,7 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
                 <div key={hour}>
                   {hasGap && (
                     <div style={{ display:"grid", gridTemplateColumns:"44px repeat(6, 1fr)", gap:3, marginBottom:3 }}>
-                      <div style={{ fontFamily:T.fB, fontSize:9, color:T.tl, textAlign:"right", paddingRight:6, paddingTop:4 }}>···</div>
+                      <div style={{ fontFamily:T.fB, fontSize:9, color:T.tl, textAlign:"right", paddingRight:6, paddingTop:4 }}>Â·Â·Â·</div>
                       {weekDays.map((_, di) => (
                         <div key={di} style={{ height:8, background:`${T.bdrL}33`, borderRadius:4 }}/>
                       ))}
@@ -406,7 +406,7 @@ function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, toda
   );
 }
 
-// ── Vista Día — Timeline (t9) ─────────────────────────────────────────────────
+// â”€â”€ Vista DÃ­a â€” Timeline (t9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuick, onOpenStatusModal, onConfirmDelete, onNewAppt, patients, profile, markReminderSent, today, onStartSession }) {
   const todayStr = fmt(today);
   const isMobile = useIsMobile();
@@ -460,8 +460,8 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
     if (typeof onStartSession === "function") {
       onStartSession(appt);
     } else {
-      console.warn("[Agenda] onStartSession prop no recibido — conectar desde App.jsx");
-      emit.toast("Abre el módulo de Sesiones para registrar esta nota", "info");
+      console.warn("[Agenda] onStartSession prop no recibido â€” conectar desde App.jsx");
+      emit.toast("Abre el mÃ³dulo de Sesiones para registrar esta nota", "info");
     }
   };
 
@@ -488,7 +488,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
 
   return (
     <Card style={{ overflow:"hidden" }}>
-      {/* Header — mismo patrón que SessionHero del Dashboard */}
+      {/* Header â€” mismo patrÃ³n que SessionHero del Dashboard */}
       <div style={{
         display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:isMobile ? "16px 18px" : "18px 22px",
@@ -505,7 +505,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
             </div>
             <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:1 }}>
               {totalCount === 0 ? "Sin citas" : `${totalCount} cita${totalCount !== 1 ? "s" : ""}`}
-              {isToday && " · hoy"}
+              {isToday && " Â· hoy"}
             </div>
           </div>
           <button onClick={nextDay} style={{ width:30, height:30, background:T.bdrL, border:"none", borderRadius:8, cursor:"pointer", color:T.tm, display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -514,7 +514,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
         </div>
 
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          {/* Progress bar — Dashboard SessionHero pattern */}
+          {/* Progress bar â€” Dashboard SessionHero pattern */}
           {totalCount > 0 && (
             <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:120 }}>
               <div style={{ flex:1, height:3, borderRadius:9999, background:T.bdrL, overflow:"hidden" }}>
@@ -574,7 +574,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
             );
           })}
 
-          {/* Última línea */}
+          {/* Ãšltima lÃ­nea */}
           <div style={{ position:"absolute", top:(TIMELINE_END - TIMELINE_START)*HOUR_H, left:48, right:4, height:1, background:`${T.bdrL}55` }}/>
 
           {/* Marcador "ahora" */}
@@ -634,7 +634,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                     </div>
                     <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>
                       {a.type}
-                      {a.modality ? ` · ${a.modality === "presencial" ? "🏢" : "💻"}` : ""}
+                      {a.modality ? ` Â· ${a.modality === "presencial" ? "ðŸ¢" : "ðŸ’»"}` : ""}
                     </div>
                   </div>
 
@@ -658,10 +658,10 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                     border:"1px solid rgba(196,98,42,0.25)",
                     marginTop:2,
                   }}>
-                    <span style={{ fontSize:14, lineHeight:1 }}>🔔</span>
+                    <span style={{ fontSize:14, lineHeight:1 }}>ðŸ””</span>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:"#C4622A", marginBottom:a.patientNote ? 2 : 0 }}>
-                        Paciente solicitó cambio de cita
+                        Paciente solicitÃ³ cambio de cita
                       </div>
                       {a.patientNote && (
                         <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, lineHeight:1.4 }}>
@@ -687,7 +687,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                         style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", borderRadius:7, border:`1.5px solid ${T.suc}`, background:T.sucA, color:T.suc, fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer", transition:"all .13s" }}
                         onMouseEnter={e => { e.currentTarget.style.background=T.suc; e.currentTarget.style.color="#fff"; }}
                         onMouseLeave={e => { e.currentTarget.style.background=T.sucA; e.currentTarget.style.color=T.suc; }}>
-                        <Play size={10}/> Iniciar sesión
+                        <Play size={10}/> Iniciar sesiÃ³n
                       </button>
                     )}
 
@@ -708,7 +708,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
             );
           })}
 
-          {/* Estado vacío de tarde / día completo libre */}
+          {/* Estado vacÃ­o de tarde / dÃ­a completo libre */}
           {dayAppts.length === 0 && (
             <div style={{ position:"absolute", top:HOUR_H * 2, left:52, right:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:14, padding:"16px 18px", borderRadius:12, background:T.cardAlt, border:`1px solid ${T.bdrL}` }}>
@@ -716,8 +716,8 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                   <Calendar size={16} color={T.p} strokeWidth={1.8}/>
                 </div>
                 <div>
-                  <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>Día libre</div>
-                  <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:1 }}>Sin citas programadas — haz clic en cualquier franja para agendar</div>
+                  <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>DÃ­a libre</div>
+                  <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:1 }}>Sin citas programadas â€” haz clic en cualquier franja para agendar</div>
                 </div>
               </div>
             </div>
@@ -728,13 +728,13 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
   );
 }
 
-// ── Delete confirmation modal ─────────────────────────────────────────────────
+// â”€â”€ Delete confirmation modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
   if (!appt) return null;
   return (
     <Modal open={!!appt} onClose={onCancel} title="Eliminar cita" width={420}>
       <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, marginBottom:20, lineHeight:1.6 }}>
-        <strong>{appt.patientName?.split(" ").slice(0,2).join(" ")}</strong> — {fmtDate(appt.date)} · {appt.time}
+        <strong>{appt.patientName?.split(" ").slice(0,2).join(" ")}</strong> â€” {fmtDate(appt.date)} Â· {appt.time}
         {appt.isRecurring && (
           <div style={{ marginTop:10, padding:"10px 14px", background:T.warA, borderRadius:10, color:T.war, fontSize:13, fontWeight:500 }}>
             Esta cita forma parte de una serie recurrente.
@@ -752,7 +752,7 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
   );
 }
 
-// ── Main Agenda component ─────────────────────────────────────────────────────
+// â”€â”€ Main Agenda component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Agenda({ appointments = [], setAppointments, sessions = [], setSessions, patients = [], setPatients, profile, autoOpen, services = [], onNavigate, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], taskAssignments = [], onPrimerContacto, onStartSession }) {
   const [view,          setView]          = useState("month");
   const [current,       setCurrent]       = useState(new Date(todayDate.getFullYear(), todayDate.getMonth(), 1));
@@ -765,10 +765,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [quickPt,   setQuickPt]   = useState(blankQuickPt);
   const resetNewPtMode = () => { setNewPtMode(false); setQuickPt(blankQuickPt); };
 
-  // ── Mejora 1: estado del día seleccionado para Vista Día ─────────────────
+  // â”€â”€ Mejora 1: estado del dÃ­a seleccionado para Vista DÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [selectedDayView, setSelectedDayView] = useState(fmt(todayDate));
 
-  // ── Mejora 3: sugerencia de siguiente cita ───────────────────────────────
+  // â”€â”€ Mejora 3: sugerencia de siguiente cita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [nextApptSuggestion, setNextApptSuggestion] = useState(null);
 
   useEffect(() => {
@@ -788,11 +788,11 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [quickSession,  setQuickSession]  = useState(null);
   const [deleteTarget,  setDeleteTarget]  = useState(null);
 
-  // ── Punto de entrada inteligente — Resumen / Admisión ───────────────────────
+  // â”€â”€ Punto de entrada inteligente â€” Resumen / AdmisiÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [summaryTarget,  setSummaryTarget]  = useState(null);
   const [admisionTarget, setAdmisionTarget] = useState(null);
 
-  // ── Cancelaciones / cambio de estado (Sección 4 del Flujo Clínico) ─────────
+  // â”€â”€ Cancelaciones / cambio de estado (SecciÃ³n 4 del Flujo ClÃ­nico) â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [statusTarget,  setStatusTarget]  = useState(null);
   const [statusForm,    setStatusForm]    = useState({ status:"", motivo:"", reagendar:false, newDate:"", newTime:"" });
   const sfStatus = k => v => setStatusForm(f => ({ ...f, [k]: v }));
@@ -828,17 +828,17 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
     const fecha     = fmtDate(appt.date);
-    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    const psicologa = profile?.name?.split(" ")[0] || "tu psicÃ³loga";
     if (!phone) return null;
     const msg = encodeURIComponent(
-      `Hola ${nombre} 🙏\n\nLamentamos informarte que necesitamos reprogramar tu sesión del *${fecha}*. Por favor escríbenos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\n— ${psicologa}`
+      `Hola ${nombre} ðŸ™\n\nLamentamos informarte que necesitamos reprogramar tu sesiÃ³n del *${fecha}*. Por favor escrÃ­benos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\nâ€” ${psicologa}`
     );
     return `https://wa.me/52${phone}?text=${msg}`;
   };
 
   // Build type options from services + clinical fallback
-  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
-  const CLINICAL_FALLBACK = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
+  const SERVICE_TYPE_LABEL = { sesion:"SesiÃ³n individual", evaluacion:"EvaluaciÃ³n", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
+  const CLINICAL_FALLBACK = ["Primera consulta","Seguimiento","EvaluaciÃ³n","Crisis","Cierre","Seguimiento post-alta"];
   const appointmentTypeOptions = services.length > 0
     ? services.filter(s => s.type !== "paquete").map(s => ({ label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId:s.id, modality:s.modality }))
     : CLINICAL_FALLBACK.map(t => ({ label:t, serviceId:null, modality:null }));
@@ -847,7 +847,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const [form, setForm] = useState(blankForm);
   const [showModalityPicker, setShowModalityPicker] = useState(false);
 
-  // ── Validación de fecha y conflicto ──────────────────────────────────────
+  // â”€â”€ ValidaciÃ³n de fecha y conflicto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [dateError,     setDateError]     = useState("");
   const [conflictError, setConflictError] = useState("");
 
@@ -860,7 +860,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     if (workingDays.length > 0) {
       const dayOfWeek = new Date(value + "T12:00:00").getDay();
       if (!workingDays.includes(dayOfWeek)) {
-        setDateError("Este día no está en tu horario de trabajo. Ajusta tu horario en Configuración si necesitas hacer una excepción.");
+        setDateError("Este dÃ­a no estÃ¡ en tu horario de trabajo. Ajusta tu horario en ConfiguraciÃ³n si necesitas hacer una excepciÃ³n.");
         fld("date")("");
         return;
       }
@@ -925,18 +925,18 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     return groups.size;
   }, [appointments]);
 
-  // ── Mejora 2: marcar recordatorio enviado ───────────────────────────────
+  // â”€â”€ Mejora 2: marcar recordatorio enviado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const markReminderSent = (id) => {
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, reminderSent:true } : a));
   };
 
-  // ── Mejora 1: abrir modal con fecha/hora pre-rellenadas ──────────────────
+  // â”€â”€ Mejora 1: abrir modal con fecha/hora pre-rellenadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const openAddWithPreset = (date, time) => {
     setForm(f => ({ ...f, date, time }));
     setShowAdd(true);
   };
 
-  // ── Fase 2: crear paciente pre-registro y agendar ────────────────────────
+  // â”€â”€ Fase 2: crear paciente pre-registro y agendar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleCreateAndSchedule = () => {
     if (!quickPt.name.trim()) return;
     const newPt = {
@@ -953,7 +953,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     resetNewPtMode();
   };
 
-  // ── Mejora 3: guardar cita con lógica de sugerencia ──────────────────────
+  // â”€â”€ Mejora 3: guardar cita con lÃ³gica de sugerencia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const save = () => {
     if (!form.patientId || !form.date) return;
 
@@ -1004,7 +1004,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setShowAdd(false);
   };
 
-  // ── Mejora 3: confirmar cita sugerida ────────────────────────────────────
+  // â”€â”€ Mejora 3: confirmar cita sugerida â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const confirmNextAppt = () => {
     if (!nextApptSuggestion) return;
     setAppointments(prev => [...prev, {
@@ -1037,16 +1037,15 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const whatsappConsent = (patient) => {
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
-    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    const psicologa = profile?.name?.split(" ")[0] || "tu psicÃ³loga";
     if (!phone) return null;
-    const link = `https://psychocore.vercel.app/portal?phone=${phone}`;
     const msg = encodeURIComponent(
-      `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${link}\n\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
+      `Hola ${nombre} ðŸ‘‹\n\nPara iniciar nuestro proceso terapÃ©utico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${link}\n\nSi tienes dudas, con gusto te apoyo.\n\nÂ¡Gracias! ðŸ˜Š\nâ€” ${psicologa}`
     );
     return `https://wa.me/52${phone}?text=${msg}`;
   };
 
-  // ── Punto de entrada inteligente ─────────────────────────────────────────
+  // â”€â”€ Punto de entrada inteligente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleOpenAppt = (appt) => {
     const pt = patients.find(p => p.id === appt.patientId);
     const hasSessions = sessions.some(s => s.patientId === appt.patientId);
@@ -1071,16 +1070,16 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
   const freqLabel = { semanal:"semana", quincenal:"2 semanas", mensual:"mes" };
 
-  // ── View toggle buttons ───────────────────────────────────────────────────
+  // â”€â”€ View toggle buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ViewToggle = () => (
-    // [mobile-audit] flexWrap para que los botones bajen a nueva línea en mobile
+    // [mobile-audit] flexWrap para que los botones bajen a nueva lÃ­nea en mobile
     <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
       {/* Toggle de vistas */}
       <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, gap:2 }}>
         {[
           { id:"month",  icon:LayoutGrid,  tip:"Mes"    },
           { id:"week",   icon:List,        tip:"Semana" },
-          { id:"day",    icon:CalendarDays, tip:"Día"   },
+          { id:"day",    icon:CalendarDays, tip:"DÃ­a"   },
         ].map(v => (
           <button key={v.id} onClick={() => setView(v.id)} title={v.tip}
             style={{
@@ -1114,12 +1113,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
       <PageHeader
         title="Agenda"
-        subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${recurringCount > 0 ? ` · ${recurringCount} serie${recurringCount!==1?"s":""} recurrente${recurringCount!==1?"s":""}` : ""}`}
+        subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${recurringCount > 0 ? ` Â· ${recurringCount} serie${recurringCount!==1?"s":""} recurrente${recurringCount!==1?"s":""}` : ""}`}
         action={<ViewToggle/>}
         isMobile={isMobile}
       />
 
-      {/* ── STAT STRIP — solo desktop, patrón Dashboard ──────────────────── */}
+      {/* â”€â”€ STAT STRIP â€” solo desktop, patrÃ³n Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <StatStrip
         appointments={appointments}
         todayStr={todayStr}
@@ -1127,7 +1126,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         isMobile={isMobile}
       />
 
-      {/* ── Vista Semana ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Vista Semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {view === "week" && (
         <FadeUp delay={0.06}>
           <Card style={{ padding:isMobile ? "16px 18px" : "20px 24px" }}>
@@ -1143,7 +1142,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         </FadeUp>
       )}
 
-      {/* ── Vista Día ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Vista DÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {view === "day" && (
         <FadeUp delay={0.06}>
           <DayView
@@ -1163,7 +1162,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         </FadeUp>
       )}
 
-      {/* ── Vista Mes ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Vista Mes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {view === "month" && (
         <FadeUp delay={0.06}>
           <div style={{ display:"grid", gridTemplateColumns:isMobile ? "1fr" : "1fr minmax(0,320px)", gap:14 }}>
@@ -1199,7 +1198,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               </div>
 
               <div style={{ display:calCollapsed ? "none" : "block", padding:"14px 20px 18px" }}>
-                {/* Días de la semana */}
+                {/* DÃ­as de la semana */}
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:5 }}>
                   {DAYS_ES.map(d => (
                     <div key={d} style={{ textAlign:"center", fontSize:10, fontWeight:700, color:T.tl, fontFamily:T.fB, letterSpacing:"0.07em", padding:"5px 0" }}>
@@ -1220,7 +1219,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                       <div key={i}
                         onClick={() => {
                           setSelectedDay(isSel ? null : d);
-                          // ── Mejora 1: sincronizar con selectedDayView ──
+                          // â”€â”€ Mejora 1: sincronizar con selectedDayView â”€â”€
                           setSelectedDayView(dateStr);
                         }}
                         style={{
@@ -1250,7 +1249,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   <div style={{ marginTop:16, display:"flex", gap:14, paddingTop:12, borderTop:`1px solid ${T.bdrL}` }}>
                     <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background:T.acc }}/>
-                      <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Cita única</span>
+                      <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>Cita Ãºnica</span>
                     </div>
                     <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background:T.p }}/>
@@ -1260,7 +1259,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                 )}
               </div>
 
-              {/* Detalle del día seleccionado */}
+              {/* Detalle del dÃ­a seleccionado */}
               {selectedDay && (
                 <div style={{ padding:"16px 20px 20px", borderTop:`1px solid ${T.bdrL}` }}>
                   <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:14 }}>
@@ -1280,7 +1279,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                         <Calendar size={14} color={T.p} strokeWidth={1.8}/>
                       </div>
                       <div>
-                        <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>Día libre</div>
+                        <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:600, color:T.t }}>DÃ­a libre</div>
                         <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, marginTop:1 }}>Sin citas programadas</div>
                       </div>
                     </div>
@@ -1306,7 +1305,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                             </div>
                             <div style={{ fontFamily:T.fB, fontSize:11, color:T.tl, display:"flex", alignItems:"center", gap:4, flexWrap:"wrap", marginTop:2 }}>
                               <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:isDone ? T.tl : T.p }}>{a.time}</span>
-                              · {a.type}
+                              Â· {a.type}
                               {a.type === "Seguimiento post-alta" && (
                                 <span style={{ padding:"1px 6px", borderRadius:9999, background:"rgba(91,141,184,0.12)", color:"#5B8DB8", fontSize:9, fontWeight:700 }}>
                                   {a.followUpMonth ? `${a.followUpMonth}m` : "Post-alta"}
@@ -1334,7 +1333,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                               <FileText size={12}/> Abrir
                             </button>
 
-                            {/* ── Mejora 2: indicador / botón recordatorio en Vista Mes ── */}
+                            {/* â”€â”€ Mejora 2: indicador / botÃ³n recordatorio en Vista Mes â”€â”€ */}
                             {a.reminderSent ? (
                               <div style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:8, border:"1.5px solid #25D36640", background:"#25D36615", color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600 }}>
                                 <Check size={12}/> Recordatorio enviado
@@ -1359,11 +1358,11 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               )}
             </Card>
 
-            {/* Panel derecho — Próximas citas */}
+            {/* Panel derecho â€” PrÃ³ximas citas */}
             <Card style={{ padding:0, overflow:"hidden", alignSelf:"start" }}>
-              {/* Header con SectionLabel + SeeAll — patrón Dashboard */}
+              {/* Header con SectionLabel + SeeAll â€” patrÃ³n Dashboard */}
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 20px 14px" }}>
-                <SectionLabel text="Próximas citas" icon={Calendar} color={T.p}/>
+                <SectionLabel text="PrÃ³ximas citas" icon={Calendar} color={T.p}/>
                 <SeeAll label="Ver agenda" onClick={() => setView("day")}/>
               </div>
 
@@ -1372,7 +1371,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   <div style={{ width:40, height:40, borderRadius:11, background:T.pA, border:`1px solid ${T.p}18`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
                     <Calendar size={18} color={T.p} strokeWidth={1.8}/>
                   </div>
-                  <div style={{ fontFamily:T.fH, fontSize:18, color:T.t, marginBottom:4 }}>Sin citas próximas</div>
+                  <div style={{ fontFamily:T.fH, fontSize:18, color:T.t, marginBottom:4 }}>Sin citas prÃ³ximas</div>
                   <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl }}>No hay consultas programadas</div>
                 </div>
               ) : (() => {
@@ -1395,7 +1394,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                       const label    = isGToday ? "Hoy" : `${dayNum} ${MONTHS_ES[monIdx].slice(0,3)}`;
                       return (
                         <div key={g.date} style={{ marginBottom:14 }}>
-                          {/* Encabezado de grupo — patrón SectionLabel del Dashboard */}
+                          {/* Encabezado de grupo â€” patrÃ³n SectionLabel del Dashboard */}
                           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                             <span style={{
                               fontFamily:T.fB, fontSize:10, fontWeight:800,
@@ -1407,7 +1406,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                             <div style={{ flex:1, height:1, background:T.bdrL }}/>
                           </div>
 
-                          {/* Citas del grupo — patrón AgendaRow del Dashboard */}
+                          {/* Citas del grupo â€” patrÃ³n AgendaRow del Dashboard */}
                           {g.appts.map(a => {
                             const pt  = patients.find(p => p.id === a.patientId);
                             const url = a.status !== "completada" && !a.reminderSent ? whatsappReminder(a, pt, profile) : null;
@@ -1416,7 +1415,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                               <div key={a.id}
                                 style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:10, marginBottom:6, background:isDone ? T.cardAlt : T.card, border:`1px solid ${T.bdrL}`, opacity:isDone ? 0.6 : 1 }}>
 
-                                {/* Avatar de iniciales — patrón Dashboard */}
+                                {/* Avatar de iniciales â€” patrÃ³n Dashboard */}
                                 <Avatar
                                   name={a.patientName}
                                   size={30}
@@ -1425,7 +1424,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                 />
 
                                 <div style={{ flex:1, minWidth:0 }}>
-                                  {/* Nombre en T.fH — patrón AgendaRow */}
+                                  {/* Nombre en T.fH â€” patrÃ³n AgendaRow */}
                                   <div style={{ fontFamily:T.fH, fontSize:14, fontWeight:500, color:T.t, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", letterSpacing:"-0.01em" }}>
                                     {a.patientName.split(" ").slice(0,2).join(" ")}
                                   </div>
@@ -1440,9 +1439,9 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                     {a.time}
                                   </span>
 
-                                  {/* Acción */}
+                                  {/* AcciÃ³n */}
                                   {!isDone && (
-                                    <button onClick={() => handleOpenAppt(a)} title="Abrir sesión"
+                                    <button onClick={() => handleOpenAppt(a)} title="Abrir sesiÃ³n"
                                       style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 8px", borderRadius:7, border:`1px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer", transition:"all .13s" }}
                                       onMouseEnter={e => { e.currentTarget.style.background=T.p; e.currentTarget.style.color="#fff"; }}
                                       onMouseLeave={e => { e.currentTarget.style.background=T.pA; e.currentTarget.style.color=T.p; }}>
@@ -1450,7 +1449,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                     </button>
                                   )}
 
-                                  {/* ── Mejora 2: indicador compacto en Próximas citas ── */}
+                                  {/* â”€â”€ Mejora 2: indicador compacto en PrÃ³ximas citas â”€â”€ */}
                                   {a.reminderSent ? (
                                     <div title="Recordatorio enviado"
                                       style={{ display:"flex", alignItems:"center", padding:"4px 7px", borderRadius:7, border:"1px solid #25D36640", background:"#25D36615", color:"#25D366" }}>
@@ -1479,12 +1478,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         </FadeUp>
       )}
 
-      {/* ── New appointment modal ──────────────────────────────────────────── */}
+      {/* â”€â”€ New appointment modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Modal open={showAdd} onClose={() => { setShowAdd(false); setRecurring(false); setDateError(""); setConflictError(""); resetNewPtMode(); }} title="Nueva cita" width={520}>
 
-        {/* ── Fase 2: segmented control paciente existente / nuevo ───────── */}
+        {/* â”€â”€ Fase 2: segmented control paciente existente / nuevo â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, marginBottom:16 }}>
-          {[{v:false, label:"Paciente existente"}, {v:true, label:"✦ Nuevo paciente"}].map(({v, label}) => (
+          {[{v:false, label:"Paciente existente"}, {v:true, label:"âœ¦ Nuevo paciente"}].map(({v, label}) => (
             <button key={String(v)}
               onClick={() => { setNewPtMode(v); if (v) setForm(f => ({...f, patientId:""})); }}
               style={{ flex:1, padding:"7px 8px", borderRadius:8, border:"none",
@@ -1498,13 +1497,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           ))}
         </div>
 
-        {/* ── Selector de paciente existente ───────────────────────────── */}
+        {/* â”€â”€ Selector de paciente existente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {!newPtMode && (
           <Select label="Paciente *" value={form.patientId} onChange={fld("patientId")}
             options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
         )}
 
-        {/* ── Mini-form nuevo paciente (pre-registro) ───────────────────── */}
+        {/* â”€â”€ Mini-form nuevo paciente (pre-registro) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {newPtMode && (
           <div style={{
             marginBottom: 16,
@@ -1517,13 +1516,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             gap: 4,
             boxShadow: `0 2px 12px ${T.p}14`,
           }}>
-            {/* [bug-fix] Input ya llama onChange(value) — NO envuelver con e.target.value */}
+            {/* [bug-fix] Input ya llama onChange(value) â€” NO envuelver con e.target.value */}
             <Input label="Nombre *" value={quickPt.name}
               onChange={v => setQuickPt(q => ({...q, name: v}))}
               placeholder="Nombre completo del paciente" />
-            <Input label="Teléfono" value={quickPt.phone}
+            <Input label="TelÃ©fono" value={quickPt.phone}
               onChange={v => setQuickPt(q => ({...q, phone: v}))}
-              placeholder="10 dígitos" />
+              placeholder="10 dÃ­gitos" />
             <Input label="Motivo de consulta" value={quickPt.reason}
               onChange={v => setQuickPt(q => ({...q, reason: v}))}
               placeholder="Opcional" />
@@ -1535,7 +1534,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           </div>
         )}
 
-        {/* ── Fecha con validación de días hábiles ─────────────────────── */}
+        {/* â”€â”€ Fecha con validaciÃ³n de dÃ­as hÃ¡biles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:dateError ? 4 : 16 }}>
           <div>
             <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>
@@ -1549,7 +1548,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             />
           </div>
 
-          {/* ── Hora como select de slots ──── */}
+          {/* â”€â”€ Hora como select de slots â”€â”€â”€â”€ */}
           <div>
             <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>
               Hora
@@ -1566,7 +1565,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           </div>
         </div>
 
-        {/* Error de día no hábil */}
+        {/* Error de dÃ­a no hÃ¡bil */}
         {dateError && (
           <div style={{ marginBottom:14, padding:"8px 12px", background:T.errA, borderRadius:8, fontFamily:T.fB, fontSize:12, color:T.err, lineHeight:1.5 }}>
             {dateError}
@@ -1586,9 +1585,9 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
         {showModalityPicker && (
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
-            <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad de la cita?</div>
+            <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>Â¿Modalidad de la cita?</div>
             <div style={{ display:"flex", gap:8 }}>
-              {[{mod:"presencial",icon:"🏢",label:"Presencial"},{mod:"virtual",icon:"💻",label:"Virtual"}].map(({mod,icon,label}) => {
+              {[{mod:"presencial",icon:"ðŸ¢",label:"Presencial"},{mod:"virtual",icon:"ðŸ’»",label:"Virtual"}].map(({mod,icon,label}) => {
                 const sel = form.modality === mod;
                 return (
                   <button key={mod} onClick={() => { setForm(f => ({ ...f, modality:mod })); setShowModalityPicker(false); }}
@@ -1603,13 +1602,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
         {form.modality && !showModalityPicker && (
           <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginTop:-6, marginBottom:8, paddingLeft:2 }}>
-            {form.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
-            {" · "}
+            {form.modality === "presencial" ? "ðŸ¢ Presencial" : "ðŸ’» Virtual"}
+            {" Â· "}
             <span style={{ color:T.p, cursor:"pointer", textDecoration:"underline" }} onClick={() => setShowModalityPicker(true)}>Cambiar</span>
           </div>
         )}
 
-        {/* ── Recurrence section ─────────────────────────────────────── */}
+        {/* â”€â”€ Recurrence section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{ border:`1.5px solid ${recurring ? T.p : T.bdr}`, borderRadius:12, overflow:"hidden", marginBottom:16, transition:"border .15s" }}>
           <button onClick={() => setRecurring(r => !r)}
             style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", padding:"11px 16px", background:recurring ? T.pA : T.bdrL, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:13, fontWeight:600, color:recurring ? T.p : T.tm, transition:"all .15s" }}>
@@ -1617,7 +1616,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               <Repeat size={14}/> Cita recurrente
               {recurring && (
                 <span style={{ padding:"1px 8px", borderRadius:9999, background:T.p, color:"#fff", fontSize:10, fontWeight:700 }}>
-                  {recOccurrences} citas · c/{freqLabel[recFrequency]}
+                  {recOccurrences} citas Â· c/{freqLabel[recFrequency]}
                 </span>
               )}
             </span>
@@ -1627,7 +1626,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           {recurring && (
             <div style={{ padding:"16px", background:T.card, borderTop:`1px solid ${T.bdrL}` }}>
               <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:14 }}>
-                Se crearán <strong>{recOccurrences}</strong> citas automáticamente a partir de la fecha seleccionada.
+                Se crearÃ¡n <strong>{recOccurrences}</strong> citas automÃ¡ticamente a partir de la fecha seleccionada.
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <div>
@@ -1645,10 +1644,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   </div>
                 </div>
                 <div>
-                  <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:7 }}>Número de citas</label>
+                  <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:7 }}>NÃºmero de citas</label>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <button onClick={() => setRecOccurrences(n => Math.max(2, n - 1))}
-                      style={{ width:32, height:32, borderRadius:8, background:T.bdrL, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:16, color:T.tm, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                      style={{ width:32, height:32, borderRadius:8, background:T.bdrL, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:16, color:T.tm, display:"flex", alignItems:"center", justifyContent:"center" }}>âˆ’</button>
                     <span style={{ fontFamily:T.fH, fontSize:22, color:T.t, minWidth:32, textAlign:"center", fontWeight:500 }}>{recOccurrences}</span>
                     <button onClick={() => setRecOccurrences(n => Math.min(52, n + 1))}
                       style={{ width:32, height:32, borderRadius:8, background:T.bdrL, border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:16, color:T.tm, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
@@ -1665,10 +1664,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                     <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:7 }}>Vista previa</div>
                     {preview.map((a, i) => (
                       <div key={i} style={{ fontFamily:T.fB, fontSize:12, color:T.t, marginBottom:3 }}>
-                        {i + 1}. {fmtDate(a.date)} · {a.time}
+                        {i + 1}. {fmtDate(a.date)} Â· {a.time}
                       </div>
                     ))}
-                    {remaining > 0 && <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:3 }}>…y {remaining} cita{remaining!==1?"s":""} más</div>}
+                    {remaining > 0 && <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:3 }}>â€¦y {remaining} cita{remaining!==1?"s":""} mÃ¡s</div>}
                   </div>
                 );
               })()}
@@ -1684,8 +1683,8 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         </div>
       </Modal>
 
-      {/* ── Quick session modal ────────────────────────────────────────── */}
-      <Modal open={!!quickSession} onClose={() => setQuickSession(null)} title="Nota de sesión rápida" width={520}>
+      {/* â”€â”€ Quick session modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <Modal open={!!quickSession} onClose={() => setQuickSession(null)} title="Nota de sesiÃ³n rÃ¡pida" width={520}>
         {quickSession && (
           <>
             <div style={{ padding:"12px 16px", background:T.pA, borderRadius:10, marginBottom:20, border:`1px solid ${T.p}20` }}>
@@ -1693,21 +1692,21 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                 {quickSession.patientName?.split(" ").slice(0,2).join(" ")}
               </div>
               <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2 }}>
-                {fmtDate(quickSession.date)} · {quickSession.time} · {quickSession.type}
+                {fmtDate(quickSession.date)} Â· {quickSession.time} Â· {quickSession.type}
               </div>
             </div>
             {/* [mobile-audit] grid 3-col colapsado a 1 col en mobile para evitar inputs aplastados */}
             <div style={{ display:"grid", gridTemplateColumns:isMobile ? "1fr" : "1fr 1fr 1fr", gap:12 }}>
-              <Input label="Duración (min)" value={sessionForm.duration} onChange={sfld("duration")} type="number"/>
+              <Input label="DuraciÃ³n (min)" value={sessionForm.duration} onChange={sfld("duration")} type="number"/>
               <Select label="Progreso" value={sessionForm.progress} onChange={sfld("progress")}
                 options={["excelente","bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
-              <Select label="Ánimo" value={sessionForm.mood} onChange={sfld("mood")}
+              <Select label="Ãnimo" value={sessionForm.mood} onChange={sfld("mood")}
                 options={["bueno","moderado","bajo"].map(p => ({value:p,label:p}))}/>
             </div>
             <div style={{ marginBottom:16 }}>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>Notas clínicas *</label>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:T.tm, marginBottom:6, letterSpacing:"0.06em", textTransform:"uppercase" }}>Notas clÃ­nicas *</label>
               <textarea value={sessionForm.notes} onChange={e => sfld("notes")(e.target.value)} rows={4}
-                placeholder="Describe el contenido de la sesión..."
+                placeholder="Describe el contenido de la sesiÃ³n..."
                 style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", resize:"vertical", boxSizing:"border-box" }}/>
             </div>
             <Input label="Etiquetas (separadas por coma)" value={sessionForm.tags} onChange={sfld("tags")} placeholder="TCC, ansiedad"/>
@@ -1719,10 +1718,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         )}
       </Modal>
 
-      {/* ── Delete confirmation ────────────────────────────────────────── */}
+      {/* â”€â”€ Delete confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <DeleteConfirm appt={deleteTarget} onDeleteOne={deleteOne} onDeleteAll={deleteAll} onCancel={() => setDeleteTarget(null)}/>
 
-      {/* ── Modal cambio de estado / cancelación (Sección 4) ────────────── */}
+      {/* â”€â”€ Modal cambio de estado / cancelaciÃ³n (SecciÃ³n 4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title="Estado de la cita" width={460}>
         {statusTarget && (() => {
           const pt = patients.find(p => p.id === statusTarget.patientId);
@@ -1738,7 +1737,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   {statusTarget.patientName?.split(" ").slice(0,2).join(" ")}
                 </div>
                 <div style={{ fontSize:12, color:T.tm, marginTop:2 }}>
-                  {fmtDate(statusTarget.date)} · {statusTarget.time} · {statusTarget.type}
+                  {fmtDate(statusTarget.date)} Â· {statusTarget.time} Â· {statusTarget.type}
                 </div>
               </div>
 
@@ -1765,10 +1764,10 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               {(isCancelled || isNoShow) && (
                 <div style={{ marginBottom:14 }}>
                   <label style={{ display:"block", fontSize:10, fontWeight:800, color:T.tl, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>
-                    Motivo {isCancelled ? "de cancelación" : "de inasistencia"} (opcional)
+                    Motivo {isCancelled ? "de cancelaciÃ³n" : "de inasistencia"} (opcional)
                   </label>
                   <textarea value={statusForm.motivo} onChange={e => sfStatus("motivo")(e.target.value)}
-                    rows={2} placeholder="Registra el motivo para el historial clínico..."
+                    rows={2} placeholder="Registra el motivo para el historial clÃ­nico..."
                     style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", resize:"vertical", boxSizing:"border-box" }}/>
                 </div>
               )}
@@ -1779,7 +1778,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   <button onClick={() => sfStatus("reagendar")(!statusForm.reagendar)}
                     style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 14px", borderRadius:10, border:`1.5px solid ${statusForm.reagendar ? T.p : T.bdr}`, background:statusForm.reagendar ? T.pA : "transparent", cursor:"pointer", fontFamily:T.fB, fontSize:13, color:statusForm.reagendar ? T.p : T.t, fontWeight:statusForm.reagendar ? 700 : 400, transition:"all .13s" }}>
                     <BookOpen size={14} color={statusForm.reagendar ? T.p : T.tl}/>
-                    Reagendar automáticamente
+                    Reagendar automÃ¡ticamente
                     {statusForm.reagendar && (
                       <span style={{ marginLeft:"auto", fontSize:10, background:T.p, color:"#fff", padding:"1px 7px", borderRadius:9999, fontWeight:700 }}>
                         Activo
@@ -1800,7 +1799,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               {isNoShow && (
                 <div style={{ padding:"10px 14px", background:"rgba(196,98,42,0.08)", border:"1px solid rgba(196,98,42,0.25)", borderRadius:10, marginBottom:14, fontFamily:T.fB, fontSize:12, color:"#C4622A", display:"flex", gap:8 }}>
                   <AlertTriangle size={14} style={{ flexShrink:0, marginTop:1 }}/>
-                  Quedará registrado en el historial del expediente y en las Estadísticas de tasa de asistencia.
+                  QuedarÃ¡ registrado en el historial del expediente y en las EstadÃ­sticas de tasa de asistencia.
                 </div>
               )}
 
@@ -1824,7 +1823,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         })()}
       </Modal>
 
-      {/* ── Modal DynamicSummary — paciente con sesiones previas ────────── */}
+      {/* â”€â”€ Modal DynamicSummary â€” paciente con sesiones previas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {summaryTarget && (
         <DynamicSummary
           open={!!summaryTarget}
@@ -1844,13 +1843,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         />
       )}
 
-      {/* ── Modal Protocolo de Admisión — primera vez ────────────────────── */}
+      {/* â”€â”€ Modal Protocolo de AdmisiÃ³n â€” primera vez â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {admisionTarget && (() => {
         const { appt, patient: pt } = admisionTarget;
         const consentSigned = pt?.consent?.signed;
         const consentUrl = !consentSigned && pt?.phone ? whatsappConsent(pt) : null;
         return (
-          <Modal open={!!admisionTarget} onClose={() => setAdmisionTarget(null)} title="Protocolo de Admisión" width={480}>
+          <Modal open={!!admisionTarget} onClose={() => setAdmisionTarget(null)} title="Protocolo de AdmisiÃ³n" width={480}>
 
             {/* Encabezado del paciente */}
             <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", background:T.pA, borderRadius:12, marginBottom:18, border:`1px solid ${T.p}25` }}>
@@ -1860,18 +1859,18 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   {pt?.name?.split(" ").slice(0,2).join(" ") || "Paciente"}
                 </div>
                 <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
-                  {fmtDate(appt.date)} · {appt.time} · {appt.type}
+                  {fmtDate(appt.date)} Â· {appt.time} Â· {appt.type}
                 </div>
               </div>
               <span style={{ marginLeft:"auto", padding:"3px 10px", borderRadius:9999, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:10, fontWeight:700, border:`1px solid ${T.p}25` }}>
-                Primera sesión
+                Primera sesiÃ³n
               </span>
             </div>
 
             {/* Consentimiento Informado */}
             <div style={{ padding:"12px 14px", borderRadius:10, marginBottom:14, background:consentSigned ? T.sucA : T.warA, border:`1.5px solid ${consentSigned ? T.suc+"50" : T.war+"60"}` }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:consentSigned ? 0 : 10 }}>
-                <span style={{ fontSize:16 }}>{consentSigned ? "✅" : "⚠️"}</span>
+                <span style={{ fontSize:16 }}>{consentSigned ? "âœ…" : "âš ï¸"}</span>
                 <span style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:consentSigned ? T.suc : T.war }}>
                   {consentSigned ? "Consentimiento Informado firmado" : "Consentimiento pendiente de firma"}
                 </span>
@@ -1879,7 +1878,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
               {!consentSigned && (
                 <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                   <span style={{ fontFamily:T.fB, fontSize:12, color:T.war, lineHeight:1.5 }}>
-                    Es recomendable obtener el CI antes de iniciar el proceso terapéutico.
+                    Es recomendable obtener el CI antes de iniciar el proceso terapÃ©utico.
                   </span>
                   {consentUrl && (
                     <a href={consentUrl} target="_blank" rel="noreferrer"
@@ -1902,7 +1901,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                   <BookOpen size={15} color={T.p}/>
                   <div>
                     <div>Ir a Anamnesis</div>
-                    <div style={{ fontSize:11, fontWeight:400, color:T.tm, marginTop:1 }}>Completa el expediente antes de la sesión</div>
+                    <div style={{ fontSize:11, fontWeight:400, color:T.tm, marginTop:1 }}>Completa el expediente antes de la sesiÃ³n</div>
                   </div>
                 </button>
               )}
@@ -1911,7 +1910,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                 style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, padding:"12px 16px", borderRadius:11, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer", transition:"opacity .13s" }}
                 onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
                 onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-                <FileText size={14}/> Continuar a sesión
+                <FileText size={14}/> Continuar a sesiÃ³n
               </button>
               <button
                 onClick={() => setAdmisionTarget(null)}
@@ -1923,7 +1922,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
         );
       })()}
 
-      {/* ── Mejora 3: Banner de sugerencia de siguiente cita ────────────── */}
+      {/* â”€â”€ Mejora 3: Banner de sugerencia de siguiente cita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {nextApptSuggestion && (
         <div style={{
           position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
@@ -1940,13 +1939,13 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
             </div>
             <div>
               <div style={{ fontFamily:T.fH, fontSize:16, color:T.t, marginBottom:3, letterSpacing:"-0.01em" }}>
-                ¿Agendar siguiente cita?
+                Â¿Agendar siguiente cita?
               </div>
               <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, lineHeight:1.5 }}>
                 <strong style={{ color:T.t }}>
                   {nextApptSuggestion.patientName.split(" ").slice(0,2).join(" ")}
                 </strong>
-                {" — "}
+                {" â€” "}
                 {fmtDate(nextApptSuggestion.date)} a las {nextApptSuggestion.time}
               </div>
             </div>
@@ -1964,3 +1963,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     </div>
   );
 }
+
+
+
+

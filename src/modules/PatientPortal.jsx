@@ -1,16 +1,16 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // src/modules/PatientPortal.jsx
-// Portal del paciente — login por número de teléfono
-// URL: /p  (sin número en la URL)
+// Portal del paciente â€” login por nÃºmero de telÃ©fono
+// URL: /p  (sin nÃºmero en la URL)
 //
 // NUEVAS FUNCIONES requeridas en ../lib/supabase.js:
-//   getConsentByPhone(phone)      → { signed, signedAt, signatureDataUrl, signedBy, sections } | null
-//   savePatientConsent(phone, {}) → guarda consent en campo JSONB del paciente
-//   getAppointmentsByPhone(phone) → [ { date, start_time, session_type, status }, ... ]
+//   getConsentByPhone(phone)      â†’ { signed, signedAt, signatureDataUrl, signedBy, sections } | null
+//   savePatientConsent(phone, {}) â†’ guarda consent en campo JSONB del paciente
+//   getAppointmentsByPhone(phone) â†’ [ { date, start_time, session_type, status }, ... ]
 //
-// NOTA: ConsentSectionAccordion y SignatureCanvas se reimplementan aquí porque
-// no están exportados en Consent.jsx. DEFAULT_CONSENT_SECTIONS sí lo está.
-// ─────────────────────────────────────────────────────────────────────────────
+// NOTA: ConsentSectionAccordion y SignatureCanvas se reimplementan aquÃ­ porque
+// no estÃ¡n exportados en Consent.jsx. DEFAULT_CONSENT_SECTIONS sÃ­ lo estÃ¡.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CheckCircle2, ChevronRight, ClipboardList, ArrowLeft, Send, Loader,
@@ -24,6 +24,8 @@ import {
   getConsentByPhone,
   savePatientConsent,
   getAppointmentsByPhone,
+  getPortalSession,
+  logoutPortal,
   updateAppointmentStatus,
   getPsychologistPhoneByPatientPhone,
   getPatientByPhone,
@@ -32,7 +34,7 @@ import {
 import { getTemplate } from "../lib/taskTemplates.js";
 import { DEFAULT_CONSENT_SECTIONS } from "./Consent.jsx";
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
+// â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const P = {
   bg:   "#F4F2EE",
   card: "#FFFFFF",
@@ -57,7 +59,7 @@ const P = {
   fB:   '"DM Sans", system-ui, sans-serif',
 };
 
-// ── Spinner ───────────────────────────────────────────────────────────────────
+// â”€â”€ Spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Spinner() {
   return (
     <div style={{ display:"flex", justifyContent:"center", padding:"40px 0" }}>
@@ -71,7 +73,7 @@ function Spinner() {
   );
 }
 
-// ── SignatureCanvas (reimplementación local con tokens P) ─────────────────────
+// â”€â”€ SignatureCanvas (reimplementaciÃ³n local con tokens P) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SignatureCanvas({ onSigned, onClear, hasSignature }) {
   const canvasRef = useRef(null);
   const drawing   = useRef(false);
@@ -156,7 +158,7 @@ function SignatureCanvas({ onSigned, onClear, hasSignature }) {
           }}>
             <div style={{ textAlign:"center" }}>
               <PenLine size={22} color={P.tl} strokeWidth={1.5} style={{ marginBottom:6 }}/>
-              <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>Dibuja tu firma aquí</div>
+              <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>Dibuja tu firma aquÃ­</div>
             </div>
           </div>
         )}
@@ -178,12 +180,12 @@ function SignatureCanvas({ onSigned, onClear, hasSignature }) {
   );
 }
 
-// ── ConsentSectionAccordion (reimplementación local, solo readOnly) ────────────
+// â”€â”€ ConsentSectionAccordion (reimplementaciÃ³n local, solo readOnly) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SECTION_LABELS = {
-  naturaleza:       "1. Naturaleza del proceso terapéutico",
-  confidencialidad: "2. Confidencialidad y sus límites",
-  honorarios:       "3. Honorarios y política de cancelación",
-  duracion:         "4. Duración estimada del tratamiento",
+  naturaleza:       "1. Naturaleza del proceso terapÃ©utico",
+  confidencialidad: "2. Confidencialidad y sus lÃ­mites",
+  honorarios:       "3. Honorarios y polÃ­tica de cancelaciÃ³n",
+  duracion:         "4. DuraciÃ³n estimada del tratamiento",
   derechos:         "5. Derechos del paciente",
   digital:          "6. Uso de herramientas digitales",
 };
@@ -237,7 +239,7 @@ function ConsentSectionAccordion({ sections }) {
   );
 }
 
-// ── Field renderers ───────────────────────────────────────────────────────────
+// â”€â”€ Field renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FieldInput({ field, value, onChange }) {
   const base = {
     width:"100%", fontFamily:P.fB, fontSize:15, color:P.t,
@@ -321,7 +323,7 @@ function FieldInput({ field, value, onChange }) {
   return null;
 }
 
-// ── Task form ─────────────────────────────────────────────────────────────────
+// â”€â”€ Task form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TaskForm({ assignment, onBack, onSubmitted }) {
   const template = getTemplate(assignment.template_id);
   const [values,  setValues]  = useState({});
@@ -348,7 +350,7 @@ function TaskForm({ assignment, onBack, onSubmitted }) {
       });
       onSubmitted();
     } catch {
-      setError("Ocurrió un error al guardar. Intenta de nuevo.");
+      setError("OcurriÃ³ un error al guardar. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -380,7 +382,7 @@ function TaskForm({ assignment, onBack, onSubmitted }) {
           border:"1.5px solid rgba(196,137,90,0.2)",
         }}>
           <div style={{ fontSize:11, fontWeight:700, color:P.acc, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>
-            Nota de tu psicóloga
+            Nota de tu psicÃ³loga
           </div>
           <p style={{ fontSize:13.5, color:P.t, lineHeight:1.6 }}>{assignment.notes}</p>
         </div>
@@ -442,7 +444,7 @@ function TaskForm({ assignment, onBack, onSubmitted }) {
   );
 }
 
-// ── Task card ─────────────────────────────────────────────────────────────────
+// â”€â”€ Task card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TaskCard({ assignment, onOpen, isNew }) {
   const template = getTemplate(assignment.template_id);
   const done     = assignment.status === "completed";
@@ -456,7 +458,7 @@ function TaskCard({ assignment, onOpen, isNew }) {
         opacity:done ? 0.7 : 1, cursor:done ? "default" : "pointer",
         transition:"all .15s", display:"flex", alignItems:"center", gap:14,
       }}>
-      <div style={{ fontSize:28, lineHeight:1 }}>{template?.icon || "📋"}</div>
+      <div style={{ fontSize:28, lineHeight:1 }}>{template?.icon || "ðŸ“‹"}</div>
       <div style={{ flex:1 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
           <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t }}>
@@ -499,7 +501,7 @@ function TaskCard({ assignment, onOpen, isNew }) {
   );
 }
 
-// ── Success screen (tarea enviada) ────────────────────────────────────────────
+// â”€â”€ Success screen (tarea enviada) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SuccessScreen({ onBack }) {
   return (
     <div style={{
@@ -508,10 +510,10 @@ function SuccessScreen({ onBack }) {
       alignItems:"center", justifyContent:"center",
       padding:32, textAlign:"center",
     }}>
-      <div style={{ fontSize:64, marginBottom:20 }}>🎉</div>
-      <h2 style={{ fontFamily:P.fH, fontSize:28, color:P.t, marginBottom:12 }}>¡Tarea enviada!</h2>
+      <div style={{ fontSize:64, marginBottom:20 }}>ðŸŽ‰</div>
+      <h2 style={{ fontFamily:P.fH, fontSize:28, color:P.t, marginBottom:12 }}>Â¡Tarea enviada!</h2>
       <p style={{ fontFamily:P.fB, fontSize:15, color:P.tm, lineHeight:1.6, marginBottom:32, maxWidth:280 }}>
-        Tu psicóloga podrá revisar tus respuestas antes de la próxima sesión.
+        Tu psicÃ³loga podrÃ¡ revisar tus respuestas antes de la prÃ³xima sesiÃ³n.
       </p>
       <button onClick={onBack}
         style={{
@@ -526,7 +528,7 @@ function SuccessScreen({ onBack }) {
   );
 }
 
-// ── Consent done screen ───────────────────────────────────────────────────────
+// â”€â”€ Consent done screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ConsentDoneScreen({ onBack }) {
   return (
     <div style={{
@@ -535,12 +537,12 @@ function ConsentDoneScreen({ onBack }) {
       alignItems:"center", justifyContent:"center",
       padding:32, textAlign:"center",
     }}>
-      <div style={{ fontSize:64, marginBottom:20 }}>✅</div>
+      <div style={{ fontSize:64, marginBottom:20 }}>âœ…</div>
       <h2 style={{ fontFamily:P.fH, fontSize:28, color:P.t, marginBottom:12 }}>
-        ¡Gracias!
+        Â¡Gracias!
       </h2>
       <p style={{ fontFamily:P.fB, fontSize:15, color:P.tm, lineHeight:1.6, marginBottom:32, maxWidth:300 }}>
-        Tu consentimiento ha sido registrado. Tu psicólogo(a) ha sido notificado(a).
+        Tu consentimiento ha sido registrado. Tu psicÃ³logo(a) ha sido notificado(a).
       </p>
       <button onClick={onBack}
         style={{
@@ -555,7 +557,7 @@ function ConsentDoneScreen({ onBack }) {
   );
 }
 
-// ── Consent sign screen ───────────────────────────────────────────────────────
+// â”€â”€ Consent sign screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
   const [checked,    setChecked]    = useState(false);
   const [sigDataUrl, setSigDataUrl] = useState(null);
@@ -576,7 +578,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
       });
       onSigned();
     } catch {
-      setError("No se pudo guardar tu firma. Verifica tu conexión e intenta de nuevo.");
+      setError("No se pudo guardar tu firma. Verifica tu conexiÃ³n e intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -594,7 +596,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
           }}>
           <ArrowLeft size={14}/> Volver
         </button>
-        <div style={{ fontSize:28 }}>📄</div>
+        <div style={{ fontSize:28 }}>ðŸ“„</div>
         <h2 style={{ fontFamily:P.fH, fontSize:24, fontWeight:600, margin:"6px 0 4px" }}>
           Consentimiento Informado
         </h2>
@@ -641,7 +643,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
             )}
           </div>
           <span style={{ fontFamily:P.fB, fontSize:14, color: checked ? P.p : P.t, lineHeight:1.5, fontWeight: checked ? 600 : 400 }}>
-            He leído y entendido el contenido de este documento.
+            He leÃ­do y entendido el contenido de este documento.
           </span>
         </div>
 
@@ -662,7 +664,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
           </div>
           {!checked && (
             <p style={{ fontFamily:P.fB, fontSize:12, color:P.tl, marginTop:8, textAlign:"center" }}>
-              Confirma que leíste el documento para habilitar la firma.
+              Confirma que leÃ­ste el documento para habilitar la firma.
             </p>
           )}
         </div>
@@ -678,7 +680,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
           </div>
         )}
 
-        {/* Botón firmar */}
+        {/* BotÃ³n firmar */}
         <button onClick={handleSign} disabled={!canSign || loading}
           style={{
             width:"100%", padding:"16px", borderRadius:14, border:"none",
@@ -701,7 +703,7 @@ function ConsentSignScreen({ phone, consentSections, onBack, onSigned }) {
   );
 }
 
-// ── Appointments section ──────────────────────────────────────────────────────
+// â”€â”€ Appointments section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CANCELLED_STATUSES = new Set([
   "cancelada_paciente", "cancelada_psicologa",
   "cancelled_patient",  "cancelled_therapist",
@@ -797,7 +799,7 @@ function AppointmentsSection({ phone }) {
             weekday:"long", day:"numeric", month:"long",
           })
         );
-        const msg = `Hola 👋 Soy ${appt.patientName || "tu paciente"}. Quisiera solicitar un cambio en mi cita del *${dateStr}* a las *${appt.time || ""}*.${note ? `\n\nMotivo: ${note}` : ""} ¿Podemos coordinar un nuevo horario? 🙏`;
+        const msg = `Hola ðŸ‘‹ Soy ${appt.patientName || "tu paciente"}. Quisiera solicitar un cambio en mi cita del *${dateStr}* a las *${appt.time || ""}*.${note ? `\n\nMotivo: ${note}` : ""} Â¿Podemos coordinar un nuevo horario? ðŸ™`;
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
       }
     } catch { /* silencioso */ }
@@ -812,28 +814,28 @@ function AppointmentsSection({ phone }) {
       fontFamily:P.fB, fontSize:14, color:P.err,
       background:P.errA, borderRadius:14,
     }}>
-      No se pudieron cargar tus citas. Contacta a tu psicólogo(a).
+      No se pudieron cargar tus citas. Contacta a tu psicÃ³logo(a).
     </div>
   );
 
   if (appointments.upcoming.length === 0 && appointments.past.length === 0) return (
     <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
-      <div style={{ fontSize:48, marginBottom:16 }}>📅</div>
-      <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin citas próximas</div>
-      <div style={{ fontSize:14, lineHeight:1.6 }}>No tienes citas próximas agendadas.</div>
+      <div style={{ fontSize:48, marginBottom:16 }}>ðŸ“…</div>
+      <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin citas prÃ³ximas</div>
+      <div style={{ fontSize:14, lineHeight:1.6 }}>No tienes citas prÃ³ximas agendadas.</div>
     </div>
   );
 
   return (
     <div>
-      {/* Citas próximas */}
+      {/* Citas prÃ³ximas */}
       {appointments.upcoming.length > 0 && (
         <>
           <div style={{
             fontSize:11, fontWeight:700, color:P.tm,
             textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12,
           }}>
-            Próximas
+            PrÃ³ximas
           </div>
           {appointments.upcoming.map((appt, i) => {
         const dateStr  = capitalize(
@@ -903,7 +905,7 @@ function AppointmentsSection({ phone }) {
                   <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:P.sucA, borderRadius:10 }}>
                     <CheckCircle2 size={16} color={P.suc}/>
                     <span style={{ fontFamily:P.fB, fontSize:13, color:P.suc, fontWeight:600 }}>
-                      ¡Asistencia confirmada! Tu psicólogo(a) ya lo sabe.
+                      Â¡Asistencia confirmada! Tu psicÃ³logo(a) ya lo sabe.
                     </span>
                   </div>
                 )}
@@ -911,7 +913,7 @@ function AppointmentsSection({ phone }) {
                   <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", background:"rgba(196,137,90,0.1)", borderRadius:10 }}>
                     <MessageCircle size={16} color={P.acc}/>
                     <span style={{ fontFamily:P.fB, fontSize:13, color:P.acc, fontWeight:600 }}>
-                      Solicitud enviada. {psychPhone ? "Se abrió WhatsApp para contactar a tu psicólogo(a)." : "Tu psicólogo(a) lo verá pronto."}
+                      Solicitud enviada. {psychPhone ? "Se abriÃ³ WhatsApp para contactar a tu psicÃ³logo(a)." : "Tu psicÃ³logo(a) lo verÃ¡ pronto."}
                     </span>
                   </div>
                 )}
@@ -948,12 +950,12 @@ function AppointmentsSection({ phone }) {
                 {cs === "requesting" && (
                   <div style={{ padding:"14px", background:P.bg, borderRadius:12, border:`1.5px solid ${P.bdr}` }}>
                     <div style={{ fontFamily:P.fB, fontSize:13, fontWeight:700, color:P.t, marginBottom:8 }}>
-                      ¿Por qué necesitas cambiar la cita? <span style={{ fontWeight:400, color:P.tl }}>(opcional)</span>
+                      Â¿Por quÃ© necesitas cambiar la cita? <span style={{ fontWeight:400, color:P.tl }}>(opcional)</span>
                     </div>
                     <textarea
                       value={noteText[appt.id] || ""}
                       onChange={e => setNote(appt.id, e.target.value)}
-                      placeholder="Ej. Tengo un compromiso de trabajo ese día..."
+                      placeholder="Ej. Tengo un compromiso de trabajo ese dÃ­a..."
                       rows={3}
                       style={{
                         width:"100%", padding:"10px 12px", borderRadius:10,
@@ -1002,7 +1004,7 @@ function AppointmentsSection({ phone }) {
             textTransform:"uppercase", letterSpacing:"0.08em",
             margin:"24px 0 12px",
           }}>
-            Historial · {appointments.past.length} sesión{appointments.past.length !== 1 ? "es" : ""}
+            Historial Â· {appointments.past.length} sesiÃ³n{appointments.past.length !== 1 ? "es" : ""}
           </div>
           {appointments.past.map((appt, i) => {
             const dateStr = capitalize(
@@ -1032,7 +1034,7 @@ function AppointmentsSection({ phone }) {
                     {dateStr}
                   </div>
                   <div style={{ fontFamily:P.fB, fontSize:12, color:P.tl }}>
-                    {timeStr ? `${timeStr} · ` : ""}{typeStr}
+                    {timeStr ? `${timeStr} Â· ` : ""}{typeStr}
                   </div>
                 </div>
                 <div style={{
@@ -1053,7 +1055,7 @@ function AppointmentsSection({ phone }) {
   );
 }
 
-// ── Consent banner (tarjeta prioritaria en TaskList) ──────────────────────────
+// â”€â”€ Consent banner (tarjeta prioritaria en TaskList) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ConsentBanner({ onReview }) {
   return (
     <div style={{
@@ -1077,13 +1079,13 @@ function ConsentBanner({ onReview }) {
           color:P.acc, textTransform:"uppercase",
           letterSpacing:"0.07em", marginBottom:4,
         }}>
-          Acción requerida
+          AcciÃ³n requerida
         </div>
         <p style={{
           fontFamily:P.fB, fontSize:13.5, color:P.t,
           lineHeight:1.55, margin:"0 0 12px",
         }}>
-          Tu psicólogo(a) solicita que firmes el Consentimiento Informado antes de tu primera sesión.
+          Tu psicÃ³logo(a) solicita que firmes el Consentimiento Informado antes de tu primera sesiÃ³n.
         </p>
         <button onClick={onReview}
           style={{
@@ -1100,8 +1102,8 @@ function ConsentBanner({ onReview }) {
   );
 }
 
-// ── Task list ─────────────────────────────────────────────────────────────────
-// ── TaskResponseView — respuestas guardadas en modo lectura ───────────────────
+// â”€â”€ Task list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ TaskResponseView â€” respuestas guardadas en modo lectura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TaskResponseView({ assignment, responses, onBack }) {
   const template = getTemplate(assignment.template_id);
   const date     = new Date(assignment.completed_at || assignment.assigned_at)
@@ -1142,7 +1144,7 @@ function TaskResponseView({ assignment, responses, onBack }) {
               background:P.card, borderRadius:14, padding:"16px",
               marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
             }}>
-              {/* Número + pregunta */}
+              {/* NÃºmero + pregunta */}
               <div style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:10 }}>
                 <div style={{
                   width:20, height:20, borderRadius:"50%", background:P.pA, color:P.p,
@@ -1180,7 +1182,7 @@ function TaskResponseView({ assignment, responses, onBack }) {
   );
 }
 
-// ── PaymentsSection ───────────────────────────────────────────────────────────
+// â”€â”€ PaymentsSection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PaymentsSection({ phone }) {
   const [payments, setPayments] = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -1205,15 +1207,15 @@ function PaymentsSection({ phone }) {
 
   if (error) return (
     <div style={{ textAlign:"center", padding:"32px 20px", fontFamily:P.fB, fontSize:14, color:P.err, background:P.errA, borderRadius:14 }}>
-      No se pudieron cargar tus pagos. Contacta a tu psicólogo(a).
+      No se pudieron cargar tus pagos. Contacta a tu psicÃ³logo(a).
     </div>
   );
 
   if (payments.length === 0) return (
     <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm, fontFamily:P.fB }}>
-      <div style={{ fontSize:48, marginBottom:16 }}>💳</div>
+      <div style={{ fontSize:48, marginBottom:16 }}>ðŸ’³</div>
       <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin registros de pago</div>
-      <div style={{ fontSize:14, lineHeight:1.6 }}>Aquí aparecerán tus pagos cuando tu psicólogo(a) los registre.</div>
+      <div style={{ fontSize:14, lineHeight:1.6 }}>AquÃ­ aparecerÃ¡n tus pagos cuando tu psicÃ³logo(a) los registre.</div>
     </div>
   );
 
@@ -1239,7 +1241,7 @@ function PaymentsSection({ phone }) {
               {fmtCur(totalPendiente)}
             </div>
           </div>
-          <span style={{ fontSize:28 }}>⚠️</span>
+          <span style={{ fontSize:28 }}>âš ï¸</span>
         </div>
       )}
 
@@ -1252,7 +1254,7 @@ function PaymentsSection({ phone }) {
         const isPaid = p.status === "pagado";
         const date   = p.date
           ? new Date(p.date + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" })
-          : "—";
+          : "â€”";
         return (
           <div key={p.id || i} style={{
             background:P.card, borderRadius:14, padding:"14px 16px",
@@ -1266,11 +1268,11 @@ function PaymentsSection({ phone }) {
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:18,
             }}>
-              {isPaid ? "✅" : "⏳"}
+              {isPaid ? "âœ…" : "â³"}
             </div>
             <div style={{ flex:1 }}>
               <div style={{ fontFamily:P.fB, fontSize:14, fontWeight:600, color:P.t, marginBottom:2 }}>
-                {p.concept || "Sesión"}
+                {p.concept || "SesiÃ³n"}
               </div>
               <div style={{ fontSize:12, color:P.tl }}>{date}</div>
               {p.method && (
@@ -1298,34 +1300,34 @@ function PaymentsSection({ phone }) {
   );
 }
 
-// ── Catálogo de técnicas de regulación emocional ─────────────────────────────
+// â”€â”€ CatÃ¡logo de tÃ©cnicas de regulaciÃ³n emocional â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TECHNIQUES = [
   {
     id: "respiracion_478",
-    title: "Respiración 4-7-8",
-    category: "Respiración",
-    icon: "🌬️",
+    title: "RespiraciÃ³n 4-7-8",
+    category: "RespiraciÃ³n",
+    icon: "ðŸŒ¬ï¸",
     color: "#3A6B6E",
-    description: "Activa el sistema nervioso parasimpático. Ideal para reducir ansiedad aguda.",
+    description: "Activa el sistema nervioso parasimpÃ¡tico. Ideal para reducir ansiedad aguda.",
     duration: "2-3 min",
     steps: [
       { label: "Inhala", seconds: 4,  instruction: "Inhala lentamente por la nariz" },
-      { label: "Retén",  seconds: 7,  instruction: "Retén el aire con suavidad" },
+      { label: "RetÃ©n",  seconds: 7,  instruction: "RetÃ©n el aire con suavidad" },
       { label: "Exhala", seconds: 8,  instruction: "Exhala completamente por la boca" },
     ],
     cycles: 4,
   },
   {
     id: "box_breathing",
-    title: "Respiración en caja",
-    category: "Respiración",
-    icon: "⬜",
+    title: "RespiraciÃ³n en caja",
+    category: "RespiraciÃ³n",
+    icon: "â¬œ",
     color: "#4E6B8E",
-    description: "Técnica usada por fuerzas especiales para mantener la calma bajo presión.",
+    description: "TÃ©cnica usada por fuerzas especiales para mantener la calma bajo presiÃ³n.",
     duration: "3-4 min",
     steps: [
       { label: "Inhala", seconds: 4, instruction: "Inhala contando hasta 4" },
-      { label: "Retén",  seconds: 4, instruction: "Retén contando hasta 4" },
+      { label: "RetÃ©n",  seconds: 4, instruction: "RetÃ©n contando hasta 4" },
       { label: "Exhala", seconds: 4, instruction: "Exhala contando hasta 4" },
       { label: "Pausa",  seconds: 4, instruction: "Pausa contando hasta 4" },
     ],
@@ -1335,9 +1337,9 @@ const TECHNIQUES = [
     id: "grounding_54321",
     title: "Grounding 5-4-3-2-1",
     category: "Grounding",
-    icon: "🌱",
+    icon: "ðŸŒ±",
     color: "#4E8B5F",
-    description: "Ancla al presente usando los 5 sentidos. Eficaz en ataques de pánico.",
+    description: "Ancla al presente usando los 5 sentidos. Eficaz en ataques de pÃ¡nico.",
     duration: "3-5 min",
     steps: [
       { label: "5 cosas", seconds: 30, instruction: "Nombra 5 cosas que puedes VER ahora mismo" },
@@ -1350,15 +1352,15 @@ const TECHNIQUES = [
   },
   {
     id: "relajacion_muscular",
-    title: "Relajación muscular progresiva",
+    title: "RelajaciÃ³n muscular progresiva",
     category: "Cuerpo",
-    icon: "💪",
+    icon: "ðŸ’ª",
     color: "#8B5F4E",
-    description: "Tensa y relaja grupos musculares para liberar tensión física acumulada.",
+    description: "Tensa y relaja grupos musculares para liberar tensiÃ³n fÃ­sica acumulada.",
     duration: "5-7 min",
     steps: [
-      { label: "Manos",   seconds: 10, instruction: "Aprieta los puños 5 seg, luego suelta y siente la diferencia" },
-      { label: "Brazos",  seconds: 10, instruction: "Tensa los bíceps, luego suelta completamente" },
+      { label: "Manos",   seconds: 10, instruction: "Aprieta los puÃ±os 5 seg, luego suelta y siente la diferencia" },
+      { label: "Brazos",  seconds: 10, instruction: "Tensa los bÃ­ceps, luego suelta completamente" },
       { label: "Hombros", seconds: 10, instruction: "Sube los hombros a las orejas, luego deja caer" },
       { label: "Cara",    seconds: 10, instruction: "Frunce toda la cara, luego relaja" },
       { label: "Abdomen", seconds: 10, instruction: "Tensa el abdomen, luego suelta" },
@@ -1370,28 +1372,28 @@ const TECHNIQUES = [
     id: "mindfulness_5min",
     title: "Mindfulness 5 minutos",
     category: "Mindfulness",
-    icon: "🧘",
+    icon: "ðŸ§˜",
     color: "#6B4E8E",
-    description: "Observación sin juicio del momento presente. Reduce el rumio mental.",
+    description: "ObservaciÃ³n sin juicio del momento presente. Reduce el rumio mental.",
     duration: "5 min",
     steps: [
-      { label: "Prepara",   seconds: 20,  instruction: "Siéntate cómodamente, cierra los ojos, respira normal" },
+      { label: "Prepara",   seconds: 20,  instruction: "SiÃ©ntate cÃ³modamente, cierra los ojos, respira normal" },
       { label: "Observa",   seconds: 120, instruction: "Observa tus pensamientos como nubes que pasan. Sin juzgarlos, sin seguirlos" },
-      { label: "Respira",   seconds: 60,  instruction: "Vuelve la atención a tu respiración cada vez que te distraigas" },
+      { label: "Respira",   seconds: 60,  instruction: "Vuelve la atenciÃ³n a tu respiraciÃ³n cada vez que te distraigas" },
       { label: "Termina",   seconds: 20,  instruction: "Mueve los dedos suavemente y abre los ojos poco a poco" },
     ],
     cycles: 1,
   },
   {
     id: "autocompasion",
-    title: "Pausa de autocompasión",
+    title: "Pausa de autocompasiÃ³n",
     category: "Emocional",
-    icon: "💙",
+    icon: "ðŸ’™",
     color: "#3A6B8E",
-    description: "Basada en el trabajo de Kristin Neff. Para momentos de autocrítica intensa.",
+    description: "Basada en el trabajo de Kristin Neff. Para momentos de autocrÃ­tica intensa.",
     duration: "2-3 min",
     steps: [
-      { label: "Reconoce",  seconds: 20, instruction: "Pon una mano en el corazón. Di: 'Esto es un momento difícil'" },
+      { label: "Reconoce",  seconds: 20, instruction: "Pon una mano en el corazÃ³n. Di: 'Esto es un momento difÃ­cil'" },
       { label: "Humanidad", seconds: 20, instruction: "Di: 'El sufrimiento es parte de la vida. No estoy solo/a'" },
       { label: "Amabilidad",seconds: 20, instruction: "Di: 'Que pueda ser amable conmigo mismo/a en este momento'" },
       { label: "Siente",    seconds: 30, instruction: "Siente el calor de tu mano en el pecho. Respira suavemente" },
@@ -1400,7 +1402,7 @@ const TECHNIQUES = [
   },
 ];
 
-// ── TechniquesSection ─────────────────────────────────────────────────────────
+// â”€â”€ TechniquesSection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TechniquesSection() {
   const [selected,   setSelected]   = useState(null);
   const [running,    setRunning]    = useState(false);
@@ -1457,7 +1459,7 @@ function TechniquesSection() {
 
   const categories = [...new Set(TECHNIQUES.map(t => t.category))];
 
-  // Vista de técnica activa
+  // Vista de tÃ©cnica activa
   if (selected) {
     const step    = selected.steps[stepIdx];
     const total   = step?.seconds || 1;
@@ -1480,12 +1482,12 @@ function TechniquesSection() {
         {done ? (
           /* Pantalla de completado */
           <div style={{ textAlign:"center", padding:"40px 20px" }}>
-            <div style={{ fontSize:64, marginBottom:16 }}>✨</div>
+            <div style={{ fontSize:64, marginBottom:16 }}>âœ¨</div>
             <div style={{ fontFamily:P.fH, fontSize:24, fontWeight:600, color:P.t, marginBottom:8 }}>
-              ¡Muy bien!
+              Â¡Muy bien!
             </div>
             <div style={{ fontSize:14, color:P.tm, marginBottom:24, lineHeight:1.6 }}>
-              Completaste "{selected.title}". Tómate un momento para notar cómo te sientes ahora.
+              Completaste "{selected.title}". TÃ³mate un momento para notar cÃ³mo te sientes ahora.
             </div>
             <button onClick={reset}
               style={{
@@ -1493,18 +1495,18 @@ function TechniquesSection() {
                 background:P.p, color:"#fff",
                 fontFamily:P.fB, fontSize:14, fontWeight:700, cursor:"pointer",
               }}>
-              Volver a técnicas
+              Volver a tÃ©cnicas
             </button>
           </div>
         ) : (
           <div style={{ textAlign:"center" }}>
-            {/* Header técnica */}
+            {/* Header tÃ©cnica */}
             <div style={{ fontSize:48, marginBottom:8 }}>{selected.icon}</div>
             <div style={{ fontFamily:P.fH, fontSize:22, fontWeight:600, color:P.t, marginBottom:4 }}>
               {selected.title}
             </div>
             <div style={{ fontSize:12, color:P.tl, marginBottom:24 }}>
-              Ciclo {cycleIdx + 1} de {selected.cycles} · Paso {stepIdx + 1} de {selected.steps.length}
+              Ciclo {cycleIdx + 1} de {selected.cycles} Â· Paso {stepIdx + 1} de {selected.steps.length}
             </div>
 
             {/* Timer circular */}
@@ -1525,7 +1527,7 @@ function TechniquesSection() {
               </div>
             </div>
 
-            {/* Instrucción */}
+            {/* InstrucciÃ³n */}
             <div style={{
               background:P.card, borderRadius:14, padding:"16px 20px",
               marginBottom:24, boxShadow:P.sh,
@@ -1545,7 +1547,7 @@ function TechniquesSection() {
               ))}
             </div>
 
-            {/* Botón play/pause */}
+            {/* BotÃ³n play/pause */}
             <button
               onClick={() => setRunning(r => !r)}
               style={{
@@ -1557,7 +1559,7 @@ function TechniquesSection() {
                 margin:"0 auto",
                 transition:"transform .15s",
               }}>
-              {running ? "⏸" : "▶"}
+              {running ? "â¸" : "â–¶"}
             </button>
             <div style={{ fontSize:12, color:P.tl, marginTop:10 }}>
               {running ? "Toca para pausar" : "Toca para iniciar"}
@@ -1568,15 +1570,15 @@ function TechniquesSection() {
     );
   }
 
-  // Vista de catálogo
+  // Vista de catÃ¡logo
   return (
     <div style={{ fontFamily:P.fB }}>
       <div style={{ marginBottom:20 }}>
         <div style={{ fontFamily:P.fH, fontSize:22, fontWeight:600, color:P.t, marginBottom:4 }}>
-          Técnicas de regulación
+          TÃ©cnicas de regulaciÃ³n
         </div>
         <div style={{ fontSize:13, color:P.tm }}>
-          Herramientas para momentos difíciles. Sin internet necesario.
+          Herramientas para momentos difÃ­ciles. Sin internet necesario.
         </div>
       </div>
 
@@ -1614,7 +1616,7 @@ function TechniquesSection() {
                   {tech.description}
                 </div>
                 <div style={{ fontSize:11, color:tech.color, fontWeight:600 }}>
-                  ⏱ {tech.duration}
+                  â± {tech.duration}
                 </div>
               </div>
               <ChevronRight size={16} color={P.tl}/>
@@ -1635,7 +1637,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   // Tabs
   const [activeTab,   setActiveTab]   = useState("home"); // "home" | "tasks" | "appointments" | "history" | "profile"
 
-  // Timestamp del acceso anterior — tareas asignadas después son "nuevas"
+  // Timestamp del acceso anterior â€” tareas asignadas despuÃ©s son "nuevas"
   const newSince = (() => {
     try { return localStorage.getItem(`lastSeenPrev_${phone}`) || null; }
     catch { return null; }
@@ -1650,7 +1652,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const [patientProfile,        setPatientProfile]        = useState(null);
   const [patientProfileLoading, setPatientProfileLoading] = useState(true);
 
-  // Citas próximas para el widget del dashboard
+  // Citas prÃ³ximas para el widget del dashboard
   const [upcomingAppts, setUpcomingAppts] = useState([]);
 
   // Consent
@@ -1707,7 +1709,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
     return () => { cancelled = true; };
   }, [phone]);
 
-  // Cargar citas próximas para widget del dashboard
+  // Cargar citas prÃ³ximas para widget del dashboard
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1771,7 +1773,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const completed = assignments.filter(a => a.status === "completed");
   const name = (patientProfile?.name || assignments[0]?.patient_name || "").split(" ")[0];
 
-  // Mostrar banner solo si el consentimiento está explícitamente sin firmar
+  // Mostrar banner solo si el consentimiento estÃ¡ explÃ­citamente sin firmar
   const showConsentBanner = !consentLoading && consent !== null && !consent.signed;
 
   // Drawer state
@@ -1786,19 +1788,19 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   const newCount = newSince ? pending.filter(a => a.assigned_at > newSince).length : 0;
 
   const NAV_ITEMS = [
-    { key:"home",         label:"Inicio",       icon:"🏠" },
-    { key:"tasks",        label:"Actividades",  icon:"📋" },
-    { key:"appointments", label:"Citas",        icon:"📅" },
-    { key:"techniques",   label:"Técnicas",     icon:"🧘" },
-    { key:"payments",     label:"Pagos",        icon:"💳" },
-    { key:"history",      label:"Historial",    icon:"🕐" },
-    { key:"profile",      label:"Perfil",       icon:"👤" },
+    { key:"home",         label:"Inicio",       icon:"ðŸ " },
+    { key:"tasks",        label:"Actividades",  icon:"ðŸ“‹" },
+    { key:"appointments", label:"Citas",        icon:"ðŸ“…" },
+    { key:"techniques",   label:"TÃ©cnicas",     icon:"ðŸ§˜" },
+    { key:"payments",     label:"Pagos",        icon:"ðŸ’³" },
+    { key:"history",      label:"Historial",    icon:"ðŸ•" },
+    { key:"profile",      label:"Perfil",       icon:"ðŸ‘¤" },
   ];
 
   return (
     <div style={{ minHeight:"100vh", background:P.bg, fontFamily:P.fB }}>
 
-      {/* ── Drawer overlay ────────────────────────────────────────────── */}
+      {/* â”€â”€ Drawer overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {drawerOpen && (
         <div
           onClick={() => setDrawerOpen(false)}
@@ -1810,7 +1812,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         />
       )}
 
-      {/* ── Drawer panel ──────────────────────────────────────────────── */}
+      {/* â”€â”€ Drawer panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{
         position:"fixed", top:0, left:0, bottom:0, zIndex:101,
         width:270,
@@ -1887,12 +1889,12 @@ function TaskList({ phone, assignments: initial, onLogout }) {
               fontFamily:P.fB, fontSize:13, color:P.tm,
               cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8,
             }}>
-            Cerrar sesión
+            Cerrar sesiÃ³n
           </button>
         </div>
       </div>
 
-      {/* ── Header fijo ───────────────────────────────────────────────── */}
+      {/* â”€â”€ Header fijo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{
         position:"sticky", top:0, zIndex:50,
         background:P.p, padding:"0 16px",
@@ -1920,7 +1922,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           )}
         </button>
 
-        {/* Título */}
+        {/* TÃ­tulo */}
         <div style={{ color:"#fff", textAlign:"center" }}>
           <div style={{ fontSize:10, opacity:0.7, letterSpacing:"0.1em", textTransform:"uppercase" }}>Mi Espacio</div>
           <div style={{ fontFamily:P.fH, fontSize:16, fontWeight:600, lineHeight:1 }}>
@@ -1928,7 +1930,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           </div>
         </div>
 
-        {/* Botón salir compacto */}
+        {/* BotÃ³n salir compacto */}
         <button onClick={onLogout}
           style={{
             background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
@@ -1939,21 +1941,21 @@ function TaskList({ phone, assignments: initial, onLogout }) {
         </button>
       </div>
 
-      {/* ── Contenido principal ───────────────────────────────────────── */}
+      {/* â”€â”€ Contenido principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{ padding:"20px 16px 40px" }}>
 
-        {/* Banner consentimiento — siempre visible */}
+        {/* Banner consentimiento â€” siempre visible */}
         {showConsentBanner && (
           <ConsentBanner onReview={() => setShowConsent(true)}/>
         )}
 
-        {/* ── INICIO (Dashboard) ──────────────────────────────────────── */}
+        {/* â”€â”€ INICIO (Dashboard) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "home" && (
           <div>
             {/* Saludo */}
             <div style={{ marginBottom:20 }}>
               <div style={{ fontFamily:P.fH, fontSize:26, fontWeight:600, color:P.t, lineHeight:1.2 }}>
-                {name ? `¡Hola, ${name}!` : "¡Bienvenido/a!"}
+                {name ? `Â¡Hola, ${name}!` : "Â¡Bienvenido/a!"}
               </div>
               <div style={{ fontSize:13, color:P.tm, marginTop:4 }}>
                 {new Date().toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" })}
@@ -1967,12 +1969,12 @@ function TaskList({ phone, assignments: initial, onLogout }) {
             }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:18 }}>📋</span>
+                  <span style={{ fontSize:18 }}>ðŸ“‹</span>
                   <span style={{ fontFamily:P.fB, fontSize:14, fontWeight:700, color:P.t }}>Actividades</span>
                 </div>
                 <button onClick={() => setActiveTab("tasks")}
                   style={{ background:"none", border:"none", fontFamily:P.fB, fontSize:12, color:P.p, cursor:"pointer", fontWeight:600 }}>
-                  Ver todas →
+                  Ver todas â†’
                 </button>
               </div>
               {/* Barra de progreso */}
@@ -1996,13 +1998,13 @@ function TaskList({ phone, assignments: initial, onLogout }) {
               )}
               {pending.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"12px 0", color:P.tl, fontSize:13 }}>
-                  ✅ Sin actividades pendientes
+                  âœ… Sin actividades pendientes
                 </div>
               ) : (
                 <>
                   <div style={{ fontSize:12, color:P.tm, marginBottom:8 }}>
                     {pending.length} pendiente{pending.length !== 1 ? "s" : ""}
-                    {newCount > 0 && <span style={{ marginLeft:6, color:P.p, fontWeight:700 }}>· {newCount} nueva{newCount !== 1 ? "s" : ""} 🆕</span>}
+                    {newCount > 0 && <span style={{ marginLeft:6, color:P.p, fontWeight:700 }}>Â· {newCount} nueva{newCount !== 1 ? "s" : ""} ðŸ†•</span>}
                   </div>
                   {/* Primera tarea pendiente */}
                   <TaskCard
@@ -2018,31 +2020,31 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                         fontFamily:P.fB, fontSize:12, fontWeight:600, cursor:"pointer",
                         marginTop:4,
                       }}>
-                      +{pending.length - 1} actividad{pending.length - 1 !== 1 ? "es" : ""} más
+                      +{pending.length - 1} actividad{pending.length - 1 !== 1 ? "es" : ""} mÃ¡s
                     </button>
                   )}
                 </>
               )}
             </div>
 
-            {/* Widget: Próxima cita */}
+            {/* Widget: PrÃ³xima cita */}
             <div style={{
               background:P.card, borderRadius:16, padding:"18px",
               marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}`,
             }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ fontSize:18 }}>📅</span>
-                  <span style={{ fontFamily:P.fB, fontSize:14, fontWeight:700, color:P.t }}>Próxima cita</span>
+                  <span style={{ fontSize:18 }}>ðŸ“…</span>
+                  <span style={{ fontFamily:P.fB, fontSize:14, fontWeight:700, color:P.t }}>PrÃ³xima cita</span>
                 </div>
                 <button onClick={() => setActiveTab("appointments")}
                   style={{ background:"none", border:"none", fontFamily:P.fB, fontSize:12, color:P.p, cursor:"pointer", fontWeight:600 }}>
-                  Ver todas →
+                  Ver todas â†’
                 </button>
               </div>
               {!nextAppt ? (
                 <div style={{ textAlign:"center", padding:"12px 0", color:P.tl, fontSize:13 }}>
-                  Sin citas próximas agendadas
+                  Sin citas prÃ³ximas agendadas
                 </div>
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:14 }}>
@@ -2064,7 +2066,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                       {capitalize(new Date(nextAppt.date + "T12:00:00").toLocaleDateString("es-MX", { weekday:"long" }))}
                     </div>
                     <div style={{ fontSize:12, color:P.tm }}>
-                      {nextAppt.time || ""}{nextAppt.type ? ` · ${nextAppt.type}` : ""}
+                      {nextAppt.time || ""}{nextAppt.type ? ` Â· ${nextAppt.type}` : ""}
                     </div>
                   </div>
                   <div style={{
@@ -2086,7 +2088,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                 marginBottom:12, border:"1.5px solid rgba(196,137,90,0.35)",
                 display:"flex", alignItems:"center", gap:12,
               }}>
-                <span style={{ fontSize:24 }}>📝</span>
+                <span style={{ fontSize:24 }}>ðŸ“</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:P.fB, fontSize:13, fontWeight:700, color:P.acc, marginBottom:2 }}>
                     Consentimiento pendiente
@@ -2106,7 +2108,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           </div>
         )}
 
-        {/* ── ACTIVIDADES ─────────────────────────────────────────────── */}
+        {/* â”€â”€ ACTIVIDADES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "tasks" && (
           <>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
@@ -2126,9 +2128,9 @@ function TaskList({ phone, assignments: initial, onLogout }) {
             {loading && <Spinner/>}
             {!loading && assignments.length === 0 && (
               <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
-                <div style={{ fontSize:48, marginBottom:16 }}>📋</div>
+                <div style={{ fontSize:48, marginBottom:16 }}>ðŸ“‹</div>
                 <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin actividades por ahora</div>
-                <div style={{ fontSize:14, lineHeight:1.6 }}>Tu psicólogo(a) te asignará actividades después de cada sesión.</div>
+                <div style={{ fontSize:14, lineHeight:1.6 }}>Tu psicÃ³logo(a) te asignarÃ¡ actividades despuÃ©s de cada sesiÃ³n.</div>
               </div>
             )}
             {pending.length > 0 && (
@@ -2156,29 +2158,29 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           </>
         )}
 
-        {/* ── CITAS ───────────────────────────────────────────────────── */}
+        {/* â”€â”€ CITAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "appointments" && (
           <AppointmentsSection phone={phone}/>
         )}
 
-        {/* ── TÉCNICAS ────────────────────────────────────────────────── */}
+        {/* â”€â”€ TÃ‰CNICAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "techniques" && (
           <TechniquesSection/>
         )}
 
-        {/* ── PAGOS ───────────────────────────────────────────────────── */}
+        {/* â”€â”€ PAGOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "payments" && (
           <PaymentsSection phone={phone}/>
         )}
 
-        {/* ── HISTORIAL ───────────────────────────────────────────────── */}
+        {/* â”€â”€ HISTORIAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "history" && (() => {
           if (responsesLoading) return <Spinner/>;
           if (responses.length === 0) return (
             <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
-              <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
-              <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin historial aún</div>
-              <div style={{ fontSize:14, lineHeight:1.6 }}>Aquí aparecerán tus actividades completadas.</div>
+              <div style={{ fontSize:48, marginBottom:16 }}>ðŸ“‚</div>
+              <div style={{ fontFamily:P.fH, fontSize:22, color:P.t, marginBottom:8 }}>Sin historial aÃºn</div>
+              <div style={{ fontSize:14, lineHeight:1.6 }}>AquÃ­ aparecerÃ¡n tus actividades completadas.</div>
             </div>
           );
           return (
@@ -2202,7 +2204,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                     onMouseEnter={e => e.currentTarget.style.borderColor = P.p}
                     onMouseLeave={e => e.currentTarget.style.borderColor = P.bdrL}
                   >
-                    <div style={{ fontSize:26, lineHeight:1 }}>{template?.icon || "📋"}</div>
+                    <div style={{ fontSize:26, lineHeight:1 }}>{template?.icon || "ðŸ“‹"}</div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:P.fB, fontSize:15, fontWeight:600, color:P.t, marginBottom:3 }}>
                         {template?.title || assignment.title}
@@ -2219,15 +2221,15 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           );
         })()}
 
-        {/* ── PERFIL ──────────────────────────────────────────────────── */}
+        {/* â”€â”€ PERFIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {activeTab === "profile" && (() => {
           if (patientProfileLoading) return <Spinner/>;
           const p = patientProfile;
           if (!p) return (
             <div style={{ textAlign:"center", padding:"60px 20px", color:P.tm }}>
-              <div style={{ fontSize:48, marginBottom:16 }}>👤</div>
+              <div style={{ fontSize:48, marginBottom:16 }}>ðŸ‘¤</div>
               <div style={{ fontFamily:P.fH, fontSize:20, color:P.t, marginBottom:8 }}>Sin datos de perfil</div>
-              <div style={{ fontSize:14, lineHeight:1.6 }}>Contacta a tu psicólogo(a) para registrar tu información.</div>
+              <div style={{ fontSize:14, lineHeight:1.6 }}>Contacta a tu psicÃ³logo(a) para registrar tu informaciÃ³n.</div>
             </div>
           );
           const calcAge = (bd) => {
@@ -2248,7 +2250,7 @@ function TaskList({ phone, assignments: initial, onLogout }) {
           };
           const age     = calcAge(p.birthdate);
           const bdLabel = p.birthdate
-            ? new Date(p.birthdate + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" }) + (age ? ` · ${age} años` : "")
+            ? new Date(p.birthdate + "T12:00:00").toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" }) + (age ? ` Â· ${age} aÃ±os` : "")
             : null;
           const hasEmergency = p.emergencyName || p.emergencyPhone;
           return (
@@ -2261,25 +2263,25 @@ function TaskList({ phone, assignments: initial, onLogout }) {
                   <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>Mis datos</div>
                 </div>
                 <ProfileRow label="Nombre completo"     value={p.name}/>
-                <ProfileRow label="Teléfono registrado" value={p.phone}/>
-                <ProfileRow label="Correo electrónico"  value={p.email}/>
+                <ProfileRow label="TelÃ©fono registrado" value={p.phone}/>
+                <ProfileRow label="Correo electrÃ³nico"  value={p.email}/>
                 <ProfileRow label="Fecha de nacimiento" value={bdLabel}/>
               </div>
               {hasEmergency && (
                 <div style={{ background:P.card, borderRadius:16, padding:"18px 20px", marginBottom:12, boxShadow:P.sh, border:`1.5px solid ${P.bdrL}` }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
                     <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(184,80,80,0.08)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      <span style={{ fontSize:18 }}>🚨</span>
+                      <span style={{ fontSize:18 }}>ðŸš¨</span>
                     </div>
                     <div style={{ fontFamily:P.fH, fontSize:17, fontWeight:600, color:P.t }}>Contacto de emergencia</div>
                   </div>
                   <ProfileRow label="Nombre"    value={p.emergencyName}/>
-                  <ProfileRow label="Teléfono"  value={p.emergencyPhone}/>
+                  <ProfileRow label="TelÃ©fono"  value={p.emergencyPhone}/>
                   <ProfileRow label="Parentesco" value={p.emergencyRelation}/>
                 </div>
               )}
               <div style={{ padding:"12px 16px", borderRadius:12, background:P.pA, border:`1px solid ${P.p}30`, fontFamily:P.fB, fontSize:13, color:P.tm, lineHeight:1.6 }}>
-                ℹ️ Si necesitas actualizar algún dato, comunícalo a tu psicólogo(a) en tu próxima sesión.
+                â„¹ï¸ Si necesitas actualizar algÃºn dato, comunÃ­calo a tu psicÃ³logo(a) en tu prÃ³xima sesiÃ³n.
               </div>
             </div>
           );
@@ -2291,79 +2293,37 @@ function TaskList({ phone, assignments: initial, onLogout }) {
   );
 }
 
-// ── Catálogo de países con código y longitud exacta de número local ───────────
-// longitud = dígitos del número SIN el código de país
+// â”€â”€ CatÃ¡logo de paÃ­ses con cÃ³digo y longitud exacta de nÃºmero local â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// longitud = dÃ­gitos del nÃºmero SIN el cÃ³digo de paÃ­s
 const COUNTRIES = [
-  { code:"+52", flag:"🇲🇽", name:"México",        len:10 },
-  { code:"+1",  flag:"🇺🇸", name:"EE.UU. / CAN",  len:10 },
-  { code:"+34", flag:"🇪🇸", name:"España",         len:9  },
-  { code:"+54", flag:"🇦🇷", name:"Argentina",      len:10 },
-  { code:"+57", flag:"🇨🇴", name:"Colombia",       len:10 },
-  { code:"+56", flag:"🇨🇱", name:"Chile",          len:9  },
-  { code:"+51", flag:"🇵🇪", name:"Perú",           len:9  },
-  { code:"+58", flag:"🇻🇪", name:"Venezuela",      len:10 },
-  { code:"+593",flag:"🇪🇨", name:"Ecuador",        len:9  },
-  { code:"+502",flag:"🇬🇹", name:"Guatemala",      len:8  },
-  { code:"+503",flag:"🇸🇻", name:"El Salvador",    len:8  },
-  { code:"+504",flag:"🇭🇳", name:"Honduras",       len:8  },
-  { code:"+505",flag:"🇳🇮", name:"Nicaragua",      len:8  },
-  { code:"+506",flag:"🇨🇷", name:"Costa Rica",     len:8  },
-  { code:"+507",flag:"🇵🇦", name:"Panamá",         len:8  },
-  { code:"+595",flag:"🇵🇾", name:"Paraguay",       len:9  },
-  { code:"+598",flag:"🇺🇾", name:"Uruguay",        len:8  },
-  { code:"+591",flag:"🇧🇴", name:"Bolivia",        len:8  },
-  { code:"+44", flag:"🇬🇧", name:"Reino Unido",    len:10 },
-  { code:"+49", flag:"🇩🇪", name:"Alemania",       len:10 },
-  { code:"+33", flag:"🇫🇷", name:"Francia",        len:9  },
-  { code:"+39", flag:"🇮🇹", name:"Italia",         len:10 },
-  { code:"+55", flag:"🇧🇷", name:"Brasil",         len:11 },
+  { code:"+52", flag:"ðŸ‡²ðŸ‡½", name:"MÃ©xico",        len:10 },
+  { code:"+1",  flag:"ðŸ‡ºðŸ‡¸", name:"EE.UU. / CAN",  len:10 },
+  { code:"+34", flag:"ðŸ‡ªðŸ‡¸", name:"EspaÃ±a",         len:9  },
+  { code:"+54", flag:"ðŸ‡¦ðŸ‡·", name:"Argentina",      len:10 },
+  { code:"+57", flag:"ðŸ‡¨ðŸ‡´", name:"Colombia",       len:10 },
+  { code:"+56", flag:"ðŸ‡¨ðŸ‡±", name:"Chile",          len:9  },
+  { code:"+51", flag:"ðŸ‡µðŸ‡ª", name:"PerÃº",           len:9  },
+  { code:"+58", flag:"ðŸ‡»ðŸ‡ª", name:"Venezuela",      len:10 },
+  { code:"+593",flag:"ðŸ‡ªðŸ‡¨", name:"Ecuador",        len:9  },
+  { code:"+502",flag:"ðŸ‡¬ðŸ‡¹", name:"Guatemala",      len:8  },
+  { code:"+503",flag:"ðŸ‡¸ðŸ‡»", name:"El Salvador",    len:8  },
+  { code:"+504",flag:"ðŸ‡­ðŸ‡³", name:"Honduras",       len:8  },
+  { code:"+505",flag:"ðŸ‡³ðŸ‡®", name:"Nicaragua",      len:8  },
+  { code:"+506",flag:"ðŸ‡¨ðŸ‡·", name:"Costa Rica",     len:8  },
+  { code:"+507",flag:"ðŸ‡µðŸ‡¦", name:"PanamÃ¡",         len:8  },
+  { code:"+595",flag:"ðŸ‡µðŸ‡¾", name:"Paraguay",       len:9  },
+  { code:"+598",flag:"ðŸ‡ºðŸ‡¾", name:"Uruguay",        len:8  },
+  { code:"+591",flag:"ðŸ‡§ðŸ‡´", name:"Bolivia",        len:8  },
+  { code:"+44", flag:"ðŸ‡¬ðŸ‡§", name:"Reino Unido",    len:10 },
+  { code:"+49", flag:"ðŸ‡©ðŸ‡ª", name:"Alemania",       len:10 },
+  { code:"+33", flag:"ðŸ‡«ðŸ‡·", name:"Francia",        len:9  },
+  { code:"+39", flag:"ðŸ‡®ðŸ‡¹", name:"Italia",         len:10 },
+  { code:"+55", flag:"ðŸ‡§ðŸ‡·", name:"Brasil",         len:11 },
 ];
 
-// ── Login screen ──────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
-  const [countryIdx,      setCountryIdx]      = useState(0);  // México por defecto
-  const [countryExpanded, setCountryExpanded] = useState(false);
-  const [input,      setInput]      = useState(initialPhone);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(autoError);
-  const [focused,    setFocused]    = useState(false);
-
-  const country  = COUNTRIES[countryIdx];
-  const digits   = input.replace(/\D/g, "");
-  // Válido solo si coincide EXACTAMENTE con la longitud esperada para ese país
-  const isValid  = digits.length === country.len;
-
-  const handleAccess = async () => {
-    if (!isValid) {
-      setError(`Ingresa un número de ${country.len} dígitos para ${country.name}`);
-      return;
-    }
-    const fullPhone = `${country.code}${digits}`;
-    setLoading(true); setError("");
-    try {
-      // Verificar existencia en pc_patients (no en task_assignments)
-      const patient = await getPatientByPhone(fullPhone);
-      if (!patient) {
-        setError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
-        return;
-      }
-      // Cargar tareas (puede ser array vacío — está bien)
-      const assignments = await getAssignmentsByPhone(fullPhone).catch(() => []);
-      onLogin(fullPhone, assignments);
-    } catch {
-      setError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputBorder = error
-    ? `2px solid ${P.err}`
-    : isValid
-      ? `2px solid ${P.p}`
-      : focused
-        ? `2px solid ${P.p}`
-        : `2px solid ${P.bdr}`;
+// â”€â”€ Login screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function LoginScreen({ autoError = "" }) {
+  const [error, setError] = useState(autoError);
 
   return (
     <div style={{
@@ -2372,352 +2332,118 @@ function LoginScreen({ onLogin, initialPhone = "", autoError = "" }) {
       alignItems:"center", justifyContent:"center",
       padding:"32px 24px", fontFamily:P.fB,
     }}>
-      {/* Barra superior de acento de marca */}
       <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:P.p, opacity:0.7 }}/>
-
-      <div style={{ width:"100%", maxWidth:380 }}>
-
-        {/* ── Logo + bienvenida ─────────────────────────────────────── */}
-        <div style={{ textAlign:"center", marginBottom:36 }}>
-          <div style={{
-            width:80, height:80, borderRadius:"50%",
-            background:"rgba(58,107,110,0.10)",
-            border:"2px solid rgba(58,107,110,0.35)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            margin:"0 auto 18px",
-          }}>
+      <div style={{ width:"100%", maxWidth:420 }}>
+        <div style={{ textAlign:"center", marginBottom:28 }}>
+          <div style={{ width:82, height:82, borderRadius:"50%", background:"rgba(58,107,110,0.10)", border:"2px solid rgba(58,107,110,0.35)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 18px" }}>
             <Brain size={38} strokeWidth={1.6} color={P.p}/>
           </div>
-          <div style={{
-            fontSize:11, fontWeight:600, color:"#5A8A8D",
-            letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6,
-          }}>
-            Tu espacio terapéutico
-          </div>
-          <h1 style={{
-            fontFamily:P.fH, fontSize:32, fontWeight:300,
-            color:P.t, letterSpacing:"0.01em", marginBottom:8,
-          }}>
-            Mi Espacio
-          </h1>
-          <p style={{ fontSize:13, color:"#3D5C59", lineHeight:1.55, margin:0 }}>
-            Ingresa tu número para acceder a tu espacio.
-          </p>
+          <div style={{ fontSize:11, fontWeight:700, color:"#5A8A8D", letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6 }}>Tu espacio terapéutico</div>
+          <h1 style={{ fontFamily:P.fH, fontSize:34, fontWeight:300, color:P.t, margin:"0 0 8px" }}>Mi Espacio</h1>
+          <p style={{ fontSize:13, color:"#3D5C59", lineHeight:1.65, margin:0 }}>Este portal solo abre con un enlace temporal y seguro compartido por tu psicólogo(a).</p>
         </div>
 
-        {/* ── Card de formulario ────────────────────────────────────── */}
-        <div style={{
-          background:P.card, borderRadius:20,
-          padding:"26px 22px 20px",
-          boxShadow:"0 2px 16px rgba(0,0,0,0.07)",
-        }}>
-          <label style={{
-            display:"block", fontSize:11, fontWeight:700, color:P.tm,
-            textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10,
-          }}>
-            Número de celular
-          </label>
-
-          {/* ── Fila: selector de país + input ───────────────────────── */}
-          <div style={{
-            display:"flex", gap:8,
-            marginBottom: error ? 8 : 14,
-          }}>
-            {/* Selector de país — colapsado por defecto, expandible */}
-            <div style={{ position:"relative", flexShrink:0, width:"28%" }}>
-              {!countryExpanded ? (
-                /* Vista colapsada: solo bandera + código como botón */
-                <button
-                  onClick={() => setCountryExpanded(true)}
-                  style={{
-                    width:"100%", height:"100%", minHeight:52,
-                    padding:"0 10px",
-                    border:`2px solid ${focused || isValid ? P.p : P.bdr}`,
-                    borderRadius:12, background:"#EFF3F2",
-                    fontFamily:P.fB, fontSize:13, color:P.t,
-                    cursor:"pointer", outline:"none",
-                    display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                    transition:"border .15s",
-                  }}>
-                  <span>{country.flag}</span>
-                  <span style={{ fontWeight:600 }}>{country.code}</span>
-                  <svg width="8" height="5" viewBox="0 0 10 6" fill="none" style={{ opacity:0.5 }}>
-                    <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              ) : (
-                /* Vista expandida: select nativo completo */
-                <>
-                  <select
-                    autoFocus
-                    value={countryIdx}
-                    onChange={e => {
-                      setCountryIdx(Number(e.target.value));
-                      setInput("");
-                      setError("");
-                      setCountryExpanded(false);
-                    }}
-                    onBlur={() => setCountryExpanded(false)}
-                    style={{
-                      appearance:"none", WebkitAppearance:"none",
-                      width:"100%", height:"100%", minHeight:52,
-                      padding:"0 28px 0 10px",
-                      border:`2px solid ${P.p}`,
-                      borderRadius:12, background:"#EFF3F2",
-                      fontFamily:P.fB, fontSize:13, color:P.t,
-                      cursor:"pointer", outline:"none",
-                      transition:"border .15s",
-                    }}
-                  >
-                    {COUNTRIES.map((c, i) => (
-                      <option key={c.code + c.name} value={i}>
-                        {c.flag} {c.code} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div style={{
-                    position:"absolute", right:10, top:"50%",
-                    transform:"translateY(-50%)",
-                    pointerEvents:"none", lineHeight:1,
-                  }}>
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-                      <path d="M1 1l4 4 4-4" stroke={P.tm} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Input numérico */}
-            <div style={{ position:"relative", flex:1, minWidth:0 }}>
-              <input
-                type="tel"
-                value={input}
-                onChange={e => {
-                  const cleaned = e.target.value.replace(/\D/g, "").slice(0, country.len);
-                  setInput(cleaned);
-                  setError("");
-                }}
-                onKeyDown={e => e.key === "Enter" && handleAccess()}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder={`${"0".repeat(country.len)}`}
-                autoFocus
-                style={{
-                  width:"100%", padding:"14px 16px",
-                  paddingRight: isValid ? 68 : 16,
-                  border: inputBorder, borderRadius:12,
-                  fontFamily:P.fB, fontSize:16, color:P.t,
-                  background:"#EFF3F2",
-                  outline:"none", boxSizing:"border-box",
-                  transition:"border .15s",
-                }}
-              />
-              {/* Badge ✓ válido */}
-              {isValid && !error && (
-                <div style={{
-                  position:"absolute", right:10, top:"50%",
-                  transform:"translateY(-50%)",
-                  background:"rgba(58,107,110,0.10)",
-                  color:P.p, fontSize:11, fontWeight:700,
-                  padding:"3px 8px", borderRadius:100,
-                  pointerEvents:"none",
-                }}>
-                  ✓
-                </div>
-              )}
-            </div>
+        <div style={{ background:P.card, borderRadius:20, padding:"24px 22px 20px", boxShadow:"0 2px 16px rgba(0,0,0,0.07)" }}>
+          <div style={{ padding:"14px 16px", borderRadius:14, background:"#EFF3F2", border:`1px solid ${P.bdr}`, marginBottom:error ? 12 : 18, fontSize:12, color:P.tm, lineHeight:1.7 }}>
+            El acceso por número de teléfono quedó deshabilitado para proteger tus datos clínicos.
           </div>
 
-          {/* Hint de longitud esperada */}
-          {!error && (
-            <p style={{
-              fontSize:11, color:P.tl, margin:"-6px 0 12px",
-              paddingLeft:2,
-            }}>
-              {country.name} · {country.len} dígitos · {country.code}
-            </p>
-          )}
-
-          {/* Mensaje de error */}
           {error && (
-            <div style={{
-              display:"flex", alignItems:"flex-start", gap:8,
-              background:P.errA, border:`1px solid rgba(184,80,80,0.18)`,
-              borderRadius:10, padding:"10px 13px",
-              marginBottom:14,
-            }}>
-              <div style={{
-                width:16, height:16, borderRadius:"50%", flexShrink:0,
-                background:"rgba(184,80,80,0.15)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                marginTop:1,
-              }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:P.err }}/>
-              </div>
-              <span style={{ fontSize:12, color:"#7A3030", lineHeight:1.5 }}>{error}</span>
+            <div style={{ background:P.errA, border:"1px solid rgba(184,80,80,0.18)", borderRadius:10, padding:"10px 13px", marginBottom:14, fontSize:12, color:"#7A3030", lineHeight:1.6 }}>
+              {error}
             </div>
           )}
 
-          {/* Botón Entrar */}
-          <button
-            onClick={handleAccess}
-            disabled={loading || !isValid}
-            style={{
-              width:"100%", padding:"15px", borderRadius:100, border:"none",
-              background: loading ? P.bdr : isValid ? P.p : P.bdr,
-              color: loading || !isValid ? P.tl : "#fff",
-              fontFamily:P.fB, fontSize:15, fontWeight:700,
-              cursor: loading || !isValid ? "not-allowed" : "pointer",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              transition:"background .2s, box-shadow .2s",
-              boxShadow: isValid && !loading ? `0 4px 14px rgba(58,107,110,0.32)` : "none",
-            }}
-          >
-            {loading
-              ? <><Loader size={16} style={{ animation:"spin 0.8s linear infinite" }}/> Buscando…</>
-              : "Entrar →"
-            }
+          <button onClick={() => window.location.reload()} style={{ width:"100%", padding:"15px", borderRadius:100, border:"none", background:P.p, color:"#fff", fontFamily:P.fB, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, boxShadow:"0 4px 14px rgba(58,107,110,0.32)" }}>
+            <RefreshCw size={16} /> Reintentar acceso
           </button>
-
-          {/* Cláusula legal LFPDPPP */}
-          <p style={{
-            fontSize:11, color:"rgba(58,92,89,0.55)",
-            lineHeight:1.65, marginTop:14, marginBottom:0, textAlign:"center",
-          }}>
-            Al continuar, aceptas los{" "}
-            <a href="/terminos-paciente" style={{ color:P.p, textDecoration:"underline", cursor:"pointer" }}>
-              Términos de Uso
-            </a>
-            {" "}y el{" "}
-            <a href="/privacidad" style={{ color:P.p, textDecoration:"underline", cursor:"pointer" }}>
-              Aviso de Privacidad
-            </a>
-            .
-          </p>
-        </div>
-
-        {/* Bloque de ayuda */}
-        <div style={{
-          display:"flex", alignItems:"flex-start", gap:10,
-          marginTop:18, padding:"11px 15px",
-          background:"rgba(58,107,110,0.06)",
-          borderRadius:12,
-        }}>
-          <div style={{
-            width:18, height:18, borderRadius:"50%", flexShrink:0,
-            background:"rgba(58,107,110,0.12)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            marginTop:1,
-          }}>
-            <div style={{ width:2, height:8, background:P.p, borderRadius:2 }}/>
-          </div>
-          <p style={{ fontSize:12, color:"#3D5C59", lineHeight:1.6, margin:0 }}>
-            ¿Número incorrecto? Avísale a tu psicólogo(a) para que lo verifique.
-          </p>
         </div>
       </div>
-
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
 
-// ── Root portal component ─────────────────────────────────────────────────────
+// â”€â”€ Root portal component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function PatientPortal() {
-  const [phone,       setPhone]       = useState(null);
+  const [phone, setPhone] = useState(null);
   const [assignments, setAssignments] = useState([]);
-  const [autoLoading, setAutoLoading] = useState(false);
-  const [autoError,   setAutoError]   = useState("");
-  const [initialPhone, setInitialPhone] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Auto-login cuando ?phone= viene en la URL (enlace de WhatsApp)
   useEffect(() => {
-    const params   = new URLSearchParams(window.location.search);
-    const raw      = params.get("phone") || "";
-    if (!raw) return;
+    let cancelled = false;
 
-    // Preservar el + del formato E.164 — solo eliminar espacios y caracteres inválidos
-    const urlPhone = raw.trim().replace(/[^\d+]/g, "");
-    if (urlPhone.length < 10) return;
+    (async () => {
+      try {
+        const session = await getPortalSession();
+        if (cancelled) return;
 
-    setInitialPhone(urlPhone.replace(/\D/g, "")); // input sin + para el campo visual
-    setAutoLoading(true);
+        const currentPhone = session?.patient?.phone || null;
+        const currentAssignments = Array.isArray(session?.assignments) ? session.assignments : [];
 
-    getPatientByPhone(urlPhone)
-      .then(async patient => {
-        if (!patient) {
-          setAutoError("Número no encontrado. Verifica con tu psicólogo(a) que esté registrado.");
-          return;
-        }
-        // Cargar tareas (puede ser array vacío)
-        const data = await getAssignmentsByPhone(urlPhone).catch(() => []);
-        // Guardar lastSeen
+        if (!currentPhone) throw new Error("Portal session required");
+
         try {
-          const prev = localStorage.getItem(`lastSeen_${urlPhone}`);
-          if (prev) localStorage.setItem(`lastSeenPrev_${urlPhone}`, prev);
-          localStorage.setItem(`lastSeen_${urlPhone}`, new Date().toISOString());
-        } catch { /* localStorage no disponible */ }
-        setPhone(urlPhone);
-        setAssignments(data);
-      })
-      .catch(() => {
-        setAutoError("No se pudo conectar. Revisa tu internet e intenta de nuevo.");
-      })
-      .finally(() => setAutoLoading(false));
+          const prev = localStorage.getItem(`lastSeen_${currentPhone}`);
+          if (prev) localStorage.setItem(`lastSeenPrev_${currentPhone}`, prev);
+          localStorage.setItem(`lastSeen_${currentPhone}`, new Date().toISOString());
+        } catch {}
+
+        setPhone(currentPhone);
+        setAssignments(currentAssignments);
+        setError("");
+      } catch {
+        if (!cancelled) {
+          setPhone(null);
+          setAssignments([]);
+          setError(
+            window.location.search.includes("t=")
+              ? "Tu enlace ya vencio o no es valido. Pide uno nuevo a tu psicologo(a)."
+              : "Este portal solo abre con un enlace temporal y seguro."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, []);
 
-  const handleLogin = (normalizedPhone, data) => {
-    // Guardar timestamp de este acceso (para detectar tareas nuevas en el próximo)
-    try {
-      const prev = localStorage.getItem(`lastSeen_${normalizedPhone}`);
-      // Guardamos el anterior en lastSeenPrev para que TaskList lo use
-      if (prev) localStorage.setItem(`lastSeenPrev_${normalizedPhone}`, prev);
-      localStorage.setItem(`lastSeen_${normalizedPhone}`, new Date().toISOString());
-    } catch { /* localStorage no disponible */ }
-    setPhone(normalizedPhone);
-    setAssignments(data);
-  };
-
-  if (autoLoading) return (
-    <div style={{
-      minHeight:"100vh", background:P.bg,
-      display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center",
-      fontFamily:P.fB, position:"relative",
-    }}>
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:P.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:P.fB, position:"relative" }}>
       <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:P.p, opacity:0.7 }}/>
       <div style={{ textAlign:"center" }}>
-        <div style={{
-          width:72, height:72, borderRadius:"50%",
-          background:"rgba(58,107,110,0.10)",
-          border:"2px solid rgba(58,107,110,0.35)",
-          display:"flex", alignItems:"center", justifyContent:"center",
-          margin:"0 auto 20px",
-        }}>
+        <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(58,107,110,0.10)", border:"2px solid rgba(58,107,110,0.35)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 20px" }}>
           <Brain size={32} strokeWidth={1.6} color={P.p}/>
         </div>
         <Spinner/>
-        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Verificando tu acceso…</p>
+        <p style={{ fontSize:14, color:P.tm, marginTop:12 }}>Verificando tu acceso seguro...</p>
         <p style={{ fontSize:12, color:P.tl, marginTop:4 }}>Esto solo tarda unos segundos</p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
-  if (!phone) return (
-    <LoginScreen
-      onLogin={handleLogin}
-      initialPhone={initialPhone}
-      autoError={autoError}
-    />
-  );
+  if (!phone) return <LoginScreen autoError={error} />;
 
   return (
     <TaskList
       phone={phone}
       assignments={assignments}
-      onLogout={() => { setPhone(null); setAssignments([]); }}
+      onLogout={() => {
+        logoutPortal()
+          .catch(() => null)
+          .finally(() => {
+            setPhone(null);
+            setAssignments([]);
+            window.location.replace("/p");
+          });
+      }}
     />
   );
 }
+
+
+
+

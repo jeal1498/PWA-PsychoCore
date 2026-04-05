@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X, LogOut } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
@@ -8,14 +8,14 @@ import { RiskBadge } from "./RiskAssessment.jsx";
 import { getSeverity, SCALES } from "./Scales.jsx";
 import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
 import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "./InterSessions.jsx";
-import { getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
+import { createPortalAccessLink, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { printAlta, printDerivacion } from "./Reports.jsx";
 
-// ── Portal domain for consent links ──────────────────────────────────────────
+// â”€â”€ Portal domain for consent links â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PORTAL_DOMAIN = "https://psychocore.vercel.app";
 
-// ── Time slots helper for Primer Contacto (30-min, 08:00–20:00) ──────────────
+// â”€â”€ Time slots helper for Primer Contacto (30-min, 08:00â€“20:00) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PC_TIME_SLOTS = (() => {
   const slots = [];
   for (let m = 8 * 60; m < 20 * 60; m += 30) {
@@ -24,21 +24,21 @@ const PC_TIME_SLOTS = (() => {
   return slots;
 })();
 
-// ── Phone countries (shared by PrimerContacto + Expediente forms) ────────────
+// â”€â”€ Phone countries (shared by PrimerContacto + Expediente forms) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PHONE_COUNTRIES = [
-  { code:"+52",  flag:"🇲🇽", name:"México",       len:10 },
-  { code:"+1",   flag:"🇺🇸", name:"EE.UU./CAN",   len:10 },
-  { code:"+34",  flag:"🇪🇸", name:"España",        len:9  },
-  { code:"+54",  flag:"🇦🇷", name:"Argentina",     len:10 },
-  { code:"+57",  flag:"🇨🇴", name:"Colombia",      len:10 },
-  { code:"+56",  flag:"🇨🇱", name:"Chile",         len:9  },
-  { code:"+51",  flag:"🇵🇪", name:"Perú",          len:9  },
-  { code:"+55",  flag:"🇧🇷", name:"Brasil",        len:11 },
-  { code:"+44",  flag:"🇬🇧", name:"Reino Unido",   len:10 },
-  { code:"+49",  flag:"🇩🇪", name:"Alemania",      len:10 },
+  { code:"+52",  flag:"ðŸ‡²ðŸ‡½", name:"MÃ©xico",       len:10 },
+  { code:"+1",   flag:"ðŸ‡ºðŸ‡¸", name:"EE.UU./CAN",   len:10 },
+  { code:"+34",  flag:"ðŸ‡ªðŸ‡¸", name:"EspaÃ±a",        len:9  },
+  { code:"+54",  flag:"ðŸ‡¦ðŸ‡·", name:"Argentina",     len:10 },
+  { code:"+57",  flag:"ðŸ‡¨ðŸ‡´", name:"Colombia",      len:10 },
+  { code:"+56",  flag:"ðŸ‡¨ðŸ‡±", name:"Chile",         len:9  },
+  { code:"+51",  flag:"ðŸ‡µðŸ‡ª", name:"PerÃº",          len:9  },
+  { code:"+55",  flag:"ðŸ‡§ðŸ‡·", name:"Brasil",        len:11 },
+  { code:"+44",  flag:"ðŸ‡¬ðŸ‡§", name:"Reino Unido",   len:10 },
+  { code:"+49",  flag:"ðŸ‡©ðŸ‡ª", name:"Alemania",      len:10 },
 ];
 
-// ── PhoneInput — selector de país + campo numérico reutilizable ───────────────
+// â”€â”€ PhoneInput â€” selector de paÃ­s + campo numÃ©rico reutilizable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PhoneInput({ countryCode, phone, onChangeCountry, onChangePhone, error }) {
   const [focused, setFocused] = useState(false);
   const countryIdx = PHONE_COUNTRIES.findIndex(c => c.code === countryCode);
@@ -53,7 +53,7 @@ function PhoneInput({ countryCode, phone, onChangeCountry, onChangePhone, error 
 
   return (
     <div style={{ display:"flex", gap:8 }}>
-      {/* Selector de país */}
+      {/* Selector de paÃ­s */}
       <div style={{ position:"relative", flexShrink:0, width:"28%" }}>
         <select
           value={idx}
@@ -81,7 +81,7 @@ function PhoneInput({ countryCode, phone, onChangeCountry, onChangePhone, error 
           </svg>
         </div>
       </div>
-      {/* Input numérico */}
+      {/* Input numÃ©rico */}
       <div style={{ position:"relative", flex:1, minWidth:0 }}>
         <input
           type="tel"
@@ -107,21 +107,21 @@ function PhoneInput({ countryCode, phone, onChangeCountry, onChangePhone, error 
   );
 }
 
-// ── STATUS ────────────────────────────────────────────────────────────────────
+// â”€â”€ STATUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const STATUS_CONFIG = {
   activo: { label:"Activo",   color:T.suc, bg:T.sucA },
   pausa:  { label:"En pausa", color:T.war, bg:T.warA },
   alta:   { label:"Alta",     color:T.tl,  bg:T.bdrL },
 };
 
-// ── PATIENT TYPE ──────────────────────────────────────────────────────────────
+// â”€â”€ PATIENT TYPE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TYPE_CONFIG = {
   individual: { label:"Individual",      color:T.p,   bg:T.pA   },
   pareja:     { label:"Pareja",          color:"#6B5B9E", bg:"rgba(107,91,158,0.10)" },
   grupo:      { label:"Grupal",          color:T.acc, bg:T.accA },
 };
 
-// ── MOOD TIMELINE ─────────────────────────────────────────────────────────────
+// â”€â”€ MOOD TIMELINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MoodTimeline({ sessions }) {
   const sorted = [...sessions]
     .filter(s => s.mood && s.date)
@@ -130,7 +130,7 @@ function MoodTimeline({ sessions }) {
 
   if (sorted.length < 2) return (
     <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"20px 0", textAlign:"center" }}>
-      Se necesitan al menos 2 sesiones para mostrar la línea de estado de ánimo
+      Se necesitan al menos 2 sesiones para mostrar la lÃ­nea de estado de Ã¡nimo
     </div>
   );
 
@@ -150,7 +150,7 @@ function MoodTimeline({ sessions }) {
   return (
     <div>
       <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>
-        Estado de ánimo — últimas {sorted.length} sesiones
+        Estado de Ã¡nimo â€” Ãºltimas {sorted.length} sesiones
       </div>
       <div style={{ overflowX:"auto" }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", minWidth:260, height:H, display:"block" }}>
@@ -205,7 +205,7 @@ function calcAge(birthdate) {
 }
 
 export const CIE11_CODES = [
-  { code: "6A00", label: "TDAH, presentación combinada" },
+  { code: "6A00", label: "TDAH, presentaciÃ³n combinada" },
   { code: "6A01", label: "TDAH, predominio inatento" },
   { code: "6A02", label: "TDAH, predominio hiperactivo-impulsivo" },
   { code: "6A06", label: "Trastorno del espectro autista" },
@@ -216,55 +216,55 @@ export const CIE11_CODES = [
   { code: "6A61", label: "Episodio depresivo mayor, moderado" },
   { code: "6A62", label: "Episodio depresivo mayor, grave" },
   { code: "6A70", label: "Trastorno depresivo recurrente" },
-  { code: "6A71", label: "Trastorno distímico (distimia)" },
+  { code: "6A71", label: "Trastorno distÃ­mico (distimia)" },
   { code: "6A80", label: "Trastorno bipolar tipo I" },
   { code: "6A81", label: "Trastorno bipolar tipo II" },
-  { code: "6A82", label: "Trastorno ciclotímico" },
+  { code: "6A82", label: "Trastorno ciclotÃ­mico" },
   { code: "6B00", label: "Trastorno de ansiedad generalizada (TAG)" },
-  { code: "6B01", label: "Trastorno de pánico" },
+  { code: "6B01", label: "Trastorno de pÃ¡nico" },
   { code: "6B02", label: "Agorafobia" },
-  { code: "6B03", label: "Fobia específica" },
+  { code: "6B03", label: "Fobia especÃ­fica" },
   { code: "6B04", label: "Fobia social (trastorno de ansiedad social)" },
-  { code: "6B05", label: "Trastorno de ansiedad por separación" },
+  { code: "6B05", label: "Trastorno de ansiedad por separaciÃ³n" },
   { code: "6B20", label: "Trastorno obsesivo-compulsivo (TOC)" },
-  { code: "6B21", label: "Dismorfofobia (trastorno dismórfico corporal)" },
-  { code: "6B22", label: "Hipocondría" },
-  { code: "6B25", label: "Tricotilomanía" },
-  { code: "6B40", label: "Trastorno de estrés postraumático (TEPT)" },
-  { code: "6B41", label: "Trastorno de estrés agudo" },
-  { code: "6B43", label: "Trastorno de adaptación" },
+  { code: "6B21", label: "Dismorfofobia (trastorno dismÃ³rfico corporal)" },
+  { code: "6B22", label: "HipocondrÃ­a" },
+  { code: "6B25", label: "TricotilomanÃ­a" },
+  { code: "6B40", label: "Trastorno de estrÃ©s postraumÃ¡tico (TEPT)" },
+  { code: "6B41", label: "Trastorno de estrÃ©s agudo" },
+  { code: "6B43", label: "Trastorno de adaptaciÃ³n" },
   { code: "6B44", label: "TEPT complejo" },
   { code: "6B60", label: "Trastorno disociativo de identidad" },
   { code: "6B61", label: "Amnesia disociativa" },
-  { code: "6B65", label: "Despersonalización/desrealización" },
+  { code: "6B65", label: "DespersonalizaciÃ³n/desrealizaciÃ³n" },
   { code: "6B80", label: "Anorexia nerviosa" },
   { code: "6B81", label: "Bulimia nerviosa" },
   { code: "6B82", label: "Trastorno de atracones" },
   { code: "6C70", label: "Trastorno explosivo intermitente" },
-  { code: "6C72", label: "Cleptomanía" },
-  { code: "6C73", label: "Piromanía" },
+  { code: "6C72", label: "CleptomanÃ­a" },
+  { code: "6C73", label: "PiromanÃ­a" },
   { code: "6C40", label: "Trastorno por consumo de alcohol" },
   { code: "6C43", label: "Trastorno por consumo de cannabis" },
   { code: "6C45", label: "Trastorno por consumo de estimulantes" },
-  { code: "6C46", label: "Trastorno por consumo de sedantes/hipnóticos" },
+  { code: "6C46", label: "Trastorno por consumo de sedantes/hipnÃ³ticos" },
   { code: "6D10", label: "Trastorno de personalidad, leve" },
   { code: "6D11", label: "Trastorno de personalidad, moderado" },
   { code: "6D12", label: "Trastorno de personalidad, grave" },
-  { code: "6D10.0", label: "Trastorno límite de la personalidad" },
+  { code: "6D10.0", label: "Trastorno lÃ­mite de la personalidad" },
   { code: "6D10.1", label: "Trastorno de personalidad obsesivo-compulsivo" },
   { code: "6D10.2", label: "Trastorno de personalidad ansioso-evitativo" },
   { code: "6D10.3", label: "Trastorno de personalidad dependiente" },
-  { code: "6C20", label: "Trastorno de síntomas somáticos" },
-  { code: "6C21", label: "Trastorno de conversión / síntomas neurológicos funcionales" },
-  { code: "7A00", label: "Insomnio crónico" },
-  { code: "7A01", label: "Hipersomnia idiopática" },
+  { code: "6C20", label: "Trastorno de sÃ­ntomas somÃ¡ticos" },
+  { code: "6C21", label: "Trastorno de conversiÃ³n / sÃ­ntomas neurolÃ³gicos funcionales" },
+  { code: "7A00", label: "Insomnio crÃ³nico" },
+  { code: "7A01", label: "Hipersomnia idiopÃ¡tica" },
   { code: "QE50", label: "Duelo complicado" },
   { code: "QE84", label: "Problema relacionado con el trabajo o empleo" },
-  { code: "PF20", label: "Problema de relación de pareja" },
+  { code: "PF20", label: "Problema de relaciÃ³n de pareja" },
 ];
 
-// ── CieDiagnosisField ─────────────────────────────────────────────────────────
-function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label = "Diagnóstico", showSearch = true }) {
+// â”€â”€ CieDiagnosisField â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label = "DiagnÃ³stico", showSearch = true }) {
   const [query, setQuery] = useState("");
   const [open,  setOpen]  = useState(false);
 
@@ -292,13 +292,13 @@ function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label =
       {showSearch && (
         <div style={{ position: "relative", marginBottom: 8 }}>
           <div style={{ position:"relative" }}>
-            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, pointerEvents:"none" }}>🔍</span>
+            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, pointerEvents:"none" }}>ðŸ”</span>
             <input
               value={query}
               onChange={e => { setQuery(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 180)}
-              placeholder="Buscar código CIE-11 (ej: ansiedad, depresión, 6B00)..."
+              placeholder="Buscar cÃ³digo CIE-11 (ej: ansiedad, depresiÃ³n, 6B00)..."
               style={{ width: "100%", padding: "9px 14px 9px 34px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }}
             />
           </div>
@@ -322,13 +322,13 @@ function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label =
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ padding: "3px 10px", borderRadius: 6, background: T.pA, color: T.p, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{cie11Code}</span>
           {currentCode && <span style={{ fontSize: 12, color: T.tm }}>{currentCode.label}</span>}
-          <button onClick={() => { onChangeCode(""); onChangeDx(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+          <button onClick={() => { onChangeCode(""); onChangeDx(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, fontSize: 16, lineHeight: 1, padding: "0 4px" }}>Ã—</button>
         </div>
       )}
 
       <div>
         <div style={{ fontSize:10, fontWeight:600, color:T.tl, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>
-          Texto del diagnóstico {!cie11Code && <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>— o escribe directamente si no está en CIE-11</span>}
+          Texto del diagnÃ³stico {!cie11Code && <span style={{ fontWeight:400, textTransform:"none", letterSpacing:0 }}>â€” o escribe directamente si no estÃ¡ en CIE-11</span>}
         </div>
         <input
           value={value}
@@ -341,7 +341,7 @@ function CieDiagnosisField({ value, cie11Code, onChangeDx, onChangeCode, label =
   );
 }
 
-// ── Progress chart (mini sparkline) ──────────────────────────────────────────
+// â”€â”€ Progress chart (mini sparkline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ProgressSparkline({ sessions }) {
   if (sessions.length < 2) return null;
   const data = sessions.slice().sort((a,b) => a.date.localeCompare(b.date)).slice(-12);
@@ -356,7 +356,7 @@ function ProgressSparkline({ sessions }) {
 
   return (
     <div style={{ marginTop:16 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontFamily:T.fB }}>Evolución (últimas {data.length} sesiones)</div>
+      <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontFamily:T.fB }}>EvoluciÃ³n (Ãºltimas {data.length} sesiones)</div>
       <div style={{ background:T.cardAlt, borderRadius:10, padding:"12px 16px" }}>
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display:"block" }}>
           {[1,2,3,4].map(v => (
@@ -374,7 +374,7 @@ function ProgressSparkline({ sessions }) {
         <div style={{ display:"flex", gap:16, marginTop:8 }}>
           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
             <div style={{ width:20, height:2.5, background:T.acc, borderRadius:2 }}/>
-            <span style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>Estado ánimo</span>
+            <span style={{ fontFamily:T.fB, fontSize:11, color:T.tm }}>Estado Ã¡nimo</span>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
             <div style={{ width:20, height:2.5, background:T.p, borderRadius:2 }}/>
@@ -386,14 +386,14 @@ function ProgressSparkline({ sessions }) {
   );
 }
 
-// ── Print expediente ──────────────────────────────────────────────────────────
+// â”€â”€ Print expediente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function exportExpediente(patient, sessions, payments, profile) {
   const ptS = sessions.filter(s => s.patientId === patient.id).sort((a,b) => a.date.localeCompare(b.date));
   const ptP = payments.filter(p => p.patientId === patient.id);
   const totalPaid = ptP.filter(p => p.status==="pagado").reduce((s,p) => s+Number(p.amount), 0);
   const today = new Date().toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"});
   const w = window.open("","_blank");
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Expediente — ${patient.name}</title>
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Expediente â€” ${patient.name}</title>
 <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;color:#1A2B28;line-height:1.65}
 h1{font-size:28px;font-weight:400;margin-bottom:4px}h2{font-size:17px;font-weight:600;border-bottom:1px solid #D8E2E0;padding-bottom:6px;margin:28px 0 14px}
 .meta{color:#5A7270;font-size:14px;margin-bottom:20px}.chip{display:inline-block;padding:2px 8px;border-radius:4px;background:#EDF1F0;font-size:12px;font-family:monospace;margin-right:6px}
@@ -401,20 +401,20 @@ h1{font-size:28px;font-weight:400;margin-bottom:4px}h2{font-size:17px;font-weigh
 .footer{margin-top:40px;padding-top:16px;border-top:1px solid #D8E2E0;font-size:11px;color:#9BAFAD;text-align:right}
 </style></head><body>
 <h1>${patient.name}</h1>
-<div class="meta">${patient.age ? patient.age+" años · " : ""}Expediente generado el ${today}${profile?.name ? " · " + profile.name : ""}</div>
+<div class="meta">${patient.age ? patient.age+" aÃ±os Â· " : ""}Expediente generado el ${today}${profile?.name ? " Â· " + profile.name : ""}</div>
 ${patient.diagnosis ? `<div><span class="chip">${patient.cie11Code||"Dx"}</span>${patient.diagnosis}</div>` : ""}
 ${patient.reason ? `<h2>Motivo de consulta</h2><p>${patient.reason}</p>` : ""}
 <h2>Sesiones (${ptS.length})</h2>
-${ptS.map(s => `<div class="sess"><div class="date">${fmtDate(s.date)} · ${s.duration} min · ${s.progress||""} · ${s.mood||""}</div><div class="notes">${(s.notes||"").replace(/\[(?:S|D|A|P|B|I|R)\]\s*/g,"")}</div></div>`).join("")}
+${ptS.map(s => `<div class="sess"><div class="date">${fmtDate(s.date)} Â· ${s.duration} min Â· ${s.progress||""} Â· ${s.mood||""}</div><div class="notes">${(s.notes||"").replace(/\[(?:S|D|A|P|B|I|R)\]\s*/g,"")}</div></div>`).join("")}
 <h2>Resumen financiero</h2>
 <p>Total pagado: <strong>$${totalPaid.toLocaleString("es-MX")}</strong> en ${ptP.filter(p=>p.status==="pagado").length} registros</p>
-<div class="footer"><span>${patient.name} · ${today}</span></div>
+<div class="footer"><span>${patient.name} Â· ${today}</span></div>
 </body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 600);
 }
 
-// ── Tab de tareas del paciente ────────────────────────────────────────────────
+// â”€â”€ Tab de tareas del paciente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PatientTasksTab({ patient, sessions }) {
   const [tasks,         setTasks]         = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -456,15 +456,15 @@ function PatientTasksTab({ patient, sessions }) {
 
   if (loadErr) return (
     <div style={{ padding:"16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err, textAlign:"center" }}>
-      No se pudieron cargar las tareas. Verifica tu conexión.
+      No se pudieron cargar las tareas. Verifica tu conexiÃ³n.
     </div>
   );
 
   if (tasks.length === 0) return (
     <div style={{ textAlign:"center", padding:"40px 0", color:T.tl, fontFamily:T.fB }}>
-      <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
-      <div style={{ fontSize:14, color:T.tm }}>Sin tareas asignadas aún</div>
-      <div style={{ fontSize:12, marginTop:4 }}>Las tareas se asignan al registrar una sesión</div>
+      <div style={{ fontSize:36, marginBottom:12 }}>ðŸ“‹</div>
+      <div style={{ fontSize:14, color:T.tm }}>Sin tareas asignadas aÃºn</div>
+      <div style={{ fontSize:12, marginTop:4 }}>Las tareas se asignan al registrar una sesiÃ³n</div>
     </div>
   );
 
@@ -472,13 +472,13 @@ function PatientTasksTab({ patient, sessions }) {
     <div>
       {Object.entries(grouped).map(([sessionId, sessionTasks]) => {
         const session = sessions?.find(s => s.id === sessionId);
-        const label = session ? `Sesión del ${fmtDate(session.date)}` : "Sin sesión asociada";
+        const label = session ? `SesiÃ³n del ${fmtDate(session.date)}` : "Sin sesiÃ³n asociada";
         return (
           <div key={sessionId} style={{ marginBottom:20 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
               <div style={{ height:1, flex:1, background:T.bdrL }}/>
               <span style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", whiteSpace:"nowrap" }}>
-                📅 {label}
+                ðŸ“… {label}
               </span>
               <div style={{ height:1, flex:1, background:T.bdrL }}/>
             </div>
@@ -487,11 +487,11 @@ function PatientTasksTab({ patient, sessions }) {
               const done = t.status === "completed";
               return (
                 <div key={t.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, marginBottom:8, background: done ? T.sucA : "rgba(184,144,10,0.06)", border:`1.5px solid ${done ? T.suc+"40" : "rgba(184,144,10,0.25)"}` }}>
-                  <span style={{ fontSize:22, lineHeight:1 }}>{tpl?.icon || "📋"}</span>
+                  <span style={{ fontSize:22, lineHeight:1 }}>{tpl?.icon || "ðŸ“‹"}</span>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{t.title}</div>
                     <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>
-                      {done ? `✅ Completada ${fmtDate(t.completed_at?.split("T")[0])}` : `⏳ Pendiente · Asignada ${fmtDate(t.assigned_at?.split("T")[0])}`}
+                      {done ? `âœ… Completada ${fmtDate(t.completed_at?.split("T")[0])}` : `â³ Pendiente Â· Asignada ${fmtDate(t.assigned_at?.split("T")[0])}`}
                     </div>
                   </div>
                   {done && (
@@ -508,7 +508,7 @@ function PatientTasksTab({ patient, sessions }) {
       })}
 
       {viewResponse && (
-        <Modal open onClose={() => setViewResponse(null)} title={`Respuestas — ${viewResponse.title}`} width={500}>
+        <Modal open onClose={() => setViewResponse(null)} title={`Respuestas â€” ${viewResponse.title}`} width={500}>
           {loadingResp ? (
             <div style={{ textAlign:"center", padding:32 }}>
               <div style={{ width:28, height:28, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto", animation:"spin .8s linear infinite" }}/>
@@ -545,7 +545,7 @@ function PatientTasksTab({ patient, sessions }) {
   );
 }
 
-// ── AnamnesisTab ──────────────────────────────────────────────────────────────
+// â”€â”€ AnamnesisTab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ANAMNESIS_BLANK = {
   fechaPrimeraConsulta: "",
   motivoConsulta: "",
@@ -636,38 +636,38 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
           display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
           background:T.pA, border:`1.5px solid ${T.p}40`, borderRadius:10, marginBottom:16
         }}>
-          <span style={{ fontSize:18 }}>🔄</span>
+          <span style={{ fontSize:18 }}>ðŸ”„</span>
           <div>
             <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:T.p }}>
-              Reingreso — {fmtDate(existing.reingresoDate)}
+              Reingreso â€” {fmtDate(existing.reingresoDate)}
             </div>
             <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm }}>
-              Esta anamnesis fue iniciada en el reingreso del paciente. Completa los campos con la nueva información clínica.
+              Esta anamnesis fue iniciada en el reingreso del paciente. Completa los campos con la nueva informaciÃ³n clÃ­nica.
             </div>
           </div>
         </div>
       )}
 
-      <AnamnesisSection title="1 · Primera impresión">
+      <AnamnesisSection title="1 Â· Primera impresiÃ³n">
         <AField label="Fecha de primera consulta">
           <input type="date" value={form.fechaPrimeraConsulta} onChange={fld("fechaPrimeraConsulta")} style={aInput}/>
         </AField>
         <AField label="Motivo de consulta ampliado">
-          <textarea rows={4} value={form.motivoConsulta} onChange={fld("motivoConsulta")} placeholder="Descripción detallada del motivo de consulta según el paciente..." style={aTextarea(4)}/>
+          <textarea rows={4} value={form.motivoConsulta} onChange={fld("motivoConsulta")} placeholder="DescripciÃ³n detallada del motivo de consulta segÃºn el paciente..." style={aTextarea(4)}/>
         </AField>
-        <AField label="Observaciones clínicas iniciales">
-          <textarea rows={3} value={form.observacionesIniciales} onChange={fld("observacionesIniciales")} placeholder="Apariencia, actitud, nivel de comunicación, estado afectivo observable..." style={aTextarea(3)}/>
+        <AField label="Observaciones clÃ­nicas iniciales">
+          <textarea rows={3} value={form.observacionesIniciales} onChange={fld("observacionesIniciales")} placeholder="Apariencia, actitud, nivel de comunicaciÃ³n, estado afectivo observable..." style={aTextarea(3)}/>
         </AField>
       </AnamnesisSection>
 
-      <AnamnesisSection title="2 · Antecedentes personales" defaultOpen={false}>
-        <AField label="Antecedentes médicos relevantes">
-          <textarea rows={3} value={form.antMedicos} onChange={fld("antMedicos")} placeholder="Enfermedades crónicas, cirugías, hospitalizaciones, alergias..." style={aTextarea(3)}/>
+      <AnamnesisSection title="2 Â· Antecedentes personales" defaultOpen={false}>
+        <AField label="Antecedentes mÃ©dicos relevantes">
+          <textarea rows={3} value={form.antMedicos} onChange={fld("antMedicos")} placeholder="Enfermedades crÃ³nicas, cirugÃ­as, hospitalizaciones, alergias..." style={aTextarea(3)}/>
         </AField>
-        <AField label="Antecedentes psiquiátricos / tratamientos previos">
-          <textarea rows={3} value={form.antPsiquiatricos} onChange={fld("antPsiquiatricos")} placeholder="Diagnósticos previos, psicoterapias anteriores, internamientos..." style={aTextarea(3)}/>
+        <AField label="Antecedentes psiquiÃ¡tricos / tratamientos previos">
+          <textarea rows={3} value={form.antPsiquiatricos} onChange={fld("antPsiquiatricos")} placeholder="DiagnÃ³sticos previos, psicoterapias anteriores, internamientos..." style={aTextarea(3)}/>
         </AField>
-        <AField label="Medicación actual">
+        <AField label="MedicaciÃ³n actual">
           <textarea rows={2} value={form.medicacionActual} onChange={fld("medicacionActual")} placeholder="Nombre, dosis y prescriptor..." style={aTextarea(2)}/>
         </AField>
         <AField label="Consumo de sustancias">
@@ -684,32 +684,32 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
         </AField>
       </AnamnesisSection>
 
-      <AnamnesisSection title="3 · Antecedentes familiares" defaultOpen={false}>
+      <AnamnesisSection title="3 Â· Antecedentes familiares" defaultOpen={false}>
         <AField label="Historia familiar relevante">
-          <textarea rows={3} value={form.historiaFamiliar} onChange={fld("historiaFamiliar")} placeholder="Dinámica familiar, eventos significativos, estructura familiar..." style={aTextarea(3)}/>
+          <textarea rows={3} value={form.historiaFamiliar} onChange={fld("historiaFamiliar")} placeholder="DinÃ¡mica familiar, eventos significativos, estructura familiar..." style={aTextarea(3)}/>
         </AField>
         <AField label="Enfermedades mentales en familia">
-          <textarea rows={2} value={form.enfermedadesFamiliares} onChange={fld("enfermedadesFamiliares")} placeholder="Diagnósticos conocidos en familiares de primer y segundo grado..." style={aTextarea(2)}/>
+          <textarea rows={2} value={form.enfermedadesFamiliares} onChange={fld("enfermedadesFamiliares")} placeholder="DiagnÃ³sticos conocidos en familiares de primer y segundo grado..." style={aTextarea(2)}/>
         </AField>
       </AnamnesisSection>
 
-      <AnamnesisSection title="4 · Contexto actual" defaultOpen={false}>
-        <AField label="Situación laboral / escolar">
-          <input value={form.situacionLaboral} onChange={fld("situacionLaboral")} placeholder="Ocupación, nivel de estudios, situación actual..." style={aInput}/>
+      <AnamnesisSection title="4 Â· Contexto actual" defaultOpen={false}>
+        <AField label="SituaciÃ³n laboral / escolar">
+          <input value={form.situacionLaboral} onChange={fld("situacionLaboral")} placeholder="OcupaciÃ³n, nivel de estudios, situaciÃ³n actual..." style={aInput}/>
         </AField>
-        <AField label="Situación familiar / relaciones">
-          <textarea rows={3} value={form.situacionFamiliar} onChange={fld("situacionFamiliar")} placeholder="Estado civil, hijos, relación con familia de origen, pareja..." style={aTextarea(3)}/>
+        <AField label="SituaciÃ³n familiar / relaciones">
+          <textarea rows={3} value={form.situacionFamiliar} onChange={fld("situacionFamiliar")} placeholder="Estado civil, hijos, relaciÃ³n con familia de origen, pareja..." style={aTextarea(3)}/>
         </AField>
         <AField label="Red de apoyo">
           <textarea rows={2} value={form.redApoyo} onChange={fld("redApoyo")} placeholder="Personas de confianza, grupos de apoyo, recursos disponibles..." style={aTextarea(2)}/>
         </AField>
       </AnamnesisSection>
 
-      <AnamnesisSection title="5 · Observaciones del psicólogo" defaultOpen={false}>
-        <AField label="Impresión diagnóstica inicial">
-          <textarea rows={3} value={form.impresionDiagnostica} onChange={fld("impresionDiagnostica")} placeholder="Hipótesis diagnóstica preliminar basada en la primera impresión clínica..." style={aTextarea(3)}/>
+      <AnamnesisSection title="5 Â· Observaciones del psicÃ³logo" defaultOpen={false}>
+        <AField label="ImpresiÃ³n diagnÃ³stica inicial">
+          <textarea rows={3} value={form.impresionDiagnostica} onChange={fld("impresionDiagnostica")} placeholder="HipÃ³tesis diagnÃ³stica preliminar basada en la primera impresiÃ³n clÃ­nica..." style={aTextarea(3)}/>
         </AField>
-        <AField label="Hipótesis de trabajo">
+        <AField label="HipÃ³tesis de trabajo">
           <textarea rows={3} value={form.hipotesisTrabajo} onChange={fld("hipotesisTrabajo")} placeholder="Modelo explicativo del problema, factores predisponentes, desencadenantes y mantenedores..." style={aTextarea(3)}/>
         </AField>
       </AnamnesisSection>
@@ -733,11 +733,11 @@ function AnamnesisTab({ patient, setPatients, todayStr }) {
   );
 }
 
-// ── Motivos de alta ───────────────────────────────────────────────────────────
+// â”€â”€ Motivos de alta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MOTIVO_ALTA_OPTIONS = [
-  { value: "logros",     label: "Objetivos terapéuticos logrados"  },
+  { value: "logros",     label: "Objetivos terapÃ©uticos logrados"  },
   { value: "voluntaria", label: "Alta voluntaria del paciente"      },
-  { value: "derivacion", label: "Derivación a otro profesional"     },
+  { value: "derivacion", label: "DerivaciÃ³n a otro profesional"     },
   { value: "otros",      label: "Otros"                             },
 ];
 
@@ -750,7 +750,7 @@ const BLANK_ALTA = {
   referProfessional: "",
 };
 
-// ── Protocolo de Alta Modal ───────────────────────────────────────────────────
+// â”€â”€ Protocolo de Alta Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm }) {
   const [form, setForm] = useState(BLANK_ALTA);
   const fld = k => e => {
@@ -782,7 +782,7 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="🎓 Protocolo de Alta" width={540}>
+    <Modal open={open} onClose={onClose} title="ðŸŽ“ Protocolo de Alta" width={540}>
       {sectionHead(1, "Nota de Alta")}
 
       <div style={{ marginBottom:12 }}>
@@ -790,7 +790,7 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
           Observaciones finales y estado del paciente al egreso *
         </label>
         <textarea rows={4} value={form.observaciones} onChange={fld("observaciones")}
-          placeholder="Describe el estado actual del paciente, logros alcanzados y condición de egreso..."
+          placeholder="Describe el estado actual del paciente, logros alcanzados y condiciÃ³n de egreso..."
           style={{ ...taStyle, borderColor: form.observaciones.trim() ? T.bdr : T.err+"60" }}/>
         {!form.observaciones.trim() && (
           <div style={{ fontFamily:T.fB, fontSize:11, color:T.err, marginTop:4 }}>Campo requerido</div>
@@ -823,8 +823,8 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
           <input type="checkbox" checked={form.genInforme} onChange={fld("genInforme")}
             style={{ marginTop:2, accentColor:T.p, width:16, height:16, flexShrink:0 }}/>
           <div>
-            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Generar Informe de Alta Terapéutica</div>
-            <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>PDF con resumen del proceso, objetivos, evolución y recomendaciones</div>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Generar Informe de Alta TerapÃ©utica</div>
+            <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:2 }}>PDF con resumen del proceso, objetivos, evoluciÃ³n y recomendaciones</div>
           </div>
         </label>
 
@@ -843,13 +843,13 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
               Profesional de referencia
             </label>
             <input value={form.referProfessional} onChange={fld("referProfessional")}
-              placeholder="Ej. Dr. Carlos Ruiz · Psiquiatría · IMSS Cancún"
+              placeholder="Ej. Dr. Carlos Ruiz Â· PsiquiatrÃ­a Â· IMSS CancÃºn"
               style={{ width:"100%", padding:"9px 13px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
           </div>
         )}
       </div>
 
-      {sectionHead(3, "Confirmación")}
+      {sectionHead(3, "ConfirmaciÃ³n")}
 
       <div style={{ padding:"14px 16px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:12, marginBottom:20 }}>
         <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>
@@ -858,7 +858,7 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           <div>
             <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Paciente</div>
-            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{patient?.name || "—"}</div>
+            <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>{patient?.name || "â€”"}</div>
           </div>
           <div>
             <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Total de sesiones</div>
@@ -866,13 +866,13 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
           </div>
           {firstSess && (
             <div>
-              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Primera sesión</div>
+              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Primera sesiÃ³n</div>
               <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(firstSess.date)}</div>
             </div>
           )}
           {lastSess && (
             <div>
-              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Última sesión</div>
+              <div style={{ fontFamily:T.fB, fontSize:10, color:"#4E8B5F", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Ãšltima sesiÃ³n</div>
               <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm }}>{fmtDate(lastSess.date)}</div>
             </div>
           )}
@@ -892,16 +892,16 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
   );
 }
 
-// ── WA Alta Modal ─────────────────────────────────────────────────────────────
+// â”€â”€ WA Alta Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function WaAltaModal({ open, onClose, patient }) {
   const firstName = patient?.name?.split(" ")[0] || "";
-  const msg = `Hola, ${firstName}. 🌟 Ha sido un honor acompañarte en este proceso. Hemos registrado tu alta y queremos desearte mucho éxito en tu camino. Recuerda que aquí estaremos si algún día nos necesitas de nuevo. ¡Cuídate mucho! 💙`;
+  const msg = `Hola, ${firstName}. ðŸŒŸ Ha sido un honor acompaÃ±arte en este proceso. Hemos registrado tu alta y queremos desearte mucho Ã©xito en tu camino. Recuerda que aquÃ­ estaremos si algÃºn dÃ­a nos necesitas de nuevo. Â¡CuÃ­date mucho! ðŸ’™`;
   const waUrl = patient?.phone
     ? `https://wa.me/${patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`
     : "";
 
   return (
-    <Modal open={open} onClose={onClose} title="📱 Mensaje de despedida" width={420}>
+    <Modal open={open} onClose={onClose} title="ðŸ“± Mensaje de despedida" width={420}>
       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:10 }}>
         Puedes enviarle un mensaje de cierre al paciente por WhatsApp:
       </div>
@@ -909,12 +909,12 @@ function WaAltaModal({ open, onClose, patient }) {
         {msg}
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-        {waUrl && (
-          <a href={waUrl} target="_blank" rel="noreferrer"
+        {saved?.patient?.phone && (
+          <button onClick={handleSendWelcomeWhatsApp}
             style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"13px 16px", borderRadius:12, background:"#25D366", color:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, textDecoration:"none" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             Enviar por WhatsApp
-          </a>
+          </button>
         )}
         <Btn variant="ghost" onClick={onClose} style={{ justifyContent:"center" }}>Omitir</Btn>
       </div>
@@ -922,17 +922,17 @@ function WaAltaModal({ open, onClose, patient }) {
   );
 }
 
-// ── Reingreso Modal ───────────────────────────────────────────────────────────
+// â”€â”€ Reingreso Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ReingresoModal({ open, onClose, patient, onConfirm }) {
   const [option,        setOption]        = useState("A");
   const [withAdmission, setWithAdmission] = useState(true);
 
   useEffect(() => { if (open) { setOption("A"); setWithAdmission(true); } }, [open]);
 
-  const dischargeLabel = patient?.discharge?.date ? fmtDate(patient.discharge.date) : "—";
+  const dischargeLabel = patient?.discharge?.date ? fmtDate(patient.discharge.date) : "â€”";
   const dischargeReason = patient?.discharge?.reason
-    ? ({ logros:"Objetivos terapéuticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"Derivación a otro profesional", otros:"Otros" }[patient.discharge.reason] || patient.discharge.reason)
-    : "—";
+    ? ({ logros:"Objetivos terapÃ©uticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"DerivaciÃ³n a otro profesional", otros:"Otros" }[patient.discharge.reason] || patient.discharge.reason)
+    : "â€”";
 
   const radioStyle = (active) => ({
     display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px",
@@ -942,10 +942,10 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
   });
 
   return (
-    <Modal open={open} onClose={onClose} title="🔄 Iniciar Reingreso" width={520}>
+    <Modal open={open} onClose={onClose} title="ðŸ”„ Iniciar Reingreso" width={520}>
       <div style={{ padding:"12px 14px", background:T.sucA, border:`1.5px solid rgba(78,139,95,0.25)`, borderRadius:10, marginBottom:20 }}>
         <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.suc, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Alta previa</div>
-        <div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{dischargeLabel} · {dischargeReason}</div>
+        <div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{dischargeLabel} Â· {dischargeReason}</div>
       </div>
 
       <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>
@@ -955,14 +955,14 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
       <div style={radioStyle(option === "A")} onClick={() => setOption("A")}>
         <input type="radio" checked={option === "A"} onChange={() => setOption("A")} style={{ marginTop:2, accentColor:T.p, flexShrink:0 }}/>
         <div>
-          <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Opción A — Continuar en mismo expediente</div>
+          <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>OpciÃ³n A â€” Continuar en mismo expediente</div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2, lineHeight:1.5 }}>
             El paciente regresa y se reactiva su expediente actual. Se conservan todas las sesiones y pagos anteriores.
           </div>
           {option === "A" && (
             <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:10, cursor:"pointer" }}>
               <input type="checkbox" checked={withAdmission} onChange={e => setWithAdmission(e.target.checked)} style={{ accentColor:T.p }}/>
-              <span style={{ fontFamily:T.fB, fontSize:12.5, color:T.t }}>Resetear Anamnesis para nuevo ciclo terapéutico</span>
+              <span style={{ fontFamily:T.fB, fontSize:12.5, color:T.t }}>Resetear Anamnesis para nuevo ciclo terapÃ©utico</span>
             </label>
           )}
         </div>
@@ -971,9 +971,9 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
       <div style={radioStyle(option === "B")} onClick={() => setOption("B")}>
         <input type="radio" checked={option === "B"} onChange={() => setOption("B")} style={{ marginTop:2, accentColor:T.p, flexShrink:0 }}/>
         <div>
-          <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>Opción B — Crear nuevo expediente vinculado</div>
+          <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t }}>OpciÃ³n B â€” Crear nuevo expediente vinculado</div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:2, lineHeight:1.5 }}>
-            Se crea un expediente nuevo para este ciclo terapéutico. El expediente original queda archivado y vinculado.
+            Se crea un expediente nuevo para este ciclo terapÃ©utico. El expediente original queda archivado y vinculado.
           </div>
         </div>
       </div>
@@ -988,22 +988,22 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
   );
 }
 
-// ── Consent Renewal Modal ─────────────────────────────────────────────────────
+// â”€â”€ Consent Renewal Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ConsentRenewalModal({ open, onClose, patient }) {
   return (
-    <Modal open={open} onClose={onClose} title="⚠️ Consentimiento vencido o pendiente" width={440}>
+    <Modal open={open} onClose={onClose} title="âš ï¸ Consentimiento vencido o pendiente" width={440}>
       <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.7, marginBottom:20 }}>
-        El consentimiento informado de <strong>{patient?.name}</strong> está vencido (más de 12 meses) o no ha sido firmado. Se recomienda renovarlo antes de iniciar el nuevo ciclo.
+        El consentimiento informado de <strong>{patient?.name}</strong> estÃ¡ vencido (mÃ¡s de 12 meses) o no ha sido firmado. Se recomienda renovarlo antes de iniciar el nuevo ciclo.
       </div>
       <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
-        <Btn variant="ghost" onClick={onClose}>Recordar después</Btn>
+        <Btn variant="ghost" onClick={onClose}>Recordar despuÃ©s</Btn>
         <Btn onClick={onClose}><Check size={14}/> Entendido</Btn>
       </div>
     </Modal>
   );
 }
 
-// ── Primer Contacto modal ─────────────────────────────────────────────────────
+// â”€â”€ Primer Contacto modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PrimerContactoModal({ open, onClose, patients, onSave }) {
   const [step,    setStep]    = useState(1);
   const [saved,   setSaved]   = useState(null);
@@ -1040,16 +1040,19 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
 
   const buildWelcomeMsg = () => {
     if (!saved) return "";
-    const phone     = saved.patient.phone;
-    const link      = `${PORTAL_DOMAIN}/portal?phone=${phone}`;
     const firstName = saved.patient.name.split(" ")[0];
     const dateLabel = fmtDate(saved.appointment.date);
     const time      = saved.appointment.time;
-    return `Hola, ${firstName}. 👋 Es un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartimos el enlace para revisar y firmar tu Consentimiento Informado: ${link} ¡Estamos para apoyarte! ✨`;
+    return `Hola, ${firstName}. 👋 Es un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartiremos un enlace temporal y seguro para revisar y firmar tu Consentimiento Informado. ¡Estamos para apoyarte! ✨`;
   };
 
   const msg   = buildWelcomeMsg();
-  const waUrl = saved ? `https://wa.me/${saved.patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}` : "";
+  const handleSendWelcomeWhatsApp = async () => {
+    if (!saved?.patient?.phone) return;
+    const { accessUrl } = await createPortalAccessLink(saved.patient.phone);
+    const finalMessage = `${msg}\n\nAccede desde aquí: ${accessUrl}`;
+    window.open(`https://wa.me/${saved.patient.phone.replace(/\D/g,"")}?text=${encodeURIComponent(finalMessage)}`, "_blank", "noopener,noreferrer");
+  };
 
   const inputStyle = {
     width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`,
@@ -1058,7 +1061,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title={step === 1 ? "✨ Nuevo paciente — Pre-Cita" : "📱 Mensaje de bienvenida"} width={480}>
+    <Modal open={open} onClose={handleClose} title={step === 1 ? "âœ¨ Nuevo paciente â€” Pre-Cita" : "ðŸ“± Mensaje de bienvenida"} width={480}>
 
       {step === 1 && (
         <div>
@@ -1072,12 +1075,12 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
             <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
               Nombre completo *
             </label>
-            <input value={form.name} onChange={fld("name")} placeholder="Ej. María González López" style={inputStyle}/>
+            <input value={form.name} onChange={fld("name")} placeholder="Ej. MarÃ­a GonzÃ¡lez LÃ³pez" style={inputStyle}/>
           </div>
 
           <div style={{ marginBottom: dupWarn ? 8 : 14 }}>
             <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-              Teléfono *
+              TelÃ©fono *
             </label>
             <PhoneInput
               countryCode={form.countryCode}
@@ -1095,16 +1098,16 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
               background:T.warA, border:`1.5px solid ${T.war}60`,
               borderRadius:10, marginBottom:14
             }}>
-              <span style={{ fontSize:16 }}>⚠️</span>
+              <span style={{ fontSize:16 }}>âš ï¸</span>
               <div style={{ flex:1 }}>
                 <span style={{ fontFamily:T.fB, fontSize:13, color:T.war, fontWeight:600 }}>
-                  Ya existe un paciente con este teléfono: <strong>{dupWarn.name}</strong>.
+                  Ya existe un paciente con este telÃ©fono: <strong>{dupWarn.name}</strong>.
                 </span>
                 <br/>
                 <button
                   onClick={() => { handleClose(); onSave({ __navigateTo: dupWarn.id }); }}
                   style={{ background:"none", border:"none", padding:0, fontFamily:T.fB, fontSize:12, color:T.p, textDecoration:"underline", cursor:"pointer", marginTop:3 }}>
-                  ¿Quieres abrir su expediente?
+                  Â¿Quieres abrir su expediente?
                 </button>
               </div>
             </div>
@@ -1149,7 +1152,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20 }}>
             <div style={{ flex:1, height:3, borderRadius:9999, background:T.p }}/>
             <div style={{ flex:1, height:3, borderRadius:9999, background:T.p }}/>
-            <span style={{ fontFamily:T.fB, fontSize:11, color:T.suc, fontWeight:700 }}>✓ Paso 2 de 2</span>
+            <span style={{ fontFamily:T.fB, fontSize:11, color:T.suc, fontWeight:700 }}>âœ“ Paso 2 de 2</span>
           </div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:10 }}>
             Paciente guardado. Puedes enviarle el mensaje de bienvenida con el enlace al consentimiento:
@@ -1158,8 +1161,8 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
             {msg}
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {waUrl && (
-              <a href={waUrl} target="_blank" rel="noreferrer"
+            {saved?.patient?.phone && (
+              <button onClick={handleSendWelcomeWhatsApp}
                 style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8,
                   padding:"13px 16px", borderRadius:12, border:"none",
                   background:"#25D366", color:"#fff",
@@ -1169,7 +1172,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
                 onMouseLeave={e => e.currentTarget.style.opacity="1"}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 Enviar por WhatsApp
-              </a>
+              </button>
             )}
             <Btn variant="ghost" onClick={handleClose} style={{ justifyContent:"center" }}>
               Listo, cerrar
@@ -1181,9 +1184,9 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// ── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
-// ════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// â”€â”€ COMPONENTE PRINCIPAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [], appointments = [], setAppointments }) {
   const [search,       setSearch]       = useState("");
   const [filterChip,   setFilterChip]   = useState("todos");
@@ -1338,7 +1341,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     setPatients(prev => prev.map(p => p.id === id ? { ...p, serviceId, rate } : p));
     setSelected(prev => prev ? { ...prev, serviceId, rate } : prev);
   };
-  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
+  const SERVICE_TYPE_LABEL = { sesion:"SesiÃ³n individual", evaluacion:"EvaluaciÃ³n neuropsicolÃ³gica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
   const togglePayment = id => setPayments(prev => prev.map(p => p.id === id ? { ...p, status: p.status === "pagado" ? "pendiente" : "pagado" } : p));
 
   const confirmAlta = (altaForm) => {
@@ -1370,7 +1373,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         custom: {
           destinatario:        altaForm.referProfessional ? "" : "",
           profesional:         altaForm.referProfessional,
-          motivo:              `Derivación al alta de ${selected.name}. ${altaForm.observaciones}`,
+          motivo:              `DerivaciÃ³n al alta de ${selected.name}. ${altaForm.observaciones}`,
           resumenClinico:      altaForm.observaciones,
           informacionAdicional: altaForm.recomendaciones,
         },
@@ -1429,9 +1432,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     }
   };
 
-  // ════════════════════════════════════════════════════════════════════════
-  // ── VISTA DETALLE ───────────────────────────────────────────────────────
-  // ════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // â”€â”€ VISTA DETALLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (selected) {
     const ptSessions = sessions.filter(s => s.patientId === selected.id).sort((a,b) => b.date.localeCompare(a.date));
     const ptPayments = payments.filter(p => p.patientId === selected.id).sort((a,b) => b.date.localeCompare(a.date));
@@ -1441,7 +1444,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     const tc = TYPE_CONFIG[selected.type || "individual"];
     const anamnesisComplete = selected.anamnesis && Object.values(selected.anamnesis).some(v => v && v !== "ninguno" && v !== fmt(todayDate));
 
-    // ── Tab content ────────────────────────────────────────────────────────
+    // â”€â”€ Tab content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const tabContent = (
       <div style={{ animation:"pc-fadeSlideUp .3s ease both" }}>
         {/* Anamnesis */}
@@ -1453,15 +1456,15 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         {detailTab === "sessions" && (
           ptSessions.length === 0
             ? <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"32px 0", textAlign:"center" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>📝</div>
-                Sin sesiones registradas aún
+                <div style={{ fontSize:28, marginBottom:8 }}>ðŸ“</div>
+                Sin sesiones registradas aÃºn
               </div>
             : ptSessions.map(s => {
               const MI = moodIcon(s.mood); const ps = progressStyle(s.progress);
               return (
                 <div key={s.id} style={{ borderBottom:`1px solid ${T.bdrL}`, paddingBottom:16, marginBottom:16 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                    <span style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{fmtDate(s.date)} · {s.duration} min</span>
+                    <span style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{fmtDate(s.date)} Â· {s.duration} min</span>
                     <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                       <MI size={14} color={moodColor(s.mood)}/>
                       <Badge color={ps.c} bg={ps.bg}>{s.progress}</Badge>
@@ -1469,7 +1472,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   </div>
                   <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, margin:"0 0 8px", lineHeight:1.65 }}>
                     {(s.notes || "").replace(/\[(?:S|D|A|P|B|I|R)\]\s*/g, "").slice(0, 120)}
-                    {(s.notes || "").length > 120 ? "…" : ""}
+                    {(s.notes || "").length > 120 ? "â€¦" : ""}
                   </p>
                   {(s.tags||[]).length > 0 && <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{s.tags.map(t => <Badge key={t} color={T.acc} bg={T.accA}><Tag size={10}/>{t}</Badge>)}</div>}
                 </div>
@@ -1503,7 +1506,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:500, color:T.t }}>{fmtCur(p.amount)}</div>
-                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{fmtDate(p.date)} · {p.concept} · {p.method}</div>
+                    <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{fmtDate(p.date)} Â· {p.concept} Â· {p.method}</div>
                   </div>
                   <button onClick={() => togglePayment(p.id)} style={{ background:p.status==="pagado"?T.sucA:T.warA, border:"none", borderRadius:8, padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:T.fB, color:p.status==="pagado"?T.suc:T.war, fontWeight:600 }}>{p.status}</button>
                 </div>
@@ -1516,7 +1519,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           <div>
             {ptSessions.length < 2 ? (
               <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, padding:"32px 0", textAlign:"center", lineHeight:1.6 }}>
-                Registra al menos 2 sesiones para ver<br/>la evolución clínica del paciente
+                Registra al menos 2 sesiones para ver<br/>la evoluciÃ³n clÃ­nica del paciente
               </div>
             ) : (
               <>
@@ -1561,7 +1564,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
       </div>
     );
 
-    // ── Sidebar clínico (compartido móvil/desktop) ─────────────────────────
+    // â”€â”€ Sidebar clÃ­nico (compartido mÃ³vil/desktop) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const sidebarContent = (
       <div>
         {/* Avatar + nombre */}
@@ -1579,11 +1582,11 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             </select>
             <Badge color={tc.color} bg={tc.bg}>{tc.label}</Badge>
             {selected.linkedTo && (
-              <Badge color={T.p} bg={T.pA}>🔗 Reingreso</Badge>
+              <Badge color={T.p} bg={T.pA}>ðŸ”— Reingreso</Badge>
             )}
           </div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:6 }}>
-            {selected.age ? `${selected.age} años · ` : ""}Desde {fmtDate(selected.createdAt)}
+            {selected.age ? `${selected.age} aÃ±os Â· ` : ""}Desde {fmtDate(selected.createdAt)}
           </div>
         </div>
 
@@ -1603,10 +1606,10 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               <div style={{ fontFamily:T.fB, fontSize:11.5, color:"#B85050", lineHeight:1.55, opacity:0.9, marginBottom:8 }}>
                 Detectado el {selected.activeRiskAlert.date
                   ? new Date(selected.activeRiskAlert.date).toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"})
-                  : "—"}
+                  : "â€”"}
               </div>
               <button onClick={() => {
-                if (confirm(`¿Confirmas que el riesgo de ${selected.name} ha sido evaluado y se encuentra mitigado?`)) {
+                if (confirm(`Â¿Confirmas que el riesgo de ${selected.name} ha sido evaluado y se encuentra mitigado?`)) {
                   mitigateRisk(selected.id);
                 }
               }}
@@ -1660,14 +1663,14 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         {selected.emergencyName && (
           <div style={{ padding:"11px 13px", background:"rgba(184,80,80,0.05)", border:`1.5px solid rgba(184,80,80,0.14)`, borderRadius:11, marginBottom:12 }}>
             <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.err, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
-              🚨 Contacto de emergencia
+              ðŸš¨ Contacto de emergencia
             </div>
             <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:600, color:T.t, marginBottom:2 }}>{selected.emergencyName}</div>
             {selected.emergencyRelation && <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4 }}>{selected.emergencyRelation}</div>}
             {selected.emergencyPhone && (
-              <a href={`tel:${selected.emergencyPhone}`} style={{ fontFamily:T.fB, fontSize:13, color:T.err, fontWeight:600, textDecoration:"none", display:"flex", alignItems:"center", gap:5 }}>
+              <button href={`tel:${selected.emergencyPhone}`} style={{ fontFamily:T.fB, fontSize:13, color:T.err, fontWeight:600, textDecoration:"none", display:"flex", alignItems:"center", gap:5 }}>
                 <Phone size={12}/>{selected.emergencyPhone}
-              </a>
+              </button>
             )}
           </div>
         )}
@@ -1683,20 +1686,20 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               onChange={e => setServiceId(selected.id, e.target.value)}
               style={{ width:"100%", border:`1px solid ${T.bdr}`, borderRadius:8, padding:"6px 10px",
                 fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}>
-              <option value="">— Sin asignar —</option>
+              <option value="">â€” Sin asignar â€”</option>
               {services.filter(s => s.type !== "paquete").map(s => {
                 const label = s.name || SERVICE_TYPE_LABEL[s.type] || s.type;
                 const price = s.modality === "ambas"
                   ? `$${s.price} / $${s.priceVirtual}`
                   : s.modality === "virtual" ? `$${s.priceVirtual}` : `$${s.price}`;
-                return <option key={s.id} value={s.id}>{label} · {price}</option>;
+                return <option key={s.id} value={s.id}>{label} Â· {price}</option>;
               })}
             </select>
           ) : (
             <div style={{ display:"flex", alignItems:"center", gap:6 }}>
               <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>$</span>
               <input type="number" value={selected.rate || ""} onChange={e => setRate(selected.id, e.target.value)}
-                placeholder="—"
+                placeholder="â€”"
                 style={{ flex:1, border:"none", background:"transparent", fontFamily:T.fB, fontSize:13, color:T.t, outline:"none", minWidth:0 }} />
               <span style={{ fontFamily:T.fB, fontSize:11, color:T.tl }}>/ses</span>
             </div>
@@ -1706,18 +1709,18 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             if (!svc) return null;
             return (
               <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginTop:5 }}>
-                {svc.modality === "ambas" && `🏢 $${svc.price} · 💻 $${svc.priceVirtual}`}
-                {svc.modality === "presencial" && `🏢 $${svc.price}`}
-                {svc.modality === "virtual" && `💻 $${svc.priceVirtual}`}
+                {svc.modality === "ambas" && `ðŸ¢ $${svc.price} Â· ðŸ’» $${svc.priceVirtual}`}
+                {svc.modality === "presencial" && `ðŸ¢ $${svc.price}`}
+                {svc.modality === "virtual" && `ðŸ’» $${svc.priceVirtual}`}
               </div>
             );
           })()}
         </div>
 
-        {/* Diagnóstico actual */}
+        {/* DiagnÃ³stico actual */}
         {selected.diagnosis && (
           <div style={{ padding:12, background:T.pA, borderRadius:11, marginBottom:10 }}>
-            <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.p, letterSpacing:"0.08em", marginBottom:6, textTransform:"uppercase" }}>Diagnóstico actual</div>
+            <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.p, letterSpacing:"0.08em", marginBottom:6, textTransform:"uppercase" }}>DiagnÃ³stico actual</div>
             {selected.cie11Code && (
               <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
                 <span style={{ padding:"2px 8px", borderRadius:6, background:"rgba(58,107,110,0.15)", color:T.p, fontSize:10, fontWeight:700, fontFamily:"monospace" }}>{selected.cie11Code}</span>
@@ -1728,10 +1731,10 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           </div>
         )}
 
-        {/* Historial diagnóstico */}
+        {/* Historial diagnÃ³stico */}
         {(selected.diagnosisHistory||[]).length > 1 && (
           <div style={{ padding:"10px 12px", background:T.cardAlt, borderRadius:10, marginBottom:10 }}>
-            <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tm, letterSpacing:"0.08em", marginBottom:8, textTransform:"uppercase" }}>Historial diagnóstico</div>
+            <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.tm, letterSpacing:"0.08em", marginBottom:8, textTransform:"uppercase" }}>Historial diagnÃ³stico</div>
             {[...(selected.diagnosisHistory||[])].reverse().slice(1).map(dx => (
               <div key={dx.id} style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:6, display:"flex", justifyContent:"space-between", gap:8, alignItems:"flex-start" }}>
                 <div>
@@ -1744,7 +1747,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           </div>
         )}
 
-        {/* Agregar diagnóstico */}
+        {/* Agregar diagnÃ³stico */}
         {showAddDx ? (
           <div style={{ padding:12, background:T.cardAlt, borderRadius:10, marginBottom:10 }}>
             <CieDiagnosisField
@@ -1752,7 +1755,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               cie11Code={newDx.cie11Code}
               onChangeDx={v => setNewDx(n=>({...n, diagnosis:v}))}
               onChangeCode={v => setNewDx(n=>({...n, cie11Code:v}))}
-              label="Nuevo diagnóstico"
+              label="Nuevo diagnÃ³stico"
             />
             <input type="date" value={newDx.date} onChange={e => setNewDx(n=>({...n,date:e.target.value}))} style={{ width:"100%", padding:"8px 10px", border:`1.5px solid ${T.bdr}`, borderRadius:8, fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none", boxSizing:"border-box", marginBottom:8 }}/>
             <div style={{ display:"flex", gap:6 }}>
@@ -1762,7 +1765,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           </div>
         ) : (
           <button onClick={() => setShowAddDx(true)} style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 12px", background:"transparent", border:`1.5px dashed ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:12, color:T.p, cursor:"pointer", width:"100%", justifyContent:"center", marginBottom:12 }}>
-            + Actualizar diagnóstico
+            + Actualizar diagnÃ³stico
           </button>
         )}
 
@@ -1803,22 +1806,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           ) : (
             <div style={{ padding:"12px 14px", background:"rgba(78,139,95,0.07)", border:`1.5px solid rgba(78,139,95,0.2)`, borderRadius:10 }}>
               <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:"#4E8B5F", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-                🎓 Registro de Alta
+                ðŸŽ“ Registro de Alta
               </div>
               {selected.discharge?.reason && (
                 <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginBottom:4 }}>
-                  {({ logros:"Objetivos logrados", voluntaria:"Alta voluntaria", derivacion:"Derivación a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason)}
+                  {({ logros:"Objetivos logrados", voluntaria:"Alta voluntaria", derivacion:"DerivaciÃ³n a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason)}
                 </div>
               )}
               {selected.discharge?.notes && (
                 <div style={{ fontFamily:T.fB, fontSize:12, color:T.t, lineHeight:1.55, marginBottom:10 }}>
-                  {selected.discharge.notes.slice(0, 100)}{selected.discharge.notes.length > 100 ? "…" : ""}
+                  {selected.discharge.notes.slice(0, 100)}{selected.discharge.notes.length > 100 ? "â€¦" : ""}
                 </div>
               )}
               {selected.reingreso && (
                 <div style={{ padding:"6px 10px", background:T.pA, borderRadius:8, marginBottom:8 }}>
                   <div style={{ fontFamily:T.fB, fontSize:10, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:2 }}>Reingreso previo</div>
-                  <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm }}>{fmtDate(selected.reingreso.date)} · Opción {selected.reingreso.option}</div>
+                  <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm }}>{fmtDate(selected.reingreso.date)} Â· OpciÃ³n {selected.reingreso.option}</div>
                 </div>
               )}
               <button
@@ -1829,7 +1832,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer", transition:"opacity .15s" }}
                 onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
                 onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-                🔄 Iniciar Reingreso
+                ðŸ”„ Iniciar Reingreso
               </button>
             </div>
           )}
@@ -1872,7 +1875,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               cursor:"pointer", transition:"all .15s", marginBottom:8 }}
             onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
-            ✏️ Editar expediente completo
+            âœï¸ Editar expediente completo
           </button>
         </div>
 
@@ -1880,7 +1883,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         <div style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${T.bdrL}` }}>
           <button
             onClick={() => {
-              if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
+              if (confirm(`Â¿Eliminar el expediente de ${selected.name}? Esta acciÃ³n no se puede deshacer.`)) {
                 del(selected.id);
               }
             }}
@@ -1898,16 +1901,16 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     );
 
     const tabList = [
-      { id:"anamnesis",   label: anamnesisComplete ? "Anamnesis ✅" : "Anamnesis 🟠" },
+      { id:"anamnesis",   label: anamnesisComplete ? "Anamnesis âœ…" : "Anamnesis ðŸŸ " },
       { id:"sessions",    label:`Sesiones (${ptSessions.length})`  },
       { id:"payments",    label:`Pagos (${ptPayments.length})`     },
       { id:"progress",    label:"Progreso"                         },
       { id:"contacts",    label:`Contactos (${(interSessions||[]).filter(c=>c.patientId===selected.id).length})` },
-      { id:"medications", label:`Medicación (${(medications||[]).filter(m=>m.patientId===selected.id&&m.status==="activo").length})` },
+      { id:"medications", label:`MedicaciÃ³n (${(medications||[]).filter(m=>m.patientId===selected.id&&m.status==="activo").length})` },
       { id:"tasks",       label:"Tareas" },
     ];
 
-    // ── Alta banner (top) ─────────────────────────────────────────────────
+    // â”€â”€ Alta banner (top) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const altaBanner = selected.status === "alta" && selected.discharge ? (
       <div style={{
         display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12,
@@ -1915,13 +1918,13 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         background:"rgba(78,139,95,0.07)", border:"1.5px solid rgba(78,139,95,0.25)", borderRadius:12,
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:18 }}>🎓</span>
+          <span style={{ fontSize:18 }}>ðŸŽ“</span>
           <div>
             <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:"#4E8B5F", marginBottom:2 }}>
               Paciente dado de alta el {fmtDate(selected.discharge.date)}.
             </div>
             <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>
-              Motivo: {({ logros:"Objetivos terapéuticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"Derivación a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason || "—")}
+              Motivo: {({ logros:"Objetivos terapÃ©uticos logrados", voluntaria:"Alta voluntaria del paciente", derivacion:"DerivaciÃ³n a otro profesional", otros:"Otros" }[selected.discharge.reason] || selected.discharge.reason || "â€”")}
             </div>
           </div>
         </div>
@@ -1933,12 +1936,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             boxShadow:"0 2px 8px rgba(78,139,95,0.28)", transition:"opacity .15s", flexShrink:0 }}
           onMouseEnter={e => e.currentTarget.style.opacity="0.88"}
           onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-          🔄 Iniciar Reingreso
+          ðŸ”„ Iniciar Reingreso
         </button>
       </div>
     ) : null;
 
-    // ── MOBILE detail layout ───────────────────────────────────────────────
+    // â”€â”€ MOBILE detail layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (isMobile) {
       return (
         <div style={{ animation:"pc-fadeSlideUp .25s ease both" }}>
@@ -1980,7 +1983,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   style={{ display:"flex", alignItems:"center", gap:5, background:T.acc,
                     border:"none", borderRadius:8, padding:"6px 12px",
                     fontFamily:T.fB, fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer" }}>
-                  <Plus size={12}/> Sesión
+                  <Plus size={12}/> SesiÃ³n
                 </button>
               </div>
             </div>
@@ -1996,7 +1999,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   {selected.name}
                 </h2>
                 <div style={{ fontFamily:T.fB, fontSize:12, color:"rgba(255,255,255,0.45)", marginTop:3 }}>
-                  {selected.age ? `${selected.age} años · ` : ""}{fmtDate(selected.createdAt)}
+                  {selected.age ? `${selected.age} aÃ±os Â· ` : ""}{fmtDate(selected.createdAt)}
                 </div>
                 <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
                   <span style={{ padding:"4px 11px", borderRadius:9999, fontFamily:T.fB, fontSize:11.5, fontWeight:700, background:sc.bg, color:sc.color }}>{sc.label}</span>
@@ -2035,7 +2038,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           <div style={{ marginTop:24, paddingTop:16, borderTop:`1.5px solid ${T.bdrL}` }}>
             <details>
               <summary style={{ fontFamily:T.fB, fontSize:12, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.08em", cursor:"pointer", listStyle:"none", display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:12 }}>
-                <span>Información del expediente</span>
+                <span>InformaciÃ³n del expediente</span>
                 <ChevronDown size={14} color={T.tl}/>
               </summary>
               <div style={{ paddingTop:8 }}>
@@ -2053,7 +2056,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
       );
     }
 
-    // ── DESKTOP/TABLET detail layout ───────────────────────────────────────
+    // â”€â”€ DESKTOP/TABLET detail layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return (
       <div style={{ animation:"pc-fadeSlideUp .25s ease both" }}>
         {/* Toasts */}
@@ -2107,7 +2110,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                 fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer", transition:"opacity .15s" }}
               onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
               onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-              <Plus size={14}/> Nueva sesión
+              <Plus size={14}/> Nueva sesiÃ³n
             </button>
           </div>
         </div>
@@ -2118,7 +2121,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         {/* 2-column layout */}
         <div style={{ display:"grid", gridTemplateColumns:"minmax(0,280px) 1fr", gap:20, alignItems:"start" }}>
 
-          {/* Sidebar clínico */}
+          {/* Sidebar clÃ­nico */}
           <Card style={{ padding:20, position:"sticky", top:0, maxHeight:"calc(100vh - 120px)", overflowY:"auto" }}>
             {sidebarContent}
           </Card>
@@ -2139,11 +2142,11 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════
-  // ── VISTA LISTA ─────────────────────────────────────────────────────────
-  // ════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // â”€â”€ VISTA LISTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-  // ── MOBILE list ───────────────────────────────────────────────────────────
+  // â”€â”€ MOBILE list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (isMobile) {
     return (
       <div style={{ margin:"-16px -16px 0" }}>
@@ -2153,7 +2156,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             <div>
               <div style={{ fontFamily:T.fH, fontSize:26, fontWeight:400, color:"rgba(255,255,255,0.92)" }}>Pacientes</div>
               <div style={{ fontFamily:T.fB, fontSize:12, color:"rgba(255,255,255,0.38)", marginTop:1 }}>
-                {patients.length} expediente{patients.length!==1?"s":""} · {patients.filter(p=>(p.status||"activo")==="activo").length} activos
+                {patients.length} expediente{patients.length!==1?"s":""} Â· {patients.filter(p=>(p.status||"activo")==="activo").length} activos
               </div>
             </div>
             <button onClick={() => setShowPC(true)}
@@ -2166,7 +2169,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           <div style={{ position:"relative" }}>
             <Search size={15} style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"rgba(255,255,255,0.35)", pointerEvents:"none" }}/>
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o diagnóstico…"
+              placeholder="Buscar por nombre o diagnÃ³sticoâ€¦"
               style={{ width:"100%", padding:"11px 14px 11px 38px", background:"rgba(255,255,255,0.09)",
                 border:"1.5px solid rgba(255,255,255,0.12)", borderRadius:12,
                 fontFamily:T.fB, fontSize:14, color:"rgba(255,255,255,0.85)", outline:"none", boxSizing:"border-box" }}/>
@@ -2176,11 +2179,11 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         {/* Chips de filtro */}
         <div style={{ display:"flex", gap:7, padding:"10px 16px", overflowX:"auto", background:T.bg, WebkitOverflowScrolling:"touch", borderBottom:`1px solid ${T.bdrL}` }}>
           {[
-            { id:"todos",    label:`Todos · ${patients.length}` },
-            { id:"activos",  label:`Activos · ${chipCounts.activos}`, dot:T.suc },
-            { id:"riesgo",   label:`Riesgo · ${chipCounts.riesgo}`, pulse:true },
-            { id:"conSaldo", label:`💲 Saldo · ${chipCounts.conSaldo}` },
-            { id:"alta",     label:`Alta · ${chipCounts.alta}` },
+            { id:"todos",    label:`Todos Â· ${patients.length}` },
+            { id:"activos",  label:`Activos Â· ${chipCounts.activos}`, dot:T.suc },
+            { id:"riesgo",   label:`Riesgo Â· ${chipCounts.riesgo}`, pulse:true },
+            { id:"conSaldo", label:`ðŸ’² Saldo Â· ${chipCounts.conSaldo}` },
+            { id:"alta",     label:`Alta Â· ${chipCounts.alta}` },
           ].map(chip => {
             const active = filterChip === chip.id;
             return (
@@ -2214,7 +2217,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             const isHighRisk  = (latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente")) || !!(p.activeRiskAlert);
             const avatarBg    = isHighRisk ? "rgba(184,80,80,0.1)" : T.pA;
             const avatarColor = isHighRisk ? T.err : T.p;
-            const diagShort   = p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim().slice(0, 42) : null;
+            const diagShort   = p.diagnosis ? p.diagnosis.split("â€”")[0].split("(")[0].trim().slice(0, 42) : null;
 
             return (
               <div key={p.id}
@@ -2244,7 +2247,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                       <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
                     </div>
                     <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:3 }}>
-                      {p.age ? `${p.age} años · ` : ""}{ptSess.length} ses.{hasPend ? ` · ` : ""}
+                      {p.age ? `${p.age} aÃ±os Â· ` : ""}{ptSess.length} ses.{hasPend ? ` Â· ` : ""}
                       {hasPend && <span style={{ color:T.war, fontWeight:700 }}>Saldo ${fmtCur ? fmtCur(pendAmt) : pendAmt.toLocaleString("es-MX")}</span>}
                     </div>
                     {diagShort && (
@@ -2267,7 +2270,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                       background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12.5, fontWeight:700, cursor:"pointer", transition:"opacity .13s" }}
                     onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
                     onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-                    + Sesión
+                    + SesiÃ³n
                   </button>
                 </div>
               </div>
@@ -2292,22 +2295,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               ))}
             </div>
           </div>
-          <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. García-López (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad — Cohorte 1":"Ej. María González López"}/>
+          <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. GarcÃ­a-LÃ³pez (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad â€” Cohorte 1":"Ej. MarÃ­a GonzÃ¡lez LÃ³pez"}/>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div style={{ marginBottom:0 }}>
               <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
                 Fecha de nacimiento
-                {form.birthdate && <span style={{ marginLeft:8, fontWeight:700, color:T.p, textTransform:"none", letterSpacing:0, fontSize:12 }}>· {calcAge(form.birthdate)} años</span>}
+                {form.birthdate && <span style={{ marginLeft:8, fontWeight:700, color:T.p, textTransform:"none", letterSpacing:0, fontSize:12 }}>Â· {calcAge(form.birthdate)} aÃ±os</span>}
               </label>
               <input type="date" value={form.birthdate} onChange={e => fld("birthdate")(e.target.value)}
                 style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
                   fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
             </div>
-            <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
+            <Input label="Correo electrÃ³nico" value={form.email} onChange={fld("email")} type="email"/>
           </div>
           <div style={{ marginBottom:12 }}>
             <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-              Teléfono
+              TelÃ©fono
             </label>
             <PhoneInput
               countryCode={form.countryCode}
@@ -2320,20 +2323,20 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             <Textarea
               label={form.type === "pareja" ? "Nombre de los participantes (pareja)" : "Integrantes del grupo"}
               value={form.coParticipants} onChange={fld("coParticipants")} rows={2}
-              placeholder={form.type === "pareja" ? "Ej. Carlos Méndez y Ana Ríos" : "Ej. Carlos M., Ana R., Luis P. (4 integrantes)"}
+              placeholder={form.type === "pareja" ? "Ej. Carlos MÃ©ndez y Ana RÃ­os" : "Ej. Carlos M., Ana R., Luis P. (4 integrantes)"}
             />
           )}
-          <CieDiagnosisField value={form.diagnosis} cie11Code={form.cie11Code} onChangeDx={fld("diagnosis")} onChangeCode={fld("cie11Code")} label="Diagnóstico"/>
+          <CieDiagnosisField value={form.diagnosis} cie11Code={form.cie11Code} onChangeDx={fld("diagnosis")} onChangeCode={fld("cie11Code")} label="DiagnÃ³stico"/>
           <Textarea label="Motivo de consulta" value={form.reason} onChange={fld("reason")} rows={2}/>
           <Textarea label="Notas adicionales" value={form.notes} onChange={fld("notes")} rows={2}/>
           <div style={{ borderTop:`1px solid ${T.bdrL}`, paddingTop:16, marginTop:4 }}>
             <div style={{ fontSize:11, fontWeight:700, color:T.err, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12, display:"flex", alignItems:"center", gap:6 }}>
-              🚨 Contacto de emergencia <span style={{ fontWeight:400, color:T.tl, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
+              ðŸš¨ Contacto de emergencia <span style={{ fontWeight:400, color:T.tl, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
             </div>
-            <Input label="Nombre" value={form.emergencyName} onChange={fld("emergencyName")} placeholder="Ej. Ana García"/>
+            <Input label="Nombre" value={form.emergencyName} onChange={fld("emergencyName")} placeholder="Ej. Ana GarcÃ­a"/>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              <Input label="Teléfono" value={form.emergencyPhone} onChange={fld("emergencyPhone")} placeholder="998-123-4567"/>
-              <Input label="Parentesco / relación" value={form.emergencyRelation} onChange={fld("emergencyRelation")} placeholder="Madre, pareja, amigo..."/>
+              <Input label="TelÃ©fono" value={form.emergencyPhone} onChange={fld("emergencyPhone")} placeholder="998-123-4567"/>
+              <Input label="Parentesco / relaciÃ³n" value={form.emergencyRelation} onChange={fld("emergencyRelation")} placeholder="Madre, pareja, amigo..."/>
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -2348,16 +2351,16 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                   }}
                   style={{ width:"100%", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:"10px 12px",
                     fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}>
-                  <option value="">— Sin asignar —</option>
+                  <option value="">â€” Sin asignar â€”</option>
                   {services.filter(s => s.type !== "paquete").map(s => {
                     const label = s.name || SERVICE_TYPE_LABEL[s.type] || s.type;
                     const price = s.modality === "ambas" ? `$${s.price}/$${s.priceVirtual}` : s.modality === "virtual" ? `$${s.priceVirtual}` : `$${s.price}`;
-                    return <option key={s.id} value={s.id}>{label} · {price}</option>;
+                    return <option key={s.id} value={s.id}>{label} Â· {price}</option>;
                   })}
                 </select>
               </div>
             ) : (
-              <Input label="Tarifa por sesión (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
+              <Input label="Tarifa por sesiÃ³n (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
             )}
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
@@ -2371,22 +2374,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     );
   }
 
-  // ── DESKTOP/TABLET list ───────────────────────────────────────────────────
+  // â”€â”€ DESKTOP/TABLET list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div>
-      {/* Header con búsqueda y acción */}
+      {/* Header con bÃºsqueda y acciÃ³n */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, gap:16, flexWrap:"wrap" }}>
         <div>
           <h1 style={{ fontFamily:T.fH, fontSize:28, fontWeight:400, color:T.t, margin:0, lineHeight:1.1 }}>Pacientes</h1>
           <div style={{ fontFamily:T.fB, fontSize:13, color:T.tl, marginTop:4 }}>
-            {patients.length} expediente{patients.length!==1?"s":""} · {patients.filter(p=>(p.status||"activo")==="activo").length} activos
+            {patients.length} expediente{patients.length!==1?"s":""} Â· {patients.filter(p=>(p.status||"activo")==="activo").length} activos
           </div>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
           <div style={{ position:"relative" }}>
             <Search size={15} style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:T.tl, pointerEvents:"none" }}/>
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o diagnóstico…"
+              placeholder="Buscar por nombre o diagnÃ³sticoâ€¦"
               style={{ padding:"10px 14px 10px 38px", border:`1.5px solid ${T.bdrL}`, borderRadius:12,
                 fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, outline:"none", width:260,
                 boxShadow:T.sh, transition:"border-color .15s" }}
@@ -2409,10 +2412,10 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
       <div style={{ display:"flex", gap:7, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
         {[
           { id:"todos",    label:`Todos` },
-          { id:"activos",  label:`Activos · ${chipCounts.activos}`, dot:T.suc },
-          { id:"riesgo",   label:`Riesgo alto · ${chipCounts.riesgo}`, pulse:true },
-          { id:"conSaldo", label:`Con saldo · ${chipCounts.conSaldo}` },
-          { id:"alta",     label:`Alta · ${chipCounts.alta}` },
+          { id:"activos",  label:`Activos Â· ${chipCounts.activos}`, dot:T.suc },
+          { id:"riesgo",   label:`Riesgo alto Â· ${chipCounts.riesgo}`, pulse:true },
+          { id:"conSaldo", label:`Con saldo Â· ${chipCounts.conSaldo}` },
+          { id:"alta",     label:`Alta Â· ${chipCounts.alta}` },
         ].map(chip => {
           const active = filterChip === chip.id;
           return (
@@ -2437,7 +2440,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
 
       {/* Lista */}
       {filtered.length === 0 ? (
-        <EmptyState icon={Users} title="Sin pacientes" desc={search ? `Sin resultados para "${search}"` : "Agrega tu primer paciente con el botón de arriba"}/>
+        <EmptyState icon={Users} title="Sin pacientes" desc={search ? `Sin resultados para "${search}"` : "Agrega tu primer paciente con el botÃ³n de arriba"}/>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.map((p, idx) => {
@@ -2449,7 +2452,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             const totalPaid   = payments.filter(py => py.patientId === p.id && py.status === "pagado").reduce((s,py)=>s+Number(py.amount),0);
             const latestRisk  = riskAssessments.filter(r => r.patientId === p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
             const isHighRisk  = (latestRisk && (latestRisk.riskLevel === "alto" || latestRisk.riskLevel === "inminente")) || !!(p.activeRiskAlert);
-            const diagShort   = p.diagnosis ? p.diagnosis.split("—")[0].split("(")[0].trim() : null;
+            const diagShort   = p.diagnosis ? p.diagnosis.split("â€”")[0].split("(")[0].trim() : null;
             const todayStr    = new Date().toISOString().split("T")[0];
             const nextAppt    = appointments.filter(a => a.patientId === p.id && a.date >= todayStr).sort((a,b) => a.date.localeCompare(b.date))[0];
             const nextApptLabel = nextAppt
@@ -2489,9 +2492,9 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                       <Badge color={tc.color} bg={tc.bg}>{tc.label}</Badge>
                     </div>
                     <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tm }}>
-                      {p.age ? `${p.age} años · ` : ""}
+                      {p.age ? `${p.age} aÃ±os Â· ` : ""}
                       Desde {fmtDate(p.createdAt)}
-                      {nextApptLabel && <span style={{ color:T.p }}> · Próx: {nextApptLabel}</span>}
+                      {nextApptLabel && <span style={{ color:T.p }}> Â· PrÃ³x: {nextApptLabel}</span>}
                     </div>
                     {diagShort && (
                       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:420 }}>
@@ -2535,7 +2538,7 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                         fontFamily:T.fB, fontSize:12.5, fontWeight:600, cursor:"pointer", transition:"opacity .13s" }}
                       onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
                       onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-                      <Plus size={13}/> Nueva sesión
+                      <Plus size={13}/> Nueva sesiÃ³n
                     </button>
                     {hasPend && (
                       <button onClick={() => handleSelect(p, "payments")}
@@ -2571,22 +2574,22 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             ))}
           </div>
         </div>
-        <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. García-López (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad — Cohorte 1":"Ej. María González López"}/>
+        <Input label="Nombre / Identificador *" value={form.name} onChange={fld("name")} placeholder={form.type==="pareja"?"Ej. GarcÃ­a-LÃ³pez (pareja)":form.type==="grupo"?"Ej. Grupo ansiedad â€” Cohorte 1":"Ej. MarÃ­a GonzÃ¡lez LÃ³pez"}/>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <div style={{ marginBottom:0 }}>
             <label style={{ display:"block", fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
               Fecha de nacimiento
-              {form.birthdate && <span style={{ marginLeft:8, fontWeight:700, color:T.p, textTransform:"none", letterSpacing:0, fontSize:12 }}>· {calcAge(form.birthdate)} años</span>}
+              {form.birthdate && <span style={{ marginLeft:8, fontWeight:700, color:T.p, textTransform:"none", letterSpacing:0, fontSize:12 }}>Â· {calcAge(form.birthdate)} aÃ±os</span>}
             </label>
             <input type="date" value={form.birthdate} onChange={e => fld("birthdate")(e.target.value)}
               style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10,
                 fontFamily:T.fB, fontSize:14, color:T.t, background:T.card, outline:"none", boxSizing:"border-box" }}/>
           </div>
-          <Input label="Correo electrónico" value={form.email} onChange={fld("email")} type="email"/>
+          <Input label="Correo electrÃ³nico" value={form.email} onChange={fld("email")} type="email"/>
         </div>
         <div style={{ marginBottom:12 }}>
           <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
-            Teléfono
+            TelÃ©fono
           </label>
           <PhoneInput
             countryCode={form.countryCode}
@@ -2599,21 +2602,21 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           <Textarea
             label={form.type === "pareja" ? "Nombre de los participantes (pareja)" : "Integrantes del grupo"}
             value={form.coParticipants} onChange={fld("coParticipants")} rows={2}
-            placeholder={form.type === "pareja" ? "Ej. Carlos Méndez y Ana Ríos" : "Ej. Carlos M., Ana R., Luis P. (4 integrantes)"}
+            placeholder={form.type === "pareja" ? "Ej. Carlos MÃ©ndez y Ana RÃ­os" : "Ej. Carlos M., Ana R., Luis P. (4 integrantes)"}
           />
         )}
-        <CieDiagnosisField value={form.diagnosis} cie11Code={form.cie11Code} onChangeDx={fld("diagnosis")} onChangeCode={fld("cie11Code")} label="Diagnóstico"/>
+        <CieDiagnosisField value={form.diagnosis} cie11Code={form.cie11Code} onChangeDx={fld("diagnosis")} onChangeCode={fld("cie11Code")} label="DiagnÃ³stico"/>
         <Textarea label="Motivo de consulta" value={form.reason} onChange={fld("reason")} rows={2}/>
         <Textarea label="Notas adicionales" value={form.notes} onChange={fld("notes")} rows={2}/>
 
         <div style={{ borderTop:`1px solid ${T.bdrL}`, paddingTop:16, marginTop:4 }}>
           <div style={{ fontSize:11, fontWeight:700, color:T.err, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12, display:"flex", alignItems:"center", gap:6 }}>
-            🚨 Contacto de emergencia <span style={{ fontWeight:400, color:T.tl, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
+            ðŸš¨ Contacto de emergencia <span style={{ fontWeight:400, color:T.tl, textTransform:"none", letterSpacing:0 }}>(opcional)</span>
           </div>
-          <Input label="Nombre" value={form.emergencyName} onChange={fld("emergencyName")} placeholder="Ej. Ana García"/>
+          <Input label="Nombre" value={form.emergencyName} onChange={fld("emergencyName")} placeholder="Ej. Ana GarcÃ­a"/>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <Input label="Teléfono" value={form.emergencyPhone} onChange={fld("emergencyPhone")} placeholder="998-123-4567"/>
-            <Input label="Parentesco / relación" value={form.emergencyRelation} onChange={fld("emergencyRelation")} placeholder="Madre, pareja, amigo..."/>
+            <Input label="TelÃ©fono" value={form.emergencyPhone} onChange={fld("emergencyPhone")} placeholder="998-123-4567"/>
+            <Input label="Parentesco / relaciÃ³n" value={form.emergencyRelation} onChange={fld("emergencyRelation")} placeholder="Madre, pareja, amigo..."/>
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -2628,16 +2631,16 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                 }}
                 style={{ width:"100%", border:`1.5px solid ${T.bdr}`, borderRadius:10, padding:"10px 12px",
                   fontFamily:T.fB, fontSize:13, color:T.t, background:T.card, outline:"none" }}>
-                <option value="">— Sin asignar —</option>
+                <option value="">â€” Sin asignar â€”</option>
                 {services.filter(s => s.type !== "paquete").map(s => {
                   const label = s.name || SERVICE_TYPE_LABEL[s.type] || s.type;
                   const price = s.modality === "ambas" ? `$${s.price}/$${s.priceVirtual}` : s.modality === "virtual" ? `$${s.priceVirtual}` : `$${s.price}`;
-                  return <option key={s.id} value={s.id}>{label} · {price}</option>;
+                  return <option key={s.id} value={s.id}>{label} Â· {price}</option>;
                 })}
               </select>
             </div>
           ) : (
-            <Input label="Tarifa por sesión (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
+            <Input label="Tarifa por sesiÃ³n (MXN)" value={form.rate} onChange={fld("rate")} type="number" placeholder="900"/>
           )}
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
@@ -2650,3 +2653,8 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
     </div>
   );
 }
+
+
+
+
+
