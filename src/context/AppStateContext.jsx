@@ -31,6 +31,7 @@ const EMPTY_DATA = {
   profile: DEFAULT_PROFILE, riskAssessments: [], scaleResults: [],
   treatmentPlans: [], interSessions: [], medications: [], services: [],
   expenses: [], assignments: [],
+  activePatientContext: null,
 };
 function makeShellValue(authReady) {
   return {
@@ -40,6 +41,8 @@ function makeShellValue(authReady) {
     setScaleResults: noop, setTreatmentPlans: noop, setInterSessions: noop,
     setMedications: noop, setServices: noop, setExpenses: noop,
     setAssignments: noop,
+    activePatientContext: null,
+    setActivePatientContext: noop,
     dataReady: false, dataLoaded: false, essentialDataLoaded: false,
     dataTimedOut: false, authReady,
     pLoaded: false, aLoaded: false, sLoaded: false, pyLoaded: false,
@@ -59,6 +62,8 @@ function makeShellValue(authReady) {
       services: [], setServices: noop,
       expenses: [], setExpenses: noop,
       assignments: [], setAssignments: noop,
+      activePatientContext: null,
+      setActivePatientContext: noop,
     },
   };
 }
@@ -84,6 +89,25 @@ function DataProvider({ userId, children }) {
   const [services,        setServices,        svLoaded]  = useSupabaseStorage("pc_services",         [], userId);
   const [expenses,        setExpenses,        exLoaded]  = useSupabaseStorage("pc_expenses",          [], userId);
   const [assignments,     setAssignments,     asLoaded]  = useSupabaseStorage("pc_assignments",        [], userId);
+  const [activePatientContext, setActivePatientContext] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("pc_active_patient_context");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (activePatientContext) {
+        localStorage.setItem("pc_active_patient_context", JSON.stringify(activePatientContext));
+      } else {
+        localStorage.removeItem("pc_active_patient_context");
+      }
+    } catch {}
+  }, [activePatientContext]);
 
   // Exponer para depuración en consola del navegador
   if (typeof window !== "undefined") {
@@ -153,6 +177,7 @@ function DataProvider({ userId, children }) {
     services,        setServices,
     expenses,        setExpenses,
     assignments,     setAssignments,
+    activePatientContext, setActivePatientContext,
     dataReady,
     dataLoaded,
     essentialDataLoaded,
@@ -167,6 +192,7 @@ function DataProvider({ userId, children }) {
     dataReady, dataLoaded, essentialDataLoaded, dataTimedOut,
     pLoaded, aLoaded, sLoaded, pyLoaded, prLoaded,
     raLoaded, scLoaded, tpLoaded, isLoaded, medLoaded, svLoaded, exLoaded,
+    activePatientContext,
   ]);
 
   return (
