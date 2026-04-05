@@ -14,7 +14,7 @@ import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysL
 import { emit } from "./lib/eventBus.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
-import PatientPortalComp from "./modules/PatientPortal.jsx";
+import PatientPortalComp from "./modules/PatientPortalSecure.jsx";
 import Onboarding       from "./components/Onboarding.jsx";
 import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";

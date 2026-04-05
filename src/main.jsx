@@ -2,7 +2,7 @@ import { StrictMode, Component } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
-import PatientPortal from "./modules/PatientPortal.jsx";
+import PatientPortal from "./modules/PatientPortalSecure.jsx";
 import { AppStateProvider } from "./context/AppStateContext.jsx";
 
 // PWA update handler — auto-reload cuando hay nueva versión para evitar
