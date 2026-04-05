@@ -188,9 +188,10 @@ function AssignmentCard({ assignment, onDelete, onViewResponses, profile }) {
         <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
           {/* WhatsApp */}
           <button type="button" onClick={() => void openTaskWhatsApp(phone, assignment.patient_name, assignment.title, profile)}
-            style={{ background:"#25D366", border:"none", borderRadius:8, padding:8, cursor:"pointer", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}
+            style={{ background:"#25D366", border:"none", borderRadius:8, padding:"8px 12px", cursor:"pointer", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", gap:6, textDecoration:"none", fontFamily:T.fB, fontSize:12, fontWeight:700 }}
             title="Enviar por WhatsApp">
             <MessageCircle size={14}/>
+            WhatsApp
           </button>
           {/* Ver respuestas (solo si completada) */}
           {done && (
