@@ -1,7 +1,7 @@
-﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // src/modules/Tasks.jsx
-// MÃ³dulo de Tareas TerapÃ©uticas â€” vista de Karen
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Módulo de Tareas Terapéuticas — vista de Karen
+// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, CheckCircle2, Clock, MessageCircle, ChevronDown, ChevronUp, RefreshCw, ClipboardList, Eye, Bell } from "lucide-react";
 import { T } from "../theme.js";
@@ -13,14 +13,31 @@ import { emit } from "../lib/eventBus.js"; // FASE 3
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const buildTaskMessage = (patientName, taskTitle, accessUrl) => (
+  `Hola ${patientName?.split(" ")[0] || ""}! 👋\n\n` +
+  `Te comparto tu tarea terapéutica: *${taskTitle}*\n\n` +
+  `Accede aquí:\n${accessUrl}\n\n` +
+  `_Abre este enlace temporal y seguro para ver y responder tus tareas._`
+);
 
-const whatsappLink = (phone, patientName, taskTitle) => {
-  const msg = encodeURIComponent(
-    `Hola ${patientName?.split(" ")[0] || ""}! ðŸ‘‹\n\nTe comparto tu tarea terapÃ©utica: *${taskTitle}*\n\nAccede aquÃ­:\n${PORTAL_URL}\n\n_Ingresa con tu nÃºmero de celular para ver todas tus tareas._`
-  );
-  return `https://wa.me/${phone}?text=${msg}`;
+const openTaskWhatsApp = async (phone, patientName, taskTitle) => {
+  if (!phone) return;
+  const popup = window.open("", "_blank");
+  try {
+    const { accessUrl } = await createPortalAccessLink(phone);
+    const msg = encodeURIComponent(buildTaskMessage(patientName, taskTitle, accessUrl));
+    const waUrl = `https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`;
+    if (popup) {
+      popup.location.href = waUrl;
+      popup.opener = null;
+    } else {
+      window.location.assign(waUrl);
+    }
+  } catch (error) {
+    if (popup) popup.close();
+    console.error("No se pudo generar el enlace seguro del portal:", error);
+  }
 };
 
 const fmtRelative = (iso) => {
@@ -28,11 +45,11 @@ const fmtRelative = (iso) => {
   const days = Math.floor(diff / 86400000);
   if (days === 0) return "Hoy";
   if (days === 1) return "Ayer";
-  if (days < 7)  return `Hace ${days} dÃ­as`;
+  if (days < 7)  return `Hace ${days} días`;
   return fmtDate(iso.split("T")[0]);
 };
 
-// â”€â”€ Template selector card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Template selector card ────────────────────────────────────────────────────
 function TemplateCard({ tpl, selected, onSelect }) {
   const active = selected?.id === tpl.id;
   return (
@@ -59,7 +76,7 @@ function TemplateCard({ tpl, selected, onSelect }) {
   );
 }
 
-// â”€â”€ Responses viewer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Responses viewer ──────────────────────────────────────────────────────────
 function ResponsesModal({ assignment, onClose }) {
   const [responses, setResponses] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -74,9 +91,9 @@ function ResponsesModal({ assignment, onClose }) {
   }, [assignment.id]);
 
   return (
-    <Modal open onClose={onClose} title={`Respuestas â€” ${(assignment.patient_name || "Paciente").split(" ")[0]}`} width={560}>
+    <Modal open onClose={onClose} title={`Respuestas — ${(assignment.patient_name || "Paciente").split(" ")[0]}`} width={560}>
       <div style={{ padding:"4px 0 8px", fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16 }}>
-        <strong>{template?.icon} {template?.title}</strong> Â· {fmtRelative(assignment.completed_at || assignment.assigned_at)}
+        <strong>{template?.icon} {template?.title}</strong> · {fmtRelative(assignment.completed_at || assignment.assigned_at)}
       </div>
       {loading && (
         <div style={{ textAlign:"center", padding:32 }}>
@@ -86,12 +103,12 @@ function ResponsesModal({ assignment, onClose }) {
       )}
       {!loading && loadErr && (
         <div style={{ padding:"12px 16px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:13, color:T.err, textAlign:"center" }}>
-          No se pudieron cargar las respuestas. Verifica tu conexiÃ³n e intenta de nuevo.
+          No se pudieron cargar las respuestas. Verifica tu conexión e intenta de nuevo.
         </div>
       )}
       {!loading && !loadErr && responses.length === 0 && (
         <div style={{ textAlign:"center", padding:"32px 0", color:T.tl, fontFamily:T.fB, fontSize:13 }}>
-          AÃºn no hay respuestas registradas.
+          Aún no hay respuestas registradas.
         </div>
       )}
       {!loading && responses.map((resp, ri) => (
@@ -100,7 +117,7 @@ function ResponsesModal({ assignment, onClose }) {
             <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tl,
               letterSpacing:"0.04em", marginBottom:14, paddingBottom:8,
               borderBottom:`1px solid ${T.bdrL}` }}>
-              Respuesta {ri + 1} Â· {fmtRelative(resp.submitted_at)}
+              Respuesta {ri + 1} · {fmtRelative(resp.submitted_at)}
             </div>
           )}
           {template?.fields.map(field => {
@@ -141,7 +158,7 @@ function ResponsesModal({ assignment, onClose }) {
   );
 }
 
-// â”€â”€ Assignment card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Assignment card ───────────────────────────────────────────────────────────
 function AssignmentCard({ assignment, onDelete, onViewResponses }) {
   const template = getTemplate(assignment.template_id);
   const done     = assignment.status === "completed";
@@ -150,11 +167,11 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
   return (
     <Card style={{ padding:"16px 18px", marginBottom:10 }}>
       <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-        <div style={{ fontSize:22, lineHeight:1, paddingTop:2 }}>{template?.icon || "ðŸ“‹"}</div>
+        <div style={{ fontSize:22, lineHeight:1, paddingTop:2 }}>{template?.icon || "📋"}</div>
         <div style={{ flex:1 }}>
           <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:8, marginBottom:4 }}>
             <span style={{ fontFamily:T.fB, fontSize:14.5, fontWeight:600, color:T.t }}>{assignment.title}</span>
-            <span style={{ fontSize:11, color:T.tl }}>Â·</span>
+            <span style={{ fontSize:11, color:T.tl }}>·</span>
             <span style={{ fontFamily:T.fB, fontSize:12, color:T.tm }}>{(assignment.patient_name || "").split(" ").slice(0,2).join(" ")}</span>
           </div>
           <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:8 }}>
@@ -174,11 +191,11 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
           {/* WhatsApp */}
-          <a href={whatsappLink(phone, assignment.patient_name, assignment.title)} target="_blank" rel="noreferrer"
+          <button type="button" onClick={() => void openTaskWhatsApp(phone, assignment.patient_name, assignment.title)}
             style={{ background:"#25D366", border:"none", borderRadius:8, padding:8, cursor:"pointer", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}
             title="Enviar por WhatsApp">
             <MessageCircle size={14}/>
-          </a>
+          </button>
           {/* Ver respuestas (solo si completada) */}
           {done && (
             <button onClick={() => onViewResponses(assignment)} title="Ver respuestas"
@@ -197,7 +214,7 @@ function AssignmentCard({ assignment, onDelete, onViewResponses }) {
   );
 }
 
-// â”€â”€ Dashboard de respuestas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Dashboard de respuestas ───────────────────────────────────────────────────
 function ResponsesDashboard({ patients, onViewResponses }) {
   const [assignments, setAssignments] = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -217,7 +234,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
   const completed  = assignments.filter(a => a.status === "completed");
   const pending    = assignments.filter(a => a.status === "pending");
 
-  // "Nuevas" = completadas en las Ãºltimas 72h
+  // "Nuevas" = completadas en las últimas 72h
   const isNew = (a) => {
     if (!a.completed_at) return false;
     return Date.now() - new Date(a.completed_at).getTime() < 72 * 3600 * 1000;
@@ -239,7 +256,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 
   return (
     <div>
-      {/* MÃ©tricas â€” tapeables para filtrar */}
+      {/* Métricas — tapeables para filtrar */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
         {[
           { id:"nuevas",     label:"Nuevas",     value:newResponses.length, color:T.suc,    bg:T.sucA,                      Icon:Bell        },
@@ -260,7 +277,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
         ))}
       </div>
 
-      {/* BotÃ³n refresh discreto */}
+      {/* Botón refresh discreto */}
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
         <button onClick={load} style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:9999, border:`1px solid ${T.bdrL}`, background:"transparent", cursor:"pointer", color:T.tl, fontFamily:T.fB, fontSize:11 }}>
           <RefreshCw size={11}/> Actualizar
@@ -282,7 +299,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
             {filter === "nuevas" ? "Sin respuestas nuevas" : filter === "pendientes" ? "Sin tareas pendientes" : "Sin tareas completadas"}
           </div>
           {filter === "nuevas" && (
-            <div style={{ fontSize:12, color:T.tl }}>Cuando un paciente complete una tarea aparecerÃ¡ aquÃ­</div>
+            <div style={{ fontSize:12, color:T.tl }}>Cuando un paciente complete una tarea aparecerá aquí</div>
           )}
         </div>
       ) : shown.map(a => {
@@ -326,7 +343,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
                 <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl }}>
                   {done
                     ? `Completada ${fmtRelative(a.completed_at)}`
-                    : `Asignada ${fmtRelative(a.assigned_at)} Â· Sin completar`
+                    : `Asignada ${fmtRelative(a.assigned_at)} · Sin completar`
                   }
                 </div>
               </div>
@@ -340,18 +357,18 @@ function ResponsesDashboard({ patients, onViewResponses }) {
                   </button>
                 )}
                 {pt?.phone && !done && (
-                  <a href={whatsappLink(pt.phone, a.patient_name, a.title)} target="_blank" rel="noreferrer"
-                    style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
+                  <button type="button" onClick={() => void openTaskWhatsApp(pt.phone, a.patient_name, a.title)}
+                    style={{style={ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
                     <MessageCircle size={13}/> Recordar
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
 
-            {/* Respuesta preview (solo si tiene responses y estÃ¡ completada) */}
+            {/* Respuesta preview (solo si tiene responses y está completada) */}
             {done && a.notes && (
               <div style={{ marginTop:10, padding:"8px 12px", background:T.bdrL, borderRadius:8, fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5, borderLeft:`3px solid ${T.p}` }}>
-                ðŸ“ {a.notes}
+                📝 {a.notes}
               </div>
             )}
           </div>
@@ -361,7 +378,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
   );
 }
 
-// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main component ────────────────────────────────────────────────────────────
 export default function Tasks({ patients, sessions = [], onNavigate }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
@@ -389,7 +406,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
       const data = await getAssignmentsByPatient(filterPt);
       setAssignments(data);
     } catch {
-      setError("No se pudo conectar con Supabase. Verifica la configuraciÃ³n.");
+      setError("No se pudo conectar con Supabase. Verifica la configuración.");
     } finally {
       setLoading(false);
     }
@@ -400,10 +417,10 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
   const handleSave = async () => {
     if (!selPatient || !selTemplate) return;
     const patient = patients.find(p => p.id === selPatient);
-    if (!patient?.phone) { setSaveError("Este paciente no tiene nÃºmero de telÃ©fono registrado. AgrÃ©galo en su expediente."); return; }
+    if (!patient?.phone) { setSaveError("Este paciente no tiene número de teléfono registrado. Agrégalo en su expediente."); return; }
     setSaving(true);
     setSaveError("");
-    // Timeout de 8s â€” si Supabase no responde, desbloquear el botÃ³n
+    // Timeout de 8s — si Supabase no responde, desbloquear el botón
     const timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("timeout")), 8000)
     );
@@ -419,7 +436,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
         }),
         timeout,
       ]);
-      // FASE 3 â€” notificar al resto del sistema que se asignÃ³ una tarea manualmente
+      // FASE 3 — notificar al resto del sistema que se asignó una tarea manualmente
       emit.taskAssigned({ patientId: patient.id, patientName: patient.name, sessionId: null, count: 1 });
       setShowAdd(false);
       setSelTemplate(null);
@@ -428,8 +445,8 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
     } catch (e) {
       setSaveError(
         e.message === "timeout"
-          ? "La conexiÃ³n tardÃ³ demasiado. Verifica tu internet e intenta de nuevo."
-          : "Error al guardar. Revisa la conexiÃ³n con Supabase."
+          ? "La conexión tardó demasiado. Verifica tu internet e intenta de nuevo."
+          : "Error al guardar. Revisa la conexión con Supabase."
       );
     } finally {
       setSaving(false);
@@ -437,7 +454,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Â¿Eliminar esta tarea?")) return;
+    if (!confirm("¿Eliminar esta tarea?")) return;
     try {
       await deleteAssignment(id);
       setAssignments(prev => prev.filter(a => a.id !== id));
@@ -456,7 +473,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
     <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader
         title="Tareas"
-        subtitle="Respuestas de pacientes y gestiÃ³n de tareas"
+        subtitle="Respuestas de pacientes y gestión de tareas"
         action={<Btn onClick={() => { setShowAdd(true); setSelPatient(""); setSelTemplate(null); setNotes(""); setSaveError(""); }}><Plus size={15}/> Nueva tarea</Btn>}
       />
 
@@ -482,13 +499,13 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
         <ResponsesDashboard patients={patients} onViewResponses={setViewResponses}/>
       )}
 
-      {/* GestiÃ³n por paciente */}
+      {/* Gestión por paciente */}
       {view === "manage" && (
         <div>
           <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
             <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
               style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none", flex:1, minWidth:200 }}>
-              <option value="">â€” Selecciona un paciente â€”</option>
+              <option value="">— Selecciona un paciente —</option>
               {patients.map(p => <option key={p.id} value={p.id}>{(p.name || "").split(" ").slice(0,2).join(" ")}</option>)}
             </select>
             {filterPt && (
@@ -500,7 +517,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
 
           {error && (
             <div style={{ padding:"12px 16px", background:T.errA, borderRadius:10, border:`1.5px solid rgba(184,80,80,0.2)`, fontFamily:T.fB, fontSize:13, color:T.err, marginBottom:16 }}>
-              âš ï¸ {error}
+              ⚠️ {error}
             </div>
           )}
 
@@ -515,7 +532,7 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
             <EmptyState icon={ClipboardList} title="Selecciona un paciente" desc="Elige un paciente para ver y gestionar sus tareas asignadas"/>
           )}
           {!loading && filterPt && assignments.length === 0 && !error && (
-            <EmptyState icon={ClipboardList} title="Sin tareas asignadas" desc="Este paciente no tiene tareas activas. AsÃ­gnale una con el botÃ³n de arriba."/>
+            <EmptyState icon={ClipboardList} title="Sin tareas asignadas" desc="Este paciente no tiene tareas activas. Asígnale una con el botón de arriba."/>
           )}
 
           {!loading && assignments.map(a => (
@@ -529,15 +546,15 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
         <ResponsesModal assignment={viewResponses} onClose={() => setViewResponses(null)}/>
       )}
 
-      {/* â”€â”€ New assignment modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapÃ©utica" width={580}>
+      {/* ── New assignment modal ──────────────────────────────────────────── */}
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={580}>
 
         <Select label="Paciente *" value={selPatient} onChange={setSelPatient}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
 
         {selPatient && !patients.find(p => p.id === selPatient)?.phone && (
           <div style={{ padding:"10px 14px", background:T.warA, borderRadius:10, fontFamily:T.fB, fontSize:12.5, color:T.war, marginBottom:16, border:`1px solid rgba(184,144,10,0.2)` }}>
-            âš ï¸ Este paciente no tiene telÃ©fono registrado. AgrÃ©galo en su expediente para poder enviarle la tarea por WhatsApp.
+            ⚠️ Este paciente no tiene teléfono registrado. Agrégalo en su expediente para poder enviarle la tarea por WhatsApp.
           </div>
         )}
 
@@ -565,12 +582,12 @@ export default function Tasks({ patients, sessions = [], onNavigate }) {
 
         <Textarea label="Instrucciones adicionales (opcional)"
           value={notes} onChange={setNotes}
-          placeholder="Ej. Completa esto antes del jueves, enfÃ³cate especialmente en las situaciones del trabajo..."
+          placeholder="Ej. Completa esto antes del jueves, enfócate especialmente en las situaciones del trabajo..."
           rows={2}/>
 
         {selPatient && patients.find(p => p.id === selPatient)?.phone && (
           <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, fontFamily:T.fB, fontSize:12, color:T.p, marginBottom:16, wordBreak:"break-all" }}>
-            ðŸ”— El paciente accederÃ¡ en: <strong>{PORTAL_URL}</strong>
+            🔗 El paciente recibirá un enlace temporal y seguro al portal.
           </div>
         )}
 
