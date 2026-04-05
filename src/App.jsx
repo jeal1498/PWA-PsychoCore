@@ -255,7 +255,7 @@ export default function App() {
   // ── Render de módulos ────────────────────────────────────────────────────
   const renderModule = () => {
     switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
+      case "dashboard":   return <Dashboard {...mp} profile={profile} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
@@ -297,7 +297,7 @@ export default function App() {
           }}
         />
       );
-      default: return <Dashboard {...mp} onNavigate={navTo} onStartSession={handleStartSession}/>;
+      default: return <Dashboard {...mp} profile={profile} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
     }
   };
 
