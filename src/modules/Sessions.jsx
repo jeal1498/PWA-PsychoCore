@@ -1509,7 +1509,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     sessions.filter(s => !filterPt || s.patientId === filterPt).sort((a,b) => b.date.localeCompare(a.date)),
     [sessions, filterPt]);
 
-  const save = () => {
+  function save() {
     if (!canSave) return;
     const pt = patients.find(p => p.id === form.patientId);
     const sessionId = "s" + uid();
@@ -1653,7 +1653,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     if (editingSessionId) { try { localStorage.removeItem("pc_draft_new"); } catch {} }
     setEditingSessionId(null);
     setDraftSavedAt(null); setShowDraftBanner(false); setDraftBannerData(null);
-  };
+  }
 
   const duplicate = (s) => {
     setForm({ patientId:s.patientId, date:fmt(todayDate), duration:s.duration, mood:s.mood, progress:s.progress, tags:(s.tags||[]).join(", "), noteFormat:s.noteFormat||"libre", notes:s.noteFormat==="libre"?s.notes:"", structured:s.structured?{...s.structured}:null, taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" });
