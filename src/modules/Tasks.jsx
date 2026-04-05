@@ -12,6 +12,7 @@ import { createAssignment, getAssignmentsByPatient, getAllAssignments, deleteAss
 import { emit } from "../lib/eventBus.js"; // FASE 3
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
+import { useAppState } from "../context/AppStateContext.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getPsychologistName = (profile) => profile?.name?.trim() || "tu psicólogo(a)";
@@ -379,6 +380,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
 export default function Tasks({ patients, sessions = [], onNavigate, profile }) {
   const isMobile = useIsMobile();
   const isWide   = useIsWide();
+  const { activePatientContext, setActivePatientContext } = useAppState();
   const [view,          setView]          = useState("dashboard"); // "dashboard" | "manage"
   const [assignments,   setAssignments]   = useState([]);
   const [loading,       setLoading]       = useState(false);
@@ -394,6 +396,19 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
   const [notes,       setNotes]       = useState("");
   const [saving,      setSaving]      = useState(false);
   const [saveError,   setSaveError]   = useState("");
+  const [seededPatientFilter, setSeededPatientFilter] = useState(false);
+
+  useEffect(() => {
+    if (activePatientContext?.patientId && !seededPatientFilter && !filterPt) {
+      setFilterPt(activePatientContext.patientId);
+      setSeededPatientFilter(true);
+    }
+  }, [activePatientContext?.patientId, seededPatientFilter, filterPt]);
+
+  useEffect(() => {
+    if (!showAdd || !activePatientContext?.patientId) return;
+    setSelPatient(prev => prev || activePatientContext.patientId);
+  }, [showAdd, activePatientContext?.patientId]);
 
   const load = useCallback(async () => {
     if (!filterPt) { setAssignments([]); return; }
@@ -546,7 +561,13 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
       {/* ── New assignment modal ──────────────────────────────────────────── */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={580}>
 
-        <Select label="Paciente *" value={selPatient} onChange={setSelPatient}
+        <Select label="Paciente *" value={selPatient} onChange={(value) => {
+          setSelPatient(value);
+          const patient = patients.find(p => p.id === value);
+          if (patient) {
+            setActivePatientContext({ patientId: patient.id, patientName: patient.name || "", source: "tasks", updatedAt: new Date().toISOString() });
+          }
+        }}
           options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
 
         {selPatient && !patients.find(p => p.id === selPatient)?.phone && (

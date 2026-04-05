@@ -9,6 +9,7 @@ import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { createAssignment, getAssignmentsByPatient, getResponsesByAssignment, createPortalAccessLink } from "../lib/supabase.js";
 import { emit, bus } from "../lib/eventBus.js"; // FASE 2
 import { useIsWide }   from "../hooks/useIsWide.js";
+import { useAppState } from "../context/AppStateContext.jsx";
 
 const PORTAL_URL = typeof window !== "undefined" ? `${window.location.origin}/p` : "/p";
 
@@ -1105,6 +1106,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
 }
 
 export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions }) {
+  const { activePatientContext, setActivePatientContext } = useAppState();
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
@@ -1120,7 +1122,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [filterPt,     setFilterPt]     = useState("");
   const [showAdd,      setShowAdd]      = useState(!!prefill);
   // Cuando se llega con prefill.patientId, el campo paciente empieza bloqueado
-  const [patientLocked, setPatientLocked] = useState(!!(prefill?.patientId));
+  const [patientLocked, setPatientLocked] = useState(!!(prefill?.patientId || activePatientContext?.patientId));
   const [referral,  setReferral]  = useState(null);
   const [refForm,   setRefForm]   = useState({ reason:"", specialist:"", notes:"" });
   const [riskOpen,  setRiskOpen]  = useState(false);
@@ -1142,7 +1144,11 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [viewTaskResponse, setViewTaskResponse] = useState(null);
 
   const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat: localStorage.getItem("pc_last_note_format") || "libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
-  const [form, setForm] = useState(prefill ? { ...blankForm, patientId:prefill.patientId||"", date:prefill.date||fmt(todayDate) } : blankForm);
+  const [form, setForm] = useState(
+    prefill?.patientId || activePatientContext?.patientId
+      ? { ...blankForm, patientId: prefill?.patientId || activePatientContext?.patientId || "", date: prefill?.date || fmt(todayDate) }
+      : blankForm
+  );
 
   // ── Autoguardado de notas clínicas ──────────────────────────────────────────
   // editingSessionId: ID de la sesión existente que se esté editando (null = sesión nueva).
@@ -1162,6 +1168,24 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       .catch(() => setPatientTasks([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form?.patientId]);
+
+  useEffect(() => {
+    if (!showAdd) return;
+    const targetId = prefill?.patientId || activePatientContext?.patientId || "";
+    if (!targetId) return;
+    setForm(f => (f.patientId === targetId ? f : { ...f, patientId: targetId, date: prefill?.date || f.date || fmt(todayDate) }));
+    setPatientLocked(true);
+  }, [showAdd, prefill?.patientId, prefill?.date, activePatientContext?.patientId]);
+
+  useEffect(() => {
+    if (!form?.patientId) return;
+    const pt = patients.find(p => p.id === form.patientId);
+    if (!pt) return;
+    setActivePatientContext(prev => {
+      if (prev?.patientId === pt.id && prev?.patientName === pt.name) return prev;
+      return { patientId: pt.id, patientName: pt.name, source: "sessions", updatedAt: new Date().toISOString() };
+    });
+  }, [form?.patientId, patients, setActivePatientContext]);
 
   // ── Autoguardado con debounce 2s ─────────────────────────────────────────────
   useEffect(() => {
@@ -1230,6 +1254,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [closeTaskAssigned, setCloseTaskAssigned] = useState(false);
   const [closeTaskSaving,  setCloseTaskSaving]  = useState(false);
   const [closeTaskError,   setCloseTaskError]   = useState("");
+  const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const cifld = k => v => setCloseInterForm(f => ({ ...f, [k]: v }));
   const cnfld = k => v => setCloseNextAppt(f => ({ ...f, [k]: v }));
 
@@ -1396,7 +1421,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     const savedCtx = { ...cobroData };
     setCobroData(null);
     setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
-
     const agendaMsg = savedCtx._agendaSynced ? " · 📅 Cita actualizada" : "";
     showToast(`✓ Sesión guardada${agendaMsg} · 💰 Pago registrado (Folio ${folio})`);
     openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,

@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from "react";
-import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X, LogOut, MessageCircle } from "lucide-react";
+import { Users, Search, Trash2, Phone, Mail, ChevronLeft, ChevronDown, ChevronUp, Tag, Check, Plus, DollarSign, TrendingUp, Download, Eye, ShieldAlert, X, LogOut, MessageCircle, ClipboardList } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../utils.js";
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../components/ui/index.jsx";
@@ -11,6 +11,7 @@ import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } f
 import { createPortalAccessLink, getAssignmentsByPatient, getResponsesByAssignment } from "../lib/supabase.js";
 import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
 import { printAlta, printDerivacion } from "./Reports.jsx";
+import { useAppState } from "../context/AppStateContext.jsx";
 
 // ── Portal domain for consent links ──────────────────────────────────────────
 const PORTAL_DOMAIN = "https://psychocore.vercel.app";
@@ -1190,6 +1191,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave, profile }) {
 // ── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════════════
 export default function Patients({ patients = [], setPatients, sessions = [], payments = [], setPayments, riskAssessments = [], scaleResults = [], treatmentPlans = [], interSessions = [], setInterSessions, medications = [], setMedications, onQuickNav, profile, autoOpen, services = [], appointments = [], setAppointments }) {
+  const { setActivePatientContext } = useAppState();
   const [search,       setSearch]       = useState("");
   const [filterChip,   setFilterChip]   = useState("todos");
   const [showAdd,      setShowAdd]      = useState(false);
@@ -1236,8 +1238,12 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
   };
 
   const handleSelect = (p, openTab) => {
-    setSelected(patients.find(pt => pt.id === p.id) || p);
-    setDetailTab(openTab || "sessions");
+    const patient = patients.find(pt => pt.id === p.id) || p;
+    const hasPendingPayments = payments.some(py => py.patientId === patient.id && py.status === "pendiente");
+    const autoTab = openTab || (hasPendingPayments ? "payments" : "sessions");
+    setSelected(patient);
+    setDetailTab(autoTab);
+    setActivePatientContext({ patientId: patient.id, patientName: patient.name || "", source: "patients", updatedAt: new Date().toISOString() });
   };
   if (onQuickNav) onQuickNav.current = (p, openTab) => handleSelect(p, openTab);
 
@@ -2119,7 +2125,25 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
             <Badge color={sc.color} bg={sc.bg}>{sc.label}</Badge>
             <Badge color={tc.color} bg={tc.bg}>{tc.label}</Badge>
           </div>
-          <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"flex-end" }}>
+            <button onClick={() => handleSelect(selected, "sessions")}
+              style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 14px", borderRadius:9999, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer", transition:"opacity .15s" }}
+              onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
+              onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+              <Plus size={14}/> Nueva sesión
+            </button>
+            <button onClick={() => setDetailTab("payments")}
+              style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 14px", borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent", color:T.tm, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; e.currentTarget.style.background=T.pA; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; e.currentTarget.style.background="transparent"; }}>
+              <DollarSign size={13}/> Pagos
+            </button>
+            <button onClick={() => setDetailTab("tasks")}
+              style={{ display:"flex", alignItems:"center", gap:5, padding:"7px 14px", borderRadius:9999, border:`1.5px solid ${T.bdr}`, background:"transparent", color:T.tm, fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; e.currentTarget.style.background=T.pA; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; e.currentTarget.style.background="transparent"; }}>
+              <ClipboardList size={13}/> Tareas
+            </button>
             {selected.phone && (
               <button onClick={() => void handleSendWelcomeFromDetail()}
                 style={{ display:"flex", alignItems:"center", gap:5, background:"#25D366", border:"none", borderRadius:9999, padding:"7px 16px",
@@ -2136,14 +2160,6 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
               onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
               <Download size={13}/> Exportar PDF
-            </button>
-            <button onClick={() => handleSelect(selected, "sessions")}
-              style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 18px", borderRadius:9999,
-                border:"none", background:T.p, color:"#fff",
-                fontFamily:T.fB, fontSize:13, fontWeight:600, cursor:"pointer", transition:"opacity .15s" }}
-              onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
-              onMouseLeave={e => e.currentTarget.style.opacity="1"}>
-              <Plus size={14}/> Nueva sesión
             </button>
           </div>
         </div>
@@ -2304,6 +2320,13 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                     onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
                     onMouseLeave={e => e.currentTarget.style.opacity="1"}>
                     + Sesión
+                  </button>
+                  <button onClick={() => handleSelect(p, "tasks")}
+                    style={{ flex:1, padding:"7px 0", borderRadius:10, border:"none",
+                      background:T.sucA, color:T.suc, fontFamily:T.fB, fontSize:12.5, fontWeight:700, cursor:"pointer", transition:"opacity .13s" }}
+                    onMouseEnter={e => e.currentTarget.style.opacity="0.82"}
+                    onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+                    Tareas
                   </button>
                 </div>
               </div>
@@ -2572,6 +2595,14 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
                       onMouseEnter={e => e.currentTarget.style.opacity="0.87"}
                       onMouseLeave={e => e.currentTarget.style.opacity="1"}>
                       <Plus size={13}/> Nueva sesión
+                    </button>
+                    <button onClick={() => handleSelect(p, "tasks")}
+                      style={{ display:"flex", alignItems:"center", gap:5, padding:"8px 16px", borderRadius:9999,
+                        border:"none", background:T.sucA, color:T.suc,
+                        fontFamily:T.fB, fontSize:12.5, fontWeight:700, cursor:"pointer", transition:"opacity .13s" }}
+                      onMouseEnter={e => e.currentTarget.style.opacity="0.82"}
+                      onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+                      Tareas
                     </button>
                     {hasPend && (
                       <button onClick={() => handleSelect(p, "payments")}

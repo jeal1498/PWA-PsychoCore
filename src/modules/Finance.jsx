@@ -12,6 +12,7 @@ import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useIsWide }   from "../hooks/useIsWide.js";
 // FIX D1: import emit para ui:toast desde el event bus existente
 import { emit } from "../lib/eventBus.js";
+import { useAppState } from "../context/AppStateContext.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FOLIO GENERATOR — YYYY-MM-NNNN
@@ -579,6 +580,7 @@ export default function Finance({
 }) {
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("ingresos");
+  const { activePatientContext, setActivePatientContext } = useAppState();
 
   // ── Ingresos: estado existente ─────────────────────────────────────────────
   const [showAdd,       setShowAdd]       = useState(false);
@@ -594,11 +596,24 @@ export default function Finance({
   const [form, setForm] = useState({ patientId:"", date:fmt(todayDate), amount:"", concept:"", serviceId:"", modality:"", method:"Transferencia", status:"pagado" });
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
   const [showModalityPicker, setShowModalityPicker] = useState(false);
+  const [seededPatientFilter, setSeededPatientFilter] = useState(false);
+
+  useEffect(() => {
+    if (activePatientContext?.patientId && !seededPatientFilter && !filterPt) {
+      setFilterPt(activePatientContext.patientId);
+      setSeededPatientFilter(true);
+    }
+  }, [activePatientContext?.patientId, seededPatientFilter, filterPt]);
 
   // FIX D1: estado de loading para shareRecibo — evita doble tap y da feedback visual
   const [reciboLoading, setReciboLoading] = useState(false);
 
   useEffect(() => { if (autoOpen === "add") setShowAdd(true); }, [autoOpen]);
+
+  useEffect(() => {
+    if (!showAdd || !activePatientContext?.patientId) return;
+    setForm(f => f.patientId ? f : { ...f, patientId: activePatientContext.patientId });
+  }, [showAdd, activePatientContext?.patientId]);
 
   // FIX D3: detectar openCobroId y abrir modal de edición automáticamente
   useEffect(() => {
@@ -835,6 +850,8 @@ export default function Finance({
   // ── Abrir modal "Cobrar" desde un pago pendiente ──────────────────────────
   const openCobroFromPending = (p) => {
     setCobroFromPending(p);
+    const patient = patients.find(pt => pt.id === p.patientId);
+    if (patient) setActivePatientContext({ patientId: patient.id, patientName: patient.name || "", source: "finance", updatedAt: new Date().toISOString() });
     setForm(f => ({ ...f, patientId: p.patientId, concept: p.concept || "", date: fmt(todayDate), amount: p.amount ? String(p.amount) : "", status: "pagado" }));
     setShowAdd(true);
   };
