@@ -1222,14 +1222,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     } catch {}
   }, [showAdd, editingSessionId]);
 
-  // ── Ctrl+S global → guardar nota si el modal está abierto ─────────────────
-  useEffect(() => {
-    const unsub = (data) => {
-      if (showAdd && canSave) save();
-    };
-    bus.on("session:save", unsub);
-    return () => bus.off("session:save", unsub);
-  }, [showAdd, canSave, save]);
   const rfld = k => v => setRefForm(f => ({ ...f, [k]:v }));
   const rld  = k => v => setQuickRisk(r => ({ ...r, [k]:v }));
 
@@ -1653,6 +1645,15 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     setEditingSessionId(null);
     setDraftSavedAt(null); setShowDraftBanner(false); setDraftBannerData(null);
   }
+
+  // ── Ctrl+S global → guardar nota si el modal está abierto ─────────────────
+  useEffect(() => {
+    const unsub = () => {
+      if (showAdd && canSave) save();
+    };
+    bus.on("session:save", unsub);
+    return () => bus.off("session:save", unsub);
+  }, [showAdd, canSave]);
 
   const duplicate = (s) => {
     setForm({ patientId:s.patientId, date:fmt(todayDate), duration:s.duration, mood:s.mood, progress:s.progress, tags:(s.tags||[]).join(", "), noteFormat:s.noteFormat||"libre", notes:s.noteFormat==="libre"?s.notes:"", structured:s.structured?{...s.structured}:null, taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" });
