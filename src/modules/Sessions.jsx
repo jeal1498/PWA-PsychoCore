@@ -1291,7 +1291,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
         createdAt: new Date().toISOString(),
       }]);
     }
-    setCloseStep(2);
+    setCloseStep(3);
   };
 
   const saveCloseNextAppt = () => {
@@ -1309,7 +1309,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
         isRecurring: false,
       }]);
     }
-    setCloseStep(4);
+    setCloseStep(5);
   };
 
   const whatsappNextAppt = () => {
@@ -1417,14 +1417,15 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       method:    payment.method,
     });
 
-    setShowCobro(false);
-    const savedCtx = { ...cobroData };
-    setCobroData(null);
-    setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
-    const agendaMsg = savedCtx._agendaSynced ? " · 📅 Cita actualizada" : "";
+    setCobroData(prev => prev ? {
+      ...prev,
+      paymentStatus: "pagado",
+      paymentRecord: payment,
+      paymentFolio: folio,
+    } : prev);
+    const agendaMsg = cobroData._agendaSynced ? " · 📅 Cita actualizada" : "";
     showToast(`✓ Sesión guardada${agendaMsg} · 💰 Pago registrado (Folio ${folio})`);
-    openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,
-      date: savedCtx.date, sessionId: savedCtx.sessionId });
+    setCloseStep(2);
   };
 
   // ── Omitir cobro → pago queda como "pendiente" en Finanzas ─────────────────
@@ -1446,13 +1447,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     };
     setPayments(prev => [...prev, pending]);
     const agendaSkipMsg = cobroData?._agendaSynced ? " · 📅 Cita actualizada" : "";
-    const savedCtx = { ...cobroData };
-    setShowCobro(false);
-    setCobroData(null);
-    setCobroForm({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
+    setCobroData(prev => prev ? {
+      ...prev,
+      paymentStatus: "pendiente",
+      paymentRecord: pending,
+      paymentFolio: folio,
+    } : prev);
     showToast(`Sesión guardada${agendaSkipMsg} · ⏳ Cobro pendiente en Finanzas`, "warning");
-    openCloseWizard({ patientId: savedCtx.patientId, patientName: savedCtx.patientName,
-      date: savedCtx.date, sessionId: savedCtx.sessionId });
+    setCloseStep(2);
   };
 
   const handleAISummary = async () => {
@@ -1538,9 +1540,10 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date, _agendaSynced: appointmentClosed,
         _session: { ...form, id: sessionId, patientName: pt?.name||"", notes: finalNotes, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean) },
         _patient: pt || null,
+        paymentStatus: "draft",
       });
       preloadCobroForPatient(pt);
-      setShowCobro(true);
+      openCloseWizard({ patientId: form.patientId, patientName: pt?.name||"", date: form.date, sessionId });
     } else {
       // Sin módulo de cobro → toast inmediato
       showToast(appointmentClosed
@@ -2657,14 +2660,15 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
       <Modal
         open={showCloseWizard}
         onClose={() => setShowCloseWizard(false)}
-        title={`Cierre de sesión · Paso ${closeStep} de 4`}
+        title={`Cierre de sesión · Paso ${closeStep} de 5`}
         width={480}
       >
         {closeCtx && (() => {
           const pt = patients.find(p => p.id === closeCtx.patientId);
+          const paymentDone = cobroData?.paymentStatus && cobroData.paymentStatus !== "draft";
 
           // ── Indicador de pasos ──────────────────────────────────────────
-          const steps = ["Intersesión", "Tareas", "Próxima cita", "Confirmar"];
+          const steps = ["Cobro", "Intersesión", "Tareas", "Próxima cita", "Confirmar"];
           return (
             <>
               {/* Progress bar */}
@@ -2702,8 +2706,217 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </div>
               </div>
 
-              {/* ── Paso 1: Intersesión rápida (Sección 8.3) ───────────── */}
+              {/* ── Paso 1: Cobro + documentos ─────────────────────────────── */}
               {closeStep === 1 && (
+                <>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+                    background:T.sucA, borderRadius:12, marginBottom:14, border:`1px solid ${T.suc}30` }}>
+                    <span style={{ fontSize:18 }}>💳</span>
+                    <div>
+                      <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:700, color:T.suc }}>
+                        Cobro y documentos de cierre
+                      </div>
+                      <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:1 }}>
+                        Todo lo que sale de la sesión queda resuelto aquí, sin abrir otro módulo.
+                      </div>
+                    </div>
+                  </div>
+
+                  {cobroData?.paymentStatus !== "draft" ? (
+                    <div style={{ marginBottom:16, padding:"12px 14px", borderRadius:12, border:`1.5px solid ${cobroData.paymentStatus === "pagado" ? T.suc + "40" : T.war + "40"}`, background:cobroData.paymentStatus === "pagado" ? T.sucA : T.warA }}>
+                      <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:700, color:cobroData.paymentStatus === "pagado" ? T.suc : T.war, marginBottom:4 }}>
+                        {cobroData.paymentStatus === "pagado" ? "Pago registrado" : "Cobro pendiente"}
+                      </div>
+                      <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5 }}>
+                        {cobroData.paymentRecord?.patientName || closeCtx.patientName}
+                        {cobroData.paymentFolio ? ` · Folio ${cobroData.paymentFolio}` : ""}
+                      </div>
+                      <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, marginTop:6 }}>
+                        Ya puedes continuar con el seguimiento, tareas y próxima cita.
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {cobroData?._session && (() => {
+                        const savedSession = cobroData._session;
+                        const savedPatient = cobroData._patient;
+                        const sessionRisk  = riskAssessments?.find(ra => ra.sessionId === savedSession.id);
+                        const hasRisk      = !!(sessionRisk && (
+                          sessionRisk.suicidalIdeation !== "ninguna" ||
+                          sessionRisk.selfHarm !== "ninguna" ||
+                          sessionRisk.harmToOthers
+                        ));
+
+                        const docItems = [
+                          {
+                            icon: FileText,
+                            label: "Nota de Evolución",
+                            hint: `Formato ${savedSession.noteFormat?.toUpperCase() || "Libre"}`,
+                            accent: "#3A6B6E",
+                            accentA:"rgba(58,107,110,0.09)",
+                            border: "rgba(58,107,110,0.22)",
+                            action: () => {
+                              const folio = getSessionFolio(savedSession, [...sessions, savedSession]);
+                              printNotaEvolucion(savedSession, savedPatient, profile, riskAssessments, folio, NOTE_FORMATS);
+                            },
+                          },
+                          {
+                            icon: FileCheck,
+                            label: "Consentimiento",
+                            hint: "Primera sesión",
+                            accent: "#6B5B9E",
+                            accentA:"rgba(107,91,158,0.09)",
+                            border: "rgba(107,91,158,0.22)",
+                            action: () => printConsentimientoInformado(savedPatient, profile),
+                          },
+                          ...(hasRisk ? [{
+                            icon: ShieldCheck,
+                            label: "Plan de Seguridad",
+                            hint: `Riesgo ${sessionRisk.riskLevel || "activo"}`,
+                            accent: "#B85050",
+                            accentA:"rgba(184,80,80,0.09)",
+                            border: "rgba(184,80,80,0.28)",
+                            urgent: true,
+                            action: () => printPlanSeguridad(sessionRisk.safetyPlan, savedPatient, profile, sessionRisk.riskLevel),
+                          }] : []),
+                        ];
+
+                        return (
+                          <div style={{
+                            marginBottom:16,
+                            border:`1.5px solid ${T.bdr}`,
+                            borderRadius:14, overflow:"hidden",
+                          }}>
+                            <div style={{
+                              padding:"10px 16px",
+                              background:`linear-gradient(135deg, ${T.pA} 0%, rgba(196,137,90,0.07) 100%)`,
+                              borderBottom:`1px solid ${T.bdrL}`,
+                              display:"flex", alignItems:"center", gap:8,
+                            }}>
+                              <Download size={13} color={T.p}/>
+                              <span style={{
+                                fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p,
+                                textTransform:"uppercase", letterSpacing:"0.07em",
+                              }}>
+                                Documentos para el paciente
+                              </span>
+                              <span style={{
+                                marginLeft:"auto", fontFamily:T.fB, fontSize:10.5,
+                                color:T.tl, fontWeight:400,
+                              }}>
+                                Genera antes de que salga de consulta
+                              </span>
+                            </div>
+
+                            <div style={{
+                              padding:"10px 10px 8px",
+                              background:T.card,
+                              display:"flex", flexDirection:"column", gap:6,
+                            }}>
+                              {docItems.map(doc => (
+                                <button
+                                  key={doc.label}
+                                  onClick={doc.action}
+                                  style={{
+                                    display:"flex", alignItems:"center", gap:11,
+                                    padding:"11px 14px",
+                                    background: doc.urgent ? doc.accentA : T.cardAlt,
+                                    border:`1.5px solid ${doc.urgent ? doc.border : T.bdrL}`,
+                                    borderRadius:10, cursor:"pointer", textAlign:"left",
+                                    transition:"all .14s", fontFamily:T.fB,
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = doc.accentA;
+                                    e.currentTarget.style.borderColor = doc.border;
+                                    e.currentTarget.style.transform = "translateX(2px)";
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = doc.urgent ? doc.accentA : T.cardAlt;
+                                    e.currentTarget.style.borderColor = doc.urgent ? doc.border : T.bdrL;
+                                    e.currentTarget.style.transform = "translateX(0)";
+                                  }}>
+                                  <div style={{
+                                    width:34, height:34, borderRadius:9, flexShrink:0,
+                                    background:`${doc.accent}18`,
+                                    border:`1.5px solid ${doc.accent}30`,
+                                    display:"flex", alignItems:"center", justifyContent:"center",
+                                  }}>
+                                    <doc.icon size={16} color={doc.accent} strokeWidth={1.8}/>
+                                  </div>
+                                  <div style={{ flex:1 }}>
+                                    <div style={{ fontSize:13, fontWeight:700, color:T.t, marginBottom:1 }}>
+                                      {doc.label}
+                                    </div>
+                                    <div style={{ fontSize:11, color:doc.urgent ? doc.accent : T.tl }}>
+                                      {doc.hint}
+                                    </div>
+                                  </div>
+                                  <Printer size={14} color={doc.accent} style={{ flexShrink:0, opacity:0.7 }}/>
+                                </button>
+                              ))}
+                            </div>
+
+                            <div style={{
+                              padding:"8px 16px",
+                              background:T.bdrL,
+                              borderTop:`1px solid ${T.bdrL}`,
+                              fontFamily:T.fB, fontSize:10.5, color:T.tl,
+                              display:"flex", alignItems:"center", gap:5,
+                            }}>
+                              <Lock size={11} color={T.tl}/>
+                              Notas de supervisión privadas excluidas de todos los documentos.
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {getServiceOptions().length > 0 ? (
+                        <Select label="Servicio" value={cobroForm.serviceId} onChange={handleCobroService}
+                          options={[{value:"",label:"Seleccionar servicio..."}, ...getServiceOptions().map(s => ({value:s.id, label:s.label}))]} />
+                      ) : (
+                        <Input label="Concepto" value={cobroForm.concept} onChange={v => setCobroForm(f => ({...f, concept:v}))} placeholder="Sesión individual" />
+                      )}
+                      {showCobroModality && (
+                        <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, marginBottom:8 }}>
+                          <div style={{ fontFamily:T.fB, fontSize:12, fontWeight:600, color:T.p, marginBottom:8 }}>¿Modalidad?</div>
+                          <div style={{ display:"flex", gap:8 }}>
+                            {[{mod:"presencial", icon:"🏢", label:"Presencial"}, {mod:"virtual", icon:"💻", label:"Virtual"}].map(({mod, icon, label}) => {
+                              const sel = cobroForm.modality === mod;
+                              return (
+                                <button key={mod} onClick={() => applyCobroModality(mod)}
+                                  style={{ flex:1, padding:"8px", borderRadius:9, cursor:"pointer", fontFamily:T.fB, fontSize:12, fontWeight:600, transition:"all .15s",
+                                    border: `1.5px solid ${sel ? T.p : T.bdr}`,
+                                    background: sel ? T.pA : T.card,
+                                    color: sel ? T.p : T.t }}>
+                                  {icon} {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {cobroForm.modality && !showCobroModality && (
+                        <div style={{ fontFamily:T.fB, fontSize:11, color:T.tm, marginBottom:8 }}>
+                          {cobroForm.modality === "presencial" ? "🏢 Presencial" : "💻 Virtual"}
+                          {" · "}<span style={{ color:T.p, cursor:"pointer", textDecoration:"underline" }} onClick={() => setShowCobroModality(true)}>Cambiar</span>
+                        </div>
+                      )}
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                        <Input label="Monto (MXN) *" value={cobroForm.amount} onChange={v => setCobroForm(f => ({...f, amount:v}))} type="number" placeholder="900" />
+                        <Select label="Método" value={cobroForm.method} onChange={v => setCobroForm(f => ({...f, method:v}))}
+                          options={["Transferencia","Efectivo","Tarjeta","MercadoPago","PayPal"].map(m => ({value:m,label:m}))} />
+                      </div>
+                      <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+                        <Btn variant="ghost" onClick={skipCobro}>Omitir (pendiente)</Btn>
+                        <Btn onClick={saveCobro} disabled={!cobroForm.amount}><Check size={15}/> Guardar cobro</Btn>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── Paso 2: Intersesión rápida (Sección 8.3) ───────────── */}
+              {closeStep === 2 && (
                 <>
                   <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:14, lineHeight:1.6 }}>
                     Registra indicaciones de medicación, contactos de seguimiento o intervenciones pautadas
@@ -2743,7 +2956,7 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                         boxSizing:"border-box", lineHeight:1.6 }}/>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-                    <button onClick={() => setCloseStep(2)}
+                    <button onClick={() => setCloseStep(3)}
                       style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
                         background:"transparent", fontFamily:T.fB, fontSize:13,
                         color:T.tm, cursor:"pointer" }}>
@@ -2759,8 +2972,8 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </>
               )}
 
-              {/* ── Paso 2: Asignación de Tareas ───────────────────────── */}
-              {closeStep === 2 && (() => {
+              {/* ── Paso 3: Asignación de Tareas ───────────────────────── */}
+              {closeStep === 3 && (() => {
                 const ptWiz = patients.find(p => p.id === closeCtx?.patientId);
                 const handleAssignTask = async () => {
                   if (!closeTaskTplId) return;
@@ -2851,12 +3064,12 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                     )}
 
                     <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-                      <button onClick={() => setCloseStep(3)}
-                        style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
-                          background:"transparent", fontFamily:T.fB, fontSize:13,
-                          color:T.tm, cursor:"pointer" }}>
-                        {closeTaskAssigned ? "Continuar" : "Omitir este paso"}
-                      </button>
+                    <button onClick={() => setCloseStep(4)}
+                      style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
+                        background:"transparent", fontFamily:T.fB, fontSize:13,
+                        color:T.tm, cursor:"pointer" }}>
+                      {closeTaskAssigned ? "Continuar" : "Omitir este paso"}
+                    </button>
                       {!closeTaskAssigned && closeTaskTplId && (
                         <button onClick={handleAssignTask} disabled={closeTaskSaving}
                           style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px",
@@ -2871,8 +3084,8 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 );
               })()}
 
-              {/* ── Paso 3: Próxima cita (Sección 8.4) ─────────────────── */}
-              {closeStep === 3 && (
+              {/* ── Paso 4: Próxima cita (Sección 8.4) ─────────────────── */}
+              {closeStep === 4 && (
                 <>
                   <p style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, lineHeight:1.6 }}>
                     Agenda la próxima sesión directamente desde aquí.
@@ -2918,7 +3131,7 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-                    <button onClick={() => setCloseStep(4)}
+                    <button onClick={() => setCloseStep(5)}
                       style={{ padding:"9px 16px", borderRadius:9, border:`1px solid ${T.bdrL}`,
                         background:"transparent", fontFamily:T.fB, fontSize:13,
                         color:T.tm, cursor:"pointer" }}>
@@ -2934,8 +3147,8 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </>
               )}
 
-              {/* ── Paso 4: Confirmación WhatsApp (Sección 8.5) ──────────── */}
-              {closeStep === 4 && (() => {
+              {/* ── Paso 5: Confirmación WhatsApp (Sección 8.5) ──────────── */}
+              {closeStep === 5 && (() => {
                 const waUrl = whatsappNextAppt();
                 return (
                   <>

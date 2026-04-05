@@ -489,18 +489,79 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
         action={<Btn onClick={() => { setShowAdd(true); setSelPatient(""); setSelTemplate(null); setNotes(""); setSaveError(""); }}><Plus size={15}/> Nueva tarea</Btn>}
       />
 
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:isMobile ? "1fr" : "1.3fr 1fr 1fr",
+        gap:10,
+        marginBottom:18,
+      }}>
+        <div style={{
+          padding:"14px 16px",
+          borderRadius:18,
+          background:`linear-gradient(135deg, ${T.pA} 0%, rgba(196,137,90,0.08) 100%)`,
+          border:`1px solid ${T.bdrL}`,
+        }}>
+          <div style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 }}>
+            Contexto activo
+          </div>
+          <div style={{ fontFamily:T.fH, fontSize:18, color:T.t, lineHeight:1.15, marginBottom:4 }}>
+            {activePatientContext?.patientName || "Sin paciente activo"}
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tl }}>
+            Las tareas se abren ya filtradas al paciente que estaba en uso.
+          </div>
+        </div>
+        <div style={{
+          padding:"14px 16px",
+          borderRadius:18,
+          background:T.card,
+          border:`1px solid ${T.bdrL}`,
+        }}>
+          <div style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 }}>
+            Respuestas
+          </div>
+          <div style={{ fontFamily:T.fH, fontSize:20, color:T.p, lineHeight:1.1 }}>{assignments.length}</div>
+          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:4 }}>Resultados cargados</div>
+        </div>
+        <div style={{
+          padding:"14px 16px",
+          borderRadius:18,
+          background:T.card,
+          border:`1px solid ${T.bdrL}`,
+        }}>
+          <div style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 }}>
+            Pendientes
+          </div>
+          <div style={{ fontFamily:T.fH, fontSize:20, color:T.war, lineHeight:1.1 }}>
+            {assignments.filter(a => a.status === "pending").length}
+          </div>
+          <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginTop:4 }}>Sin respuesta aún</div>
+        </div>
+      </div>
+
       {/* Vista tabs */}
-      <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${T.bdr}`, paddingBottom:0 }}>
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:isMobile ? "1fr" : "1fr 1fr",
+        gap:8,
+        marginBottom:18,
+        padding:"10px",
+        border:`1px solid ${T.bdrL}`,
+        borderRadius:18,
+        background:T.card,
+        boxShadow:T.sh,
+      }}>
         {[
           { id:"dashboard", label:"Respuestas" },
           { id:"manage",    label:"Por paciente" },
         ].map(v => (
           <button key={v.id} onClick={() => setView(v.id)}
-            style={{ padding:"10px 18px", border:"none", background:"none", cursor:"pointer",
+            style={{ padding:"11px 18px", border:"none", background:view===v.id?T.pA:"transparent", cursor:"pointer",
               fontFamily:T.fB, fontSize:13.5, fontWeight: view===v.id ? 700 : 400,
               color: view===v.id ? T.p : T.tm,
-              borderBottom: view===v.id ? `2px solid ${T.p}` : "2px solid transparent",
-              marginBottom:-1, transition:"all .15s" }}>
+              borderRadius:14,
+              boxShadow:view===v.id ? "0 8px 16px rgba(58,107,110,0.10)" : "none",
+              transition:"all .15s" }}>
             {v.label}
           </button>
         ))}
@@ -514,7 +575,7 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
       {/* Gestión por paciente */}
       {view === "manage" && (
         <div>
-          <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
             <select value={filterPt} onChange={e => setFilterPt(e.target.value)}
               style={{ padding:"9px 14px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:13.5, color:T.t, background:T.card, cursor:"pointer", outline:"none", flex:1, minWidth:200 }}>
               <option value="">— Selecciona un paciente —</option>
@@ -559,63 +620,89 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
       )}
 
       {/* ── New assignment modal ──────────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={580}>
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={760}>
+        <div style={isWide ? { display:"grid", gridTemplateColumns:"1fr 320px", gap:18, alignItems:"start" } : {}}>
+          <div>
+            <Select label="Paciente *" value={selPatient} onChange={(value) => {
+              setSelPatient(value);
+              const patient = patients.find(p => p.id === value);
+              if (patient) {
+                setActivePatientContext({ patientId: patient.id, patientName: patient.name || "", source: "tasks", updatedAt: new Date().toISOString() });
+              }
+            }}
+              options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
 
-        <Select label="Paciente *" value={selPatient} onChange={(value) => {
-          setSelPatient(value);
-          const patient = patients.find(p => p.id === value);
-          if (patient) {
-            setActivePatientContext({ patientId: patient.id, patientName: patient.name || "", source: "tasks", updatedAt: new Date().toISOString() });
-          }
-        }}
-          options={[{value:"",label:"Seleccionar paciente..."}, ...patients.map(p => ({value:p.id, label:p.name}))]}/>
+            {selPatient && !patients.find(p => p.id === selPatient)?.phone && (
+              <div style={{ padding:"10px 14px", background:T.warA, borderRadius:10, fontFamily:T.fB, fontSize:12.5, color:T.war, marginBottom:16, border:`1px solid rgba(184,144,10,0.2)` }}>
+                ⚠️ Este paciente no tiene teléfono registrado. Agrégalo en su expediente para poder enviarle la tarea por WhatsApp.
+              </div>
+            )}
 
-        {selPatient && !patients.find(p => p.id === selPatient)?.phone && (
-          <div style={{ padding:"10px 14px", background:T.warA, borderRadius:10, fontFamily:T.fB, fontSize:12.5, color:T.war, marginBottom:16, border:`1px solid rgba(184,144,10,0.2)` }}>
-            ⚠️ Este paciente no tiene teléfono registrado. Agrégalo en su expediente para poder enviarle la tarea por WhatsApp.
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Plantilla de tarea *</label>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+                {["Todas", ...TASK_CATEGORIES].map(cat => {
+                  const active = filterCat === cat;
+                  return (
+                    <button key={cat} onClick={() => setFilterCat(cat)}
+                      style={{ padding:"5px 12px", borderRadius:9999, border:`1.5px solid ${active ? T.p : T.bdrL}`,
+                        background: active ? T.pA : "transparent", color: active ? T.p : T.tm,
+                        fontFamily:T.fB, fontSize:12, fontWeight: active ? 700 : 400, cursor:"pointer", transition:"all .12s" }}>
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:isWide ? "1fr" : "1fr", gap:8, maxHeight:340, overflowY:"auto", paddingRight:4 }}>
+                {filteredTemplates.map(tpl => (
+                  <TemplateCard key={tpl.id} tpl={tpl} selected={selTemplate} onSelect={setSelTemplate}/>
+                ))}
+              </div>
+            </div>
+
+            <Textarea label="Instrucciones adicionales (opcional)"
+              value={notes} onChange={setNotes}
+              placeholder="Ej. Completa esto antes del jueves, enfócate especialmente en las situaciones del trabajo..."
+              rows={2}/>
+
+            {saveError && (
+              <div style={{ padding:"10px 14px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:12.5, color:T.err, marginBottom:16 }}>
+                {saveError}
+              </div>
+            )}
           </div>
-        )}
 
-        <div style={{ marginBottom:12 }}>
-          <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Plantilla de tarea *</label>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
-            {["Todas", ...TASK_CATEGORIES].map(cat => {
-              const active = filterCat === cat;
-              return (
-                <button key={cat} onClick={() => setFilterCat(cat)}
-                  style={{ padding:"5px 12px", borderRadius:9999, border:`1.5px solid ${active ? T.p : T.bdrL}`,
-                    background: active ? T.pA : "transparent", color: active ? T.p : T.tm,
-                    fontFamily:T.fB, fontSize:12, fontWeight: active ? 700 : 400, cursor:"pointer", transition:"all .12s" }}>
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:280, overflowY:"auto", paddingRight:4 }}>
-            {filteredTemplates.map(tpl => (
-              <TemplateCard key={tpl.id} tpl={tpl} selected={selTemplate} onSelect={setSelTemplate}/>
-            ))}
+          <div style={{ display:"grid", gap:12, position:isWide ? "sticky" : "static", top:0 }}>
+            <div style={{ padding:"14px 16px", borderRadius:18, background:T.card, border:`1px solid ${T.bdrL}`, boxShadow:T.sh }}>
+              <div style={{ fontFamily:T.fB, fontSize:10.5, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+                Resumen
+              </div>
+              <div style={{ fontFamily:T.fH, fontSize:20, color:T.t, marginBottom:4 }}>
+                {selPatient ? (patients.find(p => p.id === selPatient)?.name || "Paciente") : "Selecciona un paciente"}
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tl, lineHeight:1.5 }}>
+                {selTemplate ? `${selTemplate.icon} ${selTemplate.title}` : "Elige una plantilla para seguir."}
+              </div>
+            </div>
+
+            {selPatient && patients.find(p => p.id === selPatient)?.phone && (
+              <div style={{ padding:"12px 14px", background:T.pA, borderRadius:14, fontFamily:T.fB, fontSize:12, color:T.p, wordBreak:"break-word" }}>
+                🔗 El paciente recibirá un enlace temporal y seguro al portal.
+              </div>
+            )}
+
+            <div style={{ padding:"14px", borderRadius:18, background:"rgba(58,107,110,0.06)", border:`1px solid rgba(58,107,110,0.14)` }}>
+              <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+                Antes de guardar
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:12.5, color:T.tm, lineHeight:1.55 }}>
+                Mantén la tarea breve y específica. El paciente la verá en el portal y por WhatsApp si tiene teléfono.
+              </div>
+            </div>
           </div>
         </div>
 
-        <Textarea label="Instrucciones adicionales (opcional)"
-          value={notes} onChange={setNotes}
-          placeholder="Ej. Completa esto antes del jueves, enfócate especialmente en las situaciones del trabajo..."
-          rows={2}/>
-
-        {selPatient && patients.find(p => p.id === selPatient)?.phone && (
-          <div style={{ padding:"10px 14px", background:T.pA, borderRadius:10, fontFamily:T.fB, fontSize:12, color:T.p, marginBottom:16, wordBreak:"break-all" }}>
-            🔗 El paciente recibirá un enlace temporal y seguro al portal.
-          </div>
-        )}
-
-        {saveError && (
-          <div style={{ padding:"10px 14px", background:T.errA, borderRadius:10, fontFamily:T.fB, fontSize:12.5, color:T.err, marginBottom:16 }}>
-            {saveError}
-          </div>
-        )}
-
-        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:18 }}>
           <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
           <Btn onClick={handleSave} disabled={!canSave || saving}>
             {saving ? "Guardando..." : <><ClipboardList size={14}/> Asignar tarea</>}

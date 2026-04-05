@@ -1812,7 +1812,6 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
         <MedSummaryWidget patientId={selected.id} medications={medications}/>
         <ContactFollowUpWidget patientId={selected.id} interSessions={interSessions}/>
 
-        {/* Dar de alta */}
         <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${T.bdrL}` }}>
           {selected.status !== "alta" ? (
             <button
@@ -1861,65 +1860,67 @@ export default function Patients({ patients = [], setPatients, sessions = [], pa
           )}
         </div>
 
-        {/* Editar expediente */}
-        <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${T.bdrL}` }}>
-          <button
-            onClick={() => {
-              const rawPhone   = selected.phone || "";
-              const match      = PHONE_COUNTRIES.find(c => rawPhone.startsWith(c.code));
-              const countryCode = match ? match.code : "+52";
-              const phoneDigits = match ? rawPhone.slice(match.code.length) : rawPhone.replace(/\D/g, "");
-              setForm({
-                name:              selected.name || "",
-                birthdate:         selected.birthdate || "",
-                phone:             phoneDigits,
-                countryCode,
-                email:             selected.email || "",
-                diagnosis:         selected.diagnosis || "",
-                cie11Code:         selected.cie11Code || "",
-                reason:            selected.reason || "",
-                notes:             selected.notes || "",
-                status:            selected.status || "activo",
-                type:              selected.type || "individual",
-                coParticipants:    selected.coParticipants || "",
-                rate:              selected.rate || "",
-                serviceId:         selected.serviceId || "",
-                emergencyName:     selected.emergencyName || "",
-                emergencyPhone:    selected.emergencyPhone || "",
-                emergencyRelation: selected.emergencyRelation || "",
-              });
-              setEditTarget(selected.id);
-              setShowAdd(true);
-            }}
-            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-              width:"100%", padding:"7px", borderRadius:9,
-              border:`1px solid ${T.bdr}`, background:"transparent",
-              color:T.tm, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
-              cursor:"pointer", transition:"all .15s", marginBottom:8 }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
-            ✏️ Editar expediente completo
-          </button>
-        </div>
+        <details style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${T.bdrL}` }}>
+          <summary style={{ listStyle:"none", cursor:"pointer", fontFamily:T.fB, fontSize:11.5, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <span>Gestión del expediente</span>
+            <ChevronDown size={13} color={T.tl}/>
+          </summary>
+          <div style={{ marginTop:12, display:"grid", gap:8 }}>
+            <button
+              onClick={() => {
+                const rawPhone   = selected.phone || "";
+                const match      = PHONE_COUNTRIES.find(c => rawPhone.startsWith(c.code));
+                const countryCode = match ? match.code : "+52";
+                const phoneDigits = match ? rawPhone.slice(match.code.length) : rawPhone.replace(/\D/g, "");
+                setForm({
+                  name:              selected.name || "",
+                  birthdate:         selected.birthdate || "",
+                  phone:             phoneDigits,
+                  countryCode,
+                  email:             selected.email || "",
+                  diagnosis:         selected.diagnosis || "",
+                  cie11Code:         selected.cie11Code || "",
+                  reason:            selected.reason || "",
+                  notes:             selected.notes || "",
+                  status:            selected.status || "activo",
+                  type:              selected.type || "individual",
+                  coParticipants:    selected.coParticipants || "",
+                  rate:              selected.rate || "",
+                  serviceId:         selected.serviceId || "",
+                  emergencyName:     selected.emergencyName || "",
+                  emergencyPhone:    selected.emergencyPhone || "",
+                  emergencyRelation: selected.emergencyRelation || "",
+                });
+                setEditTarget(selected.id);
+                setShowAdd(true);
+              }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                width:"100%", padding:"7px", borderRadius:9,
+                border:`1px solid ${T.bdr}`, background:"transparent",
+                color:T.tm, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
+                cursor:"pointer", transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor=T.p; e.currentTarget.style.color=T.p; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor=T.bdr; e.currentTarget.style.color=T.tm; }}>
+              ✏️ Editar expediente completo
+            </button>
 
-        {/* Eliminar */}
-        <div style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${T.bdrL}` }}>
-          <button
-            onClick={() => {
-              if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
-                del(selected.id);
-              }
-            }}
-            style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-              width:"100%", padding:"7px", borderRadius:9,
-              border:`1px solid ${T.errA}`, background:"transparent",
-              color:T.err, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
-              cursor:"pointer", opacity:0.5, transition:"all .15s" }}
-            onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity="0.5"; e.currentTarget.style.background="transparent"; }}>
-            <Trash2 size={12}/> Eliminar expediente
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                if (confirm(`¿Eliminar el expediente de ${selected.name}? Esta acción no se puede deshacer.`)) {
+                  del(selected.id);
+                }
+              }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                width:"100%", padding:"7px", borderRadius:9,
+                border:`1px solid ${T.errA}`, background:"transparent",
+                color:T.err, fontFamily:T.fB, fontSize:11.5, fontWeight:600,
+                cursor:"pointer", opacity:0.55, transition:"all .15s" }}
+              onMouseEnter={e => { e.currentTarget.style.opacity="1"; e.currentTarget.style.background=T.errA; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity="0.55"; e.currentTarget.style.background="transparent"; }}>
+              <Trash2 size={12}/> Eliminar expediente
+            </button>
+          </div>
+        </details>
       </div>
     );
 
