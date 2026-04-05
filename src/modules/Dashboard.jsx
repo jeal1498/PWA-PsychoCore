@@ -1038,13 +1038,13 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   ];
 
   return (
-    <FadeUp delay={0.22}>
+    <FadeUp delay={0.08}>
       <div style={{
         display: "grid",
-        // móvil: 2 cols para que los 4 botones quepan sin scroll horizontal
-        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-        gap: isMobile ? 8 : 10,
-        marginTop: isMobile ? 12 : 16,
+        // siempre 4 columnas — en móvil los botones son compactos (icono + label corto)
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: isMobile ? 6 : 10,
+        marginBottom: isMobile ? 10 : 14,
       }}>
         {actions.map((a, idx) => {
           const [hov, setHov] = useState(false);
@@ -1057,41 +1057,44 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
               onMouseLeave={() => setHov(false)}
               style={{
                 display: "flex",
-                flexDirection: isMobile ? "column" : "row",
-                alignItems: isMobile ? "flex-start" : "center",
-                gap: 10,
-                padding: isMobile ? "14px 14px" : "11px 16px",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: isMobile ? 7 : 8,
+                padding: isMobile ? "12px 6px" : "14px 10px",
                 borderRadius: 13,
                 border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
                 background: hov ? a.bg : T.card,
-                cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "left",
+                cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "center",
                 transform: hov ? "translateY(-2px)" : "none",
                 boxShadow: hov ? T.shM : "none",
                 animation: `op-up 0.38s ease ${idx * 0.05}s both`,
               }}
             >
               <div style={{
-                width: isMobile ? 36 : 32,
-                height: isMobile ? 36 : 32,
+                width: isMobile ? 34 : 36,
+                height: isMobile ? 34 : 36,
                 borderRadius: 9, background: a.bg, flexShrink: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "transform 0.15s ease",
                 transform: hov ? "scale(1.1)" : "scale(1)",
               }}>
-                <ActionIcon size={isMobile ? 16 : 14} color={a.color} strokeWidth={1.7} />
+                <ActionIcon size={isMobile ? 15 : 15} color={a.color} strokeWidth={1.7} />
               </div>
               <span style={{
-                fontSize: isMobile ? 12.5 : 13,
+                fontSize: isMobile ? 11 : 12,
                 fontWeight: 600,
                 color: hov ? T.t : T.tm,
-                flex: isMobile ? "none" : 1,
-                lineHeight: 1.25,
+                lineHeight: 1.2,
+                // truncar etiquetas largas en móvil
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                width: "100%",
+                textAlign: "center",
               }}>
                 {a.label}
               </span>
-              {!isMobile && (
-                <ChevronRight size={13} color={hov ? a.color : T.tl} strokeWidth={2.5} strokeOpacity={0.7} />
-              )}
             </button>
           );
         })}
@@ -1459,6 +1462,15 @@ export default function Dashboard({
         onQuickNav={onQuickNav}
       />
 
+      {/* ── ACCIONES RÁPIDAS — posición fija: siempre debajo del banner ── */}
+      {patients.length > 0 && !isWide && (
+        <QuickBar
+          onQuickNav={onQuickNav}
+          onNewSession={onNewSession}
+          isMobile={isMobile}
+        />
+      )}
+
       {/* ── Content (empty state vs main) ─────────────────────────────── */}
       {patients.length === 0 ? (
         <WelcomeGuide onNavigate={onNavigate} />
@@ -1619,14 +1631,7 @@ export default function Dashboard({
             </div>
           )}
 
-          {/* ── ACCIONES RÁPIDAS — solo móvil y tablet ────────────────── */}
-          {(isMobile || !isWide) && (
-            <QuickBar
-              onQuickNav={onQuickNav}
-              onNewSession={onNewSession}
-              isMobile={isMobile}
-            />
-          )}
+          {/* QuickBar movido arriba del contenido clínico */}
         </>
       )}
     </div>
