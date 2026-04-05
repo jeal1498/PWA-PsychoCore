@@ -1035,26 +1035,19 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     setSessionForm({ duration:50, mood:"moderado", progress:"bueno", notes:"", tags:"" });
   };
 
-    const handleSendConsentWhatsApp = async (patient) => {
+  const handleSendConsentWhatsApp = async (patient) => {
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
     const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
     if (!phone) return;
-    const popup = window.open("", "_blank");
     try {
       const { accessUrl } = await createPortalAccessLink(patient.phone);
       const msg = encodeURIComponent(
         `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${accessUrl}\n\nEste enlace vence en 24 horas.\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
       );
       const waUrl = `https://wa.me/52${phone}?text=${msg}`;
-      if (popup) {
-        popup.location.href = waUrl;
-        popup.opener = null;
-      } else {
-        window.location.assign(waUrl);
-      }
+      window.open(waUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
-      if (popup) popup.close();
       console.error("No se pudo generar el enlace seguro del consentimiento:", error);
     }
   };

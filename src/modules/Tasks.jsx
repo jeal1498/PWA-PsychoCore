@@ -23,19 +23,12 @@ const buildTaskMessage = (patientName, taskTitle, accessUrl) => (
 
 const openTaskWhatsApp = async (phone, patientName, taskTitle) => {
   if (!phone) return;
-  const popup = window.open("", "_blank");
   try {
     const { accessUrl } = await createPortalAccessLink(phone);
     const msg = encodeURIComponent(buildTaskMessage(patientName, taskTitle, accessUrl));
     const waUrl = `https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`;
-    if (popup) {
-      popup.location.href = waUrl;
-      popup.opener = null;
-    } else {
-      window.location.assign(waUrl);
-    }
+    window.open(waUrl, "_blank", "noopener,noreferrer");
   } catch (error) {
-    if (popup) popup.close();
     console.error("No se pudo generar el enlace seguro del portal:", error);
   }
 };
