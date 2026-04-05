@@ -103,7 +103,7 @@ const whatsappReminder = (appointment, patient, profile) => {
   const fecha     = fmtDate(appointment.date);
   const hora      = appointment.time;
   const tipo      = appointment.type || "consulta";
-  const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+  const psicologa = profile?.name?.trim() || "tu psicóloga";
   const clinica   = profile?.clinic ? ` en ${profile.clinic}` : "";
 
   if (!phone) return null;
@@ -829,7 +829,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
     const fecha     = fmtDate(appt.date);
-    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+  const psicologa = profile?.name?.trim() || "tu psicóloga";
     if (!phone) return null;
     const msg = encodeURIComponent(
       `Hola ${nombre} 🙏\n\nLamentamos informarte que necesitamos reprogramar tu sesión del *${fecha}*. Por favor escríbenos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\n— ${psicologa}`
@@ -1038,7 +1038,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
   const handleSendConsentWhatsApp = async (patient) => {
     const nombre    = patient?.name?.split(" ")[0] || "";
     const phone     = patient?.phone?.replace(/\D/g, "");
-    const psicologa = profile?.name?.split(" ")[0] || "tu psicóloga";
+    const psicologa = profile?.name?.trim() || "tu psicóloga";
     if (!phone) return;
     try {
       const { accessUrl } = await createPortalAccessLink(patient.phone);
