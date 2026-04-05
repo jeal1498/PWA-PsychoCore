@@ -701,7 +701,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
                         onClick={() => markReminderSent(a.id)}
                         style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", borderRadius:7, border:"1.5px solid #25D366", background:"#25D36618", color:"#25D366", fontFamily:T.fB, fontSize:11, fontWeight:600, cursor:"pointer", textDecoration:"none", transition:"all .13s" }}>
                         <MessageCircle size={11}/> Recordatorio
-                      </button>
+                      </a>
                     ) : null}
                   </div>
                 )}
@@ -1360,7 +1360,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                   onClick={() => markReminderSent(a.id)}
                                   style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:8, border:"1.5px solid #25D366", background:"#25D36618", color:"#25D366", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none", transition:"all .15s" }}>
                                   <MessageCircle size={12}/> Recordatorio
-                                </button>
+                                </a>
                               ) : null;
                             })()}
                           </div>
@@ -1474,7 +1474,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
                                       onClick={() => markReminderSent(a.id)}
                                       style={{ display:"flex", alignItems:"center", padding:"4px 7px", borderRadius:7, border:"1px solid #25D36640", background:"#25D36615", color:"#25D366", textDecoration:"none", transition:"all .13s" }}>
                                       <MessageCircle size={12}/>
-                                    </button>
+                                    </a>
                                   ) : null}
                                 </div>
                               </div>
