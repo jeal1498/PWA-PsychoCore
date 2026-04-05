@@ -3,12 +3,14 @@ import { Search, Users, Calendar, FileText, X, ArrowRight, DollarSign, Clipboard
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useAppState } from "../context/AppStateContext.jsx";
 
 export default function GlobalSearch({ patients, appointments, sessions, payments = [], onNavigate }) {
   const [open,  setOpen]  = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
   const isMobile = useIsMobile();
+  const { activePatientContext } = useAppState();
 
   // Keyboard shortcut: Ctrl+K / Cmd+K
   useEffect(() => {
@@ -23,6 +25,23 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
+
+  const quickActions = [
+    {
+      id: "new-session",
+      label: "Nueva sesión",
+      hint: activePatientContext?.patientName ? `Para ${activePatientContext.patientName}` : "Abre la nota clínica con el contexto activo",
+      icon: ClipboardList,
+      action: () => { onNavigate("sessions", activePatientContext ? { ...activePatientContext, source: "quick-action", quickAction: "newSession" } : { quickAction: "newSession", source: "quick-action" }); setOpen(false); setQuery(""); },
+    },
+    {
+      id: "register-payment",
+      label: "Registrar pago",
+      hint: activePatientContext?.patientName ? `Cobro de ${activePatientContext.patientName}` : "Abre Finanzas con el paciente activo",
+      icon: DollarSign,
+      action: () => { onNavigate("finance", activePatientContext ? { ...activePatientContext, source: "quick-action", quickAction: "newPayment" } : { quickAction: "newPayment", source: "quick-action" }); setOpen(false); setQuery(""); },
+    },
+  ];
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,7 +69,7 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
       type: "appointment", icon: Calendar, label: `${a.patientName.split(" ").slice(0,2).join(" ")}`,
       sub: `${fmtDate(a.date)} · ${a.time} · ${a.type}`,
       color: T.acc, bg: T.accA,
-      action: () => { onNavigate("agenda"); setOpen(false); setQuery(""); },
+      action: () => { onNavigate("agenda", { patientId: a.patientId, patientName: a.patientName, source: "search" }); setOpen(false); setQuery(""); },
     }));
 
     // Sessions
@@ -62,7 +81,7 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
       type: "session", icon: FileText, label: `Sesión — ${s.patientName.split(" ").slice(0,2).join(" ")}`,
       sub: `${fmtDate(s.date)} · ${s.notes.slice(0,60)}…`,
       color: T.suc, bg: T.sucA,
-      action: () => { onNavigate("sessions"); setOpen(false); setQuery(""); },
+      action: () => { onNavigate("sessions", { patientId: s.patientId, patientName: s.patientName, source: "search" }); setOpen(false); setQuery(""); },
     }));
 
     // Payments — FASE 4
@@ -76,7 +95,7 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
       sub: `${p.concept || "Pago"} · ${p.method || ""} · ${p.status === "pagado" ? "Pagado" : "Pendiente"}`,
       color: p.status === "pagado" ? T.suc : T.war,
       bg:    p.status === "pagado" ? T.sucA : T.warA,
-      action: () => { onNavigate("finance"); setOpen(false); setQuery(""); },
+      action: () => { onNavigate("finance", { patientId: p.patientId, patientName: p.patientName, source: "search" }); setOpen(false); setQuery(""); },
     }));
 
     return out;
@@ -134,6 +153,45 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
             </button>
           )}
         </div>
+
+        {!query && (
+          <div style={{ padding: "14px 20px 4px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:10 }}>
+              <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                Acciones rápidas
+              </div>
+              {activePatientContext?.patientName && (
+                <div style={{ padding:"4px 10px", borderRadius:9999, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:11, fontWeight:600 }}>
+                  {activePatientContext.patientName}
+                </div>
+              )}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile ? "1fr" : "1fr 1fr", gap:8 }}>
+              {quickActions.map(action => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.id}
+                    onClick={action.action}
+                    style={{
+                      display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
+                      borderRadius:14, border:`1.5px solid ${T.bdrL}`, background:T.cardAlt,
+                      cursor:"pointer", textAlign:"left",
+                    }}
+                  >
+                    <div style={{ width:34, height:34, borderRadius:10, background:T.pA, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <Icon size={16} color={T.p} strokeWidth={1.7}/>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:T.fB, fontSize:13.5, fontWeight:700, color:T.t, marginBottom:2 }}>{action.label}</div>
+                      <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, lineHeight:1.45 }}>{action.hint}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Results */}
         {query.length >= 2 && (
