@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────
 // src/App.jsx — FASE 1 refactorizado
 // Responsabilidad: Auth, UI shell, navegación y tema.
 // El estado de datos (pacientes, sesiones, etc.) vive en AppStateContext.
@@ -50,6 +50,7 @@ export default function App() {
     medications,     setMedications,
     services,        setServices,
     assignments,
+    activePatientContext, setActivePatientContext,
     dataReady,
     dataLoaded,
     dataTimedOut,
@@ -79,6 +80,22 @@ export default function App() {
   const isMobile      = useIsMobile();
   const isWide        = useIsWide();
   const patientsNavRef= useRef(null);
+
+  const syncActivePatientContext = (data) => {
+    if (!data) return;
+    const patientId = data.patientId || data.id || data.patient_id || null;
+    if (!patientId) return;
+    const patientName = data.patientName || data.name || "";
+    setActivePatientContext(prev => {
+      if (prev?.patientId === patientId && prev?.patientName === patientName) return prev;
+      return {
+        patientId,
+        patientName,
+        source: data.source || "ui",
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  };
 
   console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
 
@@ -185,11 +202,23 @@ export default function App() {
     setOpenAction({ module: mod, action, ts: Date.now(), payload: payload || null });
     if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
+    if (payload) syncActivePatientContext(payload);
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
   const handleGlobalNav = (module, data) => {
+    if (module === "sessions" && data?.quickAction === "newSession") {
+      syncActivePatientContext(data);
+      handleNewSession(data);
+      return;
+    }
+    if (module === "finance" && data?.quickAction === "newPayment") {
+      syncActivePatientContext(data);
+      quickNav("finance", "add", null, data);
+      return;
+    }
     setActiveModule(module);
+    syncActivePatientContext(data);
     if (module === "patients" && data && patientsNavRef.current)
       setTimeout(() => patientsNavRef.current?.(data), 80);
   };
@@ -231,13 +260,16 @@ export default function App() {
   const handleStartSession = (appt) => {
     if (!appt?.patientId) return;
     setSessionPrefill({ patientId: appt.patientId, date: appt.date });
+    syncActivePatientContext(appt);
     setActiveModule("sessions");
     setOpenAction(null);
   };
 
-  const handleNewSession = () => {
+  const handleNewSession = (context = activePatientContext) => {
     const today = new Date().toISOString().split("T")[0];
-    setSessionPrefill({ patientId: "", date: today, _empty: true });
+    setSessionPrefill(context?.patientId
+      ? { patientId: context.patientId, patientName: context.patientName || "", date: today }
+      : { patientId: "", date: today, _empty: true });
     setActiveModule("sessions");
     setOpenAction(null);
   };
@@ -267,7 +299,7 @@ export default function App() {
         openCobroId={openAction?.module==="finance" ? openAction.payload?.openCobroId : null}
         profile={profile}
       />;
-      case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo}/>;
+      case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo} profile={profile}/>;
       case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
@@ -411,3 +443,4 @@ export default function App() {
     </div>
   );
 }
+
