@@ -1506,19 +1506,30 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
         {/* ── Mini-form nuevo paciente (pre-registro) ───────────────────── */}
         {newPtMode && (
-          <div style={{ marginBottom:16, padding:"14px 16px", background:T.pA, borderRadius:12, border:`1.5px solid ${T.acc}33` }}>
+          <div style={{
+            marginBottom: 16,
+            padding: "16px",
+            background: T.pA,
+            borderRadius: 14,
+            border: `1.5px solid ${T.p}33`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            boxShadow: `0 2px 12px ${T.p}14`,
+          }}>
+            {/* [bug-fix] Input ya llama onChange(value) — NO envuelver con e.target.value */}
             <Input label="Nombre *" value={quickPt.name}
-              onChange={e => setQuickPt(q => ({...q, name: e.target.value}))}
+              onChange={v => setQuickPt(q => ({...q, name: v}))}
               placeholder="Nombre completo del paciente" />
             <Input label="Teléfono" value={quickPt.phone}
-              onChange={e => setQuickPt(q => ({...q, phone: e.target.value}))}
+              onChange={v => setQuickPt(q => ({...q, phone: v}))}
               placeholder="10 dígitos" />
             <Input label="Motivo de consulta" value={quickPt.reason}
-              onChange={e => setQuickPt(q => ({...q, reason: e.target.value}))}
+              onChange={v => setQuickPt(q => ({...q, reason: v}))}
               placeholder="Opcional" />
             <Btn onClick={handleCreateAndSchedule}
               disabled={!quickPt.name.trim()}
-              style={{ width:"100%", marginTop:4 }}>
+              style={{ width:"100%", marginTop:8, transition:"opacity .2s" }}>
               Crear y agendar
             </Btn>
           </div>
