@@ -21,6 +21,7 @@ import {
   Briefcase, CalendarClock, ChevronDown, ChevronUp,
   UserX, ClipboardList, TrendingUp, Wifi, Play,
   AlertTriangle, FileSignature, NotebookPen,
+  UserPlus, BarChart2,
 } from "lucide-react";
 import { RISK_CONFIG } from "./RiskAssessment.jsx";
 import { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
@@ -153,7 +154,9 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
   const dateFormatted = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
   const displayName = profile?.name
     ? `Psic. ${profile.name.split(" ")[0]}`
-    : "Psicólogo/a";
+    : profile === null
+      ? "Psicólogo/a"       // perfil cargado pero sin nombre configurado
+      : "Psicólogo/a";     // perfil aún cargando — mismo fallback decoroso
   const allSync = urgentCount === 0;
 
   return (
@@ -1028,17 +1031,19 @@ function ComplianceItem({ icon: Icon, label, color, bg, onClick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,  module: "sessions" },
-    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: null,           module: "agenda" },
-    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: null,           module: "finance" },
+    { label: "Nuevo Paciente",  icon: UserPlus,   color: T.p,   bg: T.pA,   handler: null, module: "patients" },
+    { label: "Agendar Cita",    icon: Calendar,   color: T.suc, bg: T.sucA, handler: null, module: "agenda"   },
+    { label: "Registrar Pago",  icon: DollarSign, color: T.war, bg: T.warA, handler: null, module: "finance"  },
+    { label: "Reporte Mensual", icon: BarChart2,  color: T.acc, bg: T.accA, handler: null, module: "reports"  },
   ];
 
   return (
     <FadeUp delay={0.22}>
       <div style={{
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-        gap: isMobile ? 6 : 8,
+        // móvil: 2 cols para que los 4 botones quepan sin scroll horizontal
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+        gap: isMobile ? 8 : 10,
         marginTop: isMobile ? 12 : 16,
       }}>
         {actions.map((a, idx) => {
@@ -1051,28 +1056,42 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
               onMouseEnter={() => setHov(true)}
               onMouseLeave={() => setHov(false)}
               style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: isMobile ? "12px 16px" : "11px 16px",
-                borderRadius: 12,
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: isMobile ? "flex-start" : "center",
+                gap: 10,
+                padding: isMobile ? "14px 14px" : "11px 16px",
+                borderRadius: 13,
                 border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
                 background: hov ? a.bg : T.card,
                 cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "left",
-                transform: hov ? "translateY(-1px)" : "none",
+                transform: hov ? "translateY(-2px)" : "none",
                 boxShadow: hov ? T.shM : "none",
-                animation: `op-up 0.38s ease ${idx * 0.04}s both`,
+                animation: `op-up 0.38s ease ${idx * 0.05}s both`,
               }}
             >
               <div style={{
-                width: 32, height: 32, borderRadius: 9, background: a.bg, flexShrink: 0,
+                width: isMobile ? 36 : 32,
+                height: isMobile ? 36 : 32,
+                borderRadius: 9, background: a.bg, flexShrink: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "transform 0.15s ease", transform: hov ? "scale(1.08)" : "scale(1)",
+                transition: "transform 0.15s ease",
+                transform: hov ? "scale(1.1)" : "scale(1)",
               }}>
-                <ActionIcon size={14} color={a.color} strokeWidth={1.7} />
+                <ActionIcon size={isMobile ? 16 : 14} color={a.color} strokeWidth={1.7} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: hov ? T.t : T.tm, flex: 1 }}>
+              <span style={{
+                fontSize: isMobile ? 12.5 : 13,
+                fontWeight: 600,
+                color: hov ? T.t : T.tm,
+                flex: isMobile ? "none" : 1,
+                lineHeight: 1.25,
+              }}>
                 {a.label}
               </span>
-              <ChevronRight size={13} color={hov ? a.color : T.tl} strokeWidth={2.5} strokeOpacity={0.7} />
+              {!isMobile && (
+                <ChevronRight size={13} color={hov ? a.color : T.tl} strokeWidth={2.5} strokeOpacity={0.7} />
+              )}
             </button>
           );
         })}
