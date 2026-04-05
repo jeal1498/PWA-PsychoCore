@@ -1044,7 +1044,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     try {
       const { accessUrl } = await createPortalAccessLink(patient.phone);
       const msg = encodeURIComponent(
-        `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${accessUrl}\n\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
+        `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${accessUrl}\n\nEste enlace vence en 24 horas.\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
       );
       const waUrl = `https://wa.me/52${phone}?text=${msg}`;
       if (popup) {

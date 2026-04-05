@@ -1043,7 +1043,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave }) {
     const firstName = saved.patient.name.split(" ")[0];
     const dateLabel = fmtDate(saved.appointment.date);
     const time      = saved.appointment.time;
-    return `Hola, ${firstName}. 👋\n\nEs un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartiremos un enlace temporal y seguro para revisar y firmar tu Consentimiento Informado. ¡Estamos para apoyarte! 😊`;
+    return `Hola, ${firstName}. 👋\n\nEs un gusto saludarte. Te confirmamos que hemos agendado tu primera sesión para el ${dateLabel} a las ${time}. Antes de tu cita, te compartiremos un enlace temporal y seguro para revisar y firmar tu Consentimiento Informado. Este enlace vence en 24 horas. ¡Estamos para apoyarte! 😊`;
   };
 
   const msg   = buildWelcomeMsg();

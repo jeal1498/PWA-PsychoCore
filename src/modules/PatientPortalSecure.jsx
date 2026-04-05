@@ -101,21 +101,6 @@ function AccessRequired({ error, onRetry }) {
             boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
           }}
         >
-          <div
-            style={{
-              padding: "14px 16px",
-              borderRadius: 14,
-              background: "#EFF3F2",
-              border: `1px solid ${P.bdr}`,
-              marginBottom: error ? 12 : 18,
-              fontSize: 12,
-              color: P.tm,
-              lineHeight: 1.7,
-            }}
-          >
-            El acceso por número de teléfono quedó deshabilitado para proteger tus datos clínicos.
-          </div>
-
           {error && (
             <div
               style={{

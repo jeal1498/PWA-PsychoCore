@@ -18,7 +18,7 @@ const buildTaskMessage = (patientName, taskTitle, accessUrl) => (
   `Hola ${patientName?.split(" ")[0] || ""}! 👋\n\n` +
   `Te comparto tu tarea terapéutica: *${taskTitle}*\n\n` +
   `Accede aquí:\n${accessUrl}\n\n` +
-  `_Abre este enlace temporal y seguro para ver y responder tus tareas._`
+  `_Este enlace vence en 24 horas. Ábrelo pronto para ver y responder tus tareas._`
 );
 
 const openTaskWhatsApp = async (phone, patientName, taskTitle) => {
