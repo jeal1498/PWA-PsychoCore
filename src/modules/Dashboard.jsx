@@ -146,17 +146,21 @@ function Avatar({ name, size = 36, color = T.p, bg = T.pA }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 0 — WELCOME BANNER
 // ─────────────────────────────────────────────────────────────────────────────
-function WelcomeBanner({ todayAppts, urgentCount, profile, isMobile }) {
+function WelcomeBanner({ todayAppts, urgentCount, profile, googleUser, isMobile }) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("es-MX", {
     weekday: "long", day: "numeric", month: "long",
   });
   const dateFormatted = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  // Nombre: 1º perfil guardado, 2º nombre de Google OAuth, 3º fallback genérico
+  const googleName = googleUser?.user_metadata?.full_name
+    || googleUser?.user_metadata?.name
+    || null;
   const displayName = profile?.name
     ? `Psic. ${profile.name.split(" ")[0]}`
-    : profile === null
-      ? "Psicólogo/a"       // perfil cargado pero sin nombre configurado
-      : "Psicólogo/a";     // perfil aún cargando — mismo fallback decoroso
+    : googleName
+      ? `Psic. ${googleName.split(" ")[0]}`
+      : "Psicólogo/a";
   const allSync = urgentCount === 0;
 
   return (
@@ -1061,7 +1065,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: isMobile ? 7 : 8,
-                padding: isMobile ? "12px 6px" : "14px 10px",
+                padding: isMobile ? "12px 4px" : "14px 10px",
                 borderRadius: 13,
                 border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
                 background: hov ? a.bg : T.card,
@@ -1069,6 +1073,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
                 transform: hov ? "translateY(-2px)" : "none",
                 boxShadow: hov ? T.shM : "none",
                 animation: `op-up 0.38s ease ${idx * 0.05}s both`,
+                minWidth: 0, overflow: "hidden",
               }}
             >
               <div style={{
@@ -1379,6 +1384,7 @@ export default function Dashboard({
   treatmentPlans  = [],
   services        = [],
   profile         = {},
+  googleUser      = null,
   onNavigate,
   onQuickNav,
   onStartSession,
@@ -1451,6 +1457,7 @@ export default function Dashboard({
         todayAppts={todayAppts}
         urgentCount={urgentCount}
         profile={profile}
+        googleUser={googleUser}
         isMobile={isMobile}
       />
 
