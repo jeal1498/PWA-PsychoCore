@@ -111,7 +111,7 @@ const whatsappReminder = (appointment, patient, profile) => {
   const msg = encodeURIComponent(
     `Hola ${nombre} 👋\n\nTe escribo para recordarte tu cita de *${tipo}* programada para:\n\n📅 *${fecha}* a las *${hora}*${clinica}\n\nSi necesitas reagendar o tienes alguna duda, no dudes en escribirme.\n\n¡Hasta pronto! 😊\n— ${psicologa}`
   );
-  return `https://wa.me/52${phone}?text=${msg}`;
+   return `https://wa.me/${phone}?text=${msg}`;
 };
 
 // ── Weekly availability helpers ───────────────────────────────────────────────
@@ -834,7 +834,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
     const msg = encodeURIComponent(
       `Hola ${nombre} 🙏\n\nLamentamos informarte que necesitamos reprogramar tu sesión del *${fecha}*. Por favor escríbenos para coordinar una nueva fecha. Disculpa los inconvenientes.\n\n— ${psicologa}`
     );
-    return `https://wa.me/52${phone}?text=${msg}`;
+     return `https://wa.me/${phone}?text=${msg}`;
   };
 
   // Build type options from services + clinical fallback
@@ -1045,7 +1045,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       const msg = encodeURIComponent(
         `Hola ${nombre} 👋\n\nPara iniciar nuestro proceso terapéutico, te compartimos el enlace para revisar y firmar tu *Consentimiento Informado*: ${accessUrl}\n\nEste enlace vence en 24 horas.\nSi tienes dudas, con gusto te apoyo.\n\n¡Gracias! 😊\n— ${psicologa}`
       );
-      const waUrl = `https://wa.me/52${phone}?text=${msg}`;
+      const waUrl = `https://wa.me/${phone}?text=${msg}`;
       window.open(waUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("No se pudo generar el enlace seguro del consentimiento:", error);
