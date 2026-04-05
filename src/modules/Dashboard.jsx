@@ -1065,7 +1065,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: isMobile ? 7 : 8,
-                padding: isMobile ? "12px 4px" : "14px 10px",
+                padding: isMobile ? "14px 6px" : "16px 10px",
                 borderRadius: 13,
                 border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
                 background: hov ? a.bg : T.card,
@@ -1090,13 +1090,10 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
                 fontSize: isMobile ? 11 : 12,
                 fontWeight: 600,
                 color: hov ? T.t : T.tm,
-                lineHeight: 1.2,
-                // truncar etiquetas largas en móvil
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+                lineHeight: 1.3,
                 width: "100%",
                 textAlign: "center",
+                wordBreak: "break-word",
               }}>
                 {a.label}
               </span>
