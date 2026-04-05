@@ -358,7 +358,7 @@ function ResponsesDashboard({ patients, onViewResponses }) {
                 )}
                 {pt?.phone && !done && (
                   <button type="button" onClick={() => void openTaskWhatsApp(pt.phone, a.patient_name, a.title)}
-                    style={{style={ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
+                    style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:9, border:"1.5px solid #25D366", background:"rgba(37,211,102,0.08)", color:"#128C7E", fontFamily:T.fB, fontSize:12, fontWeight:600, cursor:"pointer", textDecoration:"none" }}>
                     <MessageCircle size={13}/> Recordar
                   </button>
                 )}
