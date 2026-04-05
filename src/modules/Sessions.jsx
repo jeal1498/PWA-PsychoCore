@@ -1339,6 +1339,13 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [cobroForm, setCobroForm] = useState({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
   const [showCobroModality, setShowCobroModality] = useState(false);
 
+  const isStructured = form.noteFormat !== "libre";
+  const canSave = form.patientId && (
+    isStructured
+      ? NOTE_FORMATS[form.noteFormat]?.fields?.some(f => form.structured?.[f.key]?.trim())
+      : form.notes.trim()
+  );
+
   // ── Toast de confirmación (Fase 2) ───────────────────────────────────────────
   const [toast, setToast] = useState({ msg:"", type:"success", visible:false });
   const showToast = (msg, type = "success") => {
@@ -1497,14 +1504,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       return { ...f, structured: merged, notes: compileNotes(f.noteFormat, merged) };
     });
   };
-  const isStructured = form.noteFormat !== "libre";
-
-  const canSave = form.patientId && (
-    isStructured
-      ? NOTE_FORMATS[form.noteFormat]?.fields?.some(f => form.structured?.[f.key]?.trim())
-      : form.notes.trim()
-  );
-
   const filtered = useMemo(() =>
     sessions.filter(s => !filterPt || s.patientId === filterPt).sort((a,b) => b.date.localeCompare(a.date)),
     [sessions, filterPt]);
