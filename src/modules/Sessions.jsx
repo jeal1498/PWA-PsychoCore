@@ -1105,7 +1105,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
   );
 }
 
-export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions, onNavigate }) {
   const { activePatientContext, setActivePatientContext } = useAppState();
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
@@ -1143,10 +1143,10 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [patientTasks,     setPatientTasks]     = useState([]);
   const [viewTaskResponse, setViewTaskResponse] = useState(null);
 
-  const blankForm = { patientId:"", date:fmt(todayDate), duration:50, mood:"moderado", progress:"bueno", noteFormat: localStorage.getItem("pc_last_note_format") || "libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
+  const blankForm = { patientId:"", date:fmt(todayDate), serviceId:"", duration:50, mood:"moderado", progress:"bueno", noteFormat: localStorage.getItem("pc_last_note_format") || "libre", notes:"", structured:null, tags:"", taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" };
   const [form, setForm] = useState(
     prefill?.patientId || activePatientContext?.patientId
-      ? { ...blankForm, patientId: prefill?.patientId || activePatientContext?.patientId || "", date: prefill?.date || fmt(todayDate) }
+      ? { ...blankForm, patientId: prefill?.patientId || activePatientContext?.patientId || "", date: prefill?.date || fmt(todayDate), serviceId: prefill?.serviceId || "" }
       : blankForm
   );
 
@@ -1160,6 +1160,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [draftBannerData, setDraftBannerData] = useState(null);
   const draftDebounceRef = useRef(null);
+  const [serviceLocked, setServiceLocked] = useState(!!prefill?.serviceId);
 
   useEffect(() => {
     if (!form?.patientId) { setPatientTasks([]); return; }
@@ -1176,6 +1177,77 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     setForm(f => (f.patientId === targetId ? f : { ...f, patientId: targetId, date: prefill?.date || f.date || fmt(todayDate) }));
     setPatientLocked(true);
   }, [showAdd, prefill?.patientId, prefill?.date, activePatientContext?.patientId]);
+
+  const SERVICE_DURATION_BY_TYPE = {
+    sesion: 50,
+    evaluacion: 90,
+    pareja: 60,
+    grupo: 90,
+    paquete: 50,
+    otro: 50,
+  };
+
+  const SERVICE_TYPE_LABEL = {
+    sesion:"Sesión individual",
+    evaluacion:"Evaluación neuropsicológica",
+    pareja:"Terapia de pareja",
+    grupo:"Grupo / Taller",
+    paquete:"Paquete",
+    otro:"Otro",
+  };
+
+  const resolveServiceMeta = (serviceId) => {
+    if (!serviceId) return null;
+    const svc = services.find(s => s.id === serviceId);
+    if (!svc) return null;
+    return {
+      ...svc,
+      label: svc.name || SERVICE_TYPE_LABEL[svc.type] || svc.type,
+      duration: Number(svc.duration) || SERVICE_DURATION_BY_TYPE[svc.type] || 50,
+    };
+  };
+
+  const syncServiceSelection = (serviceId) => {
+    const svc = resolveServiceMeta(serviceId);
+    setForm(f => ({
+      ...f,
+      serviceId: svc?.id || "",
+      duration: svc?.duration || 50,
+    }));
+  };
+
+  useEffect(() => {
+    if (!showAdd) return;
+    const targetServiceId = prefill?.serviceId || "";
+    if (!targetServiceId) return;
+    const svc = resolveServiceMeta(targetServiceId);
+    if (!svc) return;
+    setServiceLocked(true);
+    setForm(f => ({
+      ...f,
+      serviceId: svc.id,
+      duration: svc.duration,
+    }));
+  }, [showAdd, prefill?.serviceId, services]);
+
+  useEffect(() => {
+    if (!showAdd) return;
+    if (prefill?.serviceId) return;
+    setServiceLocked(false);
+  }, [showAdd, prefill?.serviceId]);
+
+  useEffect(() => {
+    if (!showAdd) return;
+    if (!form.serviceId) return;
+    const svc = resolveServiceMeta(form.serviceId);
+    if (!svc) return;
+    setForm(f => {
+      const nextDuration = svc.duration || 50;
+      if (f.serviceId === svc.id && Number(f.duration) === Number(nextDuration)) return f;
+      return { ...f, serviceId: svc.id, duration: nextDuration };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.serviceId, showAdd, services]);
 
   useEffect(() => {
     if (!form?.patientId) return;
@@ -1318,8 +1390,6 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     return `https://wa.me/${phone}?text=${msg}`;
   };
 
-  // Service helpers
-  const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación neuropsicológica", pareja:"Terapia de pareja", grupo:"Grupo / Taller", paquete:"Paquete", otro:"Otro" };
   const getServiceOptions = (patientId) => {
     if (!services.length) return [];
     return services.map(s => ({
@@ -1330,6 +1400,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   };
   const [cobroForm, setCobroForm] = useState({ serviceId:"", modality:"", amount:"", method:"Transferencia", concept:"" });
   const [showCobroModality, setShowCobroModality] = useState(false);
+  const selectedServiceMeta = resolveServiceMeta(form.serviceId);
 
   const isStructured = form.noteFormat !== "libre";
   const canSave = form.patientId && (
@@ -1354,7 +1425,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   // ── Preload inteligente del servicio en modal cobro ──────────────────────────
   // Prioridad: 1) defaultServiceId del paciente → 2) sessionCost del paciente
   //            → 3) primer servicio tipo "sesion" → 4) primer servicio disponible
-  const preloadCobroForPatient = (pt) => {
+  const preloadCobroForPatient = (pt, preferredServiceId = "") => {
+    if (preferredServiceId) {
+      const preferredSvc = services.find(s => s.id === preferredServiceId);
+      if (preferredSvc) {
+        handleCobroService(preferredSvc.id);
+        return;
+      }
+    }
     if (pt?.defaultServiceId) {
       const svc = services.find(s => s.id === pt.defaultServiceId);
       if (svc) { handleCobroService(svc.id); return; }
@@ -1504,8 +1582,19 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     if (!canSave) return;
     const pt = patients.find(p => p.id === form.patientId);
     const sessionId = "s" + uid();
+    const serviceMeta = resolveServiceMeta(form.serviceId);
     const finalNotes = isStructured ? compileNotes(form.noteFormat, form.structured) : form.notes;
-    setSessions(prev => [...prev, { ...form, id:sessionId, patientName:pt?.name||"", notes:finalNotes, tags:form.tags.split(",").map(t=>t.trim()).filter(Boolean) }]);
+    setSessions(prev => [...prev, {
+      ...form,
+      id: sessionId,
+      patientName: pt?.name || "",
+      serviceId: serviceMeta?.id || "",
+      serviceName: serviceMeta?.label || "",
+      serviceType: serviceMeta?.type || "",
+      duration: serviceMeta?.duration || Number(form.duration) || 50,
+      notes: finalNotes,
+      tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean),
+    }]);
 
     // FASE 2 ── Agenda Sync: cerrar automáticamente la cita del día ───────────
     let appointmentClosed = false;
@@ -1529,11 +1618,22 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     // FASE 2 ── Finance Sync: abrir modal de cobro con monto precargado ───────
     if (setPayments) {
       setCobroData({ sessionId, patientId: form.patientId, patientName: pt?.name||"", date: form.date, _agendaSynced: appointmentClosed,
-        _session: { ...form, id: sessionId, patientName: pt?.name||"", notes: finalNotes, tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean) },
+        _session: {
+          ...form,
+          id: sessionId,
+          patientName: pt?.name||"",
+          serviceId: serviceMeta?.id || "",
+          serviceName: serviceMeta?.label || "",
+          serviceType: serviceMeta?.type || "",
+          duration: serviceMeta?.duration || Number(form.duration) || 50,
+          notes: finalNotes,
+          tags: form.tags.split(",").map(t=>t.trim()).filter(Boolean),
+        },
+        _service: serviceMeta,
         _patient: pt || null,
         paymentStatus: "draft",
       });
-      preloadCobroForPatient(pt);
+      preloadCobroForPatient(pt, serviceMeta?.id || "");
       openCloseWizard({ patientId: form.patientId, patientName: pt?.name||"", date: form.date, sessionId });
     } else {
       // Sin módulo de cobro → toast inmediato
@@ -1638,6 +1738,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       Promise.allSettled(assignPromises);
     }
     setForm(blankForm); setQuickRisk(BLANK_RISK); setRiskOpen(false); setShowAdd(false);
+    setServiceLocked(false);
     const removedKey = editingSessionId ? `pc_draft_${editingSessionId}` : "pc_draft_new";
     try { localStorage.removeItem(removedKey); } catch {}
     // Si era una sesión nueva, también limpiar el fallback "pc_draft_new" por si acaso
@@ -1656,7 +1757,23 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   }, [showAdd, canSave]);
 
   const duplicate = (s) => {
-    setForm({ patientId:s.patientId, date:fmt(todayDate), duration:s.duration, mood:s.mood, progress:s.progress, tags:(s.tags||[]).join(", "), noteFormat:s.noteFormat||"libre", notes:s.noteFormat==="libre"?s.notes:"", structured:s.structured?{...s.structured}:null, taskAssigned:"", tasksAssigned:[], taskCompleted:null, privateNotes:"" });
+    setForm({
+      patientId:s.patientId,
+      date:fmt(todayDate),
+      serviceId:s.serviceId || "",
+      duration:s.duration,
+      mood:s.mood,
+      progress:s.progress,
+      tags:(s.tags||[]).join(", "),
+      noteFormat:s.noteFormat||"libre",
+      notes:s.noteFormat==="libre"?s.notes:"",
+      structured:s.structured?{...s.structured}:null,
+      taskAssigned:"",
+      tasksAssigned:[],
+      taskCompleted:null,
+      privateNotes:"",
+    });
+    setServiceLocked(false);
     setShowAdd(true);
   };
 
@@ -1671,7 +1788,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
       <PageHeader title="Notas de Sesión"
         subtitle={`${sessions.length} nota${sessions.length!==1?"s":""} registrada${sessions.length!==1?"s":""}`}
-        action={<Btn onClick={() => { setForm(blankForm); setShowAdd(true); }}><Plus size={15}/> Nueva nota</Btn>}
+        action={<Btn onClick={() => { setForm(blankForm); setServiceLocked(false); setShowAdd(true); }}><Plus size={15}/> Nueva nota</Btn>}
       />
       {/* Toast de error de tareas */}
       {taskError && (
@@ -1819,7 +1936,7 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
       }
 
       {/* ── New/duplicate modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditingSessionId(null); }} title="Nueva nota"
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditingSessionId(null); setServiceLocked(false); }} title="Nueva nota"
         width={isMobileView ? 620 : 940}>
 
         {/* Mobile: acordeón de contexto clínico al inicio del formulario */}
@@ -1958,9 +2075,46 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
           );
         })()}
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Input label="Fecha"      value={form.date}     onChange={fld("date")}     type="date"/>
-          <Input label="Duración"   value={form.duration} onChange={fld("duration")} type="number"/>
+        <div style={{ display:"grid", gridTemplateColumns:isMobileView ? "1fr" : "1fr 1fr", gap:12 }}>
+          <Input label="Fecha" value={form.date} onChange={fld("date")} type="date"/>
+          {serviceLocked && selectedServiceMeta ? (
+            <div style={{ padding:"12px 14px", borderRadius:10, border:`1.5px solid ${T.bdr}`, background:T.cardAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>
+                Servicio
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:T.t, lineHeight:1.4 }}>
+                {selectedServiceMeta.label}
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tm, marginTop:4, lineHeight:1.5 }}>
+                Tomado de la cita agendada · Duración estimada {selectedServiceMeta.duration} min
+              </div>
+            </div>
+          ) : services.length > 0 ? (
+            <Select
+              label="Servicio *"
+              value={form.serviceId}
+              onChange={v => syncServiceSelection(v)}
+              options={[
+                { value:"", label:"Seleccionar servicio..." },
+                ...services.map(s => ({ value:s.id, label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type })),
+              ]}
+            />
+          ) : (
+            <div style={{ padding:"12px 14px", borderRadius:10, border:`1.5px dashed ${T.bdr}`, background:T.cardAlt, display:"flex", flexDirection:"column", gap:6 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                Servicio
+              </div>
+              <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.5 }}>
+                No tienes servicios configurados todavía.
+              </div>
+              <button
+                onClick={() => onNavigate?.("settings", null, "services")}
+                style={{ alignSelf:"flex-start", padding:"7px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}
+              >
+                Ir a Servicios
+              </button>
+            </div>
+          )}
         </div>
         <MoodProgressPicker
           mood={form.mood}

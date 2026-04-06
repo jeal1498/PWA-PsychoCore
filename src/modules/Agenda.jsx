@@ -837,14 +837,15 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
       return `https://wa.me/${phone}?text=${msg}`;
   };
 
-  // Build type options from services + clinical fallback
+  // Build type options from services + explicit add-new action
   const SERVICE_TYPE_LABEL = { sesion:"Sesión individual", evaluacion:"Evaluación", pareja:"Terapia de pareja", grupo:"Grupo / Taller", otro:"Otro" };
-  const CLINICAL_FALLBACK = ["Primera consulta","Seguimiento","Evaluación","Crisis","Cierre","Seguimiento post-alta"];
-  const appointmentTypeOptions = services.length > 0
-    ? services.filter(s => s.type !== "paquete").map(s => ({ label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId:s.id, modality:s.modality }))
-    : CLINICAL_FALLBACK.map(t => ({ label:t, serviceId:null, modality:null }));
+  const ADD_SERVICE_OPTION = { label:"+ Agregar nuevo servicio", serviceId:"__add_service__", modality:null };
+  const serviceOptions = services
+    .filter(s => s.type !== "paquete")
+    .map(s => ({ label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type, serviceId:s.id, modality:s.modality }));
+  const appointmentTypeOptions = [...serviceOptions, ADD_SERVICE_OPTION];
 
-  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type:appointmentTypeOptions[0]?.label || "Seguimiento", serviceId:"", modality:"", status:"pendiente" };
+  const blankForm = { patientId:"", date:fmt(todayDate), time:"09:00", type:serviceOptions[0]?.label || ADD_SERVICE_OPTION.label, serviceId:"", modality:"", status:"pendiente" };
   const [form, setForm] = useState(blankForm);
   const [showModalityPicker, setShowModalityPicker] = useState(false);
 
@@ -876,6 +877,12 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
 
   const handleTypeChange = (label) => {
     const opt = appointmentTypeOptions.find(o => (o.label || o) === label);
+    if (opt?.serviceId === "__add_service__") {
+      setShowModalityPicker(false);
+      setShowAdd(false);
+      onNavigate?.("settings", null, "services");
+      return;
+    }
     const svc = opt?.serviceId ? services.find(s => s.id === opt.serviceId) : null;
     if (svc?.modality === "ambas") {
       setForm(f => ({ ...f, type:label, serviceId:svc.id, modality:"" }));
@@ -1587,7 +1594,7 @@ export default function Agenda({ appointments = [], setAppointments, sessions = 
           </div>
         )}
 
-        <Select label="Tipo de cita" value={form.type} onChange={handleTypeChange}
+        <Select label="Tipo de servicio" value={form.type} onChange={handleTypeChange}
           options={appointmentTypeOptions.map(o => ({ value:o.label || o, label:o.label || o }))}/>
 
         {showModalityPicker && (

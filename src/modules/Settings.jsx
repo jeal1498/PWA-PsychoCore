@@ -973,6 +973,25 @@ function ServicesTab({ services, setServices }) {
 
   // Estado de edición de precio con vigencia
   const [editingPrice, setEditingPrice] = useState(null); // { svcId, field, newValue, from }
+  const SUGGESTED_SERVICES = [
+    { label:"Primera consulta",      type:"sesion",     desc:"Servicio inicial o de admisión",          icon:"🧭" },
+    { label:"Seguimiento",           type:"sesion",     desc:"Sesión estándar de seguimiento",         icon:"🔁" },
+    { label:"Evaluación",            type:"evaluacion",  desc:"Sesión de valoración / reporte",         icon:"📋" },
+    { label:"Terapia de pareja",     type:"pareja",     desc:"Sesión para dos pacientes",              icon:"👫" },
+    { label:"Grupo / Taller",        type:"grupo",      desc:"Atención grupal o taller terapéutico",    icon:"👥" },
+    { label:"Cierre / Alta",         type:"otro",       desc:"Sesión final o cierre administrativo",   icon:"🏁" },
+  ];
+
+  const applySuggestion = (tpl) => {
+    setForm({
+      ...blankForm,
+      name: tpl.label,
+      type: tpl.type,
+      price: tpl.type === "evaluacion" ? String(basePrice) : String(basePrice),
+      priceVirtual: basePriceV ? String(basePriceV) : "",
+      modality: basePriceV ? "ambas" : "presencial",
+    });
+  };
 
   const canAdd = (form.type === "paquete" || form.name.trim()) && (form.price || form.priceVirtual);
   const fmtCur = n => "$" + Number(n).toLocaleString("es-MX");
@@ -1235,7 +1254,36 @@ function ServicesTab({ services, setServices }) {
             )}
           </>
         );
-      })()}
+        })()}
+
+      {/* ── Sugerencias rápidas ─────────────────────────────────────── */}
+      <Card style={{ padding: 20, marginBottom: 20 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:14 }}>
+          <div>
+            <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.tl, textTransform:"uppercase", letterSpacing:"0.07em" }}>
+              Sugerencias rápidas
+            </div>
+            <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginTop:4 }}>
+              Plantillas clínicas para crear servicios comunes sin empezar desde cero.
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))", gap:10 }}>
+          {SUGGESTED_SERVICES.map(s => (
+            <button key={s.label} onClick={() => applySuggestion(s)}
+              style={{ textAlign:"left", padding:"12px 14px", borderRadius:12, border:`1.5px solid ${T.bdrL}`, background:T.card,
+                cursor:"pointer", transition:"all .15s", display:"flex", gap:10, alignItems:"flex-start" }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:T.pA, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontSize:18 }}>{s.icon}</span>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:700, color:T.t, lineHeight:1.25 }}>{s.label}</div>
+                <div style={{ fontFamily:T.fB, fontSize:11.5, color:T.tl, lineHeight:1.45, marginTop:3 }}>{s.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </Card>
 
       {/* ── Formulario nuevo servicio ───────────────────────────────── */}
       <Card style={{ padding: 20 }}>
@@ -1486,4 +1534,3 @@ export default function Settings({ profile, setProfile, darkMode, setDarkMode, p
     </div>
   );
 }
-
