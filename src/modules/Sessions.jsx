@@ -1105,7 +1105,7 @@ function ExportMenu({ session, patient, profile, riskAssessments, allSessions, n
   );
 }
 
-export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions, onNavigate }) {
+export default function Sessions({ sessions = [], setSessions, patients = [], setPatients, profile, prefill, riskAssessments = [], setRiskAssessments, services = [], setServices, setPayments, payments = [], treatmentPlans = [], appointments = [], setAppointments, interSessions = [], setInterSessions, onNavigate }) {
   const { activePatientContext, setActivePatientContext } = useAppState();
   // ── Responsive: detectar ancho de ventana ────────────────────────────────
   const [windowWidth, setWindowWidth] = useState(
@@ -1161,6 +1161,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
   const [draftBannerData, setDraftBannerData] = useState(null);
   const draftDebounceRef = useRef(null);
   const [serviceLocked, setServiceLocked] = useState(!!prefill?.serviceId);
+  const [showQuickServiceForm, setShowQuickServiceForm] = useState(false);
+  const [quickService, setQuickService] = useState({
+    name: "",
+    type: "sesion",
+    modality: "presencial",
+    price: "",
+    priceVirtual: "",
+  });
 
   useEffect(() => {
     if (!form?.patientId) { setPatientTasks([]); return; }
@@ -1195,6 +1203,18 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     paquete:"Paquete",
     otro:"Otro",
   };
+  const SERVICE_TYPE_OPTIONS = [
+    { value:"sesion", label:"Sesión individual" },
+    { value:"evaluacion", label:"Evaluación" },
+    { value:"pareja", label:"Terapia de pareja" },
+    { value:"grupo", label:"Grupo / Taller" },
+    { value:"otro", label:"Otro" },
+  ];
+  const SERVICE_MODALITY_OPTIONS = [
+    { value:"presencial", label:"Presencial" },
+    { value:"virtual", label:"Virtual" },
+    { value:"ambas", label:"Ambas" },
+  ];
 
   const resolveServiceMeta = (serviceId) => {
     if (!serviceId) return null;
@@ -1216,6 +1236,41 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     }));
   };
 
+  const addQuickService = () => {
+    const typeLabel = SERVICE_TYPE_LABEL[quickService.type] || "Servicio";
+    const name = quickService.name.trim() || typeLabel;
+    const price = quickService.price ? Number(quickService.price) : 0;
+    const priceVirtual = quickService.priceVirtual ? Number(quickService.priceVirtual) : null;
+    if (!price && !priceVirtual) return;
+    const now = new Date().toISOString();
+    const newService = {
+      id: "svc" + uid(),
+      name,
+      type: quickService.type,
+      modality: quickService.modality === "ambas"
+        ? "ambas"
+        : quickService.modality === "virtual"
+          ? "virtual"
+          : "presencial",
+      price: quickService.modality === "virtual" ? 0 : price,
+      priceVirtual: quickService.modality === "presencial" ? null : (priceVirtual || (quickService.modality === "virtual" ? price : null)),
+      createdAt: now,
+    };
+    if (typeof setServices === "function") {
+      setServices(prev => [...prev, newService]);
+    }
+    setShowQuickServiceForm(false);
+    setServiceLocked(false);
+    setQuickService({
+      name: "",
+      type: "sesion",
+      modality: "presencial",
+      price: "",
+      priceVirtual: "",
+    });
+    setForm(f => ({ ...f, serviceId: newService.id, duration: SERVICE_DURATION_BY_TYPE[newService.type] || 50 }));
+  };
+
   useEffect(() => {
     if (!showAdd) return;
     const targetServiceId = prefill?.serviceId || "";
@@ -1235,6 +1290,14 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
     if (prefill?.serviceId) return;
     setServiceLocked(false);
   }, [showAdd, prefill?.serviceId]);
+
+  useEffect(() => {
+    if (!showAdd) {
+      setShowQuickServiceForm(false);
+      return;
+    }
+    if (services.length === 0) setShowQuickServiceForm(true);
+  }, [showAdd, services.length]);
 
   useEffect(() => {
     if (!showAdd) return;
@@ -2090,29 +2153,191 @@ export default function Sessions({ sessions = [], setSessions, patients = [], se
               </div>
             </div>
           ) : services.length > 0 ? (
-            <Select
-              label="Servicio *"
-              value={form.serviceId}
-              onChange={v => syncServiceSelection(v)}
-              options={[
-                { value:"", label:"Seleccionar servicio..." },
-                ...services.map(s => ({ value:s.id, label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type })),
-              ]}
-            />
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <Select
+                label="Servicio *"
+                value={form.serviceId}
+                onChange={v => {
+                  if (v === "__add_service__") {
+                    setShowQuickServiceForm(true);
+                    return;
+                  }
+                  syncServiceSelection(v);
+                }}
+                options={[
+                  { value:"", label:"Seleccionar servicio..." },
+                  ...services.map(s => ({ value:s.id, label:s.name || SERVICE_TYPE_LABEL[s.type] || s.type })),
+                  { value:"__add_service__", label:"+ Agregar nuevo servicio" },
+                ]}
+              />
+              {showQuickServiceForm && (
+                <div style={{ padding:"14px", borderRadius:12, border:`1.5px solid ${T.p}30`, background:T.pA }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:12 }}>
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:T.p, textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                        Agregar servicio aquí
+                      </div>
+                      <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, marginTop:3 }}>
+                        Crea el servicio sin salir de la nota.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowQuickServiceForm(false)}
+                      style={{ background:"none", border:"none", cursor:"pointer", fontFamily:T.fB, fontSize:12, color:T.tm, fontWeight:700 }}
+                    >
+                      Ocultar
+                    </button>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:10 }}>
+                    <Input label="Nombre del servicio" value={quickService.name} onChange={v => setQuickService(s => ({ ...s, name:v }))} placeholder="Sesión individual" />
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Tipo</label>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                        {SERVICE_TYPE_OPTIONS.map(opt => {
+                          const on = quickService.type === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => setQuickService(s => ({
+                                ...s,
+                                type: opt.value,
+                                name: s.name.trim() ? s.name : opt.label,
+                              }))}
+                              style={{
+                                padding:"8px 12px",
+                                borderRadius:9999,
+                                border:`1.5px solid ${on ? T.p : T.bdr}`,
+                                background:on ? T.pA : "transparent",
+                                color:on ? T.p : T.tm,
+                                fontFamily:T.fB,
+                                fontSize:12,
+                                fontWeight:on ? 700 : 600,
+                                cursor:"pointer",
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Modalidad</label>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        {SERVICE_MODALITY_OPTIONS.map(opt => {
+                          const on = quickService.modality === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => setQuickService(s => ({ ...s, modality: opt.value }))}
+                              style={{
+                                padding:"8px 12px",
+                                borderRadius:9999,
+                                border:`1.5px solid ${on ? T.p : T.bdr}`,
+                                background:on ? T.pA : "transparent",
+                                color:on ? T.p : T.tm,
+                                fontFamily:T.fB,
+                                fontSize:12,
+                                fontWeight:on ? 700 : 600,
+                                cursor:"pointer",
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns: quickService.modality === "ambas" ? "1fr 1fr" : "1fr", gap:10 }}>
+                      {(quickService.modality === "presencial" || quickService.modality === "ambas") && (
+                        <Input label="Precio presencial" value={quickService.price} onChange={v => setQuickService(s => ({ ...s, price:v }))} type="number" placeholder="850" />
+                      )}
+                      {(quickService.modality === "virtual" || quickService.modality === "ambas") && (
+                        <Input label="Precio virtual" value={quickService.priceVirtual} onChange={v => setQuickService(s => ({ ...s, priceVirtual:v }))} type="number" placeholder="800" />
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:12 }}>
+                    <button
+                      onClick={() => setShowQuickServiceForm(false)}
+                      style={{ padding:"8px 12px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB, fontSize:12, color:T.tm, cursor:"pointer" }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={addQuickService}
+                      style={{ padding:"8px 12px", borderRadius:9, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}
+                    >
+                      Guardar y usar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-            <div style={{ padding:"12px 14px", borderRadius:10, border:`1.5px dashed ${T.bdr}`, background:T.cardAlt, display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ padding:"12px 14px", borderRadius:10, border:`1.5px dashed ${T.bdr}`, background:T.cardAlt, display:"flex", flexDirection:"column", gap:10 }}>
               <div style={{ fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em" }}>
                 Servicio
               </div>
               <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.5 }}>
                 No tienes servicios configurados todavía.
               </div>
-              <button
-                onClick={() => onNavigate?.("settings", null, "services")}
-                style={{ alignSelf:"flex-start", padding:"7px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}
-              >
-                Ir a Servicios
-              </button>
+              {showQuickServiceForm ? (
+                <div style={{ padding:"14px", borderRadius:12, border:`1.5px solid ${T.p}30`, background:T.card }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:10 }}>
+                    <Input label="Nombre del servicio" value={quickService.name} onChange={v => setQuickService(s => ({ ...s, name:v }))} placeholder="Sesión individual" />
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Tipo</label>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                        {SERVICE_TYPE_OPTIONS.map(opt => {
+                          const on = quickService.type === opt.value;
+                          return (
+                            <button key={opt.value} onClick={() => setQuickService(s => ({ ...s, type: opt.value, name: s.name.trim() ? s.name : opt.label }))} style={{ padding:"8px 12px", borderRadius:9999, border:`1.5px solid ${on ? T.p : T.bdr}`, background:on ? T.pA : "transparent", color:on ? T.p : T.tm, fontFamily:T.fB, fontSize:12, fontWeight:on ? 700 : 600, cursor:"pointer" }}>
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display:"block", fontSize:11, fontWeight:700, color:T.tm, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Modalidad</label>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        {SERVICE_MODALITY_OPTIONS.map(opt => {
+                          const on = quickService.modality === opt.value;
+                          return (
+                            <button key={opt.value} onClick={() => setQuickService(s => ({ ...s, modality: opt.value }))} style={{ padding:"8px 12px", borderRadius:9999, border:`1.5px solid ${on ? T.p : T.bdr}`, background:on ? T.pA : "transparent", color:on ? T.p : T.tm, fontFamily:T.fB, fontSize:12, fontWeight:on ? 700 : 600, cursor:"pointer" }}>
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns: quickService.modality === "ambas" ? "1fr 1fr" : "1fr", gap:10 }}>
+                      {(quickService.modality === "presencial" || quickService.modality === "ambas") && (
+                        <Input label="Precio presencial" value={quickService.price} onChange={v => setQuickService(s => ({ ...s, price:v }))} type="number" placeholder="850" />
+                      )}
+                      {(quickService.modality === "virtual" || quickService.modality === "ambas") && (
+                        <Input label="Precio virtual" value={quickService.priceVirtual} onChange={v => setQuickService(s => ({ ...s, priceVirtual:v }))} type="number" placeholder="800" />
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:12 }}>
+                    <button onClick={() => setShowQuickServiceForm(false)} style={{ padding:"8px 12px", borderRadius:9, border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB, fontSize:12, color:T.tm, cursor:"pointer" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={addQuickService} style={{ padding:"8px 12px", borderRadius:9, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                      Guardar y usar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowQuickServiceForm(true)}
+                  style={{ alignSelf:"flex-start", padding:"7px 12px", borderRadius:8, border:`1.5px solid ${T.p}`, background:T.pA, color:T.p, fontFamily:T.fB, fontSize:12, fontWeight:700, cursor:"pointer" }}
+                >
+                  Agregar servicio aquí
+                </button>
+              )}
             </div>
           )}
         </div>
