@@ -259,7 +259,13 @@ export default function App() {
   // FIX D6: guard — validar que appt y appt.patientId existan antes de setear prefill
   const handleStartSession = (appt) => {
     if (!appt?.patientId) return;
-    setSessionPrefill({ patientId: appt.patientId, date: appt.date });
+    setSessionPrefill({
+      patientId: appt.patientId,
+      date: appt.date,
+      serviceId: appt.serviceId || "",
+      serviceName: appt.type || "",
+      modality: appt.modality || "",
+    });
     syncActivePatientContext(appt);
     setActiveModule("sessions");
     setOpenAction(null);
@@ -289,8 +295,15 @@ export default function App() {
     switch (activeModule) {
       case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
-      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile}/>;
-      case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill}/>;
+      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onNavigate={(module, data, tab) => {
+                                if (module === "settings") {
+                                  if (tab) setSettingsTab(tab);
+                                  navTo("settings");
+                                  return;
+                                }
+                                navTo(module);
+                              }}/>;
+      case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill} onNavigate={navTo}/>;
       // FIX D3: pasa openCobroId desde openAction.payload al módulo Finance
       case "finance":     return <Finance
         {...mp}
