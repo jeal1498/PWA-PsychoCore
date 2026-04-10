@@ -5,7 +5,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
-import { getAllAssignments } from "../lib/supabase.js";
 import { bus } from "../lib/eventBus.js";
 import {
   todayDate, fmt, fmtDate, fmtCur,
@@ -61,21 +60,6 @@ function greeting() {
 
 function daysBetween(dateStrA, dateStrB) {
   return Math.floor((new Date(dateStrB) - new Date(dateStrA)) / 86400000);
-}
-
-function usePendingTasks() {
-  const [count, setCount] = useState(null);
-  useEffect(() => {
-    getAllAssignments()
-      .then(all => setCount(all.filter(a => a.status === "pending").length))
-      .catch(() => setCount(0));
-  }, []);
-  useEffect(() => {
-    const inc = () => setCount(c => (c ?? 0) + 1);
-    bus.on("task:assigned", inc);
-    return () => bus.off("task:assigned", inc);
-  }, []);
-  return count;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -350,6 +334,12 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
   const absentPatients = useMemo(() =>
     patients
       .filter(p => (p.status || "activo") === "activo")
+      // BUG 5 FIX: excluir pacientes creados hace menos de 21 días (no son "ausentes")
+      .filter(p => {
+        const created = p.created_at || p.createdAt;
+        if (!created) return true; // sin fecha de creación → incluir por precaución
+        return (p.created_at || p.createdAt) < threshold21;
+      })
       .map(p => ({ ...p, lastSession: lastSessionByPt[p.id] || null }))
       .filter(p => !p.lastSession || p.lastSession < threshold21)
       .sort((a, b) => { if (!a.lastSession) return -1; if (!b.lastSession) return 1; return a.lastSession.localeCompare(b.lastSession); })
@@ -600,7 +590,7 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
                   padding: "6px 12px", borderRadius: 8, border: "none",
-                  cursor: "pointer", background: T.p, color: "#fff",
+                  cursor: "pointer", background: T.p, color: T.onPrimary ?? T.card,
                   fontFamily: T.fB, fontSize: 12, fontWeight: 600,
                   flexShrink: 0,
                 }}
@@ -615,298 +605,9 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2b — HERO DE SESIÓN (Siguiente Paciente) — mantenido para compatibilidad
-// ─────────────────────────────────────────────────────────────────────────────
-function SessionHero({ todayAppts, sessions, onStartSession, onNavigate, isMobile }) {
-  const nextPending = useMemo(() =>
-    todayAppts.filter(a => a.status !== "completada")[0] || null,
-    [todayAppts]
-  );
+// SessionHero eliminado (BUG 7 — dead code)
 
-  const lastSession = useMemo(() => {
-    if (!nextPending) return null;
-    return sessions
-      .filter(s => s.patientId === nextPending.patientId)
-      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
-  }, [nextPending, sessions]);
-
-  const completedToday = todayAppts.filter(a => a.status === "completada").length;
-
-  if (todayAppts.length === 0) {
-    return (
-      <Card style={{ padding: isMobile ? "20px 18px" : "26px 28px", display: "flex", flexDirection: "column", gap: 0, justifyContent: "center" }}>
-        <SectionLabel text="Próxima sesión" icon={Play} color={T.p} />
-        <EmptyState
-          icon={Calendar}
-          title="Sin citas hoy"
-          desc="No hay consultas programadas para hoy."
-          action={{ label: "Agendar cita", onClick: () => onNavigate("agenda") }}
-        />
-      </Card>
-    );
-  }
-
-  if (!nextPending) {
-    return (
-      <Card style={{ padding: isMobile ? "20px 18px" : "26px 28px" }}>
-        <SectionLabel text="Sesiones de hoy" icon={CheckCircle2} color={T.suc} />
-        <div style={{
-          display: "flex", alignItems: "center", gap: 14,
-          padding: "16px 18px", borderRadius: 14,
-          background: T.sucA, border: `1px solid ${T.suc}25`,
-        }}>
-          <CheckCircle2 size={26} color={T.suc} strokeWidth={1.5} />
-          <div>
-            <p style={{ fontFamily: T.fH, fontSize: isMobile ? 20 : 22, fontWeight: 500, color: T.t, margin: 0, letterSpacing: "-0.01em" }}>
-              Jornada completada
-            </p>
-            <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: "4px 0 0" }}>
-              {completedToday} sesión{completedToday > 1 ? "es" : ""} documentada{completedToday > 1 ? "s" : ""} hoy. Bien hecho.
-            </p>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card style={{ padding: isMobile ? "18px 18px" : "24px 28px", position: "relative", overflow: "hidden" }}>
-      {/* Orb decorativo */}
-      <div style={{
-        position: "absolute", top: -40, right: -40,
-        width: 160, height: 160, borderRadius: "50%",
-        background: T.pA, opacity: 0.6, pointerEvents: "none",
-      }} />
-
-      <SectionLabel text="Próxima sesión" icon={Play} color={T.p} />
-
-      {/* Time badge + nombre */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
-        <div style={{
-          flexShrink: 0, background: T.p, borderRadius: 13,
-          padding: "9px 13px", textAlign: "center", minWidth: 54,
-          position: "relative", zIndex: 1,
-        }}>
-          <div style={{ fontFamily: T.fB, fontSize: isMobile ? 19 : 22, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
-            {nextPending.time?.split(":").slice(0, 2).join(":") || "—"}
-          </div>
-          {nextPending.time && (
-            <div style={{ fontFamily: T.fB, fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,0.6)", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              HOY
-            </div>
-          )}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0, position: "relative", zIndex: 1 }}>
-          <h2 style={{
-            fontFamily: T.fH,
-            fontSize: isMobile ? 24 : 30,
-            fontWeight: 500,
-            color: T.t,
-            margin: "0 0 4px",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.1,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}>
-            {nextPending.patientName?.split(" ").slice(0, 3).join(" ") || "Paciente"}
-          </h2>
-          <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: 0 }}>
-            {nextPending.type || "Consulta"}
-          </p>
-        </div>
-      </div>
-
-      {/* Nota de última sesión */}
-      {lastSession && (
-        <div style={{
-          background: T.cardAlt, border: `1px solid ${T.bdrL}`,
-          borderRadius: 11, padding: "11px 14px", marginBottom: 16,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
-            <NotebookPen size={10} color={T.tl} strokeWidth={2} />
-            <span style={{ fontFamily: T.fB, fontSize: 9.5, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Última sesión · {fmtDate(lastSession.date)}
-            </span>
-          </div>
-          <p style={{
-            fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: 0, lineHeight: 1.6,
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-          }}>
-            {lastSession.notes || lastSession.summary || "Sin notas registradas de la sesión anterior."}
-          </p>
-        </div>
-      )}
-
-      {/* Progreso del día */}
-      {completedToday > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <div style={{ flex: 1, height: 3, borderRadius: 9999, background: T.bdrL, overflow: "hidden" }}>
-            <div style={{
-              height: "100%", borderRadius: 9999, background: T.p,
-              width: `${(completedToday / todayAppts.length) * 100}%`,
-              transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)",
-            }} />
-          </div>
-          <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, whiteSpace: "nowrap" }}>
-            {completedToday}/{todayAppts.length} completadas
-          </span>
-        </div>
-      )}
-
-      <Btn
-        variant="primary"
-        onClick={() => onStartSession(nextPending)}
-        style={{ width: "100%", justifyContent: "center", gap: 8, fontSize: 14, padding: "13px 20px" }}
-      >
-        <Play size={14} strokeWidth={2} fill="currentColor" />
-        Iniciar sesión
-      </Btn>
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3 — AGENDA DEL DÍA (Línea de Vida)
-// ─────────────────────────────────────────────────────────────────────────────
-function AgendaTimeline({ todayAppts, nextAppt, onStartSession, onNavigate, isMobile }) {
-  if (todayAppts.length === 0) {
-    return (
-      <Card style={{ padding: isMobile ? "16px 18px" : "20px 22px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <SectionLabel text="Agenda del día" icon={Calendar} />
-          <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
-        </div>
-        {nextAppt ? (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "12px 14px", borderRadius: 11,
-            background: T.cardAlt, border: `1px solid ${T.bdrL}`,
-          }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 10, background: T.pA,
-              border: `1px solid ${T.p}18`,
-              display: "flex", flexDirection: "column", alignItems: "center",
-              justifyContent: "center", flexShrink: 0,
-            }}>
-              <Calendar size={13} color={T.p} strokeWidth={1.8} />
-              <span style={{ fontFamily: T.fB, fontSize: 8, fontWeight: 700, color: T.p, marginTop: 1 }}>
-                {new Date(nextAppt.date + "T12:00:00").toLocaleDateString("es-MX", { weekday: "short" }).toUpperCase()}
-              </span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, margin: "0 0 2px" }}>Sin citas hoy · Próxima cita</p>
-              <p style={{
-                fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t, margin: 0,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
-                {nextAppt.patientName?.split(" ").slice(0, 2).join(" ")} — {fmtDate(nextAppt.date)}{nextAppt.time ? ` · ${nextAppt.time}` : ""}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div style={{ padding: "12px 0", textAlign: "center" }}>
-            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tl, margin: 0 }}>Sin citas programadas</p>
-          </div>
-        )}
-      </Card>
-    );
-  }
-
-  return (
-    <Card style={{ padding: isMobile ? "16px 18px" : "20px 22px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <SectionLabel text="Agenda del día" icon={Calendar} />
-        <SeeAll label="Ver agenda" onClick={() => onNavigate("agenda")} />
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {todayAppts.map((appt, idx) => (
-          <AgendaRow
-            key={appt.id}
-            appt={appt}
-            onStart={onStartSession}
-            isLast={idx === todayAppts.length - 1}
-            isFirst={idx === 0}
-          />
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function AgendaRow({ appt, onStart, isLast, isFirst }) {
-  const done = appt.status === "completada";
-  const [hov, setHov] = useState(false);
-  const isPending = !done;
-  return (
-    <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
-      {/* Timeline column */}
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        width: 36, flexShrink: 0, marginRight: 10,
-      }}>
-        <div style={{
-          width: 9, height: 9, borderRadius: "50%", flexShrink: 0, marginTop: 14,
-          background: done ? T.suc : T.p,
-          border: done ? `2px solid ${T.suc}40` : `2px solid ${T.p}30`,
-          zIndex: 1,
-        }} />
-        {!isLast && (
-          <div style={{ flex: 1, width: 1.5, background: T.bdrL, minHeight: 14, marginTop: 2 }} />
-        )}
-      </div>
-
-      {/* Content */}
-      <div
-        onMouseEnter={() => setHov(true)}
-        onMouseLeave={() => setHov(false)}
-        style={{
-          flex: 1, display: "flex", alignItems: "center", gap: 8,
-          padding: "10px 8px 10px 0",
-          opacity: done ? 0.55 : 1, transition: "opacity 0.15s ease",
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ flexShrink: 0, textAlign: "right", width: 40 }}>
-          <span style={{
-            fontFamily: T.fB, fontSize: 12.5, fontWeight: 700,
-            color: done ? T.tl : T.p, letterSpacing: "0.01em",
-          }}>
-            {appt.time || "—"}
-          </span>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: T.fH, fontSize: 14.5, fontWeight: 500, color: T.t,
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            letterSpacing: "-0.01em",
-          }}>
-            {appt.patientName?.split(" ").slice(0, 2).join(" ")}
-          </div>
-          <div style={{ fontFamily: T.fB, fontSize: 10.5, color: T.tl, marginTop: 1 }}>{appt.type}</div>
-        </div>
-        {done ? (
-          <Badge variant="success" dot>Completada</Badge>
-        ) : (
-          <Btn
-            variant="ghost"
-            small
-            onClick={() => onStart(appt)}
-            style={{
-              fontSize: 11.5, padding: "5px 11px", gap: 4,
-              opacity: hov ? 1 : 0.6, transition: "opacity 0.15s ease",
-            }}
-          >
-            <Play size={10} strokeWidth={2} /> Iniciar
-          </Btn>
-        )}
-      </div>
-    </div>
-  );
-}
+// AgendaTimeline y AgendaRow eliminados (BUG 6 — dead code)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4 — CHECKLIST DE COMPLIANCE
@@ -1033,6 +734,59 @@ function ComplianceItem({ icon: Icon, label, color, bg, onClick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ACCIONES RÁPIDAS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// BUG 1 FIX: extraído como subcomponente para que cada useState sea top-level
+function ActionButton({ action: a, isMobile, idx, onClick }) {
+  const [hov, setHov] = useState(false);
+  const ActionIcon = a.icon;
+  return (
+    <button
+      key={a.label}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: isMobile ? 7 : 8,
+        padding: isMobile ? "14px 6px" : "16px 10px",
+        borderRadius: 13,
+        border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
+        background: hov ? a.bg : T.card,
+        cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "center",
+        transform: hov ? "translateY(-2px)" : "none",
+        boxShadow: hov ? T.shM : "none",
+        animation: `op-up 0.38s ease ${idx * 0.05}s both`,
+        minWidth: 0, overflow: "hidden",
+      }}
+    >
+      <div style={{
+        width: isMobile ? 34 : 36,
+        height: isMobile ? 34 : 36,
+        borderRadius: 9, background: a.bg, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "transform 0.15s ease",
+        transform: hov ? "scale(1.1)" : "scale(1)",
+      }}>
+        <ActionIcon size={15} color={a.color} strokeWidth={1.7} />
+      </div>
+      <span style={{
+        fontSize: isMobile ? 11 : 12,
+        fontWeight: 600,
+        color: hov ? T.t : T.tm,
+        lineHeight: 1.3,
+        width: "100%",
+        textAlign: "center",
+        wordBreak: "break-word",
+      }}>
+        {a.label}
+      </span>
+    </button>
+  );
+}
+
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
     { label: "Nuevo Paciente",  icon: UserPlus,   color: T.p,   bg: T.pA,   handler: null, module: "patients" },
@@ -1045,61 +799,19 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
     <FadeUp delay={0.08}>
       <div style={{
         display: "grid",
-        // siempre 4 columnas — en móvil los botones son compactos (icono + label corto)
         gridTemplateColumns: "repeat(4, 1fr)",
         gap: isMobile ? 6 : 10,
         marginBottom: isMobile ? 10 : 14,
       }}>
-        {actions.map((a, idx) => {
-          const [hov, setHov] = useState(false);
-          const ActionIcon = a.icon;
-          return (
-            <button
-              key={a.label}
-              onClick={() => a.handler ? a.handler() : onQuickNav(a.module, "add")}
-              onMouseEnter={() => setHov(true)}
-              onMouseLeave={() => setHov(false)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: isMobile ? 7 : 8,
-                padding: isMobile ? "14px 6px" : "16px 10px",
-                borderRadius: 13,
-                border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
-                background: hov ? a.bg : T.card,
-                cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "center",
-                transform: hov ? "translateY(-2px)" : "none",
-                boxShadow: hov ? T.shM : "none",
-                animation: `op-up 0.38s ease ${idx * 0.05}s both`,
-                minWidth: 0, overflow: "hidden",
-              }}
-            >
-              <div style={{
-                width: isMobile ? 34 : 36,
-                height: isMobile ? 34 : 36,
-                borderRadius: 9, background: a.bg, flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "transform 0.15s ease",
-                transform: hov ? "scale(1.1)" : "scale(1)",
-              }}>
-                <ActionIcon size={isMobile ? 15 : 15} color={a.color} strokeWidth={1.7} />
-              </div>
-              <span style={{
-                fontSize: isMobile ? 11 : 12,
-                fontWeight: 600,
-                color: hov ? T.t : T.tm,
-                lineHeight: 1.3,
-                width: "100%",
-                textAlign: "center",
-                wordBreak: "break-word",
-              }}>
-                {a.label}
-              </span>
-            </button>
-          );
-        })}
+        {actions.map((a, idx) => (
+          <ActionButton
+            key={a.label}
+            action={a}
+            isMobile={isMobile}
+            idx={idx}
+            onClick={() => a.handler ? a.handler() : onQuickNav(a.module, "add")}
+          />
+        ))}
       </div>
     </FadeUp>
   );
@@ -1109,6 +821,41 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
 // QUICK SIDEBAR — columna derecha exclusiva de layout wide (≥1280px)
 // Acciones rápidas + resumen numérico del día para el clínico
 // ─────────────────────────────────────────────────────────────────────────────
+
+// BUG 1 FIX: extraído como subcomponente para que cada useState sea top-level
+function SidebarActionButton({ action: a, idx }) {
+  const [hov, setHov] = useState(false);
+  const ActionIcon = a.icon;
+  return (
+    <button
+      onClick={a.handler}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "9px 12px",
+        borderRadius: 10,
+        border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
+        background: hov ? a.bg : "transparent",
+        cursor: "pointer", transition: "all .16s ease",
+        fontFamily: T.fB, textAlign: "left",
+        animation: `op-up 0.35s ease ${idx * 0.04}s both`,
+      }}
+    >
+      <div style={{
+        width: 28, height: 28, borderRadius: 8, background: a.bg, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <ActionIcon size={13} color={a.color} strokeWidth={1.7} />
+      </div>
+      <span style={{ fontSize: 12.5, fontWeight: 500, color: hov ? T.t : T.tm, flex: 1 }}>
+        {a.label}
+      </span>
+      <ChevronRight size={12} color={hov ? a.color : T.tl} strokeWidth={2.5} />
+    </button>
+  );
+}
+
 function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }) {
   const actions = [
     { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,                      module: "sessions" },
@@ -1138,39 +885,9 @@ function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }
       }}>
         <SectionLabel text="Acciones rápidas" icon={Sparkles} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {actions.map((a, idx) => {
-            const [hov, setHov] = useState(false);
-            const ActionIcon = a.icon;
-            return (
-              <button
-                key={a.label}
-                onClick={a.handler}
-                onMouseEnter={() => setHov(true)}
-                onMouseLeave={() => setHov(false)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "9px 12px",
-                  borderRadius: 10,
-                  border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
-                  background: hov ? a.bg : "transparent",
-                  cursor: "pointer", transition: "all .16s ease",
-                  fontFamily: T.fB, textAlign: "left",
-                  animation: `op-up 0.35s ease ${idx * 0.04}s both`,
-                }}
-              >
-                <div style={{
-                  width: 28, height: 28, borderRadius: 8, background: a.bg, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <ActionIcon size={13} color={a.color} strokeWidth={1.7} />
-                </div>
-                <span style={{ fontSize: 12.5, fontWeight: 500, color: hov ? T.t : T.tm, flex: 1 }}>
-                  {a.label}
-                </span>
-                <ChevronRight size={12} color={hov ? a.color : T.tl} strokeWidth={2.5} />
-              </button>
-            );
-          })}
+          {actions.map((a, idx) => (
+            <SidebarActionButton key={a.label} action={a} idx={idx} />
+          ))}
         </div>
       </div>
 
@@ -1380,6 +1097,7 @@ export default function Dashboard({
   riskAssessments = [],
   treatmentPlans  = [],
   services        = [],
+  assignments     = [],
   profile         = {},
   googleUser      = null,
   onNavigate,
@@ -1402,7 +1120,11 @@ export default function Dashboard({
   const isMobile = isMobileHook || winWidth < 768;
   const isWide   = useIsWide();
 
-  const pendingTasks = usePendingTasks();
+  // BUG 4 FIX: pendingTasks derivado localmente desde prop assignments (sin fetch independiente)
+  const pendingTasks = useMemo(
+    () => assignments.filter(a => a.status === "pending").length,
+    [assignments]
+  );
   const todayStr     = fmt(todayDate);
 
   // ── Derived data (lógica Supabase intacta) ────────────────────────────────
@@ -1437,6 +1159,12 @@ export default function Dashboard({
     });
     const absentCount = patients
       .filter(p => (p.status || "activo") === "activo")
+      // BUG 5 FIX: excluir pacientes creados hace menos de 21 días
+      .filter(p => {
+        const created = p.created_at || p.createdAt;
+        if (!created) return true;
+        return created < threshold21;
+      })
       .filter(p => { const last = lastSessionByPt[p.id]; return !last || last < threshold21; })
       .length;
     return riskCount + absentCount;
