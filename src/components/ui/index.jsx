@@ -25,6 +25,9 @@ if (typeof document !== "undefined" && !window.__psychocore_styles__) {
       0%, 100% { opacity: 0.35; }
       50%       { opacity: 0.6;  }
     }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   `;
   document.head.appendChild(s);
 }
