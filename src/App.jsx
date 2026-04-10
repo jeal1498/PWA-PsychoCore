@@ -295,7 +295,7 @@ export default function App() {
     switch (activeModule) {
       case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
-      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onNavigate={(module, data, tab) => {
+      case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onStartSession={handleStartSession} onPrimerContacto={() => quickNav("patients", "add")} onNavigate={(module, data, tab) => {
                                 if (module === "settings") {
                                   if (tab) setSettingsTab(tab);
                                   navTo("settings");
