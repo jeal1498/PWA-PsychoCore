@@ -1,29 +1,37 @@
 // ╔══════════════════════════════════════════════════════════════════════════════╗
-// ║  Dashboard.jsx — "Asistente de Preparación" / PsychoCore                    ║
+// ║  Dashboard.jsx — UI y subcomponentes visuales / PsychoCore                  ║
 // ║  Rediseño: Minimalismo cálido · Jerarquía clínica · Cero fatiga cognitiva   ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-import { useState, useMemo, useEffect } from "react";
-import { T, MONTHS_ES, DAYS_ES } from "../theme.js";
-import { bus } from "../lib/eventBus.js";
+import { useState, useMemo } from "react";
+import { T } from "../../theme.js";
+import { bus } from "../../lib/eventBus.js";
+import { Card, Badge, Btn, EmptyState } from "../../components/ui/index.jsx";
 import {
-  todayDate, fmt, fmtDate, fmtCur,
-  moodIcon, moodColor, progressStyle,
-} from "../utils.js";
-import { Card, Badge, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
-import { useIsMobile } from "../hooks/useIsMobile.js";
-import { useIsWide }   from "../hooks/useIsWide.js";
-import {
-  Users, Calendar, CalendarDays, Clock, FileText, ChevronRight,
-  ShieldAlert, DollarSign, CheckCircle2, AlertCircle,
-  ArrowRight, Sparkles, ListChecks, Camera, BadgeCheck,
+  Users, Calendar, CalendarDays, FileText, ChevronRight,
+  ShieldAlert, DollarSign, CheckCircle2,
+  Sparkles, ListChecks, Camera, BadgeCheck,
   Briefcase, CalendarClock, ChevronDown, ChevronUp,
-  UserX, ClipboardList, TrendingUp, Wifi, Play,
+  ClipboardList, TrendingUp, Play,
   AlertTriangle, FileSignature, NotebookPen,
   UserPlus, BarChart2,
 } from "lucide-react";
-import { RISK_CONFIG } from "./RiskAssessment.jsx";
-import { consentStatus, CONSENT_STATUS_CONFIG } from "./Consent.jsx";
+import { RISK_CONFIG } from "../RiskAssessment.jsx";
+import { consentStatus, CONSENT_STATUS_CONFIG } from "../Consent.jsx";
+import { useDashboard } from "./useDashboard.js";
+import {
+  greeting,
+  todayFormatted,
+  todayWidgetTitle,
+  daysBetween,
+  resolveDisplayName,
+  HOY_STATUS_CFG,
+  computeAbsentPatients,
+  computeRiskItems,
+  computeSidebarSummary,
+  fmtDate,
+  fmtCur,
+} from "./dashboard.utils.js";
 
 // ── Keyframes ─────────────────────────────────────────────────────────────────
 if (typeof document !== "undefined" && !window.__pc_dash_op_styles__) {
@@ -46,20 +54,6 @@ if (typeof document !== "undefined" && !window.__pc_dash_op_styles__) {
     }
   `;
   document.head.appendChild(s);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// UTILS
-// ─────────────────────────────────────────────────────────────────────────────
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 13) return "Buen día";
-  if (h < 20) return "Buenas tardes";
-  return "Buenas noches";
-}
-
-function daysBetween(dateStrA, dateStrB) {
-  return Math.floor((new Date(dateStrB) - new Date(dateStrA)) / 86400000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,20 +125,8 @@ function Avatar({ name, size = 36, color = T.p, bg = T.pA }) {
 // 0 — WELCOME BANNER
 // ─────────────────────────────────────────────────────────────────────────────
 function WelcomeBanner({ todayAppts, urgentCount, profile, googleUser, isMobile }) {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("es-MX", {
-    weekday: "long", day: "numeric", month: "long",
-  });
-  const dateFormatted = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-  // Nombre: 1º perfil guardado, 2º nombre de Google OAuth, 3º fallback genérico
-  const googleName = googleUser?.user_metadata?.full_name
-    || googleUser?.user_metadata?.name
-    || null;
-  const displayName = profile?.name
-    ? `Psic. ${profile.name.split(" ")[0]}`
-    : googleName
-      ? `Psic. ${googleName.split(" ")[0]}`
-      : "Psicólogo/a";
+  const displayName = resolveDisplayName(profile, googleUser);
+  const dateFormatted = todayFormatted();
   const allSync = urgentCount === 0;
 
   return (
@@ -217,76 +199,43 @@ function WelcomeBanner({ todayAppts, urgentCount, profile, googleUser, isMobile 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STAT STRIP — solo desktop (isMobile === false, ancho > 900)
+// STAT STRIP — solo desktop
 // ─────────────────────────────────────────────────────────────────────────────
 function StatStrip({ patients, sessions, todayAppts, urgentCount, payments, isMobile }) {
   if (isMobile) return null;
 
-  const activePatients = patients.filter(p => (p.status || "activo") === "activo").length;
-  const completedToday = todayAppts.filter(a => a.status === "completada").length;
-
-  // Ingresos del mes actual
-  const now = new Date();
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthlyIncome = payments
-    .filter(p => p.date?.startsWith(monthStr) && p.status === "pagado")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const { activePatients, completedToday, monthlyIncome } = useMemo(
+    () => {
+      const active   = patients.filter(p => (p.status || "activo") === "activo").length;
+      const compl    = todayAppts.filter(a => a.status === "completada").length;
+      const now      = new Date();
+      const mStr     = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const income   = payments
+        .filter(p => p.date?.startsWith(mStr) && p.status === "pagado")
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+      return { activePatients: active, completedToday: compl, monthlyIncome: income };
+    },
+    [patients, todayAppts, payments]
+  );
 
   const stats = [
-    {
-      label: "Pacientes activos",
-      value: activePatients,
-      icon: Users,
-      color: T.p,
-      bg: T.pA,
-    },
-    {
-      label: "Sesiones hoy",
-      value: `${completedToday}/${todayAppts.length}`,
-      icon: CheckCircle2,
-      color: T.suc,
-      bg: T.sucA,
-    },
-    {
-      label: "Alertas activas",
-      value: urgentCount,
-      icon: AlertTriangle,
-      color: urgentCount > 0 ? T.war : T.suc,
-      bg: urgentCount > 0 ? T.warA : T.sucA,
-    },
-    {
-      label: "Ingresos este mes",
-      value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—",
-      icon: DollarSign,
-      color: T.acc,
-      bg: T.accA,
-      small: true,
-    },
+    { label: "Pacientes activos",  value: activePatients,                                    icon: Users,         color: T.p,                           bg: T.pA   },
+    { label: "Sesiones hoy",       value: `${completedToday}/${todayAppts.length}`,           icon: CheckCircle2,  color: T.suc,                         bg: T.sucA },
+    { label: "Alertas activas",    value: urgentCount,                                        icon: AlertTriangle, color: urgentCount > 0 ? T.war : T.suc, bg: urgentCount > 0 ? T.warA : T.sucA },
+    { label: "Ingresos este mes",  value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—",   icon: DollarSign,    color: T.acc,                         bg: T.accA, small: true },
   ];
 
   return (
     <FadeUp delay={0.04} style={{ marginBottom: 14 }}>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: 10,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
-            <div
-              key={s.label}
-              style={{
-                background: T.card,
-                border: `1px solid ${T.bdrL}`,
-                borderRadius: 14,
-                padding: "14px 16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                animation: `op-up 0.4s ease ${0.04 + i * 0.04}s both`,
-              }}
-            >
+            <div key={s.label} style={{
+              background: T.card, border: `1px solid ${T.bdrL}`, borderRadius: 14,
+              padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8,
+              animation: `op-up 0.4s ease ${0.04 + i * 0.04}s both`,
+            }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
@@ -297,12 +246,8 @@ function StatStrip({ patients, sessions, todayAppts, urgentCount, payments, isMo
                 </div>
               </div>
               <div style={{
-                fontFamily: T.fH,
-                fontSize: s.small ? 22 : 28,
-                fontWeight: 500,
-                color: T.t,
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
+                fontFamily: T.fH, fontSize: s.small ? 22 : 28, fontWeight: 500,
+                color: T.t, letterSpacing: "-0.02em", lineHeight: 1,
               }}>
                 {s.value}
               </div>
@@ -321,50 +266,17 @@ function StatStrip({ patients, sessions, todayAppts, urgentCount, payments, isMo
 // 1 — RADAR DE RIESGO
 // ─────────────────────────────────────────────────────────────────────────────
 function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, isMobile }) {
-  const threshold21 = useMemo(() => {
-    const d = new Date(todayDate); d.setDate(d.getDate() - 21); return fmt(d);
-  }, []);
-
-  const lastSessionByPt = useMemo(() => {
-    const m = {};
-    sessions.forEach(s => { if (!m[s.patientId] || s.date > m[s.patientId]) m[s.patientId] = s.date; });
-    return m;
-  }, [sessions]);
-
   const absentPatients = useMemo(() =>
-    patients
-      .filter(p => (p.status || "activo") === "activo")
-      // BUG 5 FIX: excluir pacientes creados hace menos de 21 días (no son "ausentes")
-      .filter(p => {
-        const created = p.created_at || p.createdAt;
-        if (!created) return true; // sin fecha de creación → incluir por precaución
-        return (p.created_at || p.createdAt) < threshold21;
-      })
-      .map(p => ({ ...p, lastSession: lastSessionByPt[p.id] || null }))
-      .filter(p => !p.lastSession || p.lastSession < threshold21)
-      .sort((a, b) => { if (!a.lastSession) return -1; if (!b.lastSession) return 1; return a.lastSession.localeCompare(b.lastSession); })
-      .slice(0, 3),
-    [patients, lastSessionByPt, threshold21]
+    computeAbsentPatients({ patients, sessions }),
+    [patients, sessions]
   );
-
-  const latestByPt = useMemo(() => {
-    const m = {};
-    riskAssessments.forEach(a => { if (!m[a.patientId] || a.date > m[a.patientId].date) m[a.patientId] = a; });
-    return m;
-  }, [riskAssessments]);
 
   const riskItems = useMemo(() =>
-    Object.values(latestByPt)
-      .filter(a => a.riskLevel === "alto" || a.riskLevel === "medio" || a.riskLevel === "inminente")
-      .sort((a, b) => {
-        const ord = { inminente: 0, alto: 1, medio: 2 };
-        return (ord[a.riskLevel] ?? 3) - (ord[b.riskLevel] ?? 3);
-      })
-      .slice(0, 4),
-    [latestByPt]
+    computeRiskItems(riskAssessments),
+    [riskAssessments]
   );
 
-  const total = riskItems.length + absentPatients.length;
+  const total       = riskItems.length + absentPatients.length;
   const hasImminent = riskItems.some(r => r.riskLevel === "inminente");
 
   if (total === 0) {
@@ -387,13 +299,11 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
   }
 
   return (
-    <Card
-      style={{
-        padding: isMobile ? "16px 18px" : "20px 22px",
-        border: hasImminent ? `1.5px solid ${T.err}30` : undefined,
-        animation: hasImminent ? "risk-glow 2.5s ease infinite" : "none",
-      }}
-    >
+    <Card style={{
+      padding: isMobile ? "16px 18px" : "20px 22px",
+      border: hasImminent ? `1.5px solid ${T.err}30` : undefined,
+      animation: hasImminent ? "risk-glow 2.5s ease infinite" : "none",
+    }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <SectionLabel text="Radar de riesgo" icon={ShieldAlert} color={T.err} />
         <SeeAll label="Ver evaluaciones" onClick={() => onNavigate("risk")} />
@@ -401,8 +311,8 @@ function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate, 
 
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {riskItems.map((a, idx) => {
-          const pt = patients.find(p => p.id === a.patientId);
-          const rc = RISK_CONFIG[a.riskLevel] || { label: a.riskLevel, color: T.war, bg: T.warA };
+          const pt   = patients.find(p => p.id === a.patientId);
+          const rc   = RISK_CONFIG[a.riskLevel] || { label: a.riskLevel, color: T.war, bg: T.warA };
           const isLast = idx === riskItems.length - 1 && absentPatients.length === 0;
           return (
             <RiskRow
@@ -519,16 +429,8 @@ function AbsentRow({ name, days, lastSession, isLast, onClick }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2 — HOY WIDGET (unifica SessionHero + AgendaTimeline)
+// 2 — HOY WIDGET
 // ─────────────────────────────────────────────────────────────────────────────
-const HOY_STATUS_CFG = {
-  pendiente:           { label: "Pendiente",  color: T.p,   bg: T.pA   },
-  completada:          { label: "Completada", color: T.suc, bg: T.sucA },
-  cancelada_paciente:  { label: "Cancelada",  color: T.err, bg: T.errA ?? `${T.err}14` },
-  cancelada_psicologa: { label: "Cancelada",  color: T.err, bg: T.errA ?? `${T.err}14` },
-  no_asistio:          { label: "No asistió", color: T.war, bg: T.warA },
-};
-
 function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate, isMobile }) {
   if (todayAppts.length === 0) {
     return (
@@ -544,11 +446,8 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
     );
   }
 
-  const today = new Date().toLocaleDateString("es-MX", {
-    weekday: "long", day: "numeric", month: "long",
-  });
-  const todayFmt = today.charAt(0).toUpperCase() + today.slice(1);
-  const sorted = [...todayAppts].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+  const todayFmt = todayWidgetTitle();
+  const sorted   = [...todayAppts].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 
   return (
     <Card style={{ padding: isMobile ? "16px" : "22px 26px" }}>
@@ -560,13 +459,12 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
         const isPending = appt.status !== "completada"
           && appt.status !== "cancelada_paciente"
           && appt.status !== "cancelada_psicologa";
-        const cfg = HOY_STATUS_CFG[appt.status] || HOY_STATUS_CFG.pendiente;
+        const cfg     = HOY_STATUS_CFG[appt.status] || HOY_STATUS_CFG.pendiente;
         const isFirst = i === 0;
         return (
           <div key={appt.id} style={{
             display: "flex", alignItems: "center", gap: 12,
-            padding: "10px 12px",
-            borderRadius: 10,
+            padding: "10px 12px", borderRadius: 10,
             marginBottom: i < sorted.length - 1 ? 6 : 0,
             background: isPending && isFirst ? T.pA : "transparent",
             border: isPending && isFirst ? `1px solid ${T.p}22` : "1px solid transparent",
@@ -591,8 +489,7 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
                   display: "flex", alignItems: "center", gap: 5,
                   padding: "6px 12px", borderRadius: 8, border: "none",
                   cursor: "pointer", background: T.p, color: T.onPrimary ?? T.card,
-                  fontFamily: T.fB, fontSize: 12, fontWeight: 600,
-                  flexShrink: 0,
+                  fontFamily: T.fB, fontSize: 12, fontWeight: 600, flexShrink: 0,
                 }}
               >
                 ▶ Iniciar
@@ -605,12 +502,8 @@ function HoyWidget({ todayAppts, sessions, nextAppt, onStartSession, onNavigate,
   );
 }
 
-// SessionHero eliminado (BUG 7 — dead code)
-
-// AgendaTimeline y AgendaRow eliminados (BUG 6 — dead code)
-
 // ─────────────────────────────────────────────────────────────────────────────
-// 4 — CHECKLIST DE COMPLIANCE
+// 3 — COMPLIANCE CHECKLIST
 // ─────────────────────────────────────────────────────────────────────────────
 function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isMobile }) {
   const consentIssues = useMemo(() =>
@@ -630,7 +523,7 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
   );
 
   const totalIssues = consentIssues.length + unclosedSessions.length + (pendingTasks || 0);
-  const allClear = totalIssues === 0;
+  const allClear    = totalIssues === 0;
 
   return (
     <Card style={{ padding: isMobile ? "16px 18px" : "20px 22px" }}>
@@ -655,7 +548,7 @@ function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate, isM
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {consentIssues.map((p) => {
-            const cs = consentStatus(p);
+            const cs  = consentStatus(p);
             const cfg = CONSENT_STATUS_CONFIG[cs];
             return (
               <ComplianceItem
@@ -732,30 +625,22 @@ function ComplianceItem({ icon: Icon, label, color, bg, onClick }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCIONES RÁPIDAS
+// ACCIONES RÁPIDAS — QuickBar (móvil/tablet)
 // ─────────────────────────────────────────────────────────────────────────────
-
-// BUG 1 FIX: extraído como subcomponente para que cada useState sea top-level
 function ActionButton({ action: a, isMobile, idx, onClick }) {
   const [hov, setHov] = useState(false);
   const ActionIcon = a.icon;
   return (
     <button
-      key={a.label}
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: isMobile ? 7 : 8,
-        padding: isMobile ? "14px 6px" : "16px 10px",
-        borderRadius: 13,
-        border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
-        background: hov ? a.bg : T.card,
-        cursor: "pointer", transition: "all .18s ease", fontFamily: T.fB, textAlign: "center",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: isMobile ? 7 : 8, padding: isMobile ? "14px 6px" : "16px 10px",
+        borderRadius: 13, border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
+        background: hov ? a.bg : T.card, cursor: "pointer", transition: "all .18s ease",
+        fontFamily: T.fB, textAlign: "center",
         transform: hov ? "translateY(-2px)" : "none",
         boxShadow: hov ? T.shM : "none",
         animation: `op-up 0.38s ease ${idx * 0.05}s both`,
@@ -763,8 +648,7 @@ function ActionButton({ action: a, isMobile, idx, onClick }) {
       }}
     >
       <div style={{
-        width: isMobile ? 34 : 36,
-        height: isMobile ? 34 : 36,
+        width: isMobile ? 34 : 36, height: isMobile ? 34 : 36,
         borderRadius: 9, background: a.bg, flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
         transition: "transform 0.15s ease",
@@ -773,13 +657,9 @@ function ActionButton({ action: a, isMobile, idx, onClick }) {
         <ActionIcon size={15} color={a.color} strokeWidth={1.7} />
       </div>
       <span style={{
-        fontSize: isMobile ? 11 : 12,
-        fontWeight: 600,
-        color: hov ? T.t : T.tm,
-        lineHeight: 1.3,
-        width: "100%",
-        textAlign: "center",
-        wordBreak: "break-word",
+        fontSize: isMobile ? 11 : 12, fontWeight: 600,
+        color: hov ? T.t : T.tm, lineHeight: 1.3,
+        width: "100%", textAlign: "center", wordBreak: "break-word",
       }}>
         {a.label}
       </span>
@@ -789,19 +669,16 @@ function ActionButton({ action: a, isMobile, idx, onClick }) {
 
 function QuickBar({ onQuickNav, onNewSession, isMobile }) {
   const actions = [
-    { label: "Nuevo Paciente",  icon: UserPlus,   color: T.p,   bg: T.pA,   handler: null, module: "patients" },
-    { label: "Agendar Cita",    icon: Calendar,   color: T.suc, bg: T.sucA, handler: null, module: "agenda"   },
-    { label: "Registrar Pago",  icon: DollarSign, color: T.war, bg: T.warA, handler: null, module: "finance"  },
-    { label: "Reporte Mensual", icon: BarChart2,  color: T.acc, bg: T.accA, handler: null, module: "reports"  },
+    { label: "Nuevo Paciente",  icon: UserPlus,   color: T.p,   bg: T.pA,   module: "patients" },
+    { label: "Agendar Cita",    icon: Calendar,   color: T.suc, bg: T.sucA, module: "agenda"   },
+    { label: "Registrar Pago",  icon: DollarSign, color: T.war, bg: T.warA, module: "finance"  },
+    { label: "Reporte Mensual", icon: BarChart2,  color: T.acc, bg: T.accA, module: "reports"  },
   ];
-
   return (
     <FadeUp delay={0.08}>
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: isMobile ? 6 : 10,
-        marginBottom: isMobile ? 10 : 14,
+        display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+        gap: isMobile ? 6 : 10, marginBottom: isMobile ? 10 : 14,
       }}>
         {actions.map((a, idx) => (
           <ActionButton
@@ -809,7 +686,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
             action={a}
             isMobile={isMobile}
             idx={idx}
-            onClick={() => a.handler ? a.handler() : onQuickNav(a.module, "add")}
+            onClick={() => onQuickNav(a.module, "add")}
           />
         ))}
       </div>
@@ -819,10 +696,7 @@ function QuickBar({ onQuickNav, onNewSession, isMobile }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUICK SIDEBAR — columna derecha exclusiva de layout wide (≥1280px)
-// Acciones rápidas + resumen numérico del día para el clínico
 // ─────────────────────────────────────────────────────────────────────────────
-
-// BUG 1 FIX: extraído como subcomponente para que cada useState sea top-level
 function SidebarActionButton({ action: a, idx }) {
   const [hov, setHov] = useState(false);
   const ActionIcon = a.icon;
@@ -832,13 +706,10 @@ function SidebarActionButton({ action: a, idx }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "9px 12px",
-        borderRadius: 10,
-        border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
-        background: hov ? a.bg : "transparent",
-        cursor: "pointer", transition: "all .16s ease",
-        fontFamily: T.fB, textAlign: "left",
+        display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+        borderRadius: 10, border: `1.5px solid ${hov ? a.color + "40" : T.bdrL}`,
+        background: hov ? a.bg : "transparent", cursor: "pointer",
+        transition: "all .16s ease", fontFamily: T.fB, textAlign: "left",
         animation: `op-up 0.35s ease ${idx * 0.04}s both`,
       }}
     >
@@ -858,30 +729,23 @@ function SidebarActionButton({ action: a, idx }) {
 
 function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }) {
   const actions = [
-    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession,                      module: "sessions" },
-    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: () => onQuickNav("agenda",  "add"), module: "agenda"   },
-    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: () => onQuickNav("finance", "add"), module: "finance"  },
-    { label: "Nuevo paciente",     icon: Users,      color: T.acc, bg: T.accA, handler: () => onQuickNav("patients","add"), module: "patients" },
+    { label: "Nueva nota clínica", icon: FileText,   color: T.suc, bg: T.sucA, handler: onNewSession                       },
+    { label: "Agendar cita",       icon: Calendar,   color: T.p,   bg: T.pA,   handler: () => onQuickNav("agenda",  "add") },
+    { label: "Registrar pago",     icon: DollarSign, color: T.war, bg: T.warA, handler: () => onQuickNav("finance", "add") },
+    { label: "Nuevo paciente",     icon: Users,      color: T.acc, bg: T.accA, handler: () => onQuickNav("patients","add") },
   ];
 
-  const now = new Date();
-  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthlyIncome = payments
-    .filter(p => p.date?.startsWith(monthStr) && p.status === "pagado")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-  const activePatients = patients.filter(p => (p.status || "activo") === "activo").length;
-
-  const thisMonthSessions = sessions.filter(s => s.date?.startsWith(monthStr)).length;
+  const { activePatients, thisMonthSessions, monthlyIncome } = useMemo(
+    () => computeSidebarSummary({ patients, sessions, payments }),
+    [patients, sessions, payments]
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Acciones rápidas */}
       <div style={{
-        background: T.card,
-        border: `1px solid ${T.bdrL}`,
-        borderRadius: 16,
-        padding: "16px 16px 12px",
+        background: T.card, border: `1px solid ${T.bdrL}`,
+        borderRadius: 16, padding: "16px 16px 12px",
       }}>
         <SectionLabel text="Acciones rápidas" icon={Sparkles} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -893,26 +757,22 @@ function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }
 
       {/* Resumen del mes */}
       <div style={{
-        background: T.card,
-        border: `1px solid ${T.bdrL}`,
-        borderRadius: 16,
-        padding: "16px 16px 14px",
+        background: T.card, border: `1px solid ${T.bdrL}`,
+        borderRadius: 16, padding: "16px 16px 14px",
       }}>
         <SectionLabel text="Resumen del mes" icon={TrendingUp} />
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[
-            { label: "Pacientes activos", value: activePatients, icon: Users,    color: T.p   },
-            { label: "Sesiones realizadas", value: thisMonthSessions, icon: FileText, color: T.suc },
-            { label: "Ingresos cobrados",  value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—", icon: DollarSign, color: T.acc, small: true },
+            { label: "Pacientes activos",    value: activePatients,                                                       icon: Users,      color: T.p   },
+            { label: "Sesiones realizadas",  value: thisMonthSessions,                                                    icon: FileText,   color: T.suc },
+            { label: "Ingresos cobrados",    value: monthlyIncome > 0 ? fmtCur(monthlyIncome) : "—",                     icon: DollarSign, color: T.acc, small: true },
           ].map(s => {
             const StatIcon = s.icon;
             return (
               <div key={s.label} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 10px",
-                borderRadius: 10,
-                background: T.bg,
-                border: `1px solid ${T.bdrL}`,
+                padding: "8px 10px", borderRadius: 10,
+                background: T.bg, border: `1px solid ${T.bdrL}`,
               }}>
                 <div style={{
                   width: 26, height: 26, borderRadius: 7,
@@ -925,13 +785,8 @@ function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }
                   <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, lineHeight: 1 }}>{s.label}</div>
                 </div>
                 <div style={{
-                  fontFamily: T.fH,
-                  fontSize: s.small ? 16 : 20,
-                  fontWeight: 500,
-                  color: T.t,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1,
-                  flexShrink: 0,
+                  fontFamily: T.fH, fontSize: s.small ? 16 : 20, fontWeight: 500,
+                  color: T.t, letterSpacing: "-0.02em", lineHeight: 1, flexShrink: 0,
                 }}>
                   {s.value}
                 </div>
@@ -945,23 +800,26 @@ function QuickSidebar({ onQuickNav, onNewSession, patients, sessions, payments }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROFILE SETUP BAR (intacto, colapsado por defecto)
+// PROFILE SETUP BAR
 // ─────────────────────────────────────────────────────────────────────────────
 function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }) {
   const [open, setOpen] = useState(false);
   const ITEM_TAB = { photo: "profile", cedula: "profile", services: "services", schedule: "horario" };
+
   const handleConfigure = (key) => {
     const tab = ITEM_TAB[key] || "profile";
     if (onQuickNav) onQuickNav("settings", null, tab); else onNavigate("settings");
   };
+
   const items = useMemo(() => [
     { key: "photo",    label: "Foto de perfil",            icon: Camera,        done: !!(profile?.photo || profile?.avatar) },
     { key: "cedula",   label: "Número de cédula",          icon: BadgeCheck,    done: !!(profile?.cedula) },
     { key: "services", label: "Al menos un servicio",      icon: Briefcase,     done: services.length > 0 },
     { key: "schedule", label: "Horario de disponibilidad", icon: CalendarClock, done: !!(profile?.schedule?.workDays?.length > 0) },
   ], [profile, services]);
+
   const completed = items.filter(i => i.done).length;
-  const total = items.length;
+  const total     = items.length;
   if (completed === total) return null;
   const pct = Math.round((completed / total) * 100);
 
@@ -1038,13 +896,13 @@ function ProfileSetupBar({ profile = {}, services = [], onNavigate, onQuickNav }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WELCOME GUIDE (sin cambios — sólo se muestra si no hay pacientes)
+// WELCOME GUIDE (sin pacientes)
 // ─────────────────────────────────────────────────────────────────────────────
 function WelcomeGuide({ onNavigate }) {
   const steps = [
-    { num: 1, title: "Registra tu primer paciente", desc: "Agrega sus datos, historial y motivo de consulta.", icon: Users, color: T.p, bg: T.pA, btnLabel: "Nuevo paciente", module: "patients" },
-    { num: 2, title: "Agenda su primera cita", desc: "Programa la sesión inicial en el calendario.", icon: Calendar, color: T.acc, bg: T.accA, btnLabel: "Ir a Agenda", module: "agenda" },
-    { num: 3, title: "Mensaje de bienvenida", desc: "PsychoCore enviará la confirmación automáticamente.", icon: FileText, color: T.suc, bg: T.sucA, btnLabel: null, module: null },
+    { num: 1, title: "Registra tu primer paciente", desc: "Agrega sus datos, historial y motivo de consulta.", icon: Users,     color: T.p,   bg: T.pA,   btnLabel: "Nuevo paciente", module: "patients" },
+    { num: 2, title: "Agenda su primera cita",      desc: "Programa la sesión inicial en el calendario.",     icon: Calendar,  color: T.acc, bg: T.accA, btnLabel: "Ir a Agenda",    module: "agenda"   },
+    { num: 3, title: "Mensaje de bienvenida",       desc: "PsychoCore enviará la confirmación automáticamente.", icon: FileText, color: T.suc, bg: T.sucA, btnLabel: null, module: null },
   ];
   return (
     <FadeUp delay={0.1}>
@@ -1105,74 +963,23 @@ export default function Dashboard({
   onStartSession,
   onNewSession,
 }) {
-  // [mobile-audit] useIsMobile() puede usar un threshold distinto según el proyecto.
-  // Guard adicional sobre window.innerWidth para garantizar que el layout de 2 col
-  // y la StatStrip nunca aparezcan en pantallas < 768px.
-  const isMobileHook = useIsMobile();
-  const [winWidth, setWinWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1024
-  );
-  useEffect(() => {
-    const handler = () => setWinWidth(window.innerWidth);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  const isMobile = isMobileHook || winWidth < 768;
-  const isWide   = useIsWide();
-
-  // BUG 4 FIX: pendingTasks derivado localmente desde prop assignments (sin fetch independiente)
-  const pendingTasks = useMemo(
-    () => assignments.filter(a => a.status === "pending").length,
-    [assignments]
-  );
-  const todayStr     = fmt(todayDate);
-
-  // ── Derived data (lógica Supabase intacta) ────────────────────────────────
-  const todayAppts = useMemo(() =>
-    appointments
-      .filter(a => a.date === todayStr)
-      .sort((a, b) => (a.time || "").localeCompare(b.time || "")),
-    [appointments, todayStr]
-  );
-
-  const nextAppt = useMemo(() => {
-    if (todayAppts.length > 0) return null;
-    return appointments
-      .filter(a => a.date > todayStr && a.status === "pendiente")
-      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""))[0] || null;
-  }, [appointments, todayStr, todayAppts]);
-
-  const urgentCount = useMemo(() => {
-    const latestByPt = {};
-    riskAssessments.forEach(a => {
-      if (!latestByPt[a.patientId] || a.date > latestByPt[a.patientId].date)
-        latestByPt[a.patientId] = a;
-    });
-    const riskCount = Object.values(latestByPt).filter(
-      a => a.riskLevel === "alto" || a.riskLevel === "inminente"
-    ).length;
-    const threshold21 = (() => { const d = new Date(todayDate); d.setDate(d.getDate() - 21); return fmt(d); })();
-    const lastSessionByPt = {};
-    sessions.forEach(s => {
-      if (!lastSessionByPt[s.patientId] || s.date > lastSessionByPt[s.patientId])
-        lastSessionByPt[s.patientId] = s.date;
-    });
-    const absentCount = patients
-      .filter(p => (p.status || "activo") === "activo")
-      // BUG 5 FIX: excluir pacientes creados hace menos de 21 días
-      .filter(p => {
-        const created = p.created_at || p.createdAt;
-        if (!created) return true;
-        return created < threshold21;
-      })
-      .filter(p => { const last = lastSessionByPt[p.id]; return !last || last < threshold21; })
-      .length;
-    return riskCount + absentCount;
-  }, [riskAssessments, sessions, patients]);
-
-  // ── Layout helpers ────────────────────────────────────────────────────────
-  // [mobile-audit] Grid system: móvil = 1 col, no-móvil = 2 col con variaciones
-  const gridGap = isMobile ? 10 : 14;
+  const {
+    isMobile,
+    isWide,
+    gridGap,
+    todayStr,
+    pendingTasks,
+    todayAppts,
+    nextAppt,
+    urgentCount,
+  } = useDashboard({
+    patients,
+    appointments,
+    sessions,
+    payments,
+    riskAssessments,
+    assignments,
+  });
 
   return (
     <div style={{ maxWidth: isWide ? "none" : 960, paddingBottom: 40 }}>
@@ -1218,10 +1025,9 @@ export default function Dashboard({
             isMobile={isMobile}
           />
 
-          {/* ── MÓVIL: Hero primero, luego Radar ──────────────────────── */}
+          {/* ── MÓVIL: apilado vertical ────────────────────────────────── */}
           {isMobile && (
             <>
-              {/* [mobile-audit] Citas de hoy unificadas — HoyWidget */}
               <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
                 <HoyWidget
                   todayAppts={todayAppts}
@@ -1232,8 +1038,6 @@ export default function Dashboard({
                   isMobile={isMobile}
                 />
               </FadeUp>
-
-              {/* [mobile-audit] Radar compacto debajo del HoyWidget */}
               <FadeUp delay={0.12} style={{ marginBottom: gridGap }}>
                 <RiskRadar
                   patients={patients}
@@ -1244,8 +1048,6 @@ export default function Dashboard({
                   isMobile={isMobile}
                 />
               </FadeUp>
-
-              {/* [mobile-audit] Compliance */}
               <FadeUp delay={0.20} style={{ marginBottom: gridGap }}>
                 <ComplianceChecklist
                   patients={patients}
@@ -1258,18 +1060,11 @@ export default function Dashboard({
             </>
           )}
 
-          {/* ── TABLET / DESKTOP (768–1279px): Grid 2 col ────────────── */}
+          {/* ── TABLET / DESKTOP 768–1279px: Grid 2 col ──────────────── */}
           {!isMobile && !isWide && (
             <>
-              {/* FILA 1: Radar + Hero */}
-              {/* [mobile-audit] grid 2 col — radar izq, sesión der */}
               <FadeUp delay={0.06} style={{ marginBottom: gridGap }}>
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1.15fr",
-                  gap: gridGap,
-                  alignItems: "start",
-                }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: gridGap, alignItems: "start" }}>
                   <RiskRadar
                     patients={patients}
                     sessions={sessions}
@@ -1288,9 +1083,6 @@ export default function Dashboard({
                   />
                 </div>
               </FadeUp>
-
-              {/* FILA 2: HoyWidget + Compliance */}
-              {/* [mobile-audit] grid 2 col — hoy más ancha */}
               <FadeUp delay={0.14} style={{ marginBottom: gridGap }}>
                 <ComplianceChecklist
                   patients={patients}
@@ -1303,15 +1095,10 @@ export default function Dashboard({
             </>
           )}
 
-          {/* ── WIDE ≥1280px: Grid 3 col (izq · centro · der) ────────── */}
+          {/* ── WIDE ≥1280px: Grid 3 col ──────────────────────────────── */}
           {!isMobile && isWide && (
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1.55fr 1fr",
-              gap: 18,
-              alignItems: "start",
-            }}>
-              {/* COLUMNA IZQUIERDA — vigilancia clínica */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.55fr 1fr", gap: 18, alignItems: "start" }}>
+              {/* Columna izquierda — vigilancia clínica */}
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <FadeUp delay={0.06}>
                   <RiskRadar
@@ -1334,7 +1121,7 @@ export default function Dashboard({
                 </FadeUp>
               </div>
 
-              {/* COLUMNA CENTRAL — acción principal del día */}
+              {/* Columna central — acción principal del día */}
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <FadeUp delay={0.08}>
                   <HoyWidget
@@ -1348,7 +1135,7 @@ export default function Dashboard({
                 </FadeUp>
               </div>
 
-              {/* COLUMNA DERECHA — acciones rápidas + resumen contextual */}
+              {/* Columna derecha — acciones rápidas + resumen */}
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <FadeUp delay={0.10}>
                   <QuickSidebar
@@ -1362,8 +1149,6 @@ export default function Dashboard({
               </div>
             </div>
           )}
-
-          {/* QuickBar movido arriba del contenido clínico */}
         </>
       )}
     </div>
