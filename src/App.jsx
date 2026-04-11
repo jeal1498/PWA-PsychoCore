@@ -97,7 +97,7 @@ export default function App() {
     });
   };
 
-  console.log("[DIAG] APP STATE:", { authReady, user: user?.id ?? null, authLoading });
+
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
