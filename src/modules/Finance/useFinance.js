@@ -209,7 +209,7 @@ export function useFinance({
       await shareRecibo(payment, patient, profile);
       emit.toast("Recibo generado con éxito", "success", 3500);
     } catch (err) {
-      console.error("[Finance] shareRecibo error:", err);
+      
       emit.toast("Error al generar el recibo", "error", 4000);
       setShareError(true);
       setTimeout(() => setShareError(false), 4000);
