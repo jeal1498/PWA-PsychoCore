@@ -88,13 +88,13 @@ export default function Sidebar({ active, setActive, open, onClose, profile, goo
         : "PS");
 
   const sidebarStyle = isMobile
-    ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
+    ? { position:"fixed", top:0, left:0, bottom:0, zIndex:1100, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
     : { width: isWide ? 248 : 220, background:T.nav, display:"flex", flexDirection:"column", flexShrink:0, minHeight:"100vh", position:"sticky", top:0 };
 
   return (
     <>
       {isMobile && (
-        <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:199, background:"rgba(0,0,0,0.45)", opacity:open?1:0, pointerEvents:open?"auto":"none", transition:"opacity .28s ease" }}/>
+        <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:1099, background:"rgba(0,0,0,0.45)", opacity:open?1:0, pointerEvents:open?"auto":"none", transition:"opacity .28s ease" }}/>
       )}
 
       <aside style={sidebarStyle}>
