@@ -1,7 +1,7 @@
 import { T } from "../../theme.js";
 import { fmtDate } from "../../utils.js";
-import { SCALES, getSeverity } from "../Scales.jsx";
-import { RISK_CONFIG } from "../RiskAssessment.jsx";
+import { SCALES, getSeverity } from "../Scales/scales.utils.js";
+import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OBJECTIVE STATUS MAP

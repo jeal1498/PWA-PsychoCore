@@ -3,7 +3,7 @@ import { T } from "../../theme.js";
 import { Btn, PageHeader } from "../../components/ui/index.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useIsWide }   from "../../hooks/useIsWide.js";
-import { RISK_CONFIG } from "../RiskAssessment.jsx";
+import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { useReports, REPORT_FIELDS } from "./useReports.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
