@@ -1332,7 +1332,7 @@ export default function Agenda({
             </>
           );
         })()}
-      </Modal>
+      </PageView>
 
       {/* ── Modal DynamicSummary ──────────────────────────────────────── */}
       {ag.summaryTarget && (
