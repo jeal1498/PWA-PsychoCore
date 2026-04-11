@@ -1,9 +1,16 @@
 import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { T } from "../theme.js";
+import { useIsMobile } from "../hooks/useIsMobile.js";
+import { useIsWide }   from "../hooks/useIsWide.js";
 
 /**
- * PageView — reemplaza los modales con una página de pantalla completa.
+ * PageView — reemplaza los modales con una vista de pantalla completa
+ * que respeta el sidebar y el topbar del layout principal.
+ *
+ * En desktop: se posiciona a la derecha del sidebar y debajo del topbar.
+ * En móvil:   cubre toda la pantalla (el sidebar es un drawer, el topbar
+ *             es parte del contenido, así que se tapa igual que antes).
  *
  * Props:
  *   open       {boolean}   — muestra u oculta la página
@@ -23,6 +30,14 @@ export function PageView({
   maxWidth = 720,
   actions,
 }) {
+  const isMobile = useIsMobile();
+  const isWide   = useIsWide();
+
+  // Ancho del sidebar (debe coincidir con Sidebar.jsx)
+  const SIDEBAR_W = isWide ? 248 : 220;
+  // Alto del topbar del app
+  const TOPBAR_H  = 56;
+
   // Escape cierra la página
   useEffect(() => {
     if (!open) return;
@@ -31,20 +46,32 @@ export function PageView({
     return () => document.removeEventListener("keydown", h);
   }, [open, onClose]);
 
-  // Scroll al tope al abrir
+  // Scroll al tope del PageView al abrir
   useEffect(() => {
-    if (open) window.scrollTo({ top: 0, behavior: "instant" });
-  }, [open]);
+    if (open) {
+      // En móvil scrolleamos window; en desktop scrolleamos el propio contenedor
+      if (isMobile) window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [open, isMobile]);
 
   if (!open) return null;
+
+  // En móvil se comporta igual que antes: pantalla completa
+  const left   = isMobile ? 0 : SIDEBAR_W;
+  const top    = isMobile ? 0 : TOPBAR_H;
+  // En móvil cubrimos también el topbar nativo (que lleva el menú hamburguesa)
+  const zIndex = isMobile ? 900 : 100;
 
   return (
     <div
       style={{
         position: "fixed",
-        inset: 0,
+        top,
+        left,
+        right:  0,
+        bottom: 0,
         background: T.bg,
-        zIndex: 900,
+        zIndex,
         overflowY: "auto",
         animation: "pc-fadeSlideUp 0.22s ease",
       }}
