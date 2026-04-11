@@ -11,7 +11,7 @@
 //  · Intersesiones registradas
 // ─────────────────────────────────────────────────────────────────────────────
 import { useMemo } from "react";
-import { Modal } from "./ui/index.jsx";
+import { PageView } from "./PageView.jsx";
 import { T } from "../theme.js";
 import { fmtDate } from "../utils.js";
 import {
@@ -134,11 +134,12 @@ export default function DynamicSummary({
   );
 
   return (
-    <Modal
+    <PageView
       open={open}
       onClose={onClose}
       title={`Resumen — ${patient.name?.split(" ").slice(0,2).join(" ")}`}
-      width={560}
+      backLabel="Atrás"
+      maxWidth={600}
     >
       {/* Encabezado de cita */}
       {appointment && (
@@ -327,14 +328,8 @@ export default function DynamicSummary({
       {onContinue && (
         <div style={{
           marginTop:20, paddingTop:16, borderTop:`1px solid ${T.bdrL}`,
-          display:"flex", justifyContent:"flex-end", gap:8,
+          display:"flex", justifyContent:"flex-end",
         }}>
-          <button onClick={onClose}
-            style={{ padding:"9px 18px", borderRadius:10, border:`1.5px solid ${T.bdr}`,
-              background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm,
-              cursor:"pointer", fontWeight:500 }}>
-            Cerrar
-          </button>
           <button
             onClick={() => { onContinue(); onClose(); }}
             style={{ padding:"9px 20px", borderRadius:10, border:"none",
@@ -347,6 +342,6 @@ export default function DynamicSummary({
           </button>
         </div>
       )}
-    </Modal>
+    </PageView>
   );
 }
