@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { T } from "../../theme.js";
 import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyle } from "../../utils.js";
-import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { Card, Badge, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { RiskBadge } from "../RiskAssessment/RiskAssessment.jsx";
 import { getSeverity, SCALES } from "../Scales/scales.utils.js";
@@ -379,7 +380,7 @@ function PatientTasksTab({ patient, sessions }) {
       })}
 
       {viewResponse && (
-        <Modal open onClose={() => setViewResponse(null)} title={`Respuestas — ${viewResponse.title}`} width={500}>
+        <PageView open onClose={() => setViewResponse(null)} title={`Respuestas — ${viewResponse.title}`} backLabel="Pacientes" maxWidth={540}>
           {loadingResp ? (
             <div style={{ textAlign:"center", padding:32 }}>
               <div style={{ width:28, height:28, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, margin:"0 auto", animation:"spin .8s linear infinite" }}/>
@@ -408,9 +409,8 @@ function PatientTasksTab({ patient, sessions }) {
             );
           })}
           <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-            <Btn variant="ghost" onClick={() => setViewResponse(null)}>Cerrar</Btn>
           </div>
-        </Modal>
+        </PageView>
       )}
     </div>
   );
@@ -618,7 +618,7 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="🎓 Protocolo de Alta" width={540}>
+    <PageView open={open} onClose={onClose} title="Protocolo de Alta" backLabel="Pacientes" maxWidth={580}>
       {sectionHead(1, "Nota de Alta")}
 
       <div style={{ marginBottom:12 }}>
@@ -724,7 +724,7 @@ function DischargeProtocolModal({ open, onClose, patient, ptSessions, onConfirm 
           <Check size={15}/> Confirmar Alta
         </Btn>
       </div>
-    </Modal>
+    </PageView>
   );
 }
 
@@ -738,7 +738,7 @@ function WaAltaModal({ open, onClose, patient, profile }) {
     : "";
 
   return (
-    <Modal open={open} onClose={onClose} title="📱 Mensaje de despedida" width={420}>
+    <PageView open={open} onClose={onClose} title="Mensaje de despedida" backLabel="Pacientes" maxWidth={460}>
       <div style={{ fontFamily:T.fB, fontSize:12, color:T.tl, marginBottom:10 }}>
         Puedes enviarle un mensaje de cierre al paciente por WhatsApp:
       </div>
@@ -755,7 +755,7 @@ function WaAltaModal({ open, onClose, patient, profile }) {
         )}
         <Btn variant="ghost" onClick={onClose} style={{ justifyContent:"center" }}>Omitir</Btn>
       </div>
-    </Modal>
+    </PageView>
   );
 }
 
@@ -779,7 +779,7 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
   });
 
   return (
-    <Modal open={open} onClose={onClose} title="🔄 Iniciar Reingreso" width={520}>
+    <PageView open={open} onClose={onClose} title="Iniciar Reingreso" backLabel="Pacientes" maxWidth={560}>
       <div style={{ padding:"12px 14px", background:T.sucA, border:`1.5px solid rgba(78,139,95,0.25)`, borderRadius:10, marginBottom:20 }}>
         <div style={{ fontFamily:T.fB, fontSize:11, fontWeight:700, color:T.suc, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Alta previa</div>
         <div style={{ fontFamily:T.fB, fontSize:13, color:T.t }}>{dischargeLabel} · {dischargeReason}</div>
@@ -816,19 +816,18 @@ function ReingresoModal({ open, onClose, patient, onConfirm }) {
       </div>
 
       <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:20 }}>
-        <Btn variant="ghost" onClick={onClose}>Cancelar</Btn>
         <Btn onClick={() => { onConfirm(option, withAdmission); onClose(); }}>
           <Check size={14}/> Confirmar Reingreso
         </Btn>
       </div>
-    </Modal>
+    </PageView>
   );
 }
 
 // ── ConsentRenewalModal ───────────────────────────────────────────────────────
 function ConsentRenewalModal({ open, onClose, patient }) {
   return (
-    <Modal open={open} onClose={onClose} title="⚠️ Consentimiento vencido o pendiente" width={440}>
+    <PageView open={open} onClose={onClose} title="Consentimiento vencido o pendiente" backLabel="Pacientes" maxWidth={480}>
       <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, lineHeight:1.7, marginBottom:20 }}>
         El consentimiento informado de <strong>{patient?.name}</strong> está vencido (más de 12 meses) o no ha sido firmado. Se recomienda renovarlo antes de iniciar el nuevo ciclo.
       </div>
@@ -836,7 +835,7 @@ function ConsentRenewalModal({ open, onClose, patient }) {
         <Btn variant="ghost" onClick={onClose}>Recordar después</Btn>
         <Btn onClick={onClose}><Check size={14}/> Entendido</Btn>
       </div>
-    </Modal>
+    </PageView>
   );
 }
 
@@ -904,7 +903,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave, profile }) {
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title={step === 1 ? "✨ Nuevo paciente — Pre-Cita" : "📱 Mensaje de bienvenida"} width={480}>
+    <PageView open={open} onClose={handleClose} title={step === 1 ? "Nuevo paciente — Pre-Cita" : "Mensaje de bienvenida"} backLabel="Pacientes" maxWidth={520}>
 
       {step === 1 && (
         <div>
@@ -1023,7 +1022,7 @@ function PrimerContactoModal({ open, onClose, patients, onSave, profile }) {
           </div>
         </div>
       )}
-    </Modal>
+    </PageView>
   );
 }
 
@@ -1812,17 +1811,19 @@ export default function Patients({
   // ════════════════════════════════════════════════════════════════════════════
 
   const formModalContent = (
-    <Modal
+    <PageView
       open={h.showAdd}
       onClose={() => { h.setShowAdd(false); h.resetForm(); }}
       title={h.editTarget ? "Editar expediente" : "Expediente completo"}
+      backLabel="Pacientes"
+      maxWidth={720}
     >
       <PatientFormContent
         form={h.form} fld={h.fld} setForm={h.setForm}
         services={services} save={h.save} editTarget={h.editTarget}
         onCancel={() => { h.setShowAdd(false); h.resetForm(); }}
       />
-    </Modal>
+    </PageView>
   );
 
   // ── MOBILE list ─────────────────────────────────────────────────────────────
