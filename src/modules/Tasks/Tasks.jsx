@@ -115,7 +115,7 @@ function ResponsesModal({ assignment, onClose }) {
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
         <Btn variant="ghost" onClick={onClose}>Cerrar</Btn>
       </div>
-    </Modal>
+    </PageView>
   );
 }
 
