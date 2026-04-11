@@ -18,7 +18,7 @@ export const openTaskWhatsApp = async (phone, patientName, taskTitle, profile, o
     const waUrl = `https://wa.me/${phone.replace(/\D/g, "")}?text=${msg}`;
     window.open(waUrl, "_blank", "noopener,noreferrer");
   } catch (error) {
-    console.error("No se pudo generar el enlace seguro del portal:", error);
+    
     if (onError) {
       onError(true);
       setTimeout(() => onError(false), 4000);
