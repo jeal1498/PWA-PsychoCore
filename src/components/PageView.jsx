@@ -56,10 +56,10 @@ export function PageView({
 
   if (!open) return null;
 
-  // En móvil se comporta igual que antes: pantalla completa
+  // En móvil respeta el topbar del app (no el sidebar, que es un drawer)
+  // En desktop respeta sidebar + topbar
   const left   = isMobile ? 0 : SIDEBAR_W;
-  const top    = isMobile ? 0 : TOPBAR_H;
-  // En móvil cubrimos también el topbar nativo (que lleva el menú hamburguesa)
+  const top    = TOPBAR_H; // siempre 56px, móvil y desktop
   const zIndex = isMobile ? 900 : 100;
 
   return (
