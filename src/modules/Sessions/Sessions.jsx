@@ -11,21 +11,21 @@ import {
   LayoutList, ClipboardCheck, Lock, Eye, Sparkles, X,
   ShieldCheck, Download, FileCheck, ChevronRight,
 } from "lucide-react";
-import { printNotaEvolucion, printConsentimientoInformado, printPlanSeguridad, printReferralLetter } from "../utils/pdfUtils.js";
-import { T } from "../theme.js";
-import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../utils.js";
-import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../components/ui/index.jsx";
-import { RISK_CONFIG } from "./RiskAssessment.jsx";
-import { TASK_TEMPLATES } from "../lib/taskTemplates.js";
-import { getResponsesByAssignment } from "../lib/supabase.js";
+import { printNotaEvolucion, printConsentimientoInformado, printPlanSeguridad, printReferralLetter } from "../../utils/pdfUtils.js";
+import { T } from "../../theme.js";
+import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../../utils.js";
+import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
+import { TASK_TEMPLATES } from "../../lib/taskTemplates.js";
+import { getResponsesByAssignment } from "../../lib/supabase.js";
 
-import { useSessions } from "./Sessions/useSessions.js";
+import { useSessions } from "./useSessions.js";
 import {
   NOTE_FORMATS, NOTE_TEMPLATES,
   AZUL, AZUL_A, LAVANDA, LAVANDA_A, MALVA, MALVA_A,
   BLANK_RISK, PORTAL_URL,
   compileNotes, blankStructured, getSessionFolio,
-} from "./Sessions/sessions.utils.js";
+} from "./sessions.utils.js";
 
 // MoodProgressPicker — botones visuales de un clic para Ánimo y Progreso
 // Valores mood: "bajo"|"moderado"|"bueno"  (crítico: alimentan moodIcon() en utils.js)
