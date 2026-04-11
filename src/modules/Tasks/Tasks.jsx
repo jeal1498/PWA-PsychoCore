@@ -5,7 +5,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, CheckCircle2, Clock, MessageCircle, RefreshCw, ClipboardList, Eye, Bell } from "lucide-react";
 import { T } from "../../theme.js";
-import { Card, Badge, Modal, Select, Textarea, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { Card, Badge, Select, Textarea, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { TASK_CATEGORIES, getTemplate } from "../../lib/taskTemplates.js";
 import { getAllAssignments, getResponsesByAssignment } from "../../lib/supabase.js";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
@@ -55,7 +56,7 @@ function ResponsesModal({ assignment, onClose }) {
   }, [assignment.id]);
 
   return (
-    <Modal open onClose={onClose} title={`Respuestas — ${(assignment.patient_name || "Paciente").split(" ")[0]}`} width={560}>
+    <PageView open onClose={onClose} title={`Respuestas — ${(assignment.patient_name || "Paciente").split(" ")[0]}`} backLabel="Tareas" maxWidth={600}>
       <div style={{ padding:"4px 0 8px", fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16 }}>
         <strong>{template?.icon} {template?.title}</strong> · {fmtRelative(assignment.completed_at || assignment.assigned_at)}
       </div>
@@ -519,7 +520,7 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
       )}
 
       {/* ── New assignment modal ──────────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" width={760}>
+      <PageView open={showAdd} onClose={() => setShowAdd(false)} title="Asignar tarea terapéutica" backLabel="Tareas" maxWidth={800}>
         <div style={isWide ? { display:"grid", gridTemplateColumns:"1fr 320px", gap:18, alignItems:"start" } : {}}>
           <div>
             <Select label="Paciente *" value={selPatient} onChange={handleSelectPatient}
@@ -603,12 +604,11 @@ export default function Tasks({ patients, sessions = [], onNavigate, profile }) 
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:18 }}>
-          <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancelar</Btn>
           <Btn onClick={handleSave} disabled={!canSave || saving}>
             {saving ? "Guardando..." : <><ClipboardList size={14}/> Asignar tarea</>}
           </Btn>
         </div>
-      </Modal>
+      </PageView>
     </div>
   );
 }
