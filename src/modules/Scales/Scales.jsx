@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { ClipboardList, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { T } from "../../theme.js";
 import { fmtDate } from "../../utils.js";
-import { Card, Btn, Modal, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { Card, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useIsWide }   from "../../hooks/useIsWide.js";
 import { SCALES, getSeverity, getDASS21Subscores, getASRSPartA, BLANCO_SVG } from "./scales.utils.js";
@@ -670,9 +671,9 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
             })
       )}
 
-      {/* Apply scale modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={`Aplicar ${SCALES[activeScale]?.name}`} width={640}>
-        <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+      {/* Apply scale — página completa */}
+      <PageView open={showForm} onClose={() => setShowForm(false)} title={`Aplicar ${SCALES[activeScale]?.name}`} backLabel="Escalas" maxWidth={680}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
           {Object.values(SCALES).map(scale => {
             const active = activeScale === scale.id;
             const domainShort = { "Depresión / Ansiedad / Estrés": "Dep/Ans/Str", "Ansiedad somática": "Ansiedad s.", "Resultados terapéuticos": "Resultados", "Alianza terapéutica": "Alianza", "Consumo de alcohol": "Alcohol", "TDAH adultos": "TDAH" }[scale.domain] || scale.domain;
@@ -697,7 +698,7 @@ export default function Scales({ scaleResults = [], setScaleResults, patients = 
           onSave={saveResult}
           onClose={() => setShowForm(false)}
         />
-      </Modal>
+      </PageView>
     </div>
   );
 }
