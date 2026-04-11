@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { uid, todayDate, fmt } from "../../utils.js";
 import { createPortalAccessLink } from "../../lib/supabase.js";
-import { printAlta, printDerivacion } from "../Reports.jsx";
+import { printAlta, printDerivacion } from "../Reports/reports.utils.js";
 import { useAppState } from "../../context/AppStateContext.jsx";
 import {
   ANAMNESIS_BLANK,
@@ -150,7 +150,7 @@ export function usePatients({
       );
       window.open(`https://wa.me/${selected.phone.replace(/\D/g,"")}?text=${msg}`, "_blank", "noopener,noreferrer");
     } catch (error) {
-      console.error("No se pudo generar el enlace de bienvenida:", error);
+      
       setWelcomeLinkError(true);
       setTimeout(() => setWelcomeLinkError(false), 3500);
     }
