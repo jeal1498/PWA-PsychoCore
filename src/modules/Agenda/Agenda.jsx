@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../../theme.js";
 import { fmt, fmtDate } from "../../utils.js";
-import { Card, Modal, Input, Select, Btn, Badge, PageHeader } from "../../components/ui/index.jsx";
+import { Card, Input, Select, Btn, Badge, PageHeader } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import DynamicSummary from "../../components/DynamicSummary.jsx";
 
 import { useAgenda }       from "./useAgenda.js";
@@ -645,7 +646,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
 function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
   if (!appt) return null;
   return (
-    <Modal open={!!appt} onClose={onCancel} title="Eliminar cita" width={420}>
+    <PageView open={!!appt} onClose={onCancel} title="Eliminar cita" backLabel="Agenda" maxWidth={460}>
       <div style={{ fontFamily:T.fB, fontSize:13.5, color:T.t, marginBottom:20, lineHeight:1.6 }}>
         <strong>{appt.patientName?.split(" ").slice(0,2).join(" ")}</strong> — {fmtDate(appt.date)} · {appt.time}
         {appt.isRecurring && (
@@ -657,9 +658,8 @@ function DeleteConfirm({ appt, onDeleteOne, onDeleteAll, onCancel }) {
       <div style={{ display:"flex", gap:8, flexDirection:"column" }}>
         <Btn onClick={onDeleteOne}>Eliminar solo esta cita</Btn>
         {appt.isRecurring && <Btn variant="danger" onClick={onDeleteAll}>Eliminar toda la serie</Btn>}
-        <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>
-      </div>
-    </Modal>
+        </div>
+    </PageView>
   );
 }
 
@@ -1049,7 +1049,7 @@ export default function Agenda({
       )}
 
       {/* ── Modal nueva cita ──────────────────────────────────────────── */}
-      <Modal open={ag.showAdd} onClose={ag.closeAddModal} title="Nueva cita" width={520}>
+      <PageView open={ag.showAdd} onClose={ag.closeAddModal} title="Nueva cita" backLabel="Agenda" maxWidth={580}>
 
         {/* Segmented control */}
         <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, marginBottom:16 }}>
@@ -1200,15 +1200,14 @@ export default function Agenda({
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={ag.closeAddModal}>Cancelar</Btn>
           <Btn onClick={ag.save} disabled={!ag.form.patientId || !ag.form.date}>
             <Check size={15}/> {ag.recurring ? `Crear ${ag.recOccurrences} citas` : "Guardar cita"}
           </Btn>
         </div>
-      </Modal>
+      </PageView>
 
-      {/* ── Modal sesión rápida ───────────────────────────────────────── */}
-      <Modal open={!!ag.quickSession} onClose={() => ag.setQuickSession(null)} title="Nota de sesión rápida" width={520}>
+      {/* ── Página sesión rápida ───────────────────────────────────────── */}
+      <PageView open={!!ag.quickSession} onClose={() => ag.setQuickSession(null)} title="Nota de sesión rápida" backLabel="Agenda" maxWidth={580}>
         {ag.quickSession && (
           <>
             <div style={{ padding:"12px 16px", background:T.pA, borderRadius:10, marginBottom:20, border:`1px solid ${T.p}20` }}>
@@ -1234,18 +1233,17 @@ export default function Agenda({
             </div>
             <Input label="Etiquetas (separadas por coma)" value={ag.sessionForm.tags} onChange={ag.sfld("tags")} placeholder="TCC, ansiedad"/>
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <Btn variant="ghost" onClick={() => ag.setQuickSession(null)}>Cancelar</Btn>
               <Btn onClick={ag.saveQuickSession} disabled={!ag.sessionForm.notes.trim()}><Check size={15}/> Guardar y completar cita</Btn>
             </div>
           </>
         )}
-      </Modal>
+      </PageView>
 
-      {/* ── Modal eliminar ────────────────────────────────────────────── */}
+      {/* ── Página eliminar ────────────────────────────────────────────── */}
       <DeleteConfirm appt={ag.deleteTarget} onDeleteOne={ag.deleteOne} onDeleteAll={ag.deleteAll} onCancel={() => ag.confirmDelete(null)}/>
 
       {/* ── Modal cambio de estado ────────────────────────────────────── */}
-      <Modal open={!!ag.statusTarget} onClose={() => ag.setStatusTarget(null)} title="Estado de la cita" width={460}>
+      <PageView open={!!ag.statusTarget} onClose={() => ag.setStatusTarget(null)} title="Estado de la cita" backLabel="Agenda" maxWidth={520}>
         {ag.statusTarget && (() => {
           const pt         = patients.find(p => p.id === ag.statusTarget.patientId);
           const cancelUrl  = ag.cancelWhatsAppUrl(ag.statusTarget);
@@ -1359,7 +1357,7 @@ export default function Agenda({
         const consentSigned  = pt?.consent?.signed;
         const canSendConsent = !consentSigned && pt?.phone;
         return (
-          <Modal open={!!ag.admisionTarget} onClose={() => ag.setAdmisionTarget(null)} title="Protocolo de Admisión" width={480}>
+          <PageView open={!!ag.admisionTarget} onClose={() => ag.setAdmisionTarget(null)} title="Protocolo de Admisión" backLabel="Agenda" maxWidth={540}>
             <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", background:T.pA, borderRadius:12, marginBottom:18, border:`1px solid ${T.p}25` }}>
               <Avatar name={pt?.name} size={38} color={T.p} bg={T.pA}/>
               <div>
@@ -1419,12 +1417,8 @@ export default function Agenda({
                 style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, padding:"12px 16px", borderRadius:11, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:13, fontWeight:700, cursor:"pointer", width:"100%" }}>
                 <FileText size={14}/> Continuar a sesión
               </OpacityBtn>
-              <button onClick={() => ag.setAdmisionTarget(null)}
-                style={{ padding:"9px", borderRadius:11, border:`1px solid ${T.bdrL}`, background:"transparent", fontFamily:T.fB, fontSize:12, color:T.tl, cursor:"pointer" }}>
-                Cancelar
-              </button>
             </div>
-          </Modal>
+          </PageView>
         );
       })()}
 
