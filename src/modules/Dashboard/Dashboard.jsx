@@ -16,7 +16,7 @@ import {
   AlertTriangle, FileSignature, NotebookPen,
   UserPlus, BarChart2,
 } from "lucide-react";
-import { RISK_CONFIG } from "../RiskAssessment.jsx";
+import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { consentStatus, CONSENT_STATUS_CONFIG } from "../Consent.jsx";
 import { useDashboard } from "./useDashboard.js";
 import {
