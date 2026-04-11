@@ -14,7 +14,8 @@ import {
 import { printNotaEvolucion, printConsentimientoInformado, printPlanSeguridad, printReferralLetter } from "../../utils/pdfUtils.js";
 import { T } from "../../theme.js";
 import { uid, todayDate, fmt, fmtDate, moodIcon, moodColor, progressStyle } from "../../utils.js";
-import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { Card, Badge, Input, Textarea, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { TASK_TEMPLATES } from "../../lib/taskTemplates.js";
 import { getResponsesByAssignment } from "../../lib/supabase.js";
@@ -272,7 +273,7 @@ function TaskResponseModal({ assignment, template, onClose }) {
   }, [assignment.id]);
 
   return (
-    <Modal open onClose={onClose} title={`Respuestas — ${assignment.patient_name?.split(" ")[0]}`} width={520}>
+    <PageView open onClose={onClose} title={`Respuestas — ${assignment.patient_name?.split(" ")[0]}`} backLabel="Sesiones" maxWidth={560}>
       <div style={{ fontFamily:T.fB, fontSize:13, color:T.tm, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
         <span style={{ fontSize:20 }}>{template?.icon}</span>
         <div>
@@ -314,9 +315,8 @@ function TaskResponseModal({ assignment, template, onClose }) {
         </div>
       ))}
       <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-        <Btn variant="ghost" onClick={onClose}>Cerrar</Btn>
-      </div>
-    </Modal>
+        </div>
+    </PageView>
   );
 }
 
@@ -970,8 +970,8 @@ export default function Sessions({
       }
 
       {/* ── New/duplicate modal ──────────────────────────────────────── */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditingSessionId(null); setServiceLocked(false); }} title="Nueva nota"
-        width={isMobileView ? 620 : 940}>
+      <PageView open={showAdd} onClose={() => { setShowAdd(false); setEditingSessionId(null); setServiceLocked(false); }} title="Nueva nota" backLabel="Sesiones"
+        maxWidth={isMobileView ? 660 : 980}>
 
         {/* Mobile: acordeón de contexto clínico al inicio del formulario */}
         {isMobileView && (
@@ -1528,7 +1528,7 @@ export default function Sessions({
           )}
 
         </div>{/* ── fin grid wrapper ── */}
-      </Modal>
+      </PageView>
 
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -1646,7 +1646,7 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
         };
 
         return (
-          <Modal open onClose={() => { setShowSafetyWizard(false); setPendingRiskSave(null); }} title="Plan de Seguridad — Elaborar ahora" width={560}>
+          <PageView open onClose={() => { setShowSafetyWizard(false); setPendingRiskSave(null); }} title="Plan de Seguridad — Elaborar ahora" backLabel="Sesiones" maxWidth={600}>
             {/* Banner de alerta */}
             <div style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 16px",
               background:rc.bg, border:`2px solid ${rc.color}44`, borderRadius:12, marginBottom:20 }}>
@@ -1751,12 +1751,12 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
                 </Btn>
               </div>
             </div>
-          </Modal>
+          </PageView>
         );
       })()}
 
-      {/* ── Modal cobro post-sesión ─────────────────────────────────────── */}
-      <Modal open={showCobro} onClose={skipCobro} title="Registrar cobro" width={420}>
+      {/* ── Página cobro post-sesión ─────────────────────────────────────── */}
+      <PageView open={showCobro} onClose={skipCobro} title="Registrar cobro" backLabel="Sesiones" maxWidth={460}>
         {/* Resumen de la sesión guardada */}
         {cobroData && (
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
@@ -1949,10 +1949,10 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
           <Btn variant="ghost" onClick={skipCobro}>Omitir (pendiente)</Btn>
           <Btn onClick={saveCobro} disabled={!cobroForm.amount}><Check size={15}/> Guardar cobro</Btn>
         </div>
-      </Modal>
+      </PageView>
 
-      {/* ── Modal resumen IA ─────────────────────────────────────────────── */}
-      <Modal open={showAiModal} onClose={() => { setShowAiModal(false); setAiSummary(null); setAiError(""); }} title="Resumen clínico con IA" width={540}>
+      {/* ── Página resumen IA ─────────────────────────────────────────────── */}
+      <PageView open={showAiModal} onClose={() => { setShowAiModal(false); setAiSummary(null); setAiError(""); }} title="Resumen clínico con IA" backLabel="Sesiones" maxWidth={580}>
         {aiLoading && (
           <div style={{ textAlign:"center", padding:"32px 0" }}>
             <div style={{ width:36, height:36, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:LAVANDA, animation:"spin .8s linear infinite", margin:"0 auto 16px" }}/>
@@ -1985,7 +1985,7 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
             </div>
           </div>
         )}
-      </Modal>
+      </PageView>
 
       {/* ── Task response viewer ─────────────────────────────────────────── */}
       {viewTaskResponse && (() => {
@@ -2000,11 +2000,12 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
       })()}
 
       {/* ── Wizard de Cierre de Sesión (Secciones 8.3 → 8.4 → 8.5) ────────── */}
-      <Modal
+      <PageView
         open={showCloseWizard}
         onClose={() => setShowCloseWizard(false)}
         title={`Cierre de sesión · Paso ${closeStep} de 5`}
-        width={480}
+        backLabel="Sesiones"
+        maxWidth={520}
       >
         {closeCtx && (() => {
           const pt = patients.find(p => p.id === closeCtx.patientId);
@@ -2539,10 +2540,10 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
             </>
           );
         })()}
-      </Modal>
+      </PageView>
 
-      {/* ── Referral modal ───────────────────────────────────────────── */}
-      <Modal open={!!referral} onClose={() => setReferral(null)} title="Carta de Derivación" width={520}>
+      {/* ── Carta de Derivación ───────────────────────────────────────────── */}
+      <PageView open={!!referral} onClose={() => setReferral(null)} title="Carta de Derivación" backLabel="Sesiones" maxWidth={560}>
         {referral && (
           <>
             <div style={{ padding:"12px 16px", background:T.pA, borderRadius:10, marginBottom:20 }}>
@@ -2553,14 +2554,13 @@ ${safetyPlanDraft.environmentSafety ? `<div class="section"><div class="section-
             <Textarea label="Motivo de derivación *" value={refForm.reason} onChange={rfld("reason")} placeholder="Describe el motivo por el que se deriva al paciente..." rows={3}/>
             <Textarea label="Información clínica adicional" value={refForm.notes} onChange={rfld("notes")} placeholder="Tratamiento actual, observaciones para el especialista..." rows={3}/>
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <Btn variant="ghost" onClick={() => setReferral(null)}>Cancelar</Btn>
               <Btn variant="accent" onClick={() => { printReferralLetter(referral.patient, referral.session, profile, refForm); setReferral(null); }} disabled={!refForm.reason.trim()}>
                 <Printer size={14}/> Generar carta PDF
               </Btn>
             </div>
           </>
         )}
-      </Modal>
+      </PageView>
     </div>
   );
 }
