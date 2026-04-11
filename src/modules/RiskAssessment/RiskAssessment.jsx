@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ShieldAlert, Plus, Printer, Trash2, Check, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { T } from "../../theme.js";
 import { fmtDate } from "../../utils.js";
-import { Card, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { Card, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useIsWide }   from "../../hooks/useIsWide.js";
 import { RISK_CONFIG, PROTECTIVE_FACTORS, printAssessmentRecord, printSafetyPlan } from "./riskAssessment.utils.js";
@@ -431,9 +431,9 @@ export default function RiskAssessment({ riskAssessments = [], setRiskAssessment
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Nueva evaluación" width={600}>
+      <PageView open={showForm} onClose={() => setShowForm(false)} title="Nueva evaluación" backLabel="Evaluaciones de riesgo" maxWidth={640}>
         <AssessmentForm patients={patients} onSave={save} onClose={() => setShowForm(false)}/>
-      </Modal>
+      </PageView>
     </div>
   );
 }
