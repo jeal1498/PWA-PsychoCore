@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Phone, MessageSquare, Mail, Video, AlertTriangle, Pill, Trash2, Plus, Check, ChevronDown, ChevronUp, Edit3 } from "lucide-react";
 import { T } from "../theme.js";
 import { uid, fmt, todayDate, fmtDate } from "../utils.js";
-import { Card, Modal, Input, Textarea, Select, Btn } from "../components/ui/index.jsx";
+import { Card, Input, Textarea, Select, Btn } from "../components/ui/index.jsx";
+import { PageView } from "../components/PageView.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG — CANALES DE CONTACTO
@@ -371,9 +372,9 @@ export function ContactsTab({ patientId, interSessions, setInterSessions }) {
         : contacts.map(c => <ContactItem key={c.id} contact={c} onDelete={del}/>)
       }
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Registrar contacto inter-sesional" width={580}>
+      <PageView open={showAdd} onClose={() => setShowAdd(false)} title="Registrar contacto inter-sesional" backLabel="Intersesiones" maxWidth={620}>
         <ContactForm onSave={save} onClose={() => setShowAdd(false)}/>
-      </Modal>
+      </PageView>
     </div>
   );
 }
@@ -446,14 +447,14 @@ export function MedicationTab({ patientId, medications, setMedications }) {
       }
 
       {/* Add modal */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Agregar medicamento" width={560}>
+      <PageView open={showAdd} onClose={() => setShowAdd(false)} title="Agregar medicamento" backLabel="Medicación" maxWidth={600}>
         <MedForm onSave={save} onClose={() => setShowAdd(false)}/>
-      </Modal>
+      </PageView>
 
       {/* Edit modal */}
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Editar medicamento" width={560}>
+      <PageView open={!!editing} onClose={() => setEditing(null)} title="Editar medicamento" backLabel="Medicación" maxWidth={600}>
         {editing && <MedForm initialValues={editing} onSave={update} onClose={() => setEditing(null)}/>}
-      </Modal>
+      </PageView>
     </div>
   );
 }
