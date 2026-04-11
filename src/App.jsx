@@ -22,18 +22,18 @@ import NotificationBell from "./components/NotificationBell.jsx";
 import SyncToast       from "./components/SyncToast.jsx";
 
 // Lazy loading — cada módulo se descarga solo cuando el usuario lo abre por primera vez
-const Dashboard     = lazy(() => import("./modules/Dashboard.jsx"));
-const Patients      = lazy(() => import("./modules/Patients.jsx"));
-const Agenda        = lazy(() => import("./modules/Agenda.jsx"));
-const Sessions      = lazy(() => import("./modules/Sessions.jsx"));
-const Finance       = lazy(() => import("./modules/Finance.jsx"));
-const Settings      = lazy(() => import("./modules/Settings.jsx"));
-const Stats         = lazy(() => import("./modules/Stats.jsx"));
-const RiskAssessment= lazy(() => import("./modules/RiskAssessment.jsx"));
-const Scales        = lazy(() => import("./modules/Scales.jsx"));
-const TreatmentPlan = lazy(() => import("./modules/TreatmentPlan.jsx"));
-const Reports       = lazy(() => import("./modules/Reports.jsx"));
-const Tasks         = lazy(() => import("./modules/Tasks.jsx"));
+const Dashboard     = lazy(() => import("./modules/Dashboard/Dashboard.jsx"));
+const Patients      = lazy(() => import("./modules/Patients/Patients.jsx"));
+const Agenda        = lazy(() => import("./modules/Agenda/Agenda.jsx"));
+const Sessions      = lazy(() => import("./modules/Sessions/Sessions.jsx"));
+const Finance       = lazy(() => import("./modules/Finance/Finance.jsx"));
+const Settings      = lazy(() => import("./modules/Settings/Settings.jsx"));
+const Stats         = lazy(() => import("./modules/Stats/Stats.jsx"));
+const RiskAssessment= lazy(() => import("./modules/RiskAssessment/RiskAssessment.jsx"));
+const Scales        = lazy(() => import("./modules/Scales/Scales.jsx"));
+const TreatmentPlan = lazy(() => import("./modules/TreatmentPlan/TreatmentPlan.jsx"));
+const Reports       = lazy(() => import("./modules/Reports/Reports.jsx"));
+const Tasks         = lazy(() => import("./modules/Tasks/Tasks.jsx"));
 
 export default function App() {
   // ── Estado de contexto ───────────────────────────────────────────────────
