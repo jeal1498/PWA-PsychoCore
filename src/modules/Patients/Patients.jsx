@@ -9,7 +9,7 @@ import { uid, todayDate, fmt, fmtDate, fmtCur, moodIcon, moodColor, progressStyl
 import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { RiskBadge } from "../RiskAssessment/RiskAssessment.jsx";
-import { getSeverity, SCALES } from "../Scales/Scales.jsx";
+import { getSeverity, SCALES } from "../Scales/scales.utils.js";
 import ConsentBlock, { consentStatus, CONSENT_STATUS_CONFIG } from "../Consent.jsx";
 import { ContactsTab, MedicationTab, MedSummaryWidget, ContactFollowUpWidget } from "../InterSessions.jsx";
 import { createPortalAccessLink, getAssignmentsByPatient, getResponsesByAssignment } from "../../lib/supabase.js";
