@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { T } from "../../theme.js";
 import { fmtDate } from "../../utils.js";
-import { Card, Badge, Modal, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { Card, Badge, Input, Textarea, Select, Btn, EmptyState, PageHeader, Tabs } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { useIsWide } from "../../hooks/useIsWide.js";
 
 import {
@@ -693,7 +694,7 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
       }
 
       {/* New plan modal */}
-      <Modal open={showNew} onClose={() => setShowNew(false)} title="Nuevo plan de tratamiento" width={560}>
+      <PageView open={showNew} onClose={() => setShowNew(false)} title="Nuevo plan de tratamiento" backLabel="Planes de tratamiento" maxWidth={600}>
         <Select label="Paciente *" value={newForm.patientId} onChange={v => setNewForm(f => ({ ...f, patientId: v }))}
           options={[{ value: "", label: "Seleccionar paciente..." }, ...patients.map(p => ({ value: p.id, label: p.name }))]}/>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -706,10 +707,10 @@ export default function TreatmentPlan({ treatmentPlans, setTreatmentPlans, patie
         <Textarea label="Enfoque terapéutico" value={newForm.therapeuticApproach} onChange={v => setNewForm(f => ({ ...f, therapeuticApproach: v }))}
           placeholder="Marco teórico y técnicas principales (TCC, ACT, EMDR, etc.)..." rows={2}/>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <Btn variant="ghost" onClick={() => setShowNew(false)}>Cancelar</Btn>
+
           <Btn onClick={saveNew} disabled={!newForm.patientId}><Check size={15}/> Crear plan</Btn>
         </div>
-      </Modal>
+      </PageView>
     </div>
   );
 }
