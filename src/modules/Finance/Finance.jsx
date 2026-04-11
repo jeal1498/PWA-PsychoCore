@@ -5,7 +5,8 @@ import {
 } from "lucide-react";
 import { T } from "../../theme.js";
 import { fmtDate, fmtCur } from "../../utils.js";
-import { Card, Modal, Input, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { Card, Input, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
+import { PageView } from "../../components/PageView.jsx";
 import { useFinance } from "./useFinance.js";
 import {
   MONTHS_LIST,
@@ -668,7 +669,7 @@ export default function Finance({
       {/* ══════════════════════════════════════════════════════════════════
           MODAL: AGREGAR PAGO
       ══════════════════════════════════════════════════════════════════ */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setCobroFromPending(null); }} title="Registrar pago">
+      <PageView open={showAdd} onClose={() => { setShowAdd(false); setCobroFromPending(null); }} title="Registrar pago" backLabel="Finanzas" maxWidth={580}>
         {cobroFromPending ? (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize:11, fontWeight:600, color:T.tm, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Paciente</div>
@@ -718,14 +719,13 @@ export default function Finance({
           Se generará automáticamente el folio <strong>{nextFolio(payments)}</strong> para este pago.
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={() => { setShowAdd(false); setCobroFromPending(null); }}>Cancelar</Btn>
           <Btn onClick={save} disabled={!form.patientId||!form.amount}><Check size={15}/> Guardar pago</Btn>
         </div>
-      </Modal>
+      </PageView>
 
       {/* Modal confirmación de pago guardado */}
       {savedPayment && (
-        <Modal open={!!savedPayment} onClose={() => setSavedPayment(null)} title="Pago guardado" width={400}>
+        <PageView open={!!savedPayment} onClose={() => setSavedPayment(null)} title="Pago guardado" backLabel="Finanzas" maxWidth={440}>
           <div style={{ textAlign:"center", padding:"8px 0 20px" }}>
             <div style={{ width:56, height:56, borderRadius:"50%", background:T.sucA, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
               <CheckCircle size={26} color={T.suc} strokeWidth={1.5}/>
@@ -757,18 +757,14 @@ export default function Finance({
             {shareError && (
               <div style={{ gridColumn:"1/-1", fontFamily:T.fB, fontSize:11, color:T.err, textAlign:"center", marginTop:2 }}>Error al generar el recibo. Inténtalo de nuevo.</div>
             )}
-            <button onClick={() => setSavedPayment(null)}
-              style={{ padding:"11px", borderRadius:10, border:`1.5px solid ${T.bdr}`, background:"transparent", fontFamily:T.fB, fontSize:13, color:T.tm, cursor:"pointer" }}>
-              Cerrar
-            </button>
           </div>
-        </Modal>
+        </PageView>
       )}
 
       {/* Modal editar/ver pago */}
       {editPayment && (
-        <Modal open={!!editPayment} onClose={() => setEditPayment(null)}
-          title={`Pago — ${editPayment.patientName?.split(" ").slice(0,2).join(" ")}`} width={480}>
+        <PageView open={!!editPayment} onClose={() => setEditPayment(null)}
+          title={`Pago — ${editPayment.patientName?.split(" ").slice(0,2).join(" ")}`} backLabel="Finanzas" maxWidth={520}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", background:T.pA, borderRadius:12, marginBottom:20 }}>
             <div>
               <div style={{ fontFamily:T.fH, fontSize:28, fontWeight:500, color:T.t }}>{fmtCur(editPayment.amount)}</div>
@@ -816,17 +812,18 @@ export default function Finance({
               <div style={{ gridColumn:"1/-1", fontFamily:T.fB, fontSize:11, color:T.err, textAlign:"center", marginTop:2 }}>Error al generar el recibo. Inténtalo de nuevo.</div>
             )}
           </div>
-        </Modal>
+        </PageView>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
           MODAL: AGREGAR / EDITAR GASTO
       ══════════════════════════════════════════════════════════════════ */}
-      <Modal
+      <PageView
         open={showAddExp}
         onClose={() => { setShowAddExp(false); setEditExp(null); setExpForm(emptyExpForm()); }}
         title={editExp ? "Editar gasto" : "Registrar gasto"}
-        width={460}
+        backLabel="Finanzas"
+        maxWidth={500}
       >
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <Input label="Fecha *" value={expForm.date} onChange={efld("date")} type="date"/>
@@ -848,10 +845,9 @@ export default function Finance({
           />
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <Btn variant="ghost" onClick={() => { setShowAddExp(false); setEditExp(null); setExpForm(emptyExpForm()); }}>Cancelar</Btn>
           <Btn onClick={saveExpense} disabled={!expForm.concept||!expForm.amount}><Check size={15}/> {editExp?"Actualizar":"Guardar"}</Btn>
         </div>
-      </Modal>
+      </PageView>
     </div>
   );
 }
