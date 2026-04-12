@@ -4,7 +4,7 @@
 // Se dispara al primer login cuando no hay pacientes registrados.
 // Tokens: T de theme.js. Sin dependencias externas.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "../theme.js";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -45,6 +45,46 @@ const DEFAULT_POLICY =
 `El pago de la sesión deberá realizarse al inicio de cada cita.
 En caso de cancelación, se requiere aviso con al menos 24 horas de anticipación para evitar cargo por sesión no asistida.
 Las sesiones no canceladas a tiempo o a las que no se asista serán cobradas en su totalidad.`;
+
+// Códigos de país para el selector de celular
+const COUNTRY_CODES = [
+  { code: "+52", flag: "🇲🇽", country: "MX" },
+  { code: "+1",  flag: "🇺🇸", country: "US" },
+  { code: "+1",  flag: "🇨🇦", country: "CA" },
+  { code: "+34", flag: "🇪🇸", country: "ES" },
+  { code: "+57", flag: "🇨🇴", country: "CO" },
+  { code: "+54", flag: "🇦🇷", country: "AR" },
+  { code: "+56", flag: "🇨🇱", country: "CL" },
+  { code: "+51", flag: "🇵🇪", country: "PE" },
+  { code: "+58", flag: "🇻🇪", country: "VE" },
+  { code: "+593", flag: "🇪🇨", country: "EC" },
+  { code: "+502", flag: "🇬🇹", country: "GT" },
+  { code: "+503", flag: "🇸🇻", country: "SV" },
+  { code: "+504", flag: "🇭🇳", country: "HN" },
+  { code: "+505", flag: "🇳🇮", country: "NI" },
+  { code: "+506", flag: "🇨🇷", country: "CR" },
+  { code: "+507", flag: "🇵🇦", country: "PA" },
+  { code: "+591", flag: "🇧🇴", country: "BO" },
+  { code: "+595", flag: "🇵🇾", country: "PY" },
+  { code: "+598", flag: "🇺🇾", country: "UY" },
+  { code: "+55",  flag: "🇧🇷", country: "BR" },
+  { code: "+44",  flag: "🇬🇧", country: "GB" },
+  { code: "+49",  flag: "🇩🇪", country: "DE" },
+  { code: "+33",  flag: "🇫🇷", country: "FR" },
+  { code: "+39",  flag: "🇮🇹", country: "IT" },
+];
+
+// Servicios predefinidos para psicólogos
+const PRESET_SERVICES = [
+  { id: "ps_ind",    label: "Psicoterapia individual" },
+  { id: "ps_inf",    label: "Psicoterapia infantil y juvenil" },
+  { id: "ps_par",    label: "Terapia de pareja" },
+  { id: "ps_fam",    label: "Terapia familiar" },
+  { id: "ps_eval",   label: "Evaluación y diagnóstico" },
+  { id: "ps_ori",    label: "Orientación a padres" },
+  { id: "ps_grupo",  label: "Psicoterapia de grupo" },
+  { id: "ps_otro",   label: "Otro (personalizado)" },
+];
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
 const S = {
@@ -130,8 +170,82 @@ function PillOption({ icon, label, selected, onSelect, last }) {
   );
 }
 
+// ── Selector de código de país ────────────────────────────────────────────────
+function CountryCodePicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = COUNTRY_CODES.find(c => c.country === value.country) || COUNTRY_CODES[0];
+
+  return (
+    <div ref={ref} style={{ position:"relative", flexShrink:0 }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ padding:"11px 13px", border:`1.5px solid ${open ? T.p : T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t, background:"var(--bg)", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6, cursor:"pointer", userSelect:"none", transition:"border-color .15s" }}
+      >
+        {selected.flag} {selected.code} ({selected.country}) ⌄
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:200, background:T.card, border:`1.5px solid ${T.bdr}`, borderRadius:12, boxShadow:"0 8px 24px rgba(0,0,0,.15)", minWidth:200, maxHeight:240, overflowY:"auto" }}>
+          {COUNTRY_CODES.map((c, i) => (
+            <div
+              key={`${c.country}-${i}`}
+              onClick={() => { onChange(c); setOpen(false); }}
+              style={{ padding:"10px 14px", display:"flex", alignItems:"center", gap:8, cursor:"pointer", background: c.country === selected.country ? T.pA : "transparent", fontFamily:T.fB, fontSize:14, color: c.country === selected.country ? T.p : T.t, fontWeight: c.country === selected.country ? 600 : 400, transition:"background .1s" }}
+            >
+              <span style={{ fontSize:18 }}>{c.flag}</span>
+              <span>{c.code}</span>
+              <span style={{ color:T.tl, fontSize:12 }}>({c.country})</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tarjeta de servicio agregado ──────────────────────────────────────────────
+function ServiceCard({ svc, currency, onRemove, onUpdatePrice }) {
+  return (
+    <div style={{ border:`1.5px solid ${T.p}`, borderRadius:14, padding:"14px 16px", background:T.pA, marginBottom:10 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <span style={{ fontFamily:T.fB, fontSize:14, fontWeight:700, color:T.p }}>{svc.label}</span>
+        <button onClick={onRemove} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:T.tl, padding:"2px 6px" }}>✕</button>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <div>
+          <span style={{ display:"block", fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tm, marginBottom:5 }}>📍 Presencial ({currency})</span>
+          <input
+            type="number"
+            placeholder="0.00"
+            value={svc.pricePresencial}
+            onChange={e => onUpdatePrice("pricePresencial", e.target.value)}
+            style={{ width:"100%", padding:"9px 11px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:15, fontWeight:700, color:T.t, background:"var(--bg)", outline:"none", boxSizing:"border-box" }}
+          />
+        </div>
+        <div>
+          <span style={{ display:"block", fontFamily:T.fB, fontSize:11, fontWeight:600, color:T.tm, marginBottom:5 }}>📹 Virtual ({currency})</span>
+          <input
+            type="number"
+            placeholder="0.00"
+            value={svc.priceVirtual}
+            onChange={e => onUpdatePrice("priceVirtual", e.target.value)}
+            style={{ width:"100%", padding:"9px 11px", border:`1.5px solid ${T.bdr}`, borderRadius:9, fontFamily:T.fB, fontSize:15, fontWeight:700, color:T.t, background:"var(--bg)", outline:"none", boxSizing:"border-box" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function Onboarding({ onClose, onNavigate, services = [] }) {
+export default function Onboarding({ onClose, onNavigate }) {
   const [step, setStep] = useState(0);
   const fileInputRef    = useRef(null);
 
@@ -139,13 +253,14 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
   const [sources,         setSources]         = useState([]);
   const [name,            setName]            = useState("");
   const [avatarUrl,       setAvatarUrl]       = useState(null);
+  const [countryCode,     setCountryCode]     = useState(COUNTRY_CODES[0]);
   const [phone,           setPhone]           = useState("");
   const [description,     setDescription]     = useState("");
   const [specialties,     setSpecialties]     = useState([]);
   const [agendaType,      setAgendaType]      = useState("publica");
   const [duration,        setDuration]        = useState("1 hora");
   const [modality,        setModality]        = useState("ambas");
-  const [mapsAddress,     setMapsAddress]     = useState("");
+  const [mapsLink,        setMapsLink]        = useState("");
   const [activeDays,      setActiveDays]      = useState({ L:true, M:false, Mi:false, J:false, V:true, S:false, D:false });
   const [schedule,        setSchedule]        = useState({
     L:  [{ start:"09:00", end:"17:00" }],
@@ -156,8 +271,10 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
     S:  [{ start:"09:00", end:"13:00" }],
     D:  [{ start:"09:00", end:"13:00" }],
   });
-  const [selectedService, setSelectedService] = useState("");
-  const [price,           setPrice]           = useState("");
+  // Servicios con precios duales
+  const [addedServices,   setAddedServices]   = useState([]);
+  const [selectedPreset,  setSelectedPreset]  = useState("");
+  const [customServiceName, setCustomServiceName] = useState("");
   const [currency,        setCurrency]        = useState("MXN");
   const [showPrice,       setShowPrice]       = useState(true);
   const [payPolicy,       setPayPolicy]       = useState(DEFAULT_POLICY);
@@ -185,12 +302,29 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
   const updateInterval = (dayKey, idx, field, val) =>
     setSchedule(prev => ({ ...prev, [dayKey]: prev[dayKey].map((iv,i) => i===idx ? {...iv,[field]:val} : iv) }));
 
-  const handleServiceSelect = (e) => {
-    const id = e.target.value;
-    setSelectedService(id);
-    const svc = services.find(s => String(s.id) === id);
-    if (svc?.price != null) setPrice(String(svc.price));
+  // Servicios
+  const handleAddService = () => {
+    if (!selectedPreset) return;
+    const isCustom = selectedPreset === "ps_otro";
+    const label = isCustom
+      ? (customServiceName.trim() || "Servicio personalizado")
+      : PRESET_SERVICES.find(s => s.id === selectedPreset)?.label || "";
+    const newSvc = {
+      id: `svc_${Date.now()}`,
+      label,
+      pricePresencial: "",
+      priceVirtual: "",
+    };
+    setAddedServices(prev => [...prev, newSvc]);
+    setSelectedPreset("");
+    setCustomServiceName("");
   };
+
+  const handleRemoveService = (id) =>
+    setAddedServices(prev => prev.filter(s => s.id !== id));
+
+  const handleUpdateServicePrice = (id, field, val) =>
+    setAddedServices(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
 
   // Avatar
   const handleAvatarClick = () => fileInputRef.current?.click();
@@ -202,23 +336,78 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
     reader.readAsDataURL(file);
   };
 
-  // Conexiones externas
+  // Conexiones externas — OAuth real
   const handleConnectGcal = () => {
-    const clientId = typeof import.meta !== "undefined" ? import.meta.env?.VITE_GOOGLE_CLIENT_ID : "";
-    if (clientId) {
-      const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=token&scope=https://www.googleapis.com/auth/calendar`;
-      window.open(url, "_blank", "width=500,height=600");
+    if (gcalConnected) {
+      setGcalConnected(false);
+      return;
     }
-    setGcalConnected(v => !v);
+    const clientId = typeof import.meta !== "undefined" ? import.meta.env?.VITE_GOOGLE_CLIENT_ID : "";
+    if (!clientId) {
+      console.warn("VITE_GOOGLE_CLIENT_ID no configurado");
+      return;
+    }
+    const redirectUri = encodeURIComponent(window.location.origin + "/auth/google/callback");
+    const scope = encodeURIComponent(
+      "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events"
+    );
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=consent`;
+    const popup = window.open(url, "google_auth", "width=500,height=600,left=200,top=100");
+
+    // Escucha el callback del popup
+    const listener = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+        setGcalConnected(true);
+        window.removeEventListener("message", listener);
+        popup?.close();
+      }
+    };
+    window.addEventListener("message", listener);
+
+    // Fallback: polling por si no se implementa postMessage aún
+    const poll = setInterval(() => {
+      try {
+        if (popup?.closed) {
+          clearInterval(poll);
+          window.removeEventListener("message", listener);
+        }
+      } catch (_) {}
+    }, 500);
   };
 
   const handleConnectStripe = () => {
-    const clientId = typeof import.meta !== "undefined" ? import.meta.env?.VITE_STRIPE_CLIENT_ID : "";
-    if (clientId) {
-      const url = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${clientId}&scope=read_write`;
-      window.open(url, "_blank", "width=600,height=700");
+    if (stripeConnected) {
+      setStripeConnected(false);
+      return;
     }
-    setStripeConnected(v => !v);
+    const clientId = typeof import.meta !== "undefined" ? import.meta.env?.VITE_STRIPE_CLIENT_ID : "";
+    if (!clientId) {
+      console.warn("VITE_STRIPE_CLIENT_ID no configurado");
+      return;
+    }
+    const redirectUri = encodeURIComponent(window.location.origin + "/auth/stripe/callback");
+    const url = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${clientId}&scope=read_write&redirect_uri=${redirectUri}`;
+    const popup = window.open(url, "stripe_auth", "width=600,height=700,left=200,top=100");
+
+    const listener = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "STRIPE_AUTH_SUCCESS") {
+        setStripeConnected(true);
+        window.removeEventListener("message", listener);
+        popup?.close();
+      }
+    };
+    window.addEventListener("message", listener);
+
+    const poll = setInterval(() => {
+      try {
+        if (popup?.closed) {
+          clearInterval(poll);
+          window.removeEventListener("message", listener);
+        }
+      } catch (_) {}
+    }, 500);
   };
 
   const go = (dir) => {
@@ -270,7 +459,7 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
       <Nav showBack={false} />
     </>,
 
-    // 1 — Perfil
+    // 1 — Perfil (CORREGIDO: selector de país funcional, sin bloque informativo)
     <>
       <h2 style={S.title}>Empieza con tu perfil</h2>
       <div style={S.divider} />
@@ -293,14 +482,8 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
 
       <span style={S.label}>Celular</span>
       <div style={{ display:"flex", gap:10 }}>
-        <div style={{ padding:"11px 13px", border:`1.5px solid ${T.bdr}`, borderRadius:10, fontFamily:T.fB, fontSize:14, color:T.t, background:"var(--bg)", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}>🇲🇽 +52 (MX) ⌄</div>
+        <CountryCodePicker value={countryCode} onChange={setCountryCode} />
         <input style={{ ...S.input, flex:1 }} type="tel" placeholder="10 dígitos" value={phone} onChange={e => setPhone(e.target.value)} />
-      </div>
-      <div style={{ marginTop:8, padding:"9px 12px", borderRadius:9, background:T.pA, border:`1px solid ${T.p}20`, display:"flex", gap:8, alignItems:"flex-start" }}>
-        <span style={{ fontSize:14, flexShrink:0 }}>ℹ️</span>
-        <p style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5, margin:0 }}>
-          Tu número se usa para que tus pacientes puedan contactarte por WhatsApp y para enviarles recordatorios y tareas terapéuticas de forma automática.
-        </p>
       </div>
 
       <span style={S.label}>Descripción</span>
@@ -321,7 +504,7 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
       <Nav />
     </>,
 
-    // 3 — Configurar sesiones
+    // 3 — Configurar sesiones (CORREGIDO: campo dirección → link de Google Maps)
     <>
       <h2 style={S.title}>Configura cómo darás tus sesiones</h2>
       <div style={S.divider} />
@@ -347,17 +530,21 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
 
       {(modality==="presencial" || modality==="ambas") && (
         <>
-          <span style={S.label}>Dirección del consultorio</span>
-          <div style={{ position:"relative" }}>
-            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:16, pointerEvents:"none" }}>📍</span>
-            <input style={{ ...S.input, paddingLeft:36 }} type="text" placeholder="Busca la dirección en Google Maps…" value={mapsAddress} onChange={e => setMapsAddress(e.target.value)} />
-          </div>
-          {mapsAddress && (
-            <a href={`https://www.google.com/maps/search/${encodeURIComponent(mapsAddress)}`} target="_blank" rel="noopener noreferrer"
+          <span style={S.label}>Link de Google Maps del consultorio</span>
+          <input
+            style={S.input}
+            type="url"
+            placeholder="Pega aquí el link de Google Maps de tu consultorio"
+            value={mapsLink}
+            onChange={e => setMapsLink(e.target.value)}
+          />
+          {mapsLink && (
+            <a href={mapsLink} target="_blank" rel="noopener noreferrer"
               style={{ display:"inline-flex", alignItems:"center", gap:5, marginTop:7, fontFamily:T.fB, fontSize:12, color:T.p, textDecoration:"none" }}>
-              🗺️ Ver en Google Maps →
+              🗺️ Ver consultorio en Google Maps →
             </a>
           )}
+          <p style={S.hint}>Abre Google Maps, busca tu consultorio, toca "Compartir" y copia el link.</p>
         </>
       )}
       <Nav />
@@ -420,41 +607,77 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
       <Nav />
     </>,
 
-    // 5 — Tarifas y pagos
+    // 5 — Tarifas y pagos (REDISEÑADO: servicios predefinidos con precio dual)
     <>
       <h2 style={S.title}>Configura tus tarifas y pagos</h2>
       <div style={S.divider} />
 
-      {/* Divisa — arriba */}
+      {/* Divisa */}
       <span style={S.label}>Divisa aceptada</span>
       <select style={S.select} value={currency} onChange={e => setCurrency(e.target.value)}>
         {["MXN","USD","EUR","COP","ARS","CLP"].map(c => <option key={c}>{c}</option>)}
       </select>
 
-      {/* Servicio + precio autocomplete */}
-      <span style={{ ...S.label, marginTop:16 }}>Servicio</span>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"center" }}>
-        <select style={S.select} value={selectedService} onChange={handleServiceSelect}>
+      {/* Agregar servicios */}
+      <span style={{ ...S.label, marginTop:18 }}>Servicios ofrecidos</span>
+      <p style={{ ...S.hint, marginTop:0, marginBottom:10 }}>Selecciona un servicio de la lista y agrégalo con su tarifa.</p>
+
+      <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
+        <select
+          style={{ ...S.select, flex:1 }}
+          value={selectedPreset}
+          onChange={e => setSelectedPreset(e.target.value)}
+        >
           <option value="">— Selecciona un servicio —</option>
-          {services.length > 0
-            ? services.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.nombre || "Servicio"}</option>)
-            : <option disabled>Sin servicios registrados</option>
-          }
+          {PRESET_SERVICES.filter(ps => !addedServices.find(a => a.label === ps.label && ps.id !== "ps_otro")).map(ps => (
+            <option key={ps.id} value={ps.id}>{ps.label}</option>
+          ))}
         </select>
-        <div style={{ padding:"11px 14px", borderRadius:10, border:`1.5px solid ${T.bdr}`, background:"var(--bg)", fontFamily:T.fB, fontSize:16, fontWeight:700, color:T.t, minWidth:90, textAlign:"center" }}>
-          {price ? `$${parseFloat(price).toLocaleString("es-MX")}` : "—"}
-        </div>
+        <button
+          onClick={handleAddService}
+          disabled={!selectedPreset}
+          style={{ padding:"11px 18px", borderRadius:10, border:"none", background:selectedPreset?T.p:T.bdrL, color:selectedPreset?"#fff":T.tl, fontFamily:T.fB, fontSize:14, fontWeight:700, cursor:selectedPreset?"pointer":"default", flexShrink:0, transition:"all .15s" }}
+        >
+          + Agregar
+        </button>
       </div>
-      {services.length === 0 && (
-        <p style={{ ...S.hint, marginTop:6 }}>Aún no tienes servicios. Puedes agregarlos desde Ajustes → Servicios.</p>
+
+      {/* Campo personalizado si seleccionó "Otro" */}
+      {selectedPreset === "ps_otro" && (
+        <div style={{ marginTop:10 }}>
+          <input
+            style={S.input}
+            type="text"
+            placeholder="Nombre del servicio personalizado…"
+            value={customServiceName}
+            onChange={e => setCustomServiceName(e.target.value)}
+          />
+        </div>
       )}
 
-      {/* Costo manual */}
-      <span style={{ ...S.label, marginTop:14 }}>Costo de la sesión ({currency})</span>
-      <input style={{ ...S.input, fontSize:20, fontWeight:700 }} type="number" placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)} />
+      {/* Tarjetas de servicios agregados */}
+      {addedServices.length > 0 && (
+        <div style={{ marginTop:16 }}>
+          {addedServices.map(svc => (
+            <ServiceCard
+              key={svc.id}
+              svc={svc}
+              currency={currency}
+              onRemove={() => handleRemoveService(svc.id)}
+              onUpdatePrice={(field, val) => handleUpdateServicePrice(svc.id, field, val)}
+            />
+          ))}
+        </div>
+      )}
+
+      {addedServices.length === 0 && (
+        <div style={{ marginTop:12, padding:"16px", borderRadius:12, border:`1.5px dashed ${T.bdr}`, textAlign:"center" }}>
+          <p style={{ fontFamily:T.fB, fontSize:13, color:T.tl, margin:0 }}>Aún no has agregado servicios. Selecciona uno de la lista y toca "+ Agregar".</p>
+        </div>
+      )}
 
       {/* Mostrar precio */}
-      <div onClick={() => setShowPrice(p => !p)} style={{ display:"flex", alignItems:"center", gap:10, marginTop:14, cursor:"pointer" }}>
+      <div onClick={() => setShowPrice(p => !p)} style={{ display:"flex", alignItems:"center", gap:10, marginTop:18, cursor:"pointer" }}>
         <div style={{ width:20, height:20, borderRadius:5, flexShrink:0, border:`2px solid ${showPrice?T.p:T.bdr}`, background:showPrice?T.p:"transparent", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", transition:"all .15s" }}>
           {showPrice?"✓":""}
         </div>
@@ -469,7 +692,7 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
       <Nav />
     </>,
 
-    // 6 — Conectar aplicaciones
+    // 6 — Conectar aplicaciones (CORREGIDO: OAuth real para Google y Stripe)
     <>
       <h2 style={S.title}>Conectar Aplicaciones</h2>
       <div style={S.divider} />
@@ -480,9 +703,12 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
         <span style={{ fontSize:40 }}>📅</span>
         <div style={{ fontFamily:T.fB, fontSize:15, fontWeight:700, color:T.t }}>Google Calendar y Meet</div>
         <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5 }}>
-          Conecta tu cuenta de Google para integrar con tu calendario. Sincroniza tus reservaciones y genera enlaces de reuniones virtuales con Google Meet.
+          Conecta tu cuenta de Google para sincronizar tu calendario y generar enlaces de reuniones con Google Meet.
         </div>
-        <button onClick={handleConnectGcal} style={{ width:"100%", padding:"12px", borderRadius:10, border:gcalConnected?`1.5px solid ${T.p}`:"none", background:gcalConnected?"transparent":T.p, color:gcalConnected?T.p:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, cursor:"pointer", transition:"all .15s" }}>
+        <button
+          onClick={handleConnectGcal}
+          style={{ width:"100%", padding:"12px", borderRadius:10, border:gcalConnected?`1.5px solid ${T.p}`:"none", background:gcalConnected?"transparent":T.p, color:gcalConnected?T.p:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, cursor:"pointer", transition:"all .15s" }}
+        >
           {gcalConnected ? "✓ Conectado — desconectar" : "Conectar con Google"}
         </button>
       </div>
@@ -492,9 +718,12 @@ export default function Onboarding({ onClose, onNavigate, services = [] }) {
         <span style={{ fontSize:40 }}>💳</span>
         <div style={{ fontFamily:T.fB, fontSize:15, fontWeight:700, color:T.t }}>Stripe</div>
         <div style={{ fontFamily:T.fB, fontSize:12, color:T.tm, lineHeight:1.5 }}>
-          Recibe pagos en línea de tus pacientes directamente en tu cuenta. Genera cobros con tarjeta de crédito y débito de forma segura.
+          Recibe pagos en línea de tus pacientes directamente en tu cuenta. Cobra con tarjeta de crédito y débito de forma segura.
         </div>
-        <button onClick={handleConnectStripe} style={{ width:"100%", padding:"12px", borderRadius:10, border:stripeConnected?`1.5px solid ${T.p}`:"none", background:stripeConnected?"transparent":T.p, color:stripeConnected?T.p:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, cursor:"pointer", transition:"all .15s" }}>
+        <button
+          onClick={handleConnectStripe}
+          style={{ width:"100%", padding:"12px", borderRadius:10, border:stripeConnected?`1.5px solid ${T.p}`:"none", background:stripeConnected?"transparent":T.p, color:stripeConnected?T.p:"#fff", fontFamily:T.fB, fontSize:14, fontWeight:700, cursor:"pointer", transition:"all .15s" }}
+        >
           {stripeConnected ? "✓ Conectado — desconectar" : "Conectar con Stripe"}
         </button>
       </div>
