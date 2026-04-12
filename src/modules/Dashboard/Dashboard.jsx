@@ -36,18 +36,9 @@ if (typeof document !== "undefined" && !window.__pcd__) {
 
     /* Header */
     .d-header {
-      background:linear-gradient(155deg,#243D33 0%,#3D6B5A 100%);
-      padding:24px 20px 28px; position:relative; overflow:hidden;
-    }
-    .d-header::before {
-      content:''; position:absolute; top:-50px; right:-50px;
-      width:200px; height:200px; border-radius:50%;
-      background:rgba(255,255,255,.04); pointer-events:none;
-    }
-    .d-header::after {
-      content:''; position:absolute; bottom:-70px; left:-30px;
-      width:240px; height:240px; border-radius:50%;
-      background:rgba(255,255,255,.03); pointer-events:none;
+      background:#FDFBF8;
+      padding:24px 20px 22px; position:relative; overflow:hidden;
+      border-bottom:1px solid #EAE6E1;
     }
     .d-toprow  { display:flex; justify-content:flex-end; margin-bottom:16px; }
     .d-badge   {
@@ -57,19 +48,19 @@ if (typeof document !== "undefined" && !window.__pcd__) {
       backdrop-filter:blur(8px); animation:fadeUp .4s ease both;
     }
     .d-badge-dot { width:6px; height:6px; border-radius:50%; }
-    .d-online    { background:rgba(125,206,160,.15); border:1px solid rgba(125,206,160,.35); color:#A8D5C0; }
-    .d-online  .d-badge-dot { background:#7DCEA0; animation:blink 2.2s ease infinite; }
-    .d-offline   { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:rgba(255,255,255,.45); }
-    .d-offline .d-badge-dot { background:rgba(255,255,255,.3); }
-    .d-date  { font-size:10px; color:rgba(255,255,255,.45); letter-spacing:.07em; text-transform:uppercase; margin-bottom:5px; }
-    .d-greet { font-family:'Lora',serif; font-size:23px; font-weight:400; color:#fff; line-height:1.25; animation:fadeUp .45s .06s ease both; }
-    .d-greet em { font-style:italic; color:#A8D5C0; }
+    .d-online    { background:rgba(61,107,90,.08); border:1px solid rgba(61,107,90,.25); color:#3D6B5A; }
+    .d-online  .d-badge-dot { background:#3D6B5A; animation:blink 2.2s ease infinite; }
+    .d-offline   { background:#F5F2EF; border:1px solid #EAE6E1; color:#A8A29B; }
+    .d-offline .d-badge-dot { background:#C5BFB9; }
+    .d-date  { font-size:10px; color:#A8A29B; letter-spacing:.07em; text-transform:uppercase; margin-bottom:5px; }
+    .d-greet { font-family:'Lora',serif; font-size:23px; font-weight:400; color:#1E1B18; line-height:1.25; animation:fadeUp .45s .06s ease both; }
+    .d-greet em { font-style:italic; color:#3D6B5A; }
 
     /* Shortcuts grid */
     .d-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:16px 20px; animation:fadeUp .45s .1s ease both; }
     .d-sc {
       display:flex; align-items:center; gap:10px;
-      background:#fff; border:1px solid #EAE6E1; border-radius:13px;
+      background:#fff; border-radius:13px;
       padding:12px 13px; cursor:pointer; text-align:left;
       transition:transform .15s, box-shadow .15s;
     }
@@ -89,7 +80,7 @@ if (typeof document !== "undefined" && !window.__pcd__) {
 
     /* KPI strip */
     .d-kpis    { display:grid; gap:8px; padding:0 20px; margin-bottom:20px; animation:fadeUp .45s .08s ease both; }
-    .d-kpi     { background:#FDFBF8; border:1px solid #E4DDD6; border-radius:10px; padding:11px 13px; display:flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; }
+    .d-kpi     { background:#FDFBF8; border-radius:10px; padding:11px 13px; display:flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; }
     .d-kpi:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(30,27,24,.06); }
     .d-kpi-ico { border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
     .d-kpi-val { font-family:'Lora',serif; color:#1E1B18; line-height:1; }
@@ -170,7 +161,48 @@ if (typeof document !== "undefined" && !window.__pcd__) {
   document.head.appendChild(s);
 }
 
-// ── Status config (agenda) ────────────────────────────────────────────────────
+// ── Frases motivacionales (rotan por día del año) ─────────────────────────────
+const MOTIVATIONAL_PHRASES = [
+  "Tu presencia marca la diferencia en cada consulta.",
+  "Cada sesión es una semilla de cambio.",
+  "Escuchar con atención es la mayor forma de cuidar.",
+  "Tu trabajo transforma vidas, aunque no siempre lo veas.",
+  "Hoy es un buen día para hacer el bien.",
+  "La empatía que ofreces regresa multiplicada.",
+  "Cada avance, por pequeño que sea, importa.",
+  "Eres parte fundamental del bienestar de tus pacientes.",
+  "Tu dedicación construye confianza, sesión a sesión.",
+  "Hoy tienes la oportunidad de cambiar algo para siempre.",
+  "El apoyo que brindas vale más de lo que imaginas.",
+  "Cada historia que escuchas merece ser escuchada.",
+  "Tu vocación es uno de los regalos más valiosos.",
+  "La salud mental importa, y tú eres parte de eso.",
+  "Cada consulta es un espacio seguro que tú creas.",
+  "Ser testigo del progreso ajeno es un privilegio.",
+  "Tu trabajo de hoy tendrá ecos en los años por venir.",
+  "La constancia en el cuidado construye vidas mejores.",
+  "Eres guía en momentos donde otros se sienten perdidos.",
+  "El impacto de tu trabajo se mide en bienestar, no en cifras.",
+  "Hoy, como siempre, estás justo donde debes estar.",
+  "La escucha activa es el primer paso hacia la sanación.",
+  "Tu práctica es un refugio para quienes más lo necesitan.",
+  "Cada paciente que avanza es un logro compartido.",
+  "El cuidado genuino siempre encuentra su camino.",
+  "Detrás de cada consulta hay una historia que vale la pena.",
+  "Tu trabajo no termina en la sesión; vive en cada paciente.",
+  "Hoy tienes todo lo necesario para hacer un gran trabajo.",
+  "La paciencia que ofreces es en sí misma una cura.",
+  "Confía en tu formación, tu intuición y tu corazón.",
+  "Un día a la vez, y cada día cuenta.",
+];
+
+function getDailyPhrase() {
+  const now   = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff  = now - start;
+  const dayOfYear = Math.floor(diff / 86400000);
+  return MOTIVATIONAL_PHRASES[dayOfYear % MOTIVATIONAL_PHRASES.length];
+}
 const STATUS = {
   completada:          { label:"Completada", bg:"#EAF4EE", text:"#3D7A5E" },
   en_curso:            { label:"En curso",   bg:"#FDF3E0", text:"#A06A00" },
@@ -223,7 +255,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount }) {
 
   const subtitle = todayAppts.length > 0
     ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount>0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
-    : "Sin citas programadas hoy";
+    : getDailyPhrase();
 
   return (
     <div className="d-header">
@@ -237,7 +269,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount }) {
       <div className="d-greet">
         {greeting()},&nbsp;<em>{name}</em>
       </div>
-      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"rgba(255,255,255,.5)", marginTop:6 }}>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"#A8A29B", marginTop:6, fontStyle: todayAppts.length===0 ? "italic" : "normal" }}>
         {subtitle}
       </div>
     </div>
