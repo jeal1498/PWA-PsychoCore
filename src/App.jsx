@@ -14,6 +14,7 @@ import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysL
 import { emit } from "./lib/eventBus.js";
 
 import LockScreen       from "./components/LockScreen.jsx";
+import Onboarding       from "./components/Onboarding.jsx";
 import PatientPortalComp from "./modules/PatientPortalSecure.jsx";
 import Sidebar          from "./components/Sidebar.jsx";
 import GlobalSearch     from "./components/GlobalSearch.jsx";
@@ -165,6 +166,23 @@ export default function App() {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [darkPref]);
+
+  // ── Onboarding ───────────────────────────────────────────────────────────
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (!dataLoaded || !user) return;
+    const key = `pc_onboarding_done_${user.id}`;
+    if (localStorage.getItem(key)) return;
+    const t = setTimeout(() => {
+      if (patients.length === 0) setShowOnboarding(true);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [dataLoaded, user, patients.length]);
+
+  const handleOnboardingClose = () => {
+    if (user) localStorage.setItem(`pc_onboarding_done_${user.id}`, "1");
+    setShowOnboarding(false);
+  };
 
   // ── Notificaciones ───────────────────────────────────────────────────────
   const { notifications, dismiss, dismissAll } = useNotifications(user ? appointments : [], user ? assignments : []);
@@ -384,6 +402,13 @@ export default function App() {
       {isMobile  && <Sidebar active={activeModule} setActive={navTo} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} googleUser={user} riskAlert={riskAlert} onSignOut={handleLock}/>}
 
       <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
+
+        {showOnboarding && (
+          <Onboarding
+            onClose={handleOnboardingClose}
+            onNavigate={(module) => { navTo(module); handleOnboardingClose(); }}
+          />
+        )}
 
         {psychologist?.subscription_status === "trial" && trialDaysLeft(psychologist) <= 7 && trialDaysLeft(psychologist) > 0 && (
           <div style={{ background: trialDaysLeft(psychologist) <= 3 ? "#B85050" : "#B8900A", padding:"9px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexShrink:0 }}>
