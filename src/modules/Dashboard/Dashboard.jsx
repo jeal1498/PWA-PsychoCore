@@ -166,48 +166,74 @@ function ShortcutsBar({ onQuickNav, onNewSession, patients, bp }) {
   ];
 
   return (
-    <div className="pc-sc-bar" style={{
+    <div style={{
       display:"flex", alignItems:"center",
       padding: isMob ? "0 0 10px" : "0 0 12px",
-      gap:5, overflowX:"auto",
+      gap:5,
     }}>
-      {!isMob && (
-        <span style={{
-          fontSize:10, fontWeight:700, color:D.mist,
-          letterSpacing:".09em", textTransform:"uppercase",
-          marginRight:4, flexShrink:0, fontFamily:D.fB,
-        }}>Accesos</span>
+      {/* Botones — scrollable en su propio contenedor flex */}
+      <div className="pc-sc-bar" style={{
+        display:"flex", alignItems:"center",
+        gap:5, overflowX:"auto", flex:1,
+      }}>
+        {!isMob && (
+          <span style={{
+            fontSize:10, fontWeight:700, color:D.mist,
+            letterSpacing:".09em", textTransform:"uppercase",
+            marginRight:4, flexShrink:0, fontFamily:D.fB,
+          }}>Accesos</span>
+        )}
+        {items.map((item, i) => {
+          if (item === null) return !isMob
+            ? <div key={i} style={{ width:1, height:16, background:D.border, margin:"0 2px", flexShrink:0 }}/>
+            : null;
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.label}
+              className={item.primary ? "pc-sc-p" : "pc-sc"}
+              disabled={item.disabled}
+              onClick={item.action}
+              style={{
+                display:"inline-flex", alignItems:"center",
+                gap:5, padding: isMob ? "5px 9px" : "5px 11px",
+                borderRadius:7,
+                border:`1px solid ${item.primary ? D.sage : D.border}`,
+                background:item.primary ? D.sage : D.surface,
+                fontFamily:D.fB, fontSize:11, fontWeight:600,
+                color:item.primary ? "#fff" : D.slate,
+                cursor:item.disabled ? "not-allowed" : "pointer",
+                opacity:item.disabled ? 0.4 : 1,
+                transition:"all .15s", whiteSpace:"nowrap", flexShrink:0,
+              }}
+            >
+              <Icon size={12} strokeWidth={1.8}/>
+              {/* Mobile: label solo en primario; secundarios solo ícono */}
+              {(!isMob || item.primary) && item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Fecha mini — aprovecha el espacio vacío a la derecha en mobile */}
+      {isMob && (
+        <div style={{
+          flexShrink:0, display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center",
+          paddingLeft:10, borderLeft:`1px solid ${D.border}`,
+          minWidth:36,
+        }}>
+          <span style={{
+            fontFamily:D.fH, fontSize:18, color:D.stone,
+            lineHeight:1, whiteSpace:"nowrap",
+          }}>{new Date().getDate()}</span>
+          <span style={{
+            fontFamily:D.fB, fontSize:9, color:D.mist,
+            fontWeight:700, letterSpacing:".07em",
+            textTransform:"uppercase", whiteSpace:"nowrap", marginTop:1,
+          }}>{new Date().toLocaleDateString("es-MX",{month:"short"}).replace(".","")}</span>
+        </div>
       )}
-      {items.map((item, i) => {
-        if (item === null) return !isMob
-          ? <div key={i} style={{ width:1, height:16, background:D.border, margin:"0 2px", flexShrink:0 }}/>
-          : null;
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.label}
-            className={item.primary ? "pc-sc-p" : "pc-sc"}
-            disabled={item.disabled}
-            onClick={item.action}
-            style={{
-              display:"inline-flex", alignItems:"center",
-              gap:5, padding: isMob ? "5px 9px" : "5px 11px",
-              borderRadius:7,
-              border:`1px solid ${item.primary ? D.sage : D.border}`,
-              background:item.primary ? D.sage : D.surface,
-              fontFamily:D.fB, fontSize:11, fontWeight:600,
-              color:item.primary ? "#fff" : D.slate,
-              cursor:item.disabled ? "not-allowed" : "pointer",
-              opacity:item.disabled ? 0.4 : 1,
-              transition:"all .15s", whiteSpace:"nowrap", flexShrink:0,
-            }}
-          >
-            <Icon size={12} strokeWidth={1.8}/>
-            {/* Mobile: label solo en primario; secundarios solo ícono */}
-            {(!isMob || item.primary) && item.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -220,24 +246,28 @@ function Welcome({ todayAppts, urgentCount, profile, googleUser, bp }) {
   return (
     <div className="pc-fu" style={{
       display:"flex",
-      flexDirection: isMob ? "column" : "row",
-      alignItems: isMob ? "flex-start" : "center",
-      justifyContent:"space-between", gap:8,
+      flexDirection:"row",
+      alignItems:"flex-start",
+      justifyContent:"space-between",
+      gap:8,
     }}>
-      <div>
+      {/* Saludo + subtítulo */}
+      <div style={{ flex:1, minWidth:0 }}>
         <h1 style={{
           fontFamily:D.fH, fontSize:isMob?20:24,
           fontWeight:400, color:D.stone, lineHeight:1.1, margin:0,
         }}>
           {greeting()}, <span style={{ color:D.sage }}>{name}</span>
         </h1>
-        <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, marginTop:3 }}>
+        <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, marginTop:3, margin:"3px 0 0" }}>
           {todayAppts.length > 0
             ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount > 0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
             : "Sin citas programadas hoy"}
         </p>
       </div>
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+
+      {/* Badges — siempre arriba a la derecha */}
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, flexShrink:0 }}>
         <div style={{
           display:"flex", alignItems:"center", gap:5,
           padding:"4px 10px", borderRadius:7,
