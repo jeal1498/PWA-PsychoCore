@@ -12,7 +12,8 @@ import { bus } from "../../lib/eventBus.js";
 import { Card, Badge, Btn, EmptyState } from "../../components/ui/index.jsx";
 import {
   Users, Calendar, FileText, DollarSign, CheckCircle2,
-  Sparkles, AlertTriangle,
+  Sparkles, Play, AlertTriangle, NotebookPen, UserPlus,
+  BarChart2, CalendarPlus, CreditCard, FileBarChart2, Zap,
 } from "lucide-react";
 import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { consentStatus } from "../Consent.jsx";
@@ -28,13 +29,12 @@ if (typeof document !== "undefined" && !window.__pc_dash_v4__) {
   window.__pc_dash_v4__ = true;
   const s = document.createElement("style");
   s.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap');
 
     @keyframes pc-up    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
     @keyframes pc-bar   { from{width:0} }
     @keyframes pc-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     @keyframes pc-glow  { 0%,100%{box-shadow:0 0 0 0 rgba(181,74,61,0)} 50%{box-shadow:0 0 0 5px rgba(181,74,61,.1)} }
-    @keyframes fadeUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 
     .pc-fu  { animation: pc-up .42s cubic-bezier(.22,1,.36,1) both; }
     .pc-d1  { animation-delay:.04s!important; }
@@ -49,59 +49,6 @@ if (typeof document !== "undefined" && !window.__pc_dash_v4__) {
     .pc-sc:hover   { background:#E4EEE9!important; border-color:#7AAE99!important; color:#3D6B5A!important; }
     .pc-sc-p:hover { background:#2e5344!important; }
     .pc-act:hover  { background:#8f590e!important; }
-
-    /* Header gradient */
-    .pc-header {
-      background:linear-gradient(155deg,#243D33 0%,#3D6B5A 100%);
-      padding:20px 20px 24px; position:relative; overflow:hidden;
-      border-radius:14px; margin-bottom:2px;
-    }
-    .pc-header::before {
-      content:''; position:absolute; top:-50px; right:-50px;
-      width:200px; height:200px; border-radius:50%;
-      background:rgba(255,255,255,.04); pointer-events:none;
-    }
-    .pc-header::after {
-      content:''; position:absolute; bottom:-70px; left:-30px;
-      width:240px; height:240px; border-radius:50%;
-      background:rgba(255,255,255,.03); pointer-events:none;
-    }
-    /* Online/Offline badge */
-    .pc-badge {
-      display:inline-flex; align-items:center; gap:5px;
-      border-radius:20px; padding:4px 12px;
-      font-size:11px; font-weight:600; letter-spacing:.03em;
-      backdrop-filter:blur(8px); animation:fadeUp .4s ease both;
-    }
-    .pc-badge-dot { width:6px; height:6px; border-radius:50%; }
-    .pc-online  { background:rgba(125,206,160,.15); border:1px solid rgba(125,206,160,.35); color:#A8D5C0; }
-    .pc-online  .pc-badge-dot { background:#7DCEA0; animation:pc-blink 2.2s ease infinite; }
-    .pc-offline { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:rgba(255,255,255,.45); }
-    .pc-offline .pc-badge-dot { background:rgba(255,255,255,.3); }
-
-    /* Shortcut cards */
-    .pc-sc2 {
-      display:flex; align-items:center; gap:10px;
-      background:#fff; border:1px solid #EAE6E1; border-radius:13px;
-      padding:12px 13px; cursor:pointer; text-align:left;
-      transition:transform .15s, box-shadow .15s; width:100%;
-    }
-    .pc-sc2:hover  { transform:translateY(-1px); box-shadow:0 4px 16px rgba(30,25,20,.08); }
-    .pc-sc2:active { transform:scale(.97); }
-
-    /* Agenda rows */
-    .pc-appt { display:flex; border-top:1px solid #F0EDE9; cursor:pointer; transition:background .12s; }
-    .pc-appt:first-child { border-top:none; }
-    .pc-appt:hover { background:#FDFBF8; }
-    .pc-appt-active { background:#FFFBF4 !important; border-left:3px solid #C8860A; }
-
-    /* Finance bar */
-    .pc-fin-row  { display:grid; grid-template-columns:1fr 1fr 1fr; }
-    .pc-fin-cell { padding:16px 12px; text-align:center; }
-    .pc-fin-cell + .pc-fin-cell { border-left:1px solid #EAE6E1; }
-
-    /* Attention tabs */
-    .pc-attn-tab { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; }
 
     .pc-sc-bar::-webkit-scrollbar { display:none; }
     .pc-scroll::-webkit-scrollbar       { width:3px; }
@@ -128,7 +75,6 @@ const D = {
   mist:    "#A8A29B",
   border:  "#E4DDD6",
   fH:      "'DM Serif Display',serif",
-  fL:      "'Lora',serif",
   fB:      "'DM Sans',sans-serif",
 };
 
@@ -201,92 +147,115 @@ function CardHd({ eyebrow, eyebrowColor, title, action, onAction }) {
   );
 }
 
-// ── SHORTCUTS BAR — Grid 2×2 con tarjetas (DashboardPropuesta) ───────────────
+// ── SHORTCUTS BAR ─────────────────────────────────────────────────────────────
+// Barra de accesos directos — se integra visualmente con el fondo de la app
 function ShortcutsBar({ onQuickNav, onNewSession, patients, bp }) {
-  const has = patients.length > 0;
+  const has   = patients.length > 0;
+  const isMob = bp === "mobile";
 
   const items = [
-    { icon:"👤", label:"Nuevo paciente", sub:"Registrar",   bg:"#EAF4EE", action:()=>onQuickNav("patients","add") },
-    { icon:"📅", label:"Agendar cita",   sub:"Calendario",  bg:"#EDF2FB", action:()=>onQuickNav("agenda","add") },
-    { icon:"▶",  label:"Iniciar sesión", sub:"En curso",    bg:"#FDF3E0", action:onNewSession, disabled:!has },
-    { icon:"💳", label:"Registrar pago", sub:"Finanzas",    bg:"#F4F0FB", action:()=>onQuickNav("finance","add"), disabled:!has },
+    { label:"Nuevo paciente", icon:UserPlus,     primary:true,  action:()=>onQuickNav("patients","add") },
+    { label:"Agendar cita",   icon:CalendarPlus, primary:false, action:()=>onQuickNav("agenda","add") },
+    { label:"Iniciar sesión", icon:Play,         primary:false, action:onNewSession, disabled:!has },
+    null,
+    { label:"Nota clínica",   icon:NotebookPen,  primary:false, action:()=>onQuickNav("sessions","add"), disabled:!has },
+    { label:"Pago",           icon:CreditCard,   primary:false, action:()=>onQuickNav("finance","add") },
+    { label:"Riesgo",         icon:Zap,          primary:false, action:()=>onQuickNav("risk","add"), disabled:!has },
+    null,
+    { label:"Reporte",        icon:FileBarChart2,primary:false, action:()=>onQuickNav("reports") },
   ];
 
   return (
-    <div style={{
-      display:"grid", gridTemplateColumns:"1fr 1fr",
-      gap:9, animation:"fadeUp .45s .1s ease both",
+    <div className="pc-sc-bar" style={{
+      display:"flex", alignItems:"center",
+      padding: isMob ? "0 0 10px" : "0 0 12px",
+      gap:5, overflowX:"auto",
     }}>
-      {items.map(item => (
-        <button
-          key={item.label}
-          className="pc-sc2"
-          disabled={item.disabled}
-          onClick={item.action}
-          style={{ opacity:item.disabled ? 0.45 : 1 }}
-        >
-          <div style={{
-            width:34, height:34, borderRadius:9, flexShrink:0,
-            background:item.bg, display:"flex", alignItems:"center",
-            justifyContent:"center", fontSize:16,
-          }}>{item.icon}</div>
-          <div style={{ textAlign:"left" }}>
-            <div style={{ fontFamily:D.fB, fontSize:11, fontWeight:600, color:D.stone, lineHeight:1.3 }}>{item.label}</div>
-            <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:1 }}>{item.sub}</div>
-          </div>
-        </button>
-      ))}
+      {!isMob && (
+        <span style={{
+          fontSize:10, fontWeight:700, color:D.mist,
+          letterSpacing:".09em", textTransform:"uppercase",
+          marginRight:4, flexShrink:0, fontFamily:D.fB,
+        }}>Accesos</span>
+      )}
+      {items.map((item, i) => {
+        if (item === null) return !isMob
+          ? <div key={i} style={{ width:1, height:16, background:D.border, margin:"0 2px", flexShrink:0 }}/>
+          : null;
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.label}
+            className={item.primary ? "pc-sc-p" : "pc-sc"}
+            disabled={item.disabled}
+            onClick={item.action}
+            style={{
+              display:"inline-flex", alignItems:"center",
+              gap:5, padding: isMob ? "5px 9px" : "5px 11px",
+              borderRadius:7,
+              border:`1px solid ${item.primary ? D.sage : D.border}`,
+              background:item.primary ? D.sage : D.surface,
+              fontFamily:D.fB, fontSize:11, fontWeight:600,
+              color:item.primary ? "#fff" : D.slate,
+              cursor:item.disabled ? "not-allowed" : "pointer",
+              opacity:item.disabled ? 0.4 : 1,
+              transition:"all .15s", whiteSpace:"nowrap", flexShrink:0,
+            }}
+          >
+            <Icon size={12} strokeWidth={1.8}/>
+            {/* Mobile: label solo en primario; secundarios solo ícono */}
+            {(!isMob || item.primary) && item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// ── SALUDO N0 — Header con gradiente (DashboardPropuesta) ────────────────────
+// ── SALUDO N0 ─────────────────────────────────────────────────────────────────
 function Welcome({ todayAppts, urgentCount, profile, googleUser, bp }) {
-  const name   = resolveDisplayName(profile, googleUser);
-  const isMob  = bp === "mobile";
-  const [online, setOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
-
-  useEffect(() => {
-    const on  = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online",  on);
-    window.addEventListener("offline", off);
-    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
-  }, []);
+  const name  = resolveDisplayName(profile, googleUser);
+  const isMob = bp === "mobile";
 
   return (
-    <div className="pc-header pc-fu">
-      {/* Badge online/offline */}
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
-        <div className={`pc-badge ${online ? "pc-online" : "pc-offline"}`}>
-          <div className="pc-badge-dot"/>
-          {online ? "Online" : "Offline"}
+    <div className="pc-fu" style={{
+      display:"flex",
+      flexDirection: isMob ? "column" : "row",
+      alignItems: isMob ? "flex-start" : "center",
+      justifyContent:"space-between", gap:8,
+    }}>
+      <div>
+        <h1 style={{
+          fontFamily:D.fH, fontSize:isMob?20:24,
+          fontWeight:400, color:D.stone, lineHeight:1.1, margin:0,
+        }}>
+          {greeting()}, <span style={{ color:D.sage }}>{name}</span>
+        </h1>
+        <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, marginTop:3 }}>
+          {todayAppts.length > 0
+            ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount > 0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
+            : "Sin citas programadas hoy"}
+        </p>
+      </div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        <div style={{
+          display:"flex", alignItems:"center", gap:5,
+          padding:"4px 10px", borderRadius:7,
+          background:D.sageL, fontFamily:D.fB, fontSize:11, fontWeight:600, color:D.sage,
+        }}>
+          <div style={{ width:5, height:5, borderRadius:"50%", background:D.sage, animation:"pc-blink 2s ease infinite" }}/>
+          Sincronizado
         </div>
-      </div>
-
-      {/* Fecha */}
-      <div style={{
-        fontSize:10, color:"rgba(255,255,255,.45)",
-        letterSpacing:".07em", textTransform:"uppercase",
-        marginBottom:5, fontFamily:D.fB,
-      }}>{todayFormatted()}</div>
-
-      {/* Saludo */}
-      <div style={{
-        fontFamily:D.fL, fontSize:isMob?21:25,
-        fontWeight:400, color:"#fff", lineHeight:1.25,
-      }}>
-        {greeting()},&nbsp;
-        <em style={{ fontStyle:"italic", color:"#A8D5C0" }}>{name}</em>
-      </div>
-
-      {/* Subtítulo */}
-      <div style={{ fontFamily:D.fB, fontSize:12, color:"rgba(255,255,255,.5)", marginTop:6 }}>
-        {todayAppts.length > 0
-          ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount > 0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
-          : "Sin citas programadas hoy"}
+        {urgentCount > 0 && (
+          <div style={{
+            display:"flex", alignItems:"center", gap:5,
+            padding:"4px 10px", borderRadius:7,
+            background:D.amberL, fontFamily:D.fB, fontSize:11, fontWeight:600, color:D.amber,
+          }}>
+            <div style={{ width:5, height:5, borderRadius:"50%", background:D.amber, animation:"pc-blink 2s ease infinite" }}/>
+            {urgentCount} alerta{urgentCount>1?"s":""}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -351,26 +320,32 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
   );
 }
 
-// ── AGENDA (protagonista) — Diseño DashboardPropuesta ────────────────────────
-function AgendaWidget({ todayAppts, onStartSession, onNavigate, todayStr, nextAppt: nextApptProp, bp }) {
-  const done = todayAppts.filter(a => a.status==="completada").length;
+// ── AGENDA (protagonista) ─────────────────────────────────────────────────────
+function AgendaWidget({ todayAppts, onStartSession, onNavigate, todayStr, bp }) {
+  const isMob  = bp === "mobile";
+  const inProg = todayAppts.find(a => a.status==="en_curso");
+  const done   = todayAppts.filter(a => a.status==="completada").length;
+  const pct    = todayAppts.length>0 ? Math.round(done/todayAppts.length*100) : 0;
 
-  const STATUS_MAP = {
-    completada:          { label:"Completada", bg:"#EAF4EE", text:"#3D7A5E" },
-    en_curso:            { label:"En curso",   bg:"#FDF3E0", text:"#A06A00" },
-    pendiente:           { label:"Pendiente",  bg:"#F5F2EF", text:"#6B6560" },
-    cancelada_paciente:  { label:"Cancelada",  bg:"#FAE8E6", text:"#B54A3D" },
-    cancelada_psicologa: { label:"Cancelada",  bg:"#FAE8E6", text:"#B54A3D" },
-    no_asistio:          { label:"No asistió", bg:"#FDF3E0", text:"#A06A00" },
-  };
+  const sSt = s => ({
+    completada:          { label:"Completada", color:D.sage,  bg:D.sageL  },
+    en_curso:            { label:"En curso",   color:D.amber, bg:D.amberL },
+    pendiente:           { label:"Pendiente",  color:D.mist,  bg:D.alt    },
+    cancelada_paciente:  { label:"Cancelada",  color:D.coral, bg:D.coralL },
+    cancelada_psicologa: { label:"Cancelada",  color:D.coral, bg:D.coralL },
+    no_asistio:          { label:"No asistió", color:D.amber, bg:D.amberL },
+  }[s] || { label:s, color:D.mist, bg:D.alt });
+
+  const rSt = r => ({
+    inminente:{ label:"● Inmin.", color:D.coral, bg:D.coralL },
+    alto:     { label:"Alto",    color:D.coral, bg:D.coralL },
+    medio:    { label:"Medio",   color:D.amber, bg:D.amberL },
+  }[r]);
 
   if (todayAppts.length === 0) {
     return (
-      <div style={{ background:D.surface, borderRadius:14, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-        <div style={{ padding:"13px 16px", borderBottom:`1px solid ${D.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <span style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, letterSpacing:".09em", textTransform:"uppercase", color:D.mist }}>🗓 Agenda de hoy</span>
-          <button className="pc-lnk" onClick={()=>onNavigate("agenda")} style={{ fontSize:11, fontWeight:600, color:D.mist, background:"none", border:"none", cursor:"pointer", fontFamily:D.fB, transition:"color .13s" }}>Ver agenda →</button>
-        </div>
+      <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
+        <CardHd eyebrow="🗓 Agenda de hoy" title="Sin citas"/>
         <div style={{ padding:"28px 18px", textAlign:"center" }}>
           <Calendar size={26} color={D.mist} strokeWidth={1.2} style={{ marginBottom:8 }}/>
           <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, margin:"0 0 12px" }}>No hay citas programadas.</p>
@@ -384,89 +359,186 @@ function AgendaWidget({ todayAppts, onStartSession, onNavigate, todayStr, nextAp
   }
 
   return (
-    <div style={{ background:D.surface, borderRadius:14, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      {/* Header */}
-      <div style={{ padding:"13px 16px", borderBottom:`1px solid ${D.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, letterSpacing:".09em", textTransform:"uppercase", color:D.mist }}>
-          🗓 Agenda de hoy · {done}/{todayAppts.length}
-        </span>
-        <button className="pc-lnk" onClick={()=>onNavigate("agenda")} style={{ fontSize:11, fontWeight:600, color:D.mist, background:"none", border:"none", cursor:"pointer", fontFamily:D.fB, transition:"color .13s" }}>Ver todo →</button>
-      </div>
+    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
+      <CardHd
+        eyebrow="🗓 Agenda de hoy"
+        title={`${todayAppts.length} cita${todayAppts.length>1?"s":""}`}
+        action="Ver agenda →"
+        onAction={()=>onNavigate("agenda")}
+      />
 
-      {/* Citas */}
+      {inProg && (
+        <div style={{ padding:"7px 16px", borderBottom:`1px solid ${D.border}`, background:`${D.amber}06` }}>
+          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:D.fB, fontSize:10, color:D.amber, fontWeight:600, marginBottom:3 }}>
+            <span>▶ En curso · {inProg.patientName||"Paciente"}</span>
+            <span>{pct}% del día</span>
+          </div>
+          <div style={{ height:3, background:D.amberL, borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", background:D.amber, borderRadius:99, width:`${pct}%`, animation:"pc-bar .9s ease both .3s" }}/>
+          </div>
+        </div>
+      )}
+
       {todayAppts.map((appt, i) => {
-        const st     = STATUS_MAP[appt.status] || { label:appt.status, bg:D.alt, text:D.mist };
-        const active = appt.status === "en_curso";
+        const sc  = sSt(appt.status);
+        const rc  = rSt(appt.riskLevel);
+        const cur = appt.status==="en_curso";
         const timeStr = appt.time || (appt.date ? appt.date.slice(11,16) : "");
-        const [h, m]  = timeStr.split(":");
-        const avBg    = active ? "#FDF3E0" : "#EAF4EE";
-        const avClr   = active ? "#A06A00" : "#3D6B5A";
 
         return (
           <div
             key={appt.id||i}
-            className={`pc-appt${active ? " pc-appt-active" : ""}`}
+            className="pc-row"
             onClick={()=>onStartSession&&onStartSession(appt)}
-            style={{ alignItems:"center" }}
+            style={{
+              display:"flex", alignItems:"center", gap:10,
+              padding:isMob?"10px 14px":"11px 16px",
+              borderTop:i>0?`1px solid ${D.border}`:"none",
+              borderLeft:`3px solid ${cur?D.amber:"transparent"}`,
+              background:cur?`${D.amber}05`:"transparent",
+              cursor:"pointer", transition:"background .12s",
+            }}
           >
-            {/* Hora */}
-            <div style={{ width:50, flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"12px 4px" }}>
-              <div style={{ fontFamily:D.fL, fontSize:15, color:active?"#A06A00":D.stone, lineHeight:1 }}>{h}</div>
-              <div style={{ fontFamily:D.fB, fontSize:10, color:"#C5BFB9", fontWeight:500, marginTop:1 }}>{m}</div>
-            </div>
-            {/* Info */}
-            <div style={{ flex:1, padding:"10px 12px", minWidth:0 }}>
-              <div style={{ fontFamily:D.fB, fontSize:13, fontWeight:600, color:D.stone, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            <span style={{
+              fontFamily:D.fB, fontSize:11, fontWeight:600,
+              color:cur?D.amber:D.mist, width:32, flexShrink:0,
+              fontVariantNumeric:"tabular-nums",
+            }}>{timeStr}</span>
+
+            {!isMob && (
+              <Av name={appt.patientName||"?"} size={30}
+                color={cur?D.amber:D.sage} bg={cur?D.amberL:D.sageL}
+              />
+            )}
+
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:D.fB, fontSize:isMob?12:13, fontWeight:600, color:D.stone, lineHeight:1.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                 {appt.patientName||"Paciente"}
               </div>
-              <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:2 }}>
-                {appt.type||appt.serviceTitle||"Sesión"}
-              </div>
+              {!isMob && (
+                <div style={{ fontFamily:D.fB, fontSize:11, color:D.mist, marginTop:1 }}>
+                  {appt.type||appt.serviceTitle||"Sesión"}
+                </div>
+              )}
             </div>
-            {/* Derecha: avatar + badge */}
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", justifyContent:"center", padding:"10px 13px 10px 4px", gap:5, flexShrink:0 }}>
-              <div style={{ width:28, height:28, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:D.fL, fontSize:10, fontWeight:600, background:avBg, color:avClr, border:`1.5px solid ${avClr}22` }}>
-                {initials(appt.patientName||"?")}
-              </div>
-              <div style={{ fontFamily:D.fB, fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:20, whiteSpace:"nowrap", background:st.bg, color:st.text }}>
-                {st.label}
-              </div>
+
+            <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+              {!isMob && rc && <Tag color={rc.color} bg={rc.bg}>{rc.label}</Tag>}
+              {!isMob && appt.consentStatus==="pendiente" && (
+                <Tag color={D.coral} bg={D.coralL}>Sin consent.</Tag>
+              )}
+              <Tag color={sc.color} bg={sc.bg}>{sc.label}</Tag>
+              {cur && (
+                <button
+                  className="pc-act"
+                  onClick={e=>{e.stopPropagation();onStartSession&&onStartSession(appt);}}
+                  style={{
+                    padding:isMob?"4px 8px":"5px 10px", borderRadius:6, border:"none",
+                    background:D.amber, color:"#fff", fontFamily:D.fB,
+                    fontSize:10, fontWeight:700, cursor:"pointer",
+                    transition:"background .13s", whiteSpace:"nowrap",
+                  }}
+                >{isMob?"Ver":"Ver sesión"}</button>
+              )}
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
 
-      {/* Siguiente cita */}
-      {nextApptProp && (
-        <div onClick={()=>onNavigate("agenda")} style={{
-          display:"flex", alignItems:"center", gap:11,
-          padding:"13px 14px", borderTop:`1px dashed ${D.border}`,
-          background:"linear-gradient(90deg,#F2EEE9,#FDFBF8)",
-          cursor:"pointer", transition:"background .15s",
-        }}
-        onMouseEnter={e=>e.currentTarget.style.background="#EDE9E3"}
-        onMouseLeave={e=>e.currentTarget.style.background="linear-gradient(90deg,#F2EEE9,#FDFBF8)"}
-        >
-          <div style={{ width:38, height:38, borderRadius:10, flexShrink:0, background:"#EDF2FB", display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>📆</div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:D.fB, fontSize:9, fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", color:D.mist, marginBottom:3 }}>Siguiente cita</div>
-            <div style={{ fontFamily:D.fB, fontSize:13, fontWeight:600, color:D.stone }}>{nextApptProp.patientName||"Paciente"}</div>
-            <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:2 }}>
-              {nextApptProp.date} · {nextApptProp.time||""} · {nextApptProp.type||"Sesión"}
-            </div>
+// ── RISK RADAR ────────────────────────────────────────────────────────────────
+function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate }) {
+  const absent    = useMemo(()=>computeAbsentPatients({patients,sessions}),[patients,sessions]);
+  const riskItems = useMemo(()=>computeRiskItems(riskAssessments),[riskAssessments]);
+  const hasImm    = riskItems.some(r=>r.riskLevel==="inminente");
+
+  const rSt = r => ({
+    inminente:{ label:"● Inminente", color:D.coral, bg:D.coralL },
+    alto:     { label:"Alto",        color:D.coral, bg:D.coralL },
+    medio:    { label:"Medio",       color:D.amber, bg:D.amberL },
+  }[r] || { label:r, color:D.mist, bg:D.alt });
+
+  if (riskItems.length===0 && absent.length===0) {
+    return (
+      <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
+        <CardHd eyebrow="⚠ Radar de riesgo" eyebrowColor={D.sage} title="Sin alertas"/>
+        <div style={{ padding:"12px 16px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 12px", borderRadius:9, background:D.sageL, border:`1px solid ${D.sage}22` }}>
+            <CheckCircle2 size={14} color={D.sage} strokeWidth={1.8}/>
+            <p style={{ fontFamily:D.fB, fontSize:12, color:D.slate, margin:0 }}>Todos en seguimiento regular.</p>
           </div>
-          <div style={{
-            marginLeft:"auto", flexShrink:0,
-            background:"#EDF2FB", color:"#3B5EA6", border:"1px solid #C8D6F5",
-            fontFamily:D.fB, fontSize:10, fontWeight:700, padding:"4px 11px", borderRadius:20,
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background:D.surface, borderRadius:12,
+      border:`1px solid ${hasImm?`${D.coral}40`:D.border}`,
+      overflow:"hidden",
+      animation:hasImm?"pc-glow 2.5s ease infinite":"none",
+    }}>
+      <CardHd
+        eyebrow="⚠ Radar de riesgo" eyebrowColor={D.coral}
+        title="Vigilancia clínica"
+        action="Ver todos →" onAction={()=>onNavigate("risk")}
+      />
+
+      {riskItems.map((a, i) => {
+        const pt = patients.find(p=>p.id===a.patientId);
+        const rs = rSt(a.riskLevel);
+        return (
+          <div key={a.id||i} className="pc-row" onClick={()=>onNavigate("risk")} style={{
+            display:"flex", alignItems:"center", gap:10,
+            padding:"9px 16px",
+            borderTop:i>0?`1px solid ${D.border}`:"none",
+            cursor:"pointer", transition:"background .12s",
           }}>
-            {(()=>{
-              const days = nextApptProp.date ? daysBetween(todayStr, nextApptProp.date) : null;
-              if (days===0) return "Hoy";
-              if (days===1) return "Mañana";
-              return days!=null ? `En ${days}d` : "Próximo";
-            })()}
+            <Av name={pt?.name||"P"} size={26}
+              color={a.riskLevel==="inminente"?D.coral:D.amber}
+              bg={a.riskLevel==="inminente"?D.coralL:D.amberL}
+            />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone }}>
+                {(pt?.name||"Paciente").split(" ").slice(0,2).join(" ")}
+              </div>
+              <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist }}>Evaluado {fmtDate(a.date)}</div>
+            </div>
+            <Tag color={rs.color} bg={rs.bg}>{rs.label}</Tag>
           </div>
+        );
+      })}
+
+      {absent.length>0 && (
+        <div style={{ background:D.amberL, borderTop:`1px solid ${D.border}`, padding:"9px 16px" }}>
+          <div style={{ fontFamily:D.fB, fontSize:9, fontWeight:700, color:D.amber, letterSpacing:".08em", textTransform:"uppercase", marginBottom:7 }}>
+            ⏰ Sin sesión +21 días
+          </div>
+          {absent.map((p, i) => {
+            const days = p.lastSession ? daysBetween(p.lastSession, todayStr) : null;
+            return (
+              <div key={p.id||i} className="pc-row" onClick={()=>onNavigate("patients")} style={{
+                display:"flex", alignItems:"center", gap:7,
+                marginTop:i>0?5:0, cursor:"pointer", borderRadius:6,
+                padding:"2px 4px", transition:"background .12s",
+              }}>
+                <div style={{
+                  width:20, height:20, borderRadius:"50%", flexShrink:0,
+                  background:"#C8862A20", display:"flex", alignItems:"center",
+                  justifyContent:"center", fontFamily:D.fH, fontSize:7, color:D.amber,
+                }}>{initials(p.name||"")}</div>
+                <span style={{ fontFamily:D.fB, fontSize:11, color:D.stone, flex:1 }}>
+                  {(p.name||"Paciente").split(" ").slice(0,2).join(" ")}
+                </span>
+                <span style={{ fontFamily:D.fB, fontSize:11, fontWeight:700, color:D.amber }}>
+                  {days!=null?`${days}d`:"Sin sesión"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -574,152 +646,35 @@ function RecentNotes({ sessions, patients, onNavigate }) {
   );
 }
 
-// ── FINANCE BAR — Mes en números (DashboardPropuesta) ────────────────────────
-function FinanceBar({ patients, sessions, payments, onNavigate }) {
+// ── RESUMEN MENSUAL ───────────────────────────────────────────────────────────
+function MonthlySummary({ patients, sessions, payments, onNavigate }) {
   const { activePatients, thisMonthSessions, monthlyIncome } = useMemo(
     ()=>computeSidebarSummary({patients,sessions,payments}),
     [patients,sessions,payments]
   );
-  const attendance = useMemo(()=>{
-    const now = new Date();
-    const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-    const monthlySess = sessions.filter(s=>s.date?.startsWith(mStr));
-    const comp = monthlySess.filter(s=>s.status==="completada").length;
-    return monthlySess.length>0 ? Math.round(comp/monthlySess.length*100) : 0;
-  }, [sessions]);
-
-  return (
-    <div style={{ background:D.surface, borderRadius:14, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      <div style={{ padding:"13px 16px", borderBottom:`1px solid ${D.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, letterSpacing:".09em", textTransform:"uppercase", color:D.mist }}>📈 Mes en números</span>
-        <button className="pc-lnk" onClick={()=>onNavigate("reports")} style={{ fontSize:11, fontWeight:600, color:D.mist, background:"none", border:"none", cursor:"pointer", fontFamily:D.fB, transition:"color .13s" }}>Reportes →</button>
-      </div>
-      <div className="pc-fin-row">
-        <div className="pc-fin-cell">
-          <div style={{ fontFamily:D.fL, fontSize:17, color:D.stone, lineHeight:1 }}>{monthlyIncome>0?fmtCur(monthlyIncome):"—"}</div>
-          <div style={{ fontFamily:D.fB, fontSize:9, color:D.mist, fontWeight:600, marginTop:4, letterSpacing:".05em", textTransform:"uppercase" }}>Ingresos</div>
-        </div>
-        <div className="pc-fin-cell">
-          <div style={{ fontFamily:D.fL, fontSize:17, color:D.stone, lineHeight:1 }}>{thisMonthSessions}</div>
-          <div style={{ fontFamily:D.fB, fontSize:9, color:D.mist, fontWeight:600, marginTop:4, letterSpacing:".05em", textTransform:"uppercase" }}>Sesiones</div>
-        </div>
-        <div className="pc-fin-cell">
-          <div style={{ fontFamily:D.fL, fontSize:17, color:D.stone, lineHeight:1 }}>{attendance}%</div>
-          <div style={{ fontFamily:D.fB, fontSize:9, color:D.mist, fontWeight:600, marginTop:4, letterSpacing:".05em", textTransform:"uppercase" }}>Asistencia</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── ATENCIÓN REQUERIDA — Tabs unificados (DashboardPropuesta) ─────────────────
-function AttentionWidget({ patients, sessions, riskAssessments, pendingTasks, todayStr, onNavigate }) {
-  const [tab, setTab] = useState("risk");
-
-  const riskItems = useMemo(()=>computeRiskItems(riskAssessments),[riskAssessments]);
-  const absent    = useMemo(()=>computeAbsentPatients({patients,sessions}),[patients,sessions]);
-
-  // Pendientes: consentimientos + planes + ausentes
-  const pendingList = useMemo(()=>{
-    const noConsent = patients.filter(p => {
-      try { return consentStatus(p)==="pendiente"; } catch { return false; }
-    }).length;
-    const list = [];
-    if (noConsent>0)     list.push({ label:"Consentimientos sin firmar",        count:noConsent,          icon:"📄", color:D.coral, bg:D.coralL });
-    if (pendingTasks>0)  list.push({ label:"Planes de tratamiento incompletos", count:pendingTasks,       icon:"📋", color:D.amber, bg:D.amberL });
-    if (absent.length>0) list.push({ label:"Pacientes sin sesión reciente",     count:absent.length,      icon:"👤", color:"#5C6B8A", bg:"#EDF2FB" });
-    return list;
-  }, [patients, sessions, pendingTasks, absent]);
-
-  const totalPending = pendingList.reduce((s,p)=>s+p.count, 0);
-  const riskCount    = riskItems.length + absent.length;
-
-  if (riskCount===0 && totalPending===0) return null;
-
-  const tabs = [
-    { key:"risk",    label:`Radar de riesgo (${riskCount})` },
-    { key:"pending", label:`Pendientes (${totalPending})` },
+  const rows = [
+    { label:"Pacientes activos",   val:activePatients,                             bar:Math.min(activePatients/30,1)    },
+    { label:"Sesiones realizadas", val:thisMonthSessions,                           bar:Math.min(thisMonthSessions/60,1) },
+    { label:"Ingresos cobrados",   val:monthlyIncome>0?fmtCur(monthlyIncome):"—", bar:.7, sm:true                     },
   ];
-
   return (
-    <div>
-      <div style={{ display:"flex", gap:6, marginBottom:10 }}>
-        {tabs.map(t=>(
-          <button
-            key={t.key}
-            className="pc-attn-tab"
-            onClick={()=>setTab(t.key)}
-            style={{
-              border:"1px solid",
-              background: tab===t.key ? D.sage    : "#fff",
-              color:      tab===t.key ? "#fff"    : D.mist,
-              borderColor:tab===t.key ? D.sage    : D.border,
-            }}
-          >{t.label}</button>
-        ))}
-      </div>
-
-      {tab==="risk" && (
-        <div style={{ background:D.surface, borderRadius:14, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-          {riskItems.length===0 && absent.length===0
-            ? <div style={{ padding:22, textAlign:"center", fontFamily:D.fB, fontSize:12, color:D.mist }}>Sin alertas de riesgo activas ✓</div>
-            : <>
-              {riskItems.map((a,i)=>{
-                const pt=patients.find(p=>p.id===a.patientId);
-                const isHigh=a.riskLevel==="inminente"||a.riskLevel==="alto";
-                const bg = isHigh?D.coralL:D.amberL;
-                const cl = isHigh?D.coral:D.amber;
-                return (
-                  <div key={a.id||i} className="pc-row" onClick={()=>onNavigate("risk")} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderTop:i>0?`1px solid ${D.border}`:"none", cursor:"pointer", transition:"background .12s" }}>
-                    <div style={{ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:D.fL, fontSize:11, fontWeight:600, background:bg, color:cl, border:`1.5px solid ${cl}22`, flexShrink:0 }}>
-                      {initials(pt?.name||"P")}
-                    </div>
-                    <div>
-                      <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone }}>{(pt?.name||"Paciente").split(" ").slice(0,2).join(" ")}</div>
-                      <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:1 }}>Evaluado {fmtDate(a.date)}</div>
-                    </div>
-                    <div style={{ marginLeft:"auto", fontFamily:D.fB, fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:20, background:bg, color:cl, flexShrink:0 }}>
-                      {a.riskLevel?.charAt(0).toUpperCase()+(a.riskLevel?.slice(1)||"")}
-                    </div>
-                  </div>
-                );
-              })}
-              {absent.map((p,i)=>{
-                const days=p.lastSession?daysBetween(p.lastSession,todayStr):null;
-                return (
-                  <div key={p.id||i} className="pc-row" onClick={()=>onNavigate("patients")} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderTop:`1px solid ${D.border}`, cursor:"pointer", transition:"background .12s" }}>
-                    <div style={{ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:D.fL, fontSize:11, fontWeight:600, background:D.amberL, color:D.amber, border:`1.5px solid ${D.amber}22`, flexShrink:0 }}>
-                      {initials(p.name||"")}
-                    </div>
-                    <div>
-                      <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone }}>{(p.name||"Paciente").split(" ").slice(0,2).join(" ")}</div>
-                      <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:1 }}>Sin sesión reciente</div>
-                    </div>
-                    <div style={{ marginLeft:"auto", fontFamily:D.fB, fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:20, background:D.amberL, color:D.amber, flexShrink:0 }}>
-                      {days!=null?`${days}d`:"21d+"}
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          }
+    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
+      <CardHd eyebrow="📈 Resumen del mes" title="Métricas" action="Reportes →" onAction={()=>onNavigate("reports")}/>
+      {rows.map((r,i)=>(
+        <div key={r.label} className="pc-row" style={{
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"8px 16px", borderTop:i>0?`1px solid ${D.border}`:"none",
+          transition:"background .12s",
+        }}>
+          <span style={{ fontFamily:D.fB, fontSize:11, color:D.slate }}>{r.label}</span>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:40, height:3, background:D.border, borderRadius:99, overflow:"hidden" }}>
+              <div style={{ height:"100%", background:D.sageM, borderRadius:99, width:`${r.bar*100}%`, animation:`pc-bar .8s ease both ${.3+i*.1}s` }}/>
+            </div>
+            <span style={{ fontFamily:r.sm?D.fB:D.fH, fontSize:r.sm?12:14, fontWeight:r.sm?700:400, color:D.stone }}>{r.val}</span>
+          </div>
         </div>
-      )}
-
-      {tab==="pending" && (
-        <div style={{ background:D.surface, borderRadius:14, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-          {pendingList.length===0
-            ? <div style={{ padding:22, textAlign:"center", fontFamily:D.fB, fontSize:12, color:D.mist }}>Sin tareas pendientes ✓</div>
-            : pendingList.map((p,i)=>(
-              <div key={p.label} className="pc-row" style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderTop:i>0?`1px solid ${D.border}`:"none", transition:"background .12s" }}>
-                <div style={{ width:32, height:32, borderRadius:9, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, background:p.bg, flexShrink:0 }}>{p.icon}</div>
-                <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:500, color:D.stone, flex:1, lineHeight:1.3 }}>{p.label}</div>
-                <div style={{ fontFamily:D.fB, fontSize:11, fontWeight:700, padding:"2px 9px", borderRadius:20, background:p.bg, color:p.color, flexShrink:0 }}>{p.count}</div>
-              </div>
-            ))
-          }
-        </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -842,16 +797,22 @@ export default function Dashboard({
         <div className="pc-fu pc-d3" style={{ display:"flex", flexDirection:"column", gap }}>
           <AgendaWidget
             todayAppts={todayAppts} onStartSession={onStartSession}
-            onNavigate={onNavigate} todayStr={todayStr}
-            nextAppt={nextAppt} bp={bp}
+            onNavigate={onNavigate} todayStr={todayStr} bp={bp}
           />
-          <FinanceBar patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
-          <AttentionWidget
-            patients={patients} sessions={sessions} riskAssessments={riskAssessments}
-            pendingTasks={pendingTasks} todayStr={todayStr} onNavigate={onNavigate}
+          <RiskRadar
+            patients={patients} sessions={sessions}
+            riskAssessments={riskAssessments} todayStr={todayStr}
+            onNavigate={onNavigate}
+          />
+          <ComplianceChecklist
+            patients={patients} pendingTasks={pendingTasks}
+            sessions={sessions} onNavigate={onNavigate}
           />
           {isTab && (
-            <RecentNotes sessions={sessions} patients={patients} onNavigate={onNavigate}/>
+            <>
+              <RecentNotes sessions={sessions} patients={patients} onNavigate={onNavigate}/>
+              <MonthlySummary patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
+            </>
           )}
         </div>
 
@@ -863,24 +824,20 @@ export default function Dashboard({
         }}>
           <AgendaWidget
             todayAppts={todayAppts} onStartSession={onStartSession}
-            onNavigate={onNavigate} todayStr={todayStr}
-            nextAppt={nextAppt} bp={bp}
+            onNavigate={onNavigate} todayStr={todayStr} bp={bp}
           />
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div className="pc-fu pc-d2">
-              <FinanceBar patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
+              <RiskRadar patients={patients} sessions={sessions} riskAssessments={riskAssessments} todayStr={todayStr} onNavigate={onNavigate}/>
             </div>
             <div className="pc-fu pc-d3">
-              <AttentionWidget
-                patients={patients} sessions={sessions} riskAssessments={riskAssessments}
-                pendingTasks={pendingTasks} todayStr={todayStr} onNavigate={onNavigate}
-              />
+              <ComplianceChecklist patients={patients} pendingTasks={pendingTasks} sessions={sessions} onNavigate={onNavigate}/>
             </div>
             <div className="pc-fu pc-d4">
               <RecentNotes sessions={sessions} patients={patients} onNavigate={onNavigate}/>
             </div>
             <div className="pc-fu pc-d5">
-              <ComplianceChecklist patients={patients} pendingTasks={pendingTasks} sessions={sessions} onNavigate={onNavigate}/>
+              <MonthlySummary patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
             </div>
           </div>
         </div>
