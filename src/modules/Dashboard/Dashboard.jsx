@@ -993,14 +993,6 @@ export default function Dashboard({
         isMobile={isMobile}
       />
 
-      {/* ── Profile setup (colapsado, sólo si incompleto) ─────────────── */}
-      <ProfileSetupBar
-        profile={profile}
-        services={services}
-        onNavigate={onNavigate}
-        onQuickNav={onQuickNav}
-      />
-
       {/* ── ACCIONES RÁPIDAS — posición fija: siempre debajo del banner ── */}
       {patients.length > 0 && !isWide && (
         <QuickBar
@@ -1010,9 +1002,9 @@ export default function Dashboard({
         />
       )}
 
-      {/* ── Content (empty state vs main) ─────────────────────────────── */}
+      {/* ── Content (main) ────────────────────────────────────────────── */}
       {patients.length === 0 ? (
-        <WelcomeGuide onNavigate={onNavigate} />
+        <></>
       ) : (
         <>
           {/* ── STAT STRIP — solo desktop ──────────────────────────────── */}
