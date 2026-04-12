@@ -24,7 +24,7 @@ const AppStateContext = createContext(null);
 
 // ── Valor shell: activo mientras auth no está lista o no hay sesión ───────────
 // Garantiza que cualquier consumidor de useAppState() tenga valores seguros
-// antes de que DataProvider se monte (p.ej. LockScreen, Onboarding).
+// antes de que DataProvider se monte (p.ej. LockScreen).
 const noop = () => {};
 const EMPTY_DATA = {
   patients: [], appointments: [], sessions: [], payments: [],
