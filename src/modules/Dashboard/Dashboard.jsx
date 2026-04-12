@@ -1,9 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════════════════════╗
-// ║  Dashboard.jsx — Integrado al shell de la app                               ║
+// ║  Dashboard.jsx — Diseño adoptado de DashboardPropuesta                      ║
+// ║  Layout: header full-width · shortcuts 2×2 · secciones con d-sec           ║
 // ║  Sin Topbar / SideNav / BottomNav propios — los provee la app host          ║
-// ║  Mobile (<640): KPIs 2col · stack vertical                                  ║
-// ║  Tablet (640-1023): KPIs 2col · columna única                               ║
-// ║  Desktop (≥1024): KPIs 4col · grid protagonista + soporte                   ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 import { useState, useMemo, useEffect } from "react";
@@ -12,8 +10,7 @@ import { bus } from "../../lib/eventBus.js";
 import { Card, Badge, Btn, EmptyState } from "../../components/ui/index.jsx";
 import {
   Users, Calendar, FileText, DollarSign, CheckCircle2,
-  Sparkles, Play, AlertTriangle, NotebookPen, UserPlus,
-  BarChart2, CalendarPlus, CreditCard, FileBarChart2, Zap,
+  Sparkles, AlertTriangle,
 } from "lucide-react";
 import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { consentStatus } from "../Consent.jsx";
@@ -24,59 +21,169 @@ import {
   fmtDate, fmtCur,
 } from "./dashboard.utils.js";
 
-// ── Estilos globales ──────────────────────────────────────────────────────────
-if (typeof document !== "undefined" && !window.__pc_dash_v4__) {
-  window.__pc_dash_v4__ = true;
+// ── Estilos globales (clases .d-* de DashboardPropuesta) ─────────────────────
+if (typeof document !== "undefined" && !window.__pcd__) {
+  window.__pcd__ = true;
   const s = document.createElement("style");
   s.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-    @keyframes pc-up    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes pc-bar   { from{width:0} }
-    @keyframes pc-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-    @keyframes pc-glow  { 0%,100%{box-shadow:0 0 0 0 rgba(181,74,61,0)} 50%{box-shadow:0 0 0 5px rgba(181,74,61,.1)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes pc-bar { from{width:0} }
 
-    .pc-fu  { animation: pc-up .42s cubic-bezier(.22,1,.36,1) both; }
-    .pc-d1  { animation-delay:.04s!important; }
-    .pc-d2  { animation-delay:.08s!important; }
-    .pc-d3  { animation-delay:.12s!important; }
-    .pc-d4  { animation-delay:.16s!important; }
-    .pc-d5  { animation-delay:.20s!important; }
+    .d-root { font-family:'DM Sans',sans-serif; width:100%; height:100%; overflow-y:auto; padding-bottom:40px; box-sizing:border-box; }
 
-    .pc-row:hover  { background:#F0ECE6!important; }
-    .pc-kpi:hover  { transform:translateY(-1px)!important; box-shadow:0 4px 16px rgba(30,27,24,.06)!important; }
-    .pc-lnk:hover  { color:#3D6B5A!important; }
-    .pc-sc:hover   { background:#E4EEE9!important; border-color:#7AAE99!important; color:#3D6B5A!important; }
-    .pc-sc-p:hover { background:#2e5344!important; }
-    .pc-act:hover  { background:#8f590e!important; }
+    /* Header */
+    .d-header {
+      background:linear-gradient(155deg,#243D33 0%,#3D6B5A 100%);
+      padding:24px 20px 28px; position:relative; overflow:hidden;
+    }
+    .d-header::before {
+      content:''; position:absolute; top:-50px; right:-50px;
+      width:200px; height:200px; border-radius:50%;
+      background:rgba(255,255,255,.04); pointer-events:none;
+    }
+    .d-header::after {
+      content:''; position:absolute; bottom:-70px; left:-30px;
+      width:240px; height:240px; border-radius:50%;
+      background:rgba(255,255,255,.03); pointer-events:none;
+    }
+    .d-toprow  { display:flex; justify-content:flex-end; margin-bottom:16px; }
+    .d-badge   {
+      display:inline-flex; align-items:center; gap:5px;
+      border-radius:20px; padding:4px 12px;
+      font-size:11px; font-weight:600; letter-spacing:.03em;
+      backdrop-filter:blur(8px); animation:fadeUp .4s ease both;
+    }
+    .d-badge-dot { width:6px; height:6px; border-radius:50%; }
+    .d-online    { background:rgba(125,206,160,.15); border:1px solid rgba(125,206,160,.35); color:#A8D5C0; }
+    .d-online  .d-badge-dot { background:#7DCEA0; animation:blink 2.2s ease infinite; }
+    .d-offline   { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:rgba(255,255,255,.45); }
+    .d-offline .d-badge-dot { background:rgba(255,255,255,.3); }
+    .d-date  { font-size:10px; color:rgba(255,255,255,.45); letter-spacing:.07em; text-transform:uppercase; margin-bottom:5px; }
+    .d-greet { font-family:'Lora',serif; font-size:23px; font-weight:400; color:#fff; line-height:1.25; animation:fadeUp .45s .06s ease both; }
+    .d-greet em { font-style:italic; color:#A8D5C0; }
 
-    .pc-sc-bar::-webkit-scrollbar { display:none; }
-    .pc-scroll::-webkit-scrollbar       { width:3px; }
-    .pc-scroll::-webkit-scrollbar-thumb { background:#E4DDD6; border-radius:99px; }
+    /* Shortcuts grid */
+    .d-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:16px 20px; animation:fadeUp .45s .1s ease both; }
+    .d-sc {
+      display:flex; align-items:center; gap:10px;
+      background:#fff; border:1px solid #EAE6E1; border-radius:13px;
+      padding:12px 13px; cursor:pointer; text-align:left;
+      transition:transform .15s, box-shadow .15s;
+    }
+    .d-sc:hover  { transform:translateY(-1px); box-shadow:0 4px 16px rgba(30,25,20,.08); }
+    .d-sc:active { transform:scale(.97); }
+    .d-sc:disabled { opacity:.45; cursor:default; }
+    .d-sc-ico  { width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .d-sc-name { font-size:11px; font-weight:600; color:#2B2825; line-height:1.3; }
+    .d-sc-sub  { font-size:10px; color:#A8A29B; margin-top:1px; }
+
+    /* Sections */
+    .d-sec     { padding:0 20px; margin-bottom:20px; animation:fadeUp .45s ease both; }
+    .d-sec-hd  { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .d-sec-lbl { font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#A8A29B; }
+    .d-sec-btn { font-size:11px; font-weight:600; color:#3D6B5A; background:none; border:none; cursor:pointer; }
+    .d-divider { height:1px; background:#EAE6E1; margin:0 20px 20px; }
+
+    /* KPI strip */
+    .d-kpis    { display:grid; gap:8px; padding:0 20px; margin-bottom:20px; animation:fadeUp .45s .08s ease both; }
+    .d-kpi     { background:#FDFBF8; border:1px solid #E4DDD6; border-radius:10px; padding:11px 13px; display:flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; }
+    .d-kpi:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(30,27,24,.06); }
+    .d-kpi-ico { border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+    .d-kpi-val { font-family:'Lora',serif; color:#1E1B18; line-height:1; }
+    .d-kpi-lbl { font-size:10px; color:#A8A29B; margin-top:2px; }
+
+    /* Agenda */
+    .d-agenda { background:#fff; border:1px solid #EAE6E1; border-radius:14px; overflow:hidden; }
+    .d-appt   { display:flex; border-top:1px solid #F0EDE9; cursor:pointer; transition:background .12s; }
+    .d-appt:first-child { border-top:none; }
+    .d-appt:hover { background:#FDFBF8; }
+    .d-active { background:#FFFBF4 !important; border-left:3px solid #C8860A; }
+    .d-time   { width:50px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px 4px; }
+    .d-time-h { font-family:'Lora',serif; font-size:15px; color:#2B2825; line-height:1; }
+    .d-time-m { font-size:10px; color:#C5BFB9; font-weight:500; margin-top:1px; }
+    .d-active .d-time-h { color:#A06A00; }
+    .d-abody  { flex:1; padding:10px 12px; min-width:0; }
+    .d-aname  { font-size:13px; font-weight:600; color:#2B2825; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .d-atype  { font-size:10px; color:#A8A29B; margin-top:2px; }
+    .d-aright { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; padding:10px 13px 10px 4px; gap:5px; flex-shrink:0; }
+    .d-av     { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Lora',serif; font-size:10px; font-weight:600; }
+    .d-stag   { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; white-space:nowrap; }
+
+    /* Next appointment banner */
+    .d-next   {
+      display:flex; align-items:center; gap:11px;
+      padding:13px 14px; border-top:1px dashed #D4CFC9;
+      background:linear-gradient(90deg,#F2EEE9,#FDFBF8);
+      cursor:pointer; transition:background .15s;
+    }
+    .d-next:hover { background:#EDE9E3; }
+    .d-next-ico     { width:38px; height:38px; border-radius:10px; flex-shrink:0; background:#EDF2FB; display:flex; align-items:center; justify-content:center; font-size:17px; }
+    .d-next-eyebrow { font-size:9px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#A8A29B; margin-bottom:3px; }
+    .d-next-name    { font-size:13px; font-weight:600; color:#2B2825; }
+    .d-next-meta    { font-size:10px; color:#A8A29B; margin-top:2px; }
+    .d-next-pill    {
+      margin-left:auto; flex-shrink:0;
+      background:#EDF2FB; color:#3B5EA6; border:1px solid #C8D6F5;
+      font-size:10px; font-weight:700; padding:4px 11px; border-radius:20px;
+    }
+
+    /* Finance */
+    .d-finance  { background:#fff; border:1px solid #EAE6E1; border-radius:14px; overflow:hidden; }
+    .d-fin-row  { display:grid; grid-template-columns:1fr 1fr 1fr; }
+    .d-fin-cell { padding:16px 12px; text-align:center; }
+    .d-fin-cell + .d-fin-cell { border-left:1px solid #EAE6E1; }
+    .d-fin-val  { font-family:'Lora',serif; font-size:17px; color:#2B2825; line-height:1; }
+    .d-fin-lbl  { font-size:9px; color:#A8A29B; font-weight:600; margin-top:4px; letter-spacing:.05em; text-transform:uppercase; }
+
+    /* Attention widget */
+    .d-alert { background:#fff; border:1px solid #EAE6E1; border-radius:14px; overflow:hidden; }
+    .d-attn-tab { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; border:1px solid; }
+    .d-rrow  { display:flex; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid #F0EDE9; cursor:pointer; transition:background .12s; }
+    .d-rrow:first-child { border-top:none; }
+    .d-rrow:hover { background:#FDFBF8; }
+    .d-rav   { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Lora',serif; font-size:11px; font-weight:600; flex-shrink:0; }
+    .d-rname { font-size:12px; font-weight:600; color:#2B2825; }
+    .d-rlast { font-size:10px; color:#A8A29B; margin-top:1px; }
+    .d-rtag  { margin-left:auto; font-size:9px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0; }
+    .d-prow  { display:flex; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid #F0EDE9; }
+    .d-prow:first-child { border-top:none; }
+    .d-pico  { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+    .d-plbl  { font-size:12px; font-weight:500; color:#2B2825; flex:1; line-height:1.3; }
+    .d-pcnt  { font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; flex-shrink:0; }
+    .d-empty { padding:22px; text-align:center; font-size:12px; color:#A8A29B; }
+
+    /* Recent notes */
+    .d-nrow  { display:flex; gap:8px; padding:8px 16px; border-top:1px solid #E4DDD6; cursor:pointer; transition:background .12s; }
+    .d-nrow:first-child { border-top:none; }
+    .d-nrow:hover { background:#F0ECE6; }
+
+    /* Welcome guide */
+    .d-wstep { background:#F0ECE6; border:1px solid #E4DDD6; border-radius:10px; padding:13px 12px; display:flex; flex-direction:column; gap:7px; }
+
+    /* Scrollbar */
+    .d-root::-webkit-scrollbar       { width:3px; }
+    .d-root::-webkit-scrollbar-thumb { background:#E4DDD6; border-radius:99px; }
   `;
   document.head.appendChild(s);
 }
 
-// ── Tokens — usan los colores del tema de la app cuando posible ───────────────
-const D = {
-  // Fondo transparente para integrarse al shell
-  bg:      "transparent",
-  surface: "#FDFBF8",
-  alt:     "#F0ECE6",
-  sage:    "#3D6B5A",
-  sageL:   "#E4EEE9",
-  sageM:   "#7AAE99",
-  amber:   "#B8761E",
-  amberL:  "#FBF0DC",
-  coral:   "#B54A3D",
-  coralL:  "#FAE8E6",
-  stone:   "#1E1B18",
-  slate:   "#5C5751",
-  mist:    "#A8A29B",
-  border:  "#E4DDD6",
-  fH:      "'DM Serif Display',serif",
-  fB:      "'DM Sans',sans-serif",
+// ── Status config (agenda) ────────────────────────────────────────────────────
+const STATUS = {
+  completada:          { label:"Completada", bg:"#EAF4EE", text:"#3D7A5E" },
+  en_curso:            { label:"En curso",   bg:"#FDF3E0", text:"#A06A00" },
+  pendiente:           { label:"Pendiente",  bg:"#F5F2EF", text:"#6B6560" },
+  cancelada_paciente:  { label:"Cancelada",  bg:"#FAE8E6", text:"#B54A3D" },
+  cancelada_psicologa: { label:"Cancelada",  bg:"#FAE8E6", text:"#B54A3D" },
+  no_asistio:          { label:"No asistió", bg:"#FDF3E0", text:"#A06A00" },
 };
+
+// ── Primitivos ────────────────────────────────────────────────────────────────
+function initials(name = "") {
+  return name.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "?";
+}
 
 // ── Hook breakpoint ───────────────────────────────────────────────────────────
 function useBreakpoint() {
@@ -96,172 +203,77 @@ function useBreakpoint() {
   return bp;
 }
 
-// ── Primitivos ────────────────────────────────────────────────────────────────
-function initials(name = "") {
-  return name.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "?";
-}
+// ══════════════════════════════════════════════════════════════════════════════
+// SUBCOMPONENTES
+// ══════════════════════════════════════════════════════════════════════════════
 
-function Av({ name, size=32, color=D.sage, bg=D.sageL }) {
-  return (
-    <div style={{
-      width:size, height:size, borderRadius:"50%", flexShrink:0,
-      background:bg, border:`1.5px solid ${color}33`,
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontFamily:D.fH, fontSize:size*.34, color, lineHeight:1,
-    }}>{initials(name)}</div>
+// ── HEADER ────────────────────────────────────────────────────────────────────
+function Header({ profile, googleUser, todayAppts, urgentCount }) {
+  const name = resolveDisplayName(profile, googleUser);
+  const [online, setOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
   );
-}
+  useEffect(() => {
+    const on  = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online",  on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online",on); window.removeEventListener("offline",off); };
+  }, []);
 
-function Tag({ children, color, bg }) {
-  return (
-    <span style={{
-      display:"inline-flex", alignItems:"center", borderRadius:6,
-      padding:"2px 8px", fontSize:10, fontWeight:700,
-      whiteSpace:"nowrap", color, background:bg, fontFamily:D.fB,
-    }}>{children}</span>
-  );
-}
-
-function CardHd({ eyebrow, eyebrowColor, title, action, onAction }) {
-  return (
-    <div style={{
-      padding:"13px 16px", borderBottom:`1px solid ${D.border}`,
-      display:"flex", alignItems:"center", justifyContent:"space-between",
-    }}>
-      <div>
-        <div style={{
-          fontSize:10, fontWeight:700, letterSpacing:".09em",
-          textTransform:"uppercase", color:eyebrowColor||D.mist,
-          marginBottom:1, fontFamily:D.fB,
-        }}>{eyebrow}</div>
-        <div style={{ fontFamily:D.fH, fontSize:15, color:D.stone }}>{title}</div>
-      </div>
-      {action && (
-        <button className="pc-lnk" onClick={onAction} style={{
-          fontSize:11, fontWeight:600, color:D.mist,
-          background:"none", border:"none", cursor:"pointer",
-          fontFamily:D.fB, transition:"color .13s", flexShrink:0,
-        }}>{action}</button>
-      )}
-    </div>
-  );
-}
-
-// ── SHORTCUTS BAR ─────────────────────────────────────────────────────────────
-// Barra de accesos directos — se integra visualmente con el fondo de la app
-function ShortcutsBar({ onQuickNav, onNewSession, patients, bp }) {
-  const has   = patients.length > 0;
-  const isMob = bp === "mobile";
-
-  const items = [
-    { label:"Nuevo paciente", icon:UserPlus,     primary:true,  action:()=>onQuickNav("patients","add") },
-    { label:"Agendar cita",   icon:CalendarPlus, primary:false, action:()=>onQuickNav("agenda","add") },
-    { label:"Iniciar sesión", icon:Play,         primary:false, action:onNewSession, disabled:!has },
-    null,
-    { label:"Nota clínica",   icon:NotebookPen,  primary:false, action:()=>onQuickNav("sessions","add"), disabled:!has },
-    { label:"Pago",           icon:CreditCard,   primary:false, action:()=>onQuickNav("finance","add") },
-    { label:"Riesgo",         icon:Zap,          primary:false, action:()=>onQuickNav("risk","add"), disabled:!has },
-    null,
-    { label:"Reporte",        icon:FileBarChart2,primary:false, action:()=>onQuickNav("reports") },
-  ];
+  const subtitle = todayAppts.length > 0
+    ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount>0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
+    : "Sin citas programadas hoy";
 
   return (
-    <div className="pc-sc-bar" style={{
-      display:"flex", alignItems:"center",
-      padding: isMob ? "0 0 10px" : "0 0 12px",
-      gap:5, overflowX:"auto",
-    }}>
-      {!isMob && (
-        <span style={{
-          fontSize:10, fontWeight:700, color:D.mist,
-          letterSpacing:".09em", textTransform:"uppercase",
-          marginRight:4, flexShrink:0, fontFamily:D.fB,
-        }}>Accesos</span>
-      )}
-      {items.map((item, i) => {
-        if (item === null) return !isMob
-          ? <div key={i} style={{ width:1, height:16, background:D.border, margin:"0 2px", flexShrink:0 }}/>
-          : null;
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.label}
-            className={item.primary ? "pc-sc-p" : "pc-sc"}
-            disabled={item.disabled}
-            onClick={item.action}
-            style={{
-              display:"inline-flex", alignItems:"center",
-              gap:5, padding: isMob ? "5px 9px" : "5px 11px",
-              borderRadius:7,
-              border:`1px solid ${item.primary ? D.sage : D.border}`,
-              background:item.primary ? D.sage : D.surface,
-              fontFamily:D.fB, fontSize:11, fontWeight:600,
-              color:item.primary ? "#fff" : D.slate,
-              cursor:item.disabled ? "not-allowed" : "pointer",
-              opacity:item.disabled ? 0.4 : 1,
-              transition:"all .15s", whiteSpace:"nowrap", flexShrink:0,
-            }}
-          >
-            <Icon size={12} strokeWidth={1.8}/>
-            {/* Mobile: label solo en primario; secundarios solo ícono */}
-            {(!isMob || item.primary) && item.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── SALUDO N0 ─────────────────────────────────────────────────────────────────
-function Welcome({ todayAppts, urgentCount, profile, googleUser, bp }) {
-  const name  = resolveDisplayName(profile, googleUser);
-  const isMob = bp === "mobile";
-
-  return (
-    <div className="pc-fu" style={{
-      display:"flex",
-      flexDirection: isMob ? "column" : "row",
-      alignItems: isMob ? "flex-start" : "center",
-      justifyContent:"space-between", gap:8,
-    }}>
-      <div>
-        <h1 style={{
-          fontFamily:D.fH, fontSize:isMob?20:24,
-          fontWeight:400, color:D.stone, lineHeight:1.1, margin:0,
-        }}>
-          {greeting()}, <span style={{ color:D.sage }}>{name}</span>
-        </h1>
-        <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, marginTop:3 }}>
-          {todayAppts.length > 0
-            ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount > 0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
-            : "Sin citas programadas hoy"}
-        </p>
-      </div>
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-        <div style={{
-          display:"flex", alignItems:"center", gap:5,
-          padding:"4px 10px", borderRadius:7,
-          background:D.sageL, fontFamily:D.fB, fontSize:11, fontWeight:600, color:D.sage,
-        }}>
-          <div style={{ width:5, height:5, borderRadius:"50%", background:D.sage, animation:"pc-blink 2s ease infinite" }}/>
-          Sincronizado
+    <div className="d-header">
+      <div className="d-toprow">
+        <div className={`d-badge ${online ? "d-online" : "d-offline"}`}>
+          <div className="d-badge-dot"/>
+          {online ? "Online" : "Offline"}
         </div>
-        {urgentCount > 0 && (
-          <div style={{
-            display:"flex", alignItems:"center", gap:5,
-            padding:"4px 10px", borderRadius:7,
-            background:D.amberL, fontFamily:D.fB, fontSize:11, fontWeight:600, color:D.amber,
-          }}>
-            <div style={{ width:5, height:5, borderRadius:"50%", background:D.amber, animation:"pc-blink 2s ease infinite" }}/>
-            {urgentCount} alerta{urgentCount>1?"s":""}
-          </div>
-        )}
+      </div>
+      <div className="d-date">{todayFormatted()}</div>
+      <div className="d-greet">
+        {greeting()},&nbsp;<em>{name}</em>
+      </div>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"rgba(255,255,255,.5)", marginTop:6 }}>
+        {subtitle}
       </div>
     </div>
   );
 }
 
-// ── KPIs N1 ───────────────────────────────────────────────────────────────────
+// ── SHORTCUTS 2×2 ─────────────────────────────────────────────────────────────
+function Shortcuts({ onQuickNav, onNewSession, patients }) {
+  const has = patients.length > 0;
+  const items = [
+    { icon:"👤", label:"Nuevo paciente", sub:"Registrar",   bg:"#EAF4EE", onClick:()=>onQuickNav("patients","add") },
+    { icon:"📅", label:"Agendar cita",   sub:"Calendario",  bg:"#EDF2FB", onClick:()=>onQuickNav("agenda","add") },
+    { icon:"▶",  label:"Iniciar sesión", sub:"En curso",    bg:"#FDF3E0", onClick:onNewSession,                    disabled:!has },
+    { icon:"💳", label:"Registrar pago", sub:"Finanzas",    bg:"#F4F0FB", onClick:()=>onQuickNav("finance","add"), disabled:!has },
+  ];
+  return (
+    <div className="d-shortcuts">
+      {items.map(item => (
+        <button
+          key={item.label}
+          className="d-sc"
+          disabled={item.disabled}
+          onClick={item.onClick}
+        >
+          <div className="d-sc-ico" style={{ background:item.bg }}>{item.icon}</div>
+          <div>
+            <div className="d-sc-name">{item.label}</div>
+            <div className="d-sc-sub">{item.sub}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── KPI STRIP ─────────────────────────────────────────────────────────────────
 function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp }) {
   const isMob = bp === "mobile";
 
@@ -277,41 +289,28 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
   }, [patients, todayAppts, payments]);
 
   const kpis = [
-    { val:activePatients,                                   label:"Pacientes activos", icon:Users,         color:D.sage,  bg:D.sageL  },
-    { val:`${completedToday}/${todayAppts.length}`,         label:"Sesiones hoy",      icon:CheckCircle2,  color:D.amber, bg:D.amberL },
-    { val:urgentCount,                                      label:"Alertas activas",   icon:AlertTriangle, color:urgentCount>0?D.coral:D.sage, bg:urgentCount>0?D.coralL:D.sageL },
-    { val:monthlyIncome>0?fmtCur(monthlyIncome):"—",        label:"Ingresos del mes",  icon:DollarSign,    color:D.sage,  bg:D.sageL, sm:true },
+    { val:activePatients,                            label:"Pacientes activos", icon:Users,         color:"#3D6B5A", bg:"#E4EEE9" },
+    { val:`${completedToday}/${todayAppts.length}`,  label:"Sesiones hoy",      icon:CheckCircle2,  color:"#B8761E", bg:"#FBF0DC" },
+    { val:urgentCount,                               label:"Alertas activas",   icon:AlertTriangle, color:urgentCount>0?"#B54A3D":"#3D6B5A", bg:urgentCount>0?"#FAE8E6":"#E4EEE9" },
+    { val:monthlyIncome>0?fmtCur(monthlyIncome):"—", label:"Ingresos del mes",  icon:DollarSign,    color:"#3D6B5A", bg:"#E4EEE9", sm:true },
   ];
 
+  const cols = isMob ? "repeat(2,1fr)" : "repeat(4,1fr)";
+  const size = isMob ? 30 : 34;
+  const iconSize = isMob ? 13 : 15;
+
   return (
-    <div style={{
-      display:"grid",
-      gridTemplateColumns: isMob ? "repeat(2,1fr)" : "repeat(4,1fr)",
-      gap:isMob ? 8 : 10,
-    }}>
-      {kpis.map((k, i) => {
+    <div className="d-kpis" style={{ gridTemplateColumns:cols }}>
+      {kpis.map((k,i) => {
         const Icon = k.icon;
         return (
-          <div key={k.label} className={`pc-kpi pc-fu pc-d${i+1}`} style={{
-            background:D.surface, borderRadius:10, border:`1px solid ${D.border}`,
-            padding:isMob?"11px 13px":"13px 16px",
-            display:"flex", alignItems:"center", gap:isMob?9:12,
-            transition:"transform .18s, box-shadow .18s", cursor:"default",
-          }}>
-            <div style={{
-              width:isMob?30:34, height:isMob?30:34, borderRadius:8,
-              background:k.bg, flexShrink:0,
-              display:"flex", alignItems:"center", justifyContent:"center",
-            }}>
-              <Icon size={isMob?13:15} color={k.color} strokeWidth={1.8}/>
+          <div key={k.label} className="d-kpi">
+            <div className="d-kpi-ico" style={{ width:size, height:size, background:k.bg }}>
+              <Icon size={iconSize} color={k.color} strokeWidth={1.8}/>
             </div>
             <div style={{ minWidth:0 }}>
-              <div style={{
-                fontFamily:D.fH,
-                fontSize:k.sm?(isMob?15:18):(isMob?18:22),
-                color:k.color, lineHeight:1, marginBottom:1,
-              }}>{k.val}</div>
-              <div style={{ fontFamily:D.fB, fontSize:isMob?9:10, color:D.mist, fontWeight:500, lineHeight:1.3 }}>{k.label}</div>
+              <div className="d-kpi-val" style={{ fontSize:k.sm?(isMob?15:18):(isMob?18:22) }}>{k.val}</div>
+              <div className="d-kpi-lbl">{k.label}</div>
             </div>
           </div>
         );
@@ -320,402 +319,272 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
   );
 }
 
-// ── AGENDA (protagonista) ─────────────────────────────────────────────────────
-function AgendaWidget({ todayAppts, onStartSession, onNavigate, todayStr, bp }) {
-  const isMob  = bp === "mobile";
-  const inProg = todayAppts.find(a => a.status==="en_curso");
-  const done   = todayAppts.filter(a => a.status==="completada").length;
-  const pct    = todayAppts.length>0 ? Math.round(done/todayAppts.length*100) : 0;
-
-  const sSt = s => ({
-    completada:          { label:"Completada", color:D.sage,  bg:D.sageL  },
-    en_curso:            { label:"En curso",   color:D.amber, bg:D.amberL },
-    pendiente:           { label:"Pendiente",  color:D.mist,  bg:D.alt    },
-    cancelada_paciente:  { label:"Cancelada",  color:D.coral, bg:D.coralL },
-    cancelada_psicologa: { label:"Cancelada",  color:D.coral, bg:D.coralL },
-    no_asistio:          { label:"No asistió", color:D.amber, bg:D.amberL },
-  }[s] || { label:s, color:D.mist, bg:D.alt });
-
-  const rSt = r => ({
-    inminente:{ label:"● Inmin.", color:D.coral, bg:D.coralL },
-    alto:     { label:"Alto",    color:D.coral, bg:D.coralL },
-    medio:    { label:"Medio",   color:D.amber, bg:D.amberL },
-  }[r]);
-
-  if (todayAppts.length === 0) {
-    return (
-      <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-        <CardHd eyebrow="🗓 Agenda de hoy" title="Sin citas"/>
-        <div style={{ padding:"28px 18px", textAlign:"center" }}>
-          <Calendar size={26} color={D.mist} strokeWidth={1.2} style={{ marginBottom:8 }}/>
-          <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, margin:"0 0 12px" }}>No hay citas programadas.</p>
-          <button onClick={()=>onNavigate("agenda")} style={{
-            padding:"7px 16px", borderRadius:8, background:D.sage,
-            color:"#fff", border:"none", fontFamily:D.fB, fontSize:12, fontWeight:600, cursor:"pointer",
-          }}>Agendar cita</button>
-        </div>
-      </div>
-    );
-  }
+// ── AGENDA ────────────────────────────────────────────────────────────────────
+function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavigate }) {
+  const completadas = todayAppts.filter(a => a.status==="completada").length;
 
   return (
-    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      <CardHd
-        eyebrow="🗓 Agenda de hoy"
-        title={`${todayAppts.length} cita${todayAppts.length>1?"s":""}`}
-        action="Ver agenda →"
-        onAction={()=>onNavigate("agenda")}
-      />
-
-      {inProg && (
-        <div style={{ padding:"7px 16px", borderBottom:`1px solid ${D.border}`, background:`${D.amber}06` }}>
-          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:D.fB, fontSize:10, color:D.amber, fontWeight:600, marginBottom:3 }}>
-            <span>▶ En curso · {inProg.patientName||"Paciente"}</span>
-            <span>{pct}% del día</span>
-          </div>
-          <div style={{ height:3, background:D.amberL, borderRadius:99, overflow:"hidden" }}>
-            <div style={{ height:"100%", background:D.amber, borderRadius:99, width:`${pct}%`, animation:"pc-bar .9s ease both .3s" }}/>
-          </div>
-        </div>
-      )}
-
-      {todayAppts.map((appt, i) => {
-        const sc  = sSt(appt.status);
-        const rc  = rSt(appt.riskLevel);
-        const cur = appt.status==="en_curso";
-        const timeStr = appt.time || (appt.date ? appt.date.slice(11,16) : "");
-
-        return (
-          <div
-            key={appt.id||i}
-            className="pc-row"
-            onClick={()=>onStartSession&&onStartSession(appt)}
-            style={{
-              display:"flex", alignItems:"center", gap:10,
-              padding:isMob?"10px 14px":"11px 16px",
-              borderTop:i>0?`1px solid ${D.border}`:"none",
-              borderLeft:`3px solid ${cur?D.amber:"transparent"}`,
-              background:cur?`${D.amber}05`:"transparent",
-              cursor:"pointer", transition:"background .12s",
-            }}
-          >
-            <span style={{
-              fontFamily:D.fB, fontSize:11, fontWeight:600,
-              color:cur?D.amber:D.mist, width:32, flexShrink:0,
-              fontVariantNumeric:"tabular-nums",
-            }}>{timeStr}</span>
-
-            {!isMob && (
-              <Av name={appt.patientName||"?"} size={30}
-                color={cur?D.amber:D.sage} bg={cur?D.amberL:D.sageL}
-              />
-            )}
-
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:D.fB, fontSize:isMob?12:13, fontWeight:600, color:D.stone, lineHeight:1.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                {appt.patientName||"Paciente"}
-              </div>
-              {!isMob && (
-                <div style={{ fontFamily:D.fB, fontSize:11, color:D.mist, marginTop:1 }}>
-                  {appt.type||appt.serviceTitle||"Sesión"}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-              {!isMob && rc && <Tag color={rc.color} bg={rc.bg}>{rc.label}</Tag>}
-              {!isMob && appt.consentStatus==="pendiente" && (
-                <Tag color={D.coral} bg={D.coralL}>Sin consent.</Tag>
-              )}
-              <Tag color={sc.color} bg={sc.bg}>{sc.label}</Tag>
-              {cur && (
-                <button
-                  className="pc-act"
-                  onClick={e=>{e.stopPropagation();onStartSession&&onStartSession(appt);}}
-                  style={{
-                    padding:isMob?"4px 8px":"5px 10px", borderRadius:6, border:"none",
-                    background:D.amber, color:"#fff", fontFamily:D.fB,
-                    fontSize:10, fontWeight:700, cursor:"pointer",
-                    transition:"background .13s", whiteSpace:"nowrap",
-                  }}
-                >{isMob?"Ver":"Ver sesión"}</button>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── RISK RADAR ────────────────────────────────────────────────────────────────
-function RiskRadar({ patients, sessions, riskAssessments, todayStr, onNavigate }) {
-  const absent    = useMemo(()=>computeAbsentPatients({patients,sessions}),[patients,sessions]);
-  const riskItems = useMemo(()=>computeRiskItems(riskAssessments),[riskAssessments]);
-  const hasImm    = riskItems.some(r=>r.riskLevel==="inminente");
-
-  const rSt = r => ({
-    inminente:{ label:"● Inminente", color:D.coral, bg:D.coralL },
-    alto:     { label:"Alto",        color:D.coral, bg:D.coralL },
-    medio:    { label:"Medio",       color:D.amber, bg:D.amberL },
-  }[r] || { label:r, color:D.mist, bg:D.alt });
-
-  if (riskItems.length===0 && absent.length===0) {
-    return (
-      <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-        <CardHd eyebrow="⚠ Radar de riesgo" eyebrowColor={D.sage} title="Sin alertas"/>
-        <div style={{ padding:"12px 16px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 12px", borderRadius:9, background:D.sageL, border:`1px solid ${D.sage}22` }}>
-            <CheckCircle2 size={14} color={D.sage} strokeWidth={1.8}/>
-            <p style={{ fontFamily:D.fB, fontSize:12, color:D.slate, margin:0 }}>Todos en seguimiento regular.</p>
-          </div>
-        </div>
+    <div className="d-sec" style={{ animationDelay:".14s" }}>
+      <div className="d-sec-hd">
+        <span className="d-sec-lbl">🗓 Agenda de hoy · {completadas}/{todayAppts.length}</span>
+        <button className="d-sec-btn" onClick={()=>onNavigate("agenda")}>Ver todo →</button>
       </div>
-    );
-  }
 
-  return (
-    <div style={{
-      background:D.surface, borderRadius:12,
-      border:`1px solid ${hasImm?`${D.coral}40`:D.border}`,
-      overflow:"hidden",
-      animation:hasImm?"pc-glow 2.5s ease infinite":"none",
-    }}>
-      <CardHd
-        eyebrow="⚠ Radar de riesgo" eyebrowColor={D.coral}
-        title="Vigilancia clínica"
-        action="Ver todos →" onAction={()=>onNavigate("risk")}
-      />
-
-      {riskItems.map((a, i) => {
-        const pt = patients.find(p=>p.id===a.patientId);
-        const rs = rSt(a.riskLevel);
-        return (
-          <div key={a.id||i} className="pc-row" onClick={()=>onNavigate("risk")} style={{
-            display:"flex", alignItems:"center", gap:10,
-            padding:"9px 16px",
-            borderTop:i>0?`1px solid ${D.border}`:"none",
-            cursor:"pointer", transition:"background .12s",
-          }}>
-            <Av name={pt?.name||"P"} size={26}
-              color={a.riskLevel==="inminente"?D.coral:D.amber}
-              bg={a.riskLevel==="inminente"?D.coralL:D.amberL}
-            />
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone }}>
-                {(pt?.name||"Paciente").split(" ").slice(0,2).join(" ")}
-              </div>
-              <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist }}>Evaluado {fmtDate(a.date)}</div>
-            </div>
-            <Tag color={rs.color} bg={rs.bg}>{rs.label}</Tag>
-          </div>
-        );
-      })}
-
-      {absent.length>0 && (
-        <div style={{ background:D.amberL, borderTop:`1px solid ${D.border}`, padding:"9px 16px" }}>
-          <div style={{ fontFamily:D.fB, fontSize:9, fontWeight:700, color:D.amber, letterSpacing:".08em", textTransform:"uppercase", marginBottom:7 }}>
-            ⏰ Sin sesión +21 días
-          </div>
-          {absent.map((p, i) => {
-            const days = p.lastSession ? daysBetween(p.lastSession, todayStr) : null;
+      <div className="d-agenda">
+        {todayAppts.length === 0 ? (
+          <div className="d-empty">Sin citas para hoy ✓</div>
+        ) : (
+          todayAppts.map(appt => {
+            const st     = STATUS[appt.status] || STATUS.pendiente;
+            const [h, m] = (appt.time||"00:00").split(":");
+            const active = appt.status === "en_curso";
+            const avBg   = active ? "#FDF3E0" : "#EAF4EE";
+            const avClr  = active ? "#A06A00" : "#3D6B5A";
             return (
-              <div key={p.id||i} className="pc-row" onClick={()=>onNavigate("patients")} style={{
-                display:"flex", alignItems:"center", gap:7,
-                marginTop:i>0?5:0, cursor:"pointer", borderRadius:6,
-                padding:"2px 4px", transition:"background .12s",
-              }}>
-                <div style={{
-                  width:20, height:20, borderRadius:"50%", flexShrink:0,
-                  background:"#C8862A20", display:"flex", alignItems:"center",
-                  justifyContent:"center", fontFamily:D.fH, fontSize:7, color:D.amber,
-                }}>{initials(p.name||"")}</div>
-                <span style={{ fontFamily:D.fB, fontSize:11, color:D.stone, flex:1 }}>
-                  {(p.name||"Paciente").split(" ").slice(0,2).join(" ")}
-                </span>
-                <span style={{ fontFamily:D.fB, fontSize:11, fontWeight:700, color:D.amber }}>
-                  {days!=null?`${days}d`:"Sin sesión"}
-                </span>
+              <div
+                key={appt.id}
+                className={`d-appt${active ? " d-active" : ""}`}
+                onClick={()=>active && onStartSession?.(appt)}
+              >
+                <div className="d-time">
+                  <div className="d-time-h">{h}</div>
+                  <div className="d-time-m">{m}</div>
+                </div>
+                <div className="d-abody">
+                  <div className="d-aname">{appt.patientName || appt.patient || "Paciente"}</div>
+                  <div className="d-atype">{appt.type || appt.service || ""}</div>
+                </div>
+                <div className="d-aright">
+                  <div className="d-av" style={{ background:avBg, color:avClr, border:`1.5px solid ${avClr}22` }}>
+                    {initials(appt.patientName || appt.patient || "")}
+                  </div>
+                  <div className="d-stag" style={{ background:st.bg, color:st.text }}>{st.label}</div>
+                </div>
               </div>
             );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+          })
+        )}
 
-// ── CHECKLIST ─────────────────────────────────────────────────────────────────
-function ComplianceChecklist({ patients, pendingTasks, sessions, onNavigate }) {
-  const tasks = useMemo(() => {
-    const r = [];
-    patients.forEach(p => {
-      const last = sessions.filter(s=>s.patientId===p.id).sort((a,b)=>b.date?.localeCompare(a.date))[0];
-      if (last && !last.note) r.push({ label:`Nota — ${(p.name||"").split(" ")[0]}`, urgent:true });
-      if (consentStatus(p)==="pendiente") r.push({ label:`Consentimiento — ${(p.name||"").split(" ")[0]}`, urgent:true });
-    });
-    (pendingTasks||[]).forEach(t => r.push({ label:t.label, urgent:false }));
-    return r.slice(0,6);
-  }, [patients, sessions, pendingTasks]);
-
-  const [checked, setChecked] = useState({});
-  const done  = Object.values(checked).filter(Boolean).length;
-  const total = tasks.length;
-  const pct   = total>0 ? Math.round(done/total*100) : 100;
-
-  if (total===0) return null;
-
-  return (
-    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      <div style={{ padding:"13px 16px", borderBottom:`1px solid ${D.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div>
-          <div style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, letterSpacing:".09em", textTransform:"uppercase", color:D.mist, marginBottom:1 }}>✅ Cumplimiento</div>
-          <div style={{ fontFamily:D.fH, fontSize:15, color:D.stone }}>Tareas del día</div>
-        </div>
-        <span style={{ fontFamily:D.fB, fontSize:11, fontWeight:700, color:D.sage }}>{done}/{total}</span>
-      </div>
-
-      {tasks.map((t, i) => {
-        const isDone = !!checked[i];
-        return (
-          <div key={i} className="pc-row" onClick={()=>setChecked(c=>({...c,[i]:!c[i]}))} style={{
-            display:"flex", alignItems:"flex-start", gap:8,
-            padding:"8px 16px",
-            borderTop:i>0?`1px solid ${D.border}`:"none",
-            cursor:"pointer", transition:"background .12s", opacity:isDone?.42:1,
-          }}>
-            <div style={{
-              width:14, height:14, borderRadius:4, flexShrink:0, marginTop:1,
-              border:`1.5px solid ${isDone?D.sage:t.urgent?D.coral:D.border}`,
-              background:isDone?D.sage:"transparent",
-              display:"flex", alignItems:"center", justifyContent:"center", transition:"all .12s",
-            }}>
-              {isDone && <span style={{ fontSize:8, color:"#fff" }}>✓</span>}
+        {/* Siguiente cita */}
+        {nextAppt && (
+          <div className="d-next" onClick={()=>onNavigate("agenda")}>
+            <div className="d-next-ico">📆</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div className="d-next-eyebrow">Siguiente cita</div>
+              <div className="d-next-name">{nextAppt.patientName || nextAppt.patient || "Paciente"}</div>
+              <div className="d-next-meta">
+                {nextAppt.date} · {nextAppt.time} · {nextAppt.type || nextAppt.service || ""}
+              </div>
             </div>
-            <span style={{
-              fontFamily:D.fB, fontSize:12, color:D.stone, lineHeight:1.4, flex:1,
-              textDecoration:isDone?"line-through":"none",
-            }}>{t.label}</span>
-            {t.urgent && !isDone && (
-              <span style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, color:D.coral, flexShrink:0, marginTop:2 }}>!</span>
+            {nextAppt.date && (
+              <div className="d-next-pill">
+                {(()=>{
+                  const days = daysBetween(todayStr, nextAppt.date);
+                  if (days===0) return "Hoy";
+                  if (days===1) return "Mañana";
+                  return `En ${days}d`;
+                })()}
+              </div>
             )}
           </div>
-        );
-      })}
-
-      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 16px 11px", borderTop:`1px solid ${D.border}` }}>
-        <div style={{ flex:1, height:3, background:D.border, borderRadius:99, overflow:"hidden" }}>
-          <div style={{ height:"100%", background:D.sage, borderRadius:99, width:`${pct}%`, transition:"width .4s ease" }}/>
-        </div>
-        <span style={{ fontFamily:D.fB, fontSize:10, fontWeight:700, color:D.sage, flexShrink:0 }}>{pct}%</span>
+        )}
       </div>
     </div>
   );
 }
 
-// ── NOTAS RECIENTES ───────────────────────────────────────────────────────────
-function RecentNotes({ sessions, patients, onNavigate }) {
-  const notes = useMemo(()=>
-    sessions.filter(s=>s.note).sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,3)
-      .map(s=>{
-        const pt=patients.find(p=>p.id===s.patientId);
-        return { name:pt?.name||"Paciente", date:fmtDate(s.date), preview:(s.note||"").slice(0,50) };
-      }),
-  [sessions,patients]);
-
-  if (notes.length===0) return null;
-
-  return (
-    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      <CardHd eyebrow="📝 Notas clínicas" title="Recientes" action="Ver todas →" onAction={()=>onNavigate("sessions")}/>
-      {notes.map((n, i) => (
-        <div key={i} className="pc-row" onClick={()=>onNavigate("sessions")} style={{
-          display:"flex", gap:8, padding:"8px 16px",
-          borderTop:i>0?`1px solid ${D.border}`:"none",
-          cursor:"pointer", transition:"background .12s",
-        }}>
-          <Av name={n.name} size={24}/>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone }}>{n.name}</div>
-            <div style={{ fontFamily:D.fB, fontSize:11, color:D.mist, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{n.preview}…</div>
-            <div style={{ fontFamily:D.fB, fontSize:10, color:D.mist, marginTop:1 }}>{n.date}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── RESUMEN MENSUAL ───────────────────────────────────────────────────────────
-function MonthlySummary({ patients, sessions, payments, onNavigate }) {
-  const { activePatients, thisMonthSessions, monthlyIncome } = useMemo(
+// ── MES EN NÚMEROS ────────────────────────────────────────────────────────────
+function FinanceSection({ patients, sessions, payments, onNavigate }) {
+  const { thisMonthSessions, monthlyIncome } = useMemo(
     ()=>computeSidebarSummary({patients,sessions,payments}),
     [patients,sessions,payments]
   );
-  const rows = [
-    { label:"Pacientes activos",   val:activePatients,                             bar:Math.min(activePatients/30,1)    },
-    { label:"Sesiones realizadas", val:thisMonthSessions,                           bar:Math.min(thisMonthSessions/60,1) },
-    { label:"Ingresos cobrados",   val:monthlyIncome>0?fmtCur(monthlyIncome):"—", bar:.7, sm:true                     },
-  ];
+  const attendance = useMemo(()=>{
+    const now  = new Date();
+    const mStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    const monthlySess = sessions.filter(s=>s.date?.startsWith(mStr));
+    const comp = monthlySess.filter(s=>s.status==="completada").length;
+    return monthlySess.length>0 ? Math.round(comp/monthlySess.length*100) : 0;
+  }, [sessions]);
+
   return (
-    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, overflow:"hidden" }}>
-      <CardHd eyebrow="📈 Resumen del mes" title="Métricas" action="Reportes →" onAction={()=>onNavigate("reports")}/>
-      {rows.map((r,i)=>(
-        <div key={r.label} className="pc-row" style={{
-          display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"8px 16px", borderTop:i>0?`1px solid ${D.border}`:"none",
-          transition:"background .12s",
-        }}>
-          <span style={{ fontFamily:D.fB, fontSize:11, color:D.slate }}>{r.label}</span>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:40, height:3, background:D.border, borderRadius:99, overflow:"hidden" }}>
-              <div style={{ height:"100%", background:D.sageM, borderRadius:99, width:`${r.bar*100}%`, animation:`pc-bar .8s ease both ${.3+i*.1}s` }}/>
-            </div>
-            <span style={{ fontFamily:r.sm?D.fB:D.fH, fontSize:r.sm?12:14, fontWeight:r.sm?700:400, color:D.stone }}>{r.val}</span>
+    <div className="d-sec" style={{ animationDelay:".20s" }}>
+      <div className="d-sec-hd">
+        <span className="d-sec-lbl">📈 Mes en números</span>
+        <button className="d-sec-btn" onClick={()=>onNavigate("reports")}>Reportes →</button>
+      </div>
+      <div className="d-finance">
+        <div className="d-fin-row">
+          <div className="d-fin-cell">
+            <div className="d-fin-val">{monthlyIncome>0?fmtCur(monthlyIncome):"—"}</div>
+            <div className="d-fin-lbl">Ingresos</div>
+          </div>
+          <div className="d-fin-cell">
+            <div className="d-fin-val">{thisMonthSessions}</div>
+            <div className="d-fin-lbl">Sesiones</div>
+          </div>
+          <div className="d-fin-cell">
+            <div className="d-fin-val">{attendance}%</div>
+            <div className="d-fin-lbl">Asistencia</div>
           </div>
         </div>
-      ))}
+      </div>
+    </div>
+  );
+}
+
+// ── ATENCIÓN REQUERIDA ────────────────────────────────────────────────────────
+function AttentionSection({ patients, sessions, riskAssessments, pendingTasks, todayStr, onNavigate }) {
+  const [tab, setTab] = useState("risk");
+
+  const riskItems = useMemo(()=>computeRiskItems(riskAssessments),[riskAssessments]);
+  const absent    = useMemo(()=>computeAbsentPatients({patients,sessions}),[patients,sessions]);
+
+  const pendingList = useMemo(()=>{
+    const noConsent = patients.filter(p => {
+      try { return consentStatus(p)==="pendiente"; } catch { return false; }
+    }).length;
+    const list = [];
+    if (noConsent>0)     list.push({ label:"Consentimientos sin firmar",        count:noConsent,     icon:"📄", color:"#B54A3D", bg:"#FAE8E6" });
+    if (pendingTasks>0)  list.push({ label:"Planes de tratamiento incompletos", count:pendingTasks,  icon:"📋", color:"#A06A00", bg:"#FDF3E0" });
+    if (absent.length>0) list.push({ label:"Pacientes sin sesión reciente",     count:absent.length, icon:"👤", color:"#5C6B8A", bg:"#EDF2FB" });
+    return list;
+  }, [patients, sessions, pendingTasks, absent]);
+
+  const totalPending = pendingList.reduce((s,p)=>s+p.count, 0);
+  const riskCount    = riskItems.length + absent.length;
+
+  if (riskCount===0 && totalPending===0) return null;
+
+  const tabs = [
+    { key:"risk",    label:`Radar de riesgo (${riskCount})` },
+    { key:"pending", label:`Pendientes (${totalPending})` },
+  ];
+
+  return (
+    <div className="d-sec" style={{ animationDelay:".26s" }}>
+      <div className="d-sec-hd">
+        <span className="d-sec-lbl">⚠️ Atención requerida</span>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            className="d-attn-tab"
+            onClick={()=>setTab(t.key)}
+            style={{
+              background:  tab===t.key ? "#3D6B5A" : "#fff",
+              color:       tab===t.key ? "#fff"    : "#A8A29B",
+              borderColor: tab===t.key ? "#3D6B5A" : "#EAE6E1",
+            }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {tab==="risk" && (
+        <div className="d-alert">
+          {riskItems.length===0 && absent.length===0
+            ? <div className="d-empty">Sin alertas de riesgo activas ✓</div>
+            : <>
+              {riskItems.map((a,i)=>{
+                const pt     = patients.find(p=>p.id===a.patientId);
+                const isHigh = a.riskLevel==="inminente"||a.riskLevel==="alto";
+                const bg     = isHigh?"#FAE8E6":"#FDF3E0";
+                const cl     = isHigh?"#B54A3D":"#A06A00";
+                return (
+                  <div key={a.id||i} className="d-rrow" onClick={()=>onNavigate("risk")}>
+                    <div className="d-rav" style={{ background:bg, color:cl, border:`1.5px solid ${cl}22` }}>
+                      {initials(pt?.name||"P")}
+                    </div>
+                    <div>
+                      <div className="d-rname">{(pt?.name||"Paciente").split(" ").slice(0,2).join(" ")}</div>
+                      <div className="d-rlast">Evaluado {fmtDate(a.date)}</div>
+                    </div>
+                    <div className="d-rtag" style={{ background:bg, color:cl }}>
+                      {a.riskLevel?.charAt(0).toUpperCase()+(a.riskLevel?.slice(1)||"")}
+                    </div>
+                  </div>
+                );
+              })}
+              {absent.map((p,i)=>{
+                const days = p.lastSession ? daysBetween(p.lastSession,todayStr) : null;
+                return (
+                  <div key={p.id||i} className="d-rrow" onClick={()=>onNavigate("patients")}>
+                    <div className="d-rav" style={{ background:"#FBF0DC", color:"#B8761E", border:"1.5px solid #B8761E22" }}>
+                      {initials(p.name||"")}
+                    </div>
+                    <div>
+                      <div className="d-rname">{(p.name||"Paciente").split(" ").slice(0,2).join(" ")}</div>
+                      <div className="d-rlast">Sin sesión reciente</div>
+                    </div>
+                    <div className="d-rtag" style={{ background:"#FBF0DC", color:"#B8761E" }}>
+                      {days!=null?`${days}d`:"21d+"}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          }
+        </div>
+      )}
+
+      {tab==="pending" && (
+        <div className="d-alert">
+          {pendingList.length===0
+            ? <div className="d-empty">Sin tareas pendientes ✓</div>
+            : pendingList.map(p => (
+              <div key={p.label} className="d-prow">
+                <div className="d-pico" style={{ background:p.bg }}>{p.icon}</div>
+                <div className="d-plbl">{p.label}</div>
+                <div className="d-pcnt" style={{ background:p.bg, color:p.color }}>{p.count}</div>
+              </div>
+            ))
+          }
+        </div>
+      )}
     </div>
   );
 }
 
 // ── WELCOME GUIDE (sin pacientes) ─────────────────────────────────────────────
-function WelcomeGuide({ onNavigate, bp }) {
-  const isMob = bp === "mobile";
+function WelcomeGuide({ onNavigate }) {
   const steps = [
-    { num:1, title:"Registra tu primer paciente", desc:"Agrega datos, historial y motivo de consulta.", icon:Users,    color:D.sage,  bg:D.sageL,  btn:"Nuevo paciente", mod:"patients" },
-    { num:2, title:"Agenda su primera cita",      desc:"Programa la sesión inicial en el calendario.",  icon:Calendar, color:D.amber, bg:D.amberL, btn:"Ir a Agenda",    mod:"agenda"   },
-    { num:3, title:"Registro automático",         desc:"PsychoCore enviará confirmación automáticamente.", icon:FileText,color:D.mist,bg:D.alt,    btn:null,             mod:null       },
+    { num:1, title:"Registra tu primer paciente", desc:"Agrega datos, historial y motivo de consulta.", icon:Users,    color:"#3D6B5A", bg:"#E4EEE9", btn:"Nuevo paciente", mod:"patients" },
+    { num:2, title:"Agenda su primera cita",      desc:"Programa la sesión inicial en el calendario.",  icon:Calendar, color:"#B8761E", bg:"#FBF0DC", btn:"Ir a Agenda",    mod:"agenda"   },
+    { num:3, title:"Registro automático",         desc:"PsychoCore enviará confirmación automáticamente.", icon:FileText, color:"#A8A29B", bg:"#F0ECE6", btn:null,            mod:null       },
   ];
   return (
-    <div style={{ background:D.surface, borderRadius:12, border:`1px solid ${D.border}`, padding:isMob?"24px 16px":"36px 28px", textAlign:"center" }}>
-      <div style={{ width:44, height:44, borderRadius:11, background:D.sageL, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
-        <Sparkles size={19} color={D.sage} strokeWidth={1.5}/>
-      </div>
-      <h2 style={{ fontFamily:D.fH, fontSize:isMob?20:24, fontWeight:400, color:D.stone, margin:"0 0 6px" }}>¡Bienvenido a PsychoCore!</h2>
-      <p style={{ fontFamily:D.fB, fontSize:12, color:D.mist, margin:"0 auto 20px", maxWidth:340, lineHeight:1.7 }}>
-        Sigue estos pasos para comenzar a gestionar tu práctica clínica.
-      </p>
-      <div style={{ display:"grid", gridTemplateColumns:isMob?"1fr":"repeat(3,1fr)", gap:10, textAlign:"left" }}>
-        {steps.map(step=>{
-          const Icon=step.icon;
-          return (
-            <div key={step.num} style={{ background:D.alt, border:`1px solid ${D.border}`, borderRadius:10, padding:"13px 12px", display:"flex", flexDirection:"column", gap:7 }}>
-              <div style={{ width:28, height:28, borderRadius:7, background:step.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Icon size={12} color={step.color} strokeWidth={1.8}/>
+    <div className="d-sec">
+      <div style={{ background:"#FDFBF8", borderRadius:12, border:"1px solid #E4DDD6", padding:"36px 28px", textAlign:"center" }}>
+        <div style={{ width:44, height:44, borderRadius:11, background:"#E4EEE9", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
+          <Sparkles size={19} color="#3D6B5A" strokeWidth={1.5}/>
+        </div>
+        <h2 style={{ fontFamily:"'Lora',serif", fontSize:24, fontWeight:400, color:"#1E1B18", margin:"0 0 6px" }}>¡Bienvenido a PsychoCore!</h2>
+        <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"#A8A29B", margin:"0 auto 20px", maxWidth:340, lineHeight:1.7 }}>
+          Sigue estos pasos para comenzar a gestionar tu práctica clínica.
+        </p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, textAlign:"left" }}>
+          {steps.map(step => {
+            const Icon = step.icon;
+            return (
+              <div key={step.num} className="d-wstep">
+                <div style={{ width:28, height:28, borderRadius:7, background:step.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <Icon size={12} color={step.color} strokeWidth={1.8}/>
+                </div>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:600, color:"#1E1B18", margin:0 }}>{step.title}</p>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:11, color:"#A8A29B", lineHeight:1.5, margin:0 }}>{step.desc}</p>
+                {step.btn && (
+                  <button
+                    onClick={()=>onNavigate(step.mod)}
+                    style={{ marginTop:"auto", padding:"5px 10px", borderRadius:6, background:step.bg, border:`1px solid ${step.color}33`, color:step.color, fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:600, cursor:"pointer" }}
+                  >{step.btn}</button>
+                )}
               </div>
-              <p style={{ fontFamily:D.fB, fontSize:12, fontWeight:600, color:D.stone, margin:0 }}>{step.title}</p>
-              <p style={{ fontFamily:D.fB, fontSize:11, color:D.mist, lineHeight:1.5, margin:0 }}>{step.desc}</p>
-              {step.btn && (
-                <button onClick={()=>onNavigate(step.mod)} style={{
-                  marginTop:"auto", padding:"5px 10px", borderRadius:6,
-                  background:step.bg, border:`1px solid ${step.color}33`,
-                  color:step.color, fontFamily:D.fB, fontSize:11, fontWeight:600, cursor:"pointer",
-                }}>{step.btn}</button>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -723,8 +592,6 @@ function WelcomeGuide({ onNavigate, bp }) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD PRINCIPAL
-// Sin Topbar / SideNav / BottomNav propios — la app host los provee
-// Este componente ocupa el 100% del área de contenido que le asigna la app
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Dashboard({
   patients        = [],
@@ -745,103 +612,77 @@ export default function Dashboard({
   const bp = useBreakpoint();
 
   const {
-    isMobile, isWide, gridGap, todayStr,
+    isMobile, todayStr,
     pendingTasks, todayAppts, nextAppt, urgentCount,
   } = useDashboard({ patients, appointments, sessions, payments, riskAssessments, assignments });
 
   const hasPatients = patients.length > 0;
-  const isMob = bp === "mobile";
-  const isTab = bp === "tablet";
-  const isDsk = bp === "desktop";
-
-  const pad = isMob ? "12px 14px" : isTab ? "16px 20px" : "20px 28px";
-  const gap = isMob ? 10 : 12;
 
   return (
-    // Sin background propio: hereda el fondo del shell de la app
-    <div className="pc-scroll" style={{
-      width:"100%", height:"100%",
-      overflowY:"auto",
-      padding:pad,
-      display:"flex", flexDirection:"column", gap,
-      fontFamily:D.fB, boxSizing:"border-box",
-    }}>
+    <div className="d-root">
 
-      {/* N0: Saludo */}
-      <Welcome
-        todayAppts={todayAppts} urgentCount={urgentCount}
-        profile={profile} googleUser={googleUser} bp={bp}
+      {/* HEADER */}
+      <Header
+        profile={profile}
+        googleUser={googleUser}
+        todayAppts={todayAppts}
+        urgentCount={urgentCount}
       />
 
-      {/* Shortcuts — sin fondo de barra, integrados al flujo */}
-      <ShortcutsBar
-        onQuickNav={onQuickNav} onNewSession={onNewSession}
-        patients={patients} bp={bp}
+      {/* ACCESOS DIRECTOS */}
+      <Shortcuts
+        onQuickNav={onQuickNav}
+        onNewSession={onNewSession}
+        patients={patients}
       />
 
-      {/* N1: KPIs */}
-      {hasPatients && (
-        <KpiStrip
-          patients={patients} sessions={sessions}
-          todayAppts={todayAppts} urgentCount={urgentCount}
-          payments={payments} bp={bp}
-        />
-      )}
+      <div className="d-divider"/>
 
-      {/* N2: Contenido principal */}
       {!hasPatients ? (
-        <WelcomeGuide onNavigate={onNavigate} bp={bp}/>
-
-      ) : (isMob || isTab) ? (
-        /* Mobile & Tablet: columna única */
-        <div className="pc-fu pc-d3" style={{ display:"flex", flexDirection:"column", gap }}>
-          <AgendaWidget
-            todayAppts={todayAppts} onStartSession={onStartSession}
-            onNavigate={onNavigate} todayStr={todayStr} bp={bp}
-          />
-          <RiskRadar
-            patients={patients} sessions={sessions}
-            riskAssessments={riskAssessments} todayStr={todayStr}
-            onNavigate={onNavigate}
-          />
-          <ComplianceChecklist
-            patients={patients} pendingTasks={pendingTasks}
-            sessions={sessions} onNavigate={onNavigate}
-          />
-          {isTab && (
-            <>
-              <RecentNotes sessions={sessions} patients={patients} onNavigate={onNavigate}/>
-              <MonthlySummary patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
-            </>
-          )}
-        </div>
+        /* Sin pacientes: guía de bienvenida */
+        <WelcomeGuide onNavigate={onNavigate}/>
 
       ) : (
-        /* Desktop: grid protagonista + soporte */
-        <div className="pc-fu pc-d3" style={{
-          display:"grid", gridTemplateColumns:"1fr 300px",
-          gap:14, alignItems:"start",
-        }}>
-          <AgendaWidget
-            todayAppts={todayAppts} onStartSession={onStartSession}
-            onNavigate={onNavigate} todayStr={todayStr} bp={bp}
+        <>
+          {/* KPIs */}
+          <KpiStrip
+            patients={patients}
+            sessions={sessions}
+            todayAppts={todayAppts}
+            urgentCount={urgentCount}
+            payments={payments}
+            bp={bp}
           />
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <div className="pc-fu pc-d2">
-              <RiskRadar patients={patients} sessions={sessions} riskAssessments={riskAssessments} todayStr={todayStr} onNavigate={onNavigate}/>
-            </div>
-            <div className="pc-fu pc-d3">
-              <ComplianceChecklist patients={patients} pendingTasks={pendingTasks} sessions={sessions} onNavigate={onNavigate}/>
-            </div>
-            <div className="pc-fu pc-d4">
-              <RecentNotes sessions={sessions} patients={patients} onNavigate={onNavigate}/>
-            </div>
-            <div className="pc-fu pc-d5">
-              <MonthlySummary patients={patients} sessions={sessions} payments={payments} onNavigate={onNavigate}/>
-            </div>
-          </div>
-        </div>
+
+          {/* AGENDA */}
+          <AgendaSection
+            todayAppts={todayAppts}
+            nextAppt={nextAppt}
+            todayStr={todayStr}
+            onStartSession={onStartSession}
+            onNavigate={onNavigate}
+          />
+
+          {/* MES EN NÚMEROS */}
+          <FinanceSection
+            patients={patients}
+            sessions={sessions}
+            payments={payments}
+            onNavigate={onNavigate}
+          />
+
+          {/* ATENCIÓN REQUERIDA */}
+          <AttentionSection
+            patients={patients}
+            sessions={sessions}
+            riskAssessments={riskAssessments}
+            pendingTasks={pendingTasks}
+            todayStr={todayStr}
+            onNavigate={onNavigate}
+          />
+        </>
       )}
+
     </div>
   );
 }
