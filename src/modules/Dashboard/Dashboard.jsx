@@ -115,6 +115,7 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-appt:first-child { border-top:none; }
     .d-appt:hover { background:var(--d-hover); }
     .d-active { background:#2A2010 !important; border-left:3px solid #C8860A; }
+    .d-next-up { background:rgba(94,207,160,.04) !important; border-left:3px solid #5ECFA0; cursor:pointer; }
     .d-time   { width:50px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px 4px; }
     .d-time-h { font-family:'Lora',serif; font-size:15px; color:var(--d-txt2); line-height:1; }
     .d-time-m { font-size:10px; color:var(--d-muted); font-weight:500; margin-top:1px; }
@@ -359,6 +360,21 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
 function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavigate }) {
   const completadas = todayAppts.filter(a => a.status==="completada").length;
 
+  // Cita pendiente más próxima a iniciar (la siguiente en tiempo desde ahora)
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const nextPendingId = useMemo(() => {
+    const pending = todayAppts
+      .filter(a => a.status === "pendiente")
+      .map(a => {
+        const [h, m] = (a.time || "00:00").split(":").map(Number);
+        return { ...a, mins: h * 60 + m };
+      })
+      .filter(a => a.mins >= nowMins)
+      .sort((a, b) => a.mins - b.mins);
+    return pending[0]?.id ?? null;
+  }, [todayAppts, nowMins]);
+
   return (
     <div className="d-sec" style={{ animationDelay:".14s" }}>
       <div className="d-sec-hd">
@@ -372,30 +388,32 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         ) : (
           <div style={{ maxHeight: 220, overflowY:"auto", overflowX:"hidden" }}>
             {todayAppts.map(appt => {
-              const st     = STATUS[appt.status] || STATUS.pendiente;
-              const [h, m] = (appt.time||"00:00").split(":");
-              const active = appt.status === "en_curso";
-              const avBg   = active ? "#FDF3E0" : "#EAF4EE";
-              const avClr  = active ? "#A06A00" : "#3D6B5A";
+              const isNext  = appt.id === nextPendingId;
+              const active  = appt.status === "en_curso";
+              const st      = STATUS[appt.status] || STATUS.pendiente;
+              const [h, m]  = (appt.time||"00:00").split(":");
+
+              // Colores del tag
+              const tagBg   = isNext ? "#1A3A28" : active ? "#FDF3E0" : st.bg;
+              const tagClr  = isNext ? "#5ECFA0" : active ? "#A06A00" : st.text;
+              const tagLbl  = isNext ? "Iniciar"  : st.label;
+
               return (
                 <div
                   key={appt.id}
-                  className={`d-appt${active ? " d-active" : ""}`}
-                  onClick={()=>active && onStartSession?.(appt)}
+                  className={`d-appt${active ? " d-active" : isNext ? " d-next-up" : ""}`}
+                  onClick={()=>(active || isNext) && onStartSession?.(appt)}
                 >
                   <div className="d-time">
-                    <div className="d-time-h">{h}</div>
+                    <div className="d-time-h" style={isNext ? { color:"#5ECFA0" } : {}}>{h}</div>
                     <div className="d-time-m">{m}</div>
                   </div>
                   <div className="d-abody">
                     <div className="d-aname">{appt.patientName || appt.patient || "Paciente"}</div>
                     <div className="d-atype">{appt.type || appt.service || ""}</div>
                   </div>
-                  <div className="d-aright">
-                    <div className="d-av" style={{ background:avBg, color:avClr, border:`1.5px solid ${avClr}22` }}>
-                      {initials(appt.patientName || appt.patient || "")}
-                    </div>
-                    <div className="d-stag" style={{ background:st.bg, color:st.text }}>{st.label}</div>
+                  <div className="d-aright" style={{ justifyContent:"center" }}>
+                    <div className="d-stag" style={{ background:tagBg, color:tagClr, fontSize:isNext?10:9, padding: isNext?"4px 10px":"2px 7px" }}>{tagLbl}</div>
                   </div>
                 </div>
               );
