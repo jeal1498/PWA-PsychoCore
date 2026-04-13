@@ -689,9 +689,9 @@ export default function App() {
         <main style={{
           flex: 1,
           padding: activeModule === "dashboard"
-            ? 0
+            ? (isMobile ? "0 0 72px" : 0)
             : isMobile
-              ? "20px 16px 28px"
+              ? "20px 16px 88px"
               : isWide
                 ? "40px 56px"
                 : "36px 40px",
