@@ -1,14 +1,36 @@
 export const DEFAULT_PROFILE = {
   name:         "",
   specialty:    "",
+  specialties:  [],
   cedula:       "",
   phone:        "",
   email:        "",
   clinic:       "",
   initials:     "",
+  description:  "",
+  avatarUrl:    null,
   // Horario de disponibilidad (Sección 2.1 del Flujo Clínico)
   // 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
   workingDays:  [1, 2, 3, 4, 5],
   workingStart: "09:00",
   workingEnd:   "19:00",
+  // Campos extendidos del onboarding
+  agendaType:   "publica",
+  duration:     "1 hora",
+  modality:     "ambas",
+  mapsLink:     "",
+  activeDays:   { L:true, M:false, Mi:false, J:false, V:true, S:false, D:false },
+  schedule: {
+    L:  [{ start:"09:00", end:"17:00" }],
+    M:  [{ start:"09:00", end:"17:00" }],
+    Mi: [{ start:"09:00", end:"17:00" }],
+    J:  [{ start:"09:00", end:"17:00" }],
+    V:  [{ start:"09:00", end:"17:00" }],
+    S:  [{ start:"09:00", end:"13:00" }],
+    D:  [{ start:"09:00", end:"13:00" }],
+  },
+  currency:     "MXN",
+  showPrice:    true,
+  payPolicy:    "",
+  sources:      [],
 };
