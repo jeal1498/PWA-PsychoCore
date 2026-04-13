@@ -37,7 +37,11 @@ export function whatsappReminder(appointment, patient, profile) {
   const hora      = appointment.time;
   const tipo      = appointment.type || "consulta";
   const psicologa = profile?.name?.trim() || "tu psicóloga";
-  const clinica   = profile?.clinic ? ` en ${profile.clinic}` : "";
+  const clinica   = profile?.clinic
+    ? ` en ${profile.clinic}`
+    : profile?.address
+      ? ` en ${profile.address}`
+      : "";
 
   if (!phone) return null;
 
@@ -61,7 +65,35 @@ export function whatsappCancel(appt, patient, profile) {
 }
 
 // ── Construir slots de tiempo según horario del perfil ───────────────────────
-export function buildTimeSlots(profile) {
+// dayKey opcional: "L","M","Mi","J","V","S","D"
+// Si el perfil tiene schedule granular por día, lo usa; si no, cae al rango global.
+export function buildTimeSlots(profile, dayKey = null) {
+  const fallbackSlots = (start, end) => {
+    const [sh, sm] = (start || "08:00").split(":").map(Number);
+    const [eh, em] = (end   || "20:00").split(":").map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin   = eh * 60 + em;
+    const slots = [];
+    for (let m = startMin; m < endMin; m += 30)
+      slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    return slots.length > 0 ? slots : buildTimeSlots(profile, null);
+  };
+
+  // Si hay horario granular por día y se especificó un día, usarlo
+  if (dayKey && profile?.schedule?.[dayKey]?.length > 0) {
+    const intervals = profile.schedule[dayKey];
+    const allSlots = new Set();
+    for (const iv of intervals) {
+      const [sh, sm] = iv.start.split(":").map(Number);
+      const [eh, em] = iv.end.split(":").map(Number);
+      for (let m = sh * 60 + sm; m < eh * 60 + em; m += 30)
+        allSlots.add(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+    }
+    const sorted = [...allSlots].sort();
+    if (sorted.length > 0) return sorted;
+  }
+
+  // Fallback: rango global workingStart/workingEnd
   const start = profile?.workingStart;
   const end   = profile?.workingEnd;
   if (!start || !end || start >= end) {
@@ -70,18 +102,7 @@ export function buildTimeSlots(profile) {
       slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
     return slots;
   }
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  const startMin = sh * 60 + sm;
-  const endMin   = eh * 60 + em;
-  const slots = [];
-  for (let m = startMin; m < endMin; m += 30)
-    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
-  if (slots.length > 0) return slots;
-  const fb = [];
-  for (let m = 8 * 60; m < 20 * 60; m += 30)
-    fb.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
-  return fb;
+  return fallbackSlots(start, end);
 }
 
 // ── Determinar si una hora está dentro del horario activo ────────────────────

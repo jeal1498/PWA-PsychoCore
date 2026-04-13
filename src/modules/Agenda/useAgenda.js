@@ -85,7 +85,8 @@ export function useAgenda({
   const [recOccurrences, setRecOccurrences] = useState(8);
 
   // ── Nota de sesión rápida ────────────────────────────────────────────────
-  const [sessionForm, setSessionForm] = useState({ duration:50, mood:"moderado", progress:"bueno", notes:"", tags:"" });
+  const defaultDurationMin = profile?.durationMin ?? 50;
+  const [sessionForm, setSessionForm] = useState({ duration:defaultDurationMin, mood:"moderado", progress:"bueno", notes:"", tags:"" });
 
   // ── Sugerencia de siguiente cita ─────────────────────────────────────────
   const [nextApptSuggestion, setNextApptSuggestion] = useState(null);
@@ -127,9 +128,19 @@ export function useAgenda({
   );
 
   const timeSlots = useMemo(
-    () => buildTimeSlots(profile),
+    () => {
+      // Convertir selectedDay (número de día del mes) al dayKey del schedule ("L","M"…)
+      const DAY_NUM_TO_KEY = { 1:"L", 2:"M", 3:"Mi", 4:"J", 5:"V", 6:"S", 0:"D" };
+      let dayKey = null;
+      if (selectedDay) {
+        const monthStr2 = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
+        const dateObj = new Date(`${monthStr2}-${selectedDay}T12:00:00`);
+        dayKey = DAY_NUM_TO_KEY[dateObj.getDay()] ?? null;
+      }
+      return buildTimeSlots(profile, dayKey);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profile?.workingStart, profile?.workingEnd]
+    [profile?.workingStart, profile?.workingEnd, profile?.schedule, selectedDay]
   );
 
   const apptsByDay = useMemo(() => {
@@ -298,7 +309,7 @@ export function useAgenda({
 
   const openQuickSession = (appt) => {
     setQuickSession(appt);
-    setSessionForm({ duration:50, mood:"moderado", progress:"bueno", notes:"", tags:"" });
+    setSessionForm({ duration:defaultDurationMin, mood:"moderado", progress:"bueno", notes:"", tags:"" });
   };
 
   const saveQuickSession = () => {
