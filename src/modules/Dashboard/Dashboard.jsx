@@ -434,7 +434,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
   }, [apptsMins, nowMins, ROW_H]);
 
   const isMob = !bp || bp === "mobile";
-  const maxH  = bp === "mobile" ? ROW_H * 3 : ROW_H * 5;
+  const agendaH = bp === "mobile" ? ROW_H * 3 : ROW_H * 5;
 
   return (
     <div className="d-sec" style={{ animationDelay:".14s" }}>
@@ -443,7 +443,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         <button className="d-sec-btn" onClick={()=>onNavigate("agenda")}>Ver todo →</button>
       </div>
 
-      <div className="d-agenda">
+      <div className="d-agenda" style={{ minHeight: agendaH }}>
         {todayAppts.length === 0 ? (
           <div
             onClick={() => onNavigate("agenda")}
@@ -468,7 +468,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
             </div>
           </div>
         ) : (
-          <div className="d-agenda-scroll" style={{ maxHeight: maxH, position:"relative" }}>
+          <div className="d-agenda-scroll" style={{ height: agendaH, position:"relative" }}>
 
             {/* ── Cursor de tiempo ── */}
             {timeCursorTop !== null && (
