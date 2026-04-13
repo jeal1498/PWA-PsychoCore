@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect } from "react";
 import html2canvas from "html2canvas";
 import { T } from "../../theme.js";
-import { uid, todayDate, fmt, fmtDate, fmtCur } from "../../utils.js";
+import { uid, todayDate, fmt, fmtDate, fmtCur as fmtCurBase } from "../../utils.js";
 import { emit } from "../../lib/eventBus.js";
 import { useAppState } from "../../context/AppStateContext.jsx";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
@@ -123,6 +123,7 @@ export function useFinance({
   expenses, setExpenses,
   appointments,
 }) {
+  const fmtCur = (n) => fmtCurBase(n, profile?.currency || "MXN");
   const { activePatientContext, setActivePatientContext } = useAppState();
   const isMobile = useIsMobile();
   const isWide   = useIsWide();

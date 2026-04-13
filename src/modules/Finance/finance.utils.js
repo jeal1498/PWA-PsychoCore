@@ -30,13 +30,19 @@ export const EXPENSE_CATS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// fmtCur — formateador local de moneda MXN
+// fmtCur — formateador de moneda dinámico
 // ─────────────────────────────────────────────────────────────────────────────
-export function fmtCur(n) {
-  return "$" + Number(n || 0).toLocaleString("es-MX", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+export function fmtCur(n, currency = "MXN") {
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency", currency,
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(Number(n || 0));
+  } catch {
+    return "$" + Number(n || 0).toLocaleString("es-MX", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -265,8 +271,8 @@ footer{margin-top:32px;padding-top:14px;border-top:1px solid #D8E2E0;font-size:1
   </div>
   <div style="text-align:right">
     <div class="amount-value"><span class="amount-cur">$</span>${payment.status === "parcial" ? Number(payment.amountPaid||0).toLocaleString("es-MX",{minimumFractionDigits:2}) : amountFmt}</div>
-    <div style="font-size:11px;color:#9BAFAD;margin-top:4px">MXN · ${payment.method}</div>
-    ${payment.status === "parcial" ? `<div style="font-size:12px;color:#B85050;margin-top:6px;font-weight:700">Saldo pendiente: $${Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0)).toLocaleString("es-MX",{minimumFractionDigits:2})} MXN</div>` : ""}
+    <div style="font-size:11px;color:#9BAFAD;margin-top:4px">${profile?.currency || "MXN"} · ${payment.method}</div>
+    ${payment.status === "parcial" ? `<div style="font-size:12px;color:#B85050;margin-top:6px;font-weight:700">Saldo pendiente: $${Math.max(0, Number(payment.amount) - Number(payment.amountPaid||0)).toLocaleString("es-MX",{minimumFractionDigits:2})} ${profile?.currency || "MXN"}</div>` : ""}
   </div>
 </div>
 <div class="section">

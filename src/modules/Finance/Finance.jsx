@@ -4,7 +4,7 @@ import {
   FileText, Pencil,
 } from "lucide-react";
 import { T } from "../../theme.js";
-import { fmtDate, fmtCur } from "../../utils.js";
+import { fmtDate, fmtCur as fmtCurBase } from "../../utils.js";
 import { Card, Input, Select, Btn, EmptyState, PageHeader } from "../../components/ui/index.jsx";
 import { PageView } from "../../components/PageView.jsx";
 import { useFinance } from "./useFinance.js";
@@ -35,6 +35,7 @@ export default function Finance({
   expenses = [], setExpenses,
   appointments = [],
 }) {
+  const fmtCur = (n) => fmtCurBase(n, profile?.currency || "MXN");
   const {
     // responsive
     isMobile, isWide,
