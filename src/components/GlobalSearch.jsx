@@ -107,14 +107,14 @@ export default function GlobalSearch({ patients, appointments, sessions, payment
         onClick={() => setOpen(true)}
         style={{
           display: "flex", alignItems: "center", gap: 8,
-          background: "rgba(255,255,255,0.08)", border: "none",
+          background: "rgba(0,0,0,0.06)", border: "none",
           borderRadius: 9, padding: isMobile ? "0 10px" : "0 14px", height: 40,
-          cursor: "pointer", color: "rgba(255,255,255,0.55)",
+          cursor: "pointer", color: "rgba(0,0,0,0.45)",
           fontFamily: T.fB, fontSize: 13, transition: "background .15s",
           flexShrink: 0,
         }}
-        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.14)"}
-        onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.10)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.06)"}
       >
         <Search size={15} />
         {!isMobile && <span>Buscar</span>}
