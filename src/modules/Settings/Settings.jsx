@@ -915,19 +915,18 @@ function ServiceFormSheet({
           {/* ── Step 1 ── */}
           {step === 1 && (
             <div>
-              <label style={labelStyle}>Nombre del servicio *</label>
-              <input
-                style={{ ...inputBase, borderColor: formErrors.name ? T.err : T.bdr }}
-                type="text"
-                placeholder="Ej. Sesión de psicoterapia individual"
-                value={form.name}
-                onChange={e => fld("name")(e.target.value)}
-                onFocus={e => e.target.style.borderColor = T.p}
-                onBlur={e => e.target.style.borderColor = formErrors.name ? T.err : T.bdr}
-              />
-              {formErrors.name && (
-                <p style={{ fontFamily: T.fB, fontSize: 11, color: T.err, marginTop: 5 }}>{formErrors.name}</p>
-              )}
+              {/* Sugerencias de nombre por tipo de servicio */}
+              {(() => {
+                const NAME_SUGGESTIONS = {
+                  sesion:     ["Individual", "Seguimiento", "Otros"],
+                  evaluacion: ["TDAH Infantil", "TDAH Adultos", "TEA Infantil", "TEA Adultos", "Evaluación Neuropsicológica", "Otros"],
+                  pareja:     ["Terapia de Pareja", "Crisis de Pareja", "Comunicación y Conflicto", "Otros"],
+                  grupo:      ["Grupo Terapéutico", "Grupo de Duelo", "Habilidades Sociales", "Otros"],
+                };
+                const suggestions = NAME_SUGGESTIONS[form.type];
+                if (!suggestions) return null;
+                return null; // rendered below after type selector
+              })()}
 
               <label style={labelStyle}>Tipo de servicio</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
@@ -935,7 +934,7 @@ function ServiceFormSheet({
                   const on  = form.type === k;
                   const clr = SVC_COLORS[k] || SVC_COLORS.otro;
                   return (
-                    <button key={k} onClick={() => fld("type")(k)} style={{
+                    <button key={k} onClick={() => { fld("type")(k); fld("name")(""); }} style={{
                       padding: "12px 6px", borderRadius: 14,
                       border: `2px solid ${on ? clr.color : T.bdr}`,
                       background: on ? clr.bg : "transparent",
@@ -951,6 +950,64 @@ function ServiceFormSheet({
                   );
                 })}
               </div>
+
+              <label style={labelStyle}>Nombre del servicio *</label>
+              {/* Sugerencias de nombre (chips) */}
+              {(() => {
+                const NAME_SUGGESTIONS = {
+                  sesion:     ["Individual", "Seguimiento", "Otros"],
+                  evaluacion: ["TDAH Infantil", "TDAH Adultos", "TEA Infantil", "TEA Adultos", "Evaluación Neuropsicológica", "Otros"],
+                  pareja:     ["Terapia de Pareja", "Crisis de Pareja", "Comunicación y Conflicto", "Otros"],
+                  grupo:      ["Grupo Terapéutico", "Grupo de Duelo", "Habilidades Sociales", "Otros"],
+                };
+                const suggestions = NAME_SUGGESTIONS[form.type];
+                if (!suggestions) return null;
+                return (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
+                    {suggestions.map(s => {
+                      const isOtros = s === "Otros";
+                      const isSelected = !isOtros && form.name === s;
+                      const clr = SVC_COLORS[form.type] || SVC_COLORS.otro;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            if (isOtros) {
+                              fld("name")("");
+                              setTimeout(() => document.getElementById("svc-name-input")?.focus(), 50);
+                            } else {
+                              fld("name")(s);
+                            }
+                          }}
+                          style={{
+                            padding: "7px 14px", borderRadius: 99,
+                            border: `1.5px solid ${isSelected ? clr.color : T.bdr}`,
+                            background: isSelected ? clr.bg : "transparent",
+                            color: isSelected ? clr.color : isOtros ? T.p : T.tm,
+                            fontFamily: T.fB, fontSize: 12.5, fontWeight: isSelected ? 700 : 500,
+                            cursor: "pointer", transition: "all .13s",
+                          }}
+                        >
+                          {isOtros ? "✏️ Otro…" : s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              <input
+                id="svc-name-input"
+                style={{ ...inputBase, borderColor: formErrors.name ? T.err : T.bdr }}
+                type="text"
+                placeholder={form.type === "otro" ? "Describe el servicio…" : "O escribe un nombre personalizado"}
+                value={form.name}
+                onChange={e => fld("name")(e.target.value)}
+                onFocus={e => e.target.style.borderColor = T.p}
+                onBlur={e => e.target.style.borderColor = formErrors.name ? T.err : T.bdr}
+              />
+              {formErrors.name && (
+                <p style={{ fontFamily: T.fB, fontSize: 11, color: T.err, marginTop: 5 }}>{formErrors.name}</p>
+              )}
 
               <label style={labelStyle}>Modalidad</label>
               <div style={{ display: "flex", gap: 8 }}>
@@ -988,7 +1045,7 @@ function ServiceFormSheet({
                   <input
                     type="number" min="0" max="23"
                     value={form.durationHH}
-                    onChange={e => fld("durationHH")(String(e.target.value).padStart(2, "0"))}
+                    onChange={e => fld("durationHH")(e.target.value)}
                     style={{
                       ...inputBase, textAlign: "center",
                       fontFamily: T.fH, fontSize: 24, fontWeight: 600,
@@ -1015,10 +1072,6 @@ function ServiceFormSheet({
                   </select>
                 </div>
               </div>
-              <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 6 }}>
-                Formato HH:MM — ej. 01:30 = 1 h 30 min
-              </p>
-
               <button
                 onClick={handleNext}
                 style={{
