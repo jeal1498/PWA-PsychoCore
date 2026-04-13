@@ -23,10 +23,10 @@ export default function NotificationBell({ notifications, dismiss, dismissAll })
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          position: "relative", background: open ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.08)",
+          position: "relative", background: open ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.06)",
           border: "none", borderRadius: 9, width: 40, height: 40,
           display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", color: "#fff", transition: "background .15s", flexShrink: 0,
+          cursor: "pointer", color: "rgba(0,0,0,0.50)", transition: "background .15s", flexShrink: 0,
         }}
       >
         <Bell size={18} strokeWidth={1.8} />
