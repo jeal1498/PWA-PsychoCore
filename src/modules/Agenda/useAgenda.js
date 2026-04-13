@@ -85,8 +85,14 @@ export function useAgenda({
   const [recOccurrences, setRecOccurrences] = useState(8);
 
   // ── Nota de sesión rápida ────────────────────────────────────────────────
-  const defaultDurationMin = profile?.durationMin ?? 50;
-  const [sessionForm, setSessionForm] = useState({ duration:defaultDurationMin, mood:"moderado", progress:"bueno", notes:"", tags:"" });
+  // durationMin: usa el del servicio seleccionado del catálogo, luego el global del perfil
+  const resolveApptDuration = (serviceId) => {
+    const svc = (services ?? []).find(s => s.id === serviceId);
+    if (svc) return Number(svc.durationMin) || Number(svc.duration) || 50;
+    return profile?.durationMin ?? 50;
+  };
+  const defaultDurationMin = resolveApptDuration(form.serviceId);
+  const [sessionForm, setSessionForm] = useState({ duration: defaultDurationMin, mood:"moderado", progress:"bueno", notes:"", tags:"" });
 
   // ── Sugerencia de siguiente cita ─────────────────────────────────────────
   const [nextApptSuggestion, setNextApptSuggestion] = useState(null);
@@ -221,6 +227,11 @@ export function useAgenda({
       return;
     }
     const svc = opt?.serviceId ? (services ?? []).find(s => s.id === opt.serviceId) : null;
+    // Sincronizar duración desde el catálogo centralizado al cambiar servicio
+    const duration = svc
+      ? (Number(svc.durationMin) || Number(svc.duration) || 50)
+      : (profile?.durationMin ?? 50);
+    setSessionForm(f => ({ ...f, duration }));
     if (svc?.modality === "ambas") {
       setForm(f => ({ ...f, type:label, serviceId:svc.id, modality:"" }));
       setShowModalityPicker(true);
@@ -309,7 +320,7 @@ export function useAgenda({
 
   const openQuickSession = (appt) => {
     setQuickSession(appt);
-    setSessionForm({ duration:defaultDurationMin, mood:"moderado", progress:"bueno", notes:"", tags:"" });
+    setSessionForm({ duration: resolveApptDuration(form.serviceId), mood:"moderado", progress:"bueno", notes:"", tags:"" });
   };
 
   const saveQuickSession = () => {
