@@ -1,5 +1,5 @@
 // ── Settings.jsx ─────────────────────────────────────────────────────────────
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Check, CheckCircle, AlertCircle, Download, Upload, FileJson,
   Users, RefreshCw, HelpCircle, MessageCircle, Mail,
@@ -652,6 +652,638 @@ function ScheduleTab({ profile, setProfile }) {
 }
 
 // ── Tab: Servicios ────────────────────────────────────────────────────────────
+
+// Mapa de colores por tipo de servicio (para chips y fondos)
+const SVC_COLORS = {
+  sesion:     { color: "#5B5BD6", bg: "rgba(91,91,214,0.08)"  },
+  evaluacion: { color: "#0891B2", bg: "rgba(8,145,178,0.08)"  },
+  pareja:     { color: "#7C3AED", bg: "rgba(124,58,237,0.08)" },
+  grupo:      { color: "#059669", bg: "rgba(5,150,105,0.08)"  },
+  otro:       { color: "#D97706", bg: "rgba(217,119,6,0.08)"  },
+};
+
+// ── ServiceCard rediseñada ────────────────────────────────────────────────────
+function ServiceCard({ svc, activeCurrencies, onEdit, onDelete }) {
+  const [hovered, setHovered] = useState(false);
+  const type     = SERVICE_TYPES[svc.type] || SERVICE_TYPES.otro;
+  const typeClr  = SVC_COLORS[svc.type]   || SVC_COLORS.otro;
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: T.card,
+        borderRadius: 16,
+        border: `1.5px solid ${hovered ? T.p + "50" : T.bdr}`,
+        padding: "18px 20px",
+        marginBottom: 10,
+        transition: "all .2s ease",
+        boxShadow: hovered ? `0 8px 28px rgba(91,91,214,0.1)` : "0 1px 4px rgba(0,0,0,0.04)",
+        transform: hovered ? "translateY(-1px)" : "none",
+      }}
+    >
+      {/* Top row */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Icon chip */}
+          <div style={{
+            width: 44, height: 44, borderRadius: 13,
+            background: typeClr.bg,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 20, flexShrink: 0,
+            border: `1px solid ${typeClr.color}20`,
+          }}>
+            {type.icon}
+          </div>
+          <div>
+            <div style={{ fontFamily: T.fB, fontSize: 14.5, fontWeight: 700, color: T.t, marginBottom: 5 }}>
+              {svc.name}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {/* Type badge */}
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "3px 10px", borderRadius: 99,
+                background: typeClr.bg, color: typeClr.color,
+                fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+              }}>
+                {type.short}
+              </span>
+              {/* Modality badge */}
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "3px 10px", borderRadius: 99,
+                background: T.bdrL, color: T.tm,
+                fontFamily: T.fB, fontSize: 11, fontWeight: 600,
+              }}>
+                {svc.modality === "ambas" ? "🔄 Ambas" : svc.modality === "virtual" ? "💻 Virtual" : "🏢 Presencial"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Duration chip */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "6px 12px", borderRadius: 99,
+          background: T.pA, flexShrink: 0,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.p} strokeWidth="2.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+          </svg>
+          <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p }}>
+            {fmtDuration(svc.durationMin)}
+          </span>
+        </div>
+      </div>
+
+      {/* Prices row */}
+      <div style={{
+        display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16,
+        padding: "10px 14px", borderRadius: 12,
+        background: T.bg, border: `1px solid ${T.bdrL}`,
+      }}>
+        {activeCurrencies.map(cur => {
+          const p = svc.prices?.[cur];
+          if (!p) return null;
+          return (
+            <div key={cur} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl }}>{cur}</span>
+              {p.presencial != null && (
+                <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>
+                  <span style={{ color: T.tm, fontWeight: 400 }}>🏢 </span>{fmtCur(p.presencial)}
+                </span>
+              )}
+              {p.presencial != null && p.virtual != null && (
+                <span style={{ color: T.bdr, fontSize: 13 }}>·</span>
+              )}
+              {p.virtual != null && (
+                <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>
+                  <span style={{ color: T.tm, fontWeight: 400 }}>💻 </span>{fmtCur(p.virtual)}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => onEdit(svc)}
+          style={{
+            flex: 1, padding: "9px", borderRadius: 11,
+            border: `1.5px solid ${hovered ? T.p + "40" : T.bdr}`,
+            background: hovered ? T.pA : "transparent",
+            fontFamily: T.fB, fontSize: 12.5, fontWeight: 600,
+            color: hovered ? T.p : T.tm,
+            cursor: "pointer", transition: "all .18s",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Editar
+        </button>
+        <button
+          onClick={() => onDelete(svc.id)}
+          style={{
+            padding: "9px 14px", borderRadius: 11,
+            border: `1.5px solid ${T.err}25`,
+            background: "transparent",
+            fontFamily: T.fB, fontSize: 12.5, fontWeight: 600,
+            color: T.err + "80",
+            cursor: "pointer", transition: "all .18s",
+            display: "flex", alignItems: "center", gap: 6,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = T.errA;
+            e.currentTarget.style.color = T.err;
+            e.currentTarget.style.borderColor = T.err + "60";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = T.err + "80";
+            e.currentTarget.style.borderColor = T.err + "25";
+          }}
+        >
+          <Trash2 size={13} /> Eliminar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── ServiceForm rediseñado (bottom sheet 2 pasos) ────────────────────────────
+function ServiceFormSheet({
+  editingId, form, fld, setPriceField,
+  activeCurrencies, allCurrencies,
+  formErrors, save, cancelForm,
+}) {
+  const [visible, setVisible] = useState(false);
+  const [step, setStep]       = useState(1);
+  const MM_OPTIONS = ["00", "15", "30", "45"];
+
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(cancelForm, 260);
+  };
+
+  const inputBase = {
+    width: "100%", padding: "11px 14px", boxSizing: "border-box",
+    border: `1.5px solid ${T.bdr}`, borderRadius: 12,
+    fontFamily: T.fB, fontSize: 14, color: T.t,
+    background: T.bg, outline: "none", transition: "border-color .15s",
+  };
+  const labelStyle = {
+    display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+    color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em",
+    marginBottom: 8, marginTop: 20,
+  };
+
+  const handleNext = () => {
+    // Trigger validation via save attempt — if step 1 fields are bad, formErrors will populate
+    // We do a lightweight local check first
+    if (!form.name.trim()) { fld("name")(form.name); save(); return; }
+    const min = (parseInt(form.durationHH, 10) || 0) * 60 + (parseInt(form.durationMM, 10) || 0);
+    if (!min) { save(); return; }
+    setStep(2);
+  };
+
+  const durationMin = (parseInt(form.durationHH, 10) || 0) * 60 + (parseInt(form.durationMM, 10) || 0);
+
+  return (
+    <div
+      onClick={handleClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 400,
+        background: `rgba(0,0,0,${visible ? 0.45 : 0})`,
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        transition: "background .26s ease",
+        backdropFilter: visible ? "blur(2px)" : "none",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 560,
+          background: T.card,
+          borderRadius: "24px 24px 0 0",
+          maxHeight: "92dvh", overflowY: "auto",
+          boxShadow: "0 -16px 60px rgba(0,0,0,.18)",
+          transform: `translateY(${visible ? 0 : "100%"})`,
+          transition: "transform .3s cubic-bezier(.32,1.01,.53,1)",
+        }}
+      >
+        {/* Sticky header */}
+        <div style={{
+          position: "sticky", top: 0, zIndex: 1,
+          background: T.card,
+          padding: "16px 24px 14px",
+          borderBottom: `1px solid ${T.bdrL}`,
+        }}>
+          <div style={{ width: 40, height: 4, borderRadius: 99, background: T.bdr, margin: "0 auto 14px" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <h3 style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 600, color: T.t, margin: "0 0 2px" }}>
+                {editingId ? "Editar servicio" : "Nuevo servicio"}
+              </h3>
+              <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, margin: 0 }}>
+                {step === 1 ? "Información general" : "Tarifas por modalidad"}
+              </p>
+            </div>
+            {/* Step dots */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {[1, 2].map(s => (
+                <div key={s} style={{
+                  width: s === step ? 20 : 8, height: 8, borderRadius: 99,
+                  background: s <= step ? T.p : T.bdrL,
+                  transition: "all .25s ease",
+                }} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 24px 40px" }}>
+
+          {/* ── Step 1 ── */}
+          {step === 1 && (
+            <div>
+              <label style={labelStyle}>Nombre del servicio *</label>
+              <input
+                style={{ ...inputBase, borderColor: formErrors.name ? T.err : T.bdr }}
+                type="text"
+                placeholder="Ej. Sesión de psicoterapia individual"
+                value={form.name}
+                onChange={e => fld("name")(e.target.value)}
+                onFocus={e => e.target.style.borderColor = T.p}
+                onBlur={e => e.target.style.borderColor = formErrors.name ? T.err : T.bdr}
+              />
+              {formErrors.name && (
+                <p style={{ fontFamily: T.fB, fontSize: 11, color: T.err, marginTop: 5 }}>{formErrors.name}</p>
+              )}
+
+              <label style={labelStyle}>Tipo de servicio</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
+                {Object.entries(SERVICE_TYPES).map(([k, v]) => {
+                  const on  = form.type === k;
+                  const clr = SVC_COLORS[k] || SVC_COLORS.otro;
+                  return (
+                    <button key={k} onClick={() => fld("type")(k)} style={{
+                      padding: "12px 6px", borderRadius: 14,
+                      border: `2px solid ${on ? clr.color : T.bdr}`,
+                      background: on ? clr.bg : "transparent",
+                      cursor: "pointer", transition: "all .15s",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                    }}>
+                      <span style={{ fontSize: 20 }}>{v.icon}</span>
+                      <span style={{
+                        fontFamily: T.fB, fontSize: 11, fontWeight: on ? 700 : 500,
+                        color: on ? clr.color : T.tm,
+                      }}>{v.short}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label style={labelStyle}>Modalidad</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { v: "ambas",      ic: "🔄", lb: "Ambas" },
+                  { v: "presencial", ic: "🏢", lb: "Presencial" },
+                  { v: "virtual",    ic: "💻", lb: "Virtual" },
+                ].map(({ v, ic, lb }) => {
+                  const on = form.modality === v;
+                  return (
+                    <button key={v} onClick={() => fld("modality")(v)} style={{
+                      flex: 1, padding: "11px 8px", borderRadius: 12,
+                      border: `2px solid ${on ? T.p : T.bdr}`,
+                      background: on ? T.pA : "transparent",
+                      cursor: "pointer", transition: "all .15s",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    }}>
+                      <span style={{ fontSize: 18 }}>{ic}</span>
+                      <span style={{
+                        fontFamily: T.fB, fontSize: 12, fontWeight: on ? 700 : 500,
+                        color: on ? T.p : T.tm,
+                      }}>{lb}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label style={labelStyle}>Duración *</label>
+              {formErrors.duration && (
+                <p style={{ fontFamily: T.fB, fontSize: 11, color: T.err, marginTop: -4, marginBottom: 8 }}>{formErrors.duration}</p>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "end" }}>
+                <div>
+                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 6 }}>Horas</div>
+                  <input
+                    type="number" min="0" max="23"
+                    value={form.durationHH}
+                    onChange={e => fld("durationHH")(String(e.target.value).padStart(2, "0"))}
+                    style={{
+                      ...inputBase, textAlign: "center",
+                      fontFamily: T.fH, fontSize: 24, fontWeight: 600,
+                      borderColor: formErrors.duration ? T.err : T.bdr,
+                    }}
+                    onFocus={e => e.target.style.borderColor = T.p}
+                    onBlur={e => e.target.style.borderColor = formErrors.duration ? T.err : T.bdr}
+                  />
+                </div>
+                <div style={{ fontFamily: T.fH, fontSize: 28, fontWeight: 600, color: T.bdr, paddingBottom: 10 }}>:</div>
+                <div>
+                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 6 }}>Minutos</div>
+                  <select
+                    value={form.durationMM}
+                    onChange={e => fld("durationMM")(e.target.value)}
+                    style={{
+                      ...inputBase, textAlign: "center",
+                      fontFamily: T.fH, fontSize: 24, fontWeight: 600,
+                      cursor: "pointer",
+                      borderColor: formErrors.duration ? T.err : T.bdr,
+                    }}
+                  >
+                    {MM_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 6 }}>
+                Formato HH:MM — ej. 01:30 = 1 h 30 min
+              </p>
+
+              <button
+                onClick={handleNext}
+                style={{
+                  width: "100%", marginTop: 28, padding: "14px",
+                  borderRadius: 14, border: "none",
+                  background: T.p, color: "#fff",
+                  fontFamily: T.fB, fontSize: 14, fontWeight: 700,
+                  cursor: "pointer", transition: "opacity .15s",
+                  boxShadow: `0 6px 20px ${T.p}40`,
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+              >
+                Continuar: tarifas →
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2 ── */}
+          {step === 2 && (
+            <div>
+              {/* Summary chip */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 14px", borderRadius: 12,
+                background: T.pA, marginBottom: 20,
+                border: `1px solid ${T.p}20`,
+              }}>
+                <span style={{ fontSize: 18 }}>{SERVICE_TYPES[form.type]?.icon}</span>
+                <div>
+                  <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 700, color: T.t }}>{form.name}</div>
+                  <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tm }}>
+                    {SERVICE_TYPES[form.type]?.short} · {fmtDuration(durationMin)}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setStep(1)}
+                  style={{
+                    marginLeft: "auto", fontFamily: T.fB, fontSize: 12, fontWeight: 600,
+                    color: T.p, background: "none", border: "none", cursor: "pointer",
+                  }}
+                >
+                  ← Editar
+                </button>
+              </div>
+
+              {formErrors.prices && (
+                <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.err, marginBottom: 12 }}>{formErrors.prices}</p>
+              )}
+
+              {activeCurrencies.map(cur => (
+                <div key={cur} style={{ marginBottom: 14 }}>
+                  <div style={{
+                    padding: "8px 14px",
+                    borderRadius: "12px 12px 0 0",
+                    background: T.p,
+                  }}>
+                    <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                      {allCurrencies.find(c => c.code === cur)?.flag} {cur}
+                    </span>
+                  </div>
+                  <div style={{
+                    border: `1.5px solid ${T.p}30`, borderTop: "none",
+                    borderRadius: "0 0 12px 12px",
+                    padding: "14px",
+                    background: T.pA,
+                    display: "grid",
+                    gridTemplateColumns: form.modality === "ambas" ? "1fr 1fr" : "1fr",
+                    gap: 12,
+                  }}>
+                    {form.modality !== "virtual" && (
+                      <div>
+                        <label style={{ display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
+                          🏢 Presencial
+                        </label>
+                        <div style={{ position: "relative" }}>
+                          <span style={{
+                            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                            fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.tl, pointerEvents: "none",
+                          }}>$</span>
+                          <input
+                            type="number" min="0" placeholder="0"
+                            value={form.prices[cur]?.presencial ?? ""}
+                            onChange={e => setPriceField(cur, "presencial", e.target.value)}
+                            style={{
+                              width: "100%", padding: "11px 12px 11px 26px", boxSizing: "border-box",
+                              border: `1.5px solid ${T.bdr}`, borderRadius: 12,
+                              fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t,
+                              background: T.card, outline: "none",
+                            }}
+                            onFocus={e => e.target.style.borderColor = T.p}
+                            onBlur={e => e.target.style.borderColor = T.bdr}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {form.modality !== "presencial" && (
+                      <div>
+                        <label style={{ display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
+                          💻 Virtual
+                        </label>
+                        <div style={{ position: "relative" }}>
+                          <span style={{
+                            position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                            fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.tl, pointerEvents: "none",
+                          }}>$</span>
+                          <input
+                            type="number" min="0" placeholder="0"
+                            value={form.prices[cur]?.virtual ?? ""}
+                            onChange={e => setPriceField(cur, "virtual", e.target.value)}
+                            style={{
+                              width: "100%", padding: "11px 12px 11px 26px", boxSizing: "border-box",
+                              border: `1.5px solid ${T.bdr}`, borderRadius: 12,
+                              fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t,
+                              background: T.card, outline: "none",
+                            }}
+                            onFocus={e => e.target.style.borderColor = T.p}
+                            onBlur={e => e.target.style.borderColor = T.bdr}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+                <button
+                  onClick={() => setStep(1)}
+                  style={{
+                    flex: 1, padding: "13px", borderRadius: 14,
+                    border: `1.5px solid ${T.bdr}`, background: "transparent",
+                    fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.tm,
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = T.p}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = T.bdr}
+                >
+                  ← Atrás
+                </button>
+                <button
+                  onClick={save}
+                  style={{
+                    flex: 2, padding: "13px", borderRadius: 14,
+                    border: "none", background: T.p, color: "#fff",
+                    fontFamily: T.fB, fontSize: 14, fontWeight: 700,
+                    cursor: "pointer", transition: "opacity .15s",
+                    boxShadow: `0 6px 20px ${T.p}40`,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {editingId ? "Guardar cambios" : "Agregar servicio"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DeleteServiceModal ────────────────────────────────────────────────────────
+function DeleteServiceModal({ svcName, onConfirm, onClose }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(onClose, 260);
+  };
+  const handleConfirm = () => {
+    setVisible(false);
+    setTimeout(onConfirm, 260);
+  };
+
+  return (
+    <div
+      onClick={handleClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 400,
+        background: `rgba(0,0,0,${visible ? 0.45 : 0})`,
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        transition: "background .26s ease",
+        backdropFilter: visible ? "blur(2px)" : "none",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 560,
+          background: T.card,
+          borderRadius: "24px 24px 0 0",
+          padding: "20px 24px 40px",
+          boxShadow: "0 -16px 60px rgba(0,0,0,.18)",
+          transform: `translateY(${visible ? 0 : "100%"})`,
+          transition: "transform .3s cubic-bezier(.32,1.01,.53,1)",
+        }}
+      >
+        <div style={{ width: 40, height: 4, borderRadius: 99, background: T.bdr, margin: "0 auto 20px" }} />
+
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: "50%",
+            background: T.errA, border: `2px solid ${T.err}20`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 16px",
+          }}>
+            <Trash2 size={24} color={T.err} />
+          </div>
+          <h3 style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 600, color: T.t, margin: "0 0 8px" }}>
+            ¿Eliminar servicio?
+          </h3>
+          <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, lineHeight: 1.6, margin: 0 }}>
+            Se eliminará <strong style={{ color: T.t }}>"{svcName}"</strong> del catálogo.
+            Esta acción no se puede deshacer.
+          </p>
+        </div>
+
+        <div style={{
+          padding: "12px 14px", borderRadius: 12,
+          background: T.errA, marginBottom: 24,
+          fontFamily: T.fB, fontSize: 12.5, color: T.err, lineHeight: 1.55,
+        }}>
+          ⚠️ Los registros vinculados a este servicio (citas, sesiones) mantendrán el nombre pero sin enlace al catálogo.
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={handleClose}
+            style={{
+              flex: 1, padding: "13px", borderRadius: 14,
+              border: `1.5px solid ${T.bdr}`, background: "transparent",
+              fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.tm,
+              cursor: "pointer",
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = T.p}
+            onMouseLeave={e => e.currentTarget.style.borderColor = T.bdr}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleConfirm}
+            style={{
+              flex: 1, padding: "13px", borderRadius: 14,
+              border: "none", background: T.err, color: "#fff",
+              fontFamily: T.fB, fontSize: 13.5, fontWeight: 700,
+              cursor: "pointer", boxShadow: `0 6px 20px ${T.err}35`,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}
+          >
+            <Trash2 size={14} /> Sí, eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ServicesTab principal ─────────────────────────────────────────────────────
 function ServicesTab({ profile, setProfile, services, setServices }) {
   const {
     activeCurrencies, allCurrencies, toggleCurrency,
@@ -665,404 +1297,332 @@ function ServicesTab({ profile, setProfile, services, setServices }) {
     basePrice, basePriceV,
   } = useServicesTab({ profile, setProfile, services, setServices });
 
-  const MM_OPTIONS = ["00", "15", "30", "45"];
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
+  const [pkgSaved,     setPkgSaved]     = useState({});
+  const [pkgExpanded,  setPkgExpanded]  = useState(true);
 
-  // ── Helpers de estilo ─────────────────────────────────────────────────────
-  const inputStyle = {
-    width: "100%", padding: "10px 12px",
-    border: `1.5px solid ${T.bdr}`, borderRadius: 10,
-    fontFamily: T.fB, fontSize: 13, color: T.t,
-    background: T.card, outline: "none", boxSizing: "border-box",
+  const handleDeleteRequest = (id) => {
+    const svc = regularServices.find(s => s.id === id);
+    if (svc) setDeleteTarget({ id, name: svc.name });
   };
-  const labelStyle = {
-    display: "block", fontSize: 11, fontWeight: 700,
-    color: T.tm, marginBottom: 5, marginTop: 14,
-    textTransform: "uppercase", letterSpacing: "0.05em",
-  };
-  const errStyle = { fontSize: 11, color: "#e05555", marginTop: 4, fontFamily: T.fB };
-
-  // ── Tarjeta de servicio ───────────────────────────────────────────────────
-  const ServiceCard = ({ svc }) => {
-    const primaryCur = activeCurrencies[0] || "MXN";
-    const prices = svc.prices?.[primaryCur] || {};
-    const hasP = svc.modality !== "virtual"    && prices.presencial != null;
-    const hasV = svc.modality !== "presencial" && prices.virtual    != null;
-
-    return (
-      <div style={{
-        background: T.card, borderRadius: 14,
-        border: `1.5px solid ${T.bdr}`,
-        padding: "14px 16px", marginBottom: 10,
-        transition: "box-shadow .15s",
-      }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 22 }}>{SERVICE_TYPES[svc.type]?.icon || "⚡"}</span>
-            <div>
-              <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>{svc.name}</div>
-              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 1 }}>
-                {SERVICE_TYPES[svc.type]?.label}
-                {" · "}
-                {svc.modality === "ambas" ? "Presencial y virtual" : svc.modality === "virtual" ? "Virtual" : "Presencial"}
-              </div>
-            </div>
-          </div>
-          {/* Duración */}
-          <div style={{
-            background: T.pA, borderRadius: 8,
-            padding: "4px 10px", flexShrink: 0,
-          }}>
-            <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p }}>
-              ⏱ {fmtDuration(svc.durationMin)}
-            </span>
-          </div>
-        </div>
-
-        {/* Precios */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          {activeCurrencies.map(cur => {
-            const p = svc.prices?.[cur];
-            if (!p) return null;
-            return (
-              <div key={cur} style={{
-                background: T.bdrL, borderRadius: 8, padding: "4px 10px",
-                fontFamily: T.fB, fontSize: 12,
-              }}>
-                <span style={{ fontWeight: 700, color: T.t }}>{cur}</span>
-                {p.presencial != null && (
-                  <span style={{ color: T.tm, marginLeft: 6 }}>🏢 {fmtCur(p.presencial)}</span>
-                )}
-                {p.virtual != null && (
-                  <span style={{ color: T.tm, marginLeft: 6 }}>💻 {fmtCur(p.virtual)}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Acciones */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => openEdit(svc)}
-            style={{ flex: 1, padding: "8px", borderRadius: 9, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-            ✏️ Editar
-          </button>
-          <button onClick={() => del(svc.id)}
-            style={{ padding: "8px 14px", borderRadius: 9, border: `1.5px solid #e0555530`, background: "transparent", fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: "#e05555", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
-            <Trash2 size={13} /> Eliminar
-          </button>
-        </div>
-      </div>
-    );
+  const confirmDelete = () => {
+    if (deleteTarget) { del(deleteTarget.id); setDeleteTarget(null); }
   };
 
-  // ── Modal / formulario de servicio ────────────────────────────────────────
-  const ServiceForm = () => (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 400,
-      background: "rgba(0,0,0,0.45)",
-      display: "flex", alignItems: "flex-end", justifyContent: "center",
-      padding: "0",
-    }} onClick={cancelForm}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: "100%", maxWidth: 540,
-        background: "var(--bg)", borderRadius: "20px 20px 0 0",
-        padding: "24px 20px 32px",
-        maxHeight: "90dvh", overflowY: "auto",
-        boxShadow: "0 -8px 40px rgba(0,0,0,.18)",
-      }}>
-        {/* Handle */}
-        <div style={{ width: 40, height: 4, borderRadius: 99, background: T.bdr, margin: "0 auto 20px" }} />
+  const handleSavePkg = (mod) => {
+    savePkgRow(mod);
+    setPkgSaved(p => ({ ...p, [mod]: true }));
+    setTimeout(() => setPkgSaved(p => ({ ...p, [mod]: false })), 2000);
+  };
 
-        <h3 style={{ fontFamily: T.fH, fontSize: 18, fontWeight: 700, color: T.t, marginBottom: 4 }}>
-          {editingId ? "Editar servicio" : "Nuevo servicio"}
-        </h3>
-        <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 20 }}>
-          Este servicio estará disponible en Agenda, Finanzas y Sesiones.
-        </p>
-
-        {/* Nombre */}
-        <label style={labelStyle}>Nombre del servicio *</label>
-        <input style={{ ...inputStyle, borderColor: formErrors.name ? "#e05555" : T.bdr }}
-          type="text" placeholder="Ej. Sesión de psicoterapia individual"
-          value={form.name} onChange={e => fld("name")(e.target.value)} />
-        {formErrors.name && <p style={errStyle}>{formErrors.name}</p>}
-
-        {/* Tipo */}
-        <label style={labelStyle}>Tipo</label>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
-          {Object.entries(SERVICE_TYPES).map(([k, v]) => {
-            const active = form.type === k;
-            return (
-              <button key={k} onClick={() => fld("type")(k)} style={{
-                padding: "9px 6px", borderRadius: 10,
-                border: `1.5px solid ${active ? T.p : T.bdr}`,
-                background: active ? T.pA : "transparent",
-                fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 400,
-                color: active ? T.p : T.tm, cursor: "pointer", transition: "all .13s",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              }}>
-                <span style={{ fontSize: 18 }}>{v.icon}</span>
-                <span>{v.short}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Modalidad */}
-        <label style={labelStyle}>Modalidad</label>
-        <div style={{ display: "flex", gap: 6 }}>
-          {[
-            { v: "ambas",      ic: "🔄", lb: "Ambas" },
-            { v: "presencial", ic: "🏢", lb: "Presencial" },
-            { v: "virtual",    ic: "💻", lb: "Virtual" },
-          ].map(({ v, ic, lb }) => {
-            const active = form.modality === v;
-            return (
-              <button key={v} onClick={() => fld("modality")(v)} style={{
-                flex: 1, padding: "9px 4px", borderRadius: 10,
-                border: `1.5px solid ${active ? T.p : T.bdr}`,
-                background: active ? T.pA : "transparent",
-                fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 400,
-                color: active ? T.p : T.tm, cursor: "pointer", transition: "all .13s",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              }}>
-                <span style={{ fontSize: 16 }}>{ic}</span>
-                <span>{lb}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Duración HH:MM */}
-        <label style={labelStyle}>Duración *</label>
-        {formErrors.duration && <p style={{ ...errStyle, marginTop: 0, marginBottom: 4 }}>{formErrors.duration}</p>}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 4, display: "block" }}>Horas</label>
-            <input type="number" min="0" max="23"
-              value={form.durationHH}
-              onChange={e => fld("durationHH")(String(e.target.value).padStart(2,"0"))}
-              style={{ ...inputStyle, textAlign: "center", fontWeight: 700, fontSize: 18, borderColor: formErrors.duration ? "#e05555" : T.bdr }} />
-          </div>
-          <span style={{ fontFamily: T.fH, fontSize: 24, fontWeight: 700, color: T.tm, marginTop: 16 }}>:</span>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 4, display: "block" }}>Minutos</label>
-            <select value={form.durationMM} onChange={e => fld("durationMM")(e.target.value)}
-              style={{ ...inputStyle, textAlign: "center", fontWeight: 700, fontSize: 18, borderColor: formErrors.duration ? "#e05555" : T.bdr }}>
-              {MM_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
-        <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 5 }}>
-          Formato 24h — ej. 01:30 = 1 hora 30 min
-        </p>
-
-        {/* Precios por divisa */}
-        <label style={{ ...labelStyle, marginTop: 18 }}>Tarifas *</label>
-        {formErrors.prices && <p style={{ ...errStyle, marginBottom: 8 }}>{formErrors.prices}</p>}
-        {activeCurrencies.map(cur => (
-          <div key={cur} style={{
-            border: `1.5px solid ${T.bdr}`, borderRadius: 12,
-            marginBottom: 10, overflow: "hidden",
-          }}>
-            <div style={{
-              padding: "8px 14px", background: T.pA,
-              fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p,
-              textTransform: "uppercase", letterSpacing: "0.06em",
-            }}>
-              {ALL_CURRENCIES.find(c => c.code === cur)?.flag} {cur}
-            </div>
-            <div style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: form.modality === "ambas" ? "1fr 1fr" : "1fr", gap: 10 }}>
-              {form.modality !== "virtual" && (
-                <div>
-                  <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginBottom: 4, display: "block" }}>🏢 Presencial</label>
-                  <input type="number" min="0" placeholder="0.00"
-                    value={form.prices[cur]?.presencial ?? ""}
-                    onChange={e => setPriceField(cur, "presencial", e.target.value)}
-                    style={{ ...inputStyle, fontWeight: 700 }} />
-                </div>
-              )}
-              {form.modality !== "presencial" && (
-                <div>
-                  <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginBottom: 4, display: "block" }}>💻 Virtual</label>
-                  <input type="number" min="0" placeholder="0.00"
-                    value={form.prices[cur]?.virtual ?? ""}
-                    onChange={e => setPriceField(cur, "virtual", e.target.value)}
-                    style={{ ...inputStyle, fontWeight: 700 }} />
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* Botones */}
-        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <button onClick={cancelForm}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.tm, cursor: "pointer" }}>
-            Cancelar
-          </button>
-          <button onClick={save}
-            style={{ flex: 2, padding: "12px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${T.p}40` }}>
-            {editingId ? "Guardar cambios" : "Agregar servicio"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Render principal ──────────────────────────────────────────────────────
   return (
     <div>
-      {showForm && <ServiceForm />}
-
-      {/* ── Divisas aceptadas ────────────────────────────────────────────── */}
-      <Card style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
-          Divisas que aceptas
+      {/* ── Divisas ──────────────────────────────────────────────────────── */}
+      <div style={{
+        background: T.card, borderRadius: 18,
+        border: `1.5px solid ${T.bdr}`,
+        padding: "20px 20px 16px",
+        marginBottom: 20,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 700, color: T.t, marginBottom: 2 }}>
+              Divisas que aceptas
+            </div>
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>
+              Los precios se ingresan en las divisas activas
+            </div>
+          </div>
+          <span style={{
+            padding: "4px 10px", borderRadius: 99,
+            background: T.pA,
+            fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p,
+          }}>
+            {activeCurrencies.length} activa{activeCurrencies.length !== 1 ? "s" : ""}
+          </span>
         </div>
-        <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 14 }}>
-          Los precios de cada servicio se ingresan en las divisas seleccionadas.
-        </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {allCurrencies.map(({ code, flag }) => {
             const active = activeCurrencies.includes(code);
             return (
               <button key={code} onClick={() => toggleCurrency(code)} style={{
-                padding: "8px 14px", borderRadius: 100,
+                padding: "8px 16px", borderRadius: 99,
                 border: `1.5px solid ${active ? T.p : T.bdr}`,
                 background: active ? T.p : "transparent",
-                fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 400,
-                color: active ? "#fff" : T.tm, cursor: "pointer", transition: "all .18s",
+                fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 500,
+                color: active ? "#fff" : T.tm,
+                cursor: "pointer", transition: "all .18s",
                 display: "flex", alignItems: "center", gap: 6,
               }}>
                 <span>{flag}</span>
                 <span>{code}</span>
-                {active && <span style={{ fontSize: 10, opacity: 0.85 }}>✓</span>}
+                {active && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
               </button>
             );
           })}
         </div>
-        <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 10 }}>
-          Mínimo una divisa requerida.
-        </p>
-      </Card>
+        {activeCurrencies.length === 0 && (
+          <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.err, marginTop: 10, marginBottom: 0 }}>
+            Selecciona al menos una divisa.
+          </p>
+        )}
+      </div>
 
-      {/* ── Catálogo de servicios ─────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      {/* ── Catálogo header ───────────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>Catálogo de servicios</div>
+          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>
+            Catálogo de servicios
+          </div>
           <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginTop: 2 }}>
-            Define tus servicios. Se usarán en Agenda, Finanzas y Sesiones.
+            {regularServices.length} servicio{regularServices.length !== 1 ? "s" : ""} configurado{regularServices.length !== 1 ? "s" : ""}
           </div>
         </div>
-        <button onClick={openNew} style={{
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "9px 16px", borderRadius: 100, border: "none",
-          background: T.p, color: "#fff",
-          fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer",
-          boxShadow: `0 4px 14px ${T.p}40`, flexShrink: 0,
-        }}>
-          <Plus size={15} /> Nuevo
+        <button
+          onClick={openNew}
+          style={{
+            display: "flex", alignItems: "center", gap: 7,
+            padding: "9px 18px", borderRadius: 100, border: "none",
+            background: T.p, color: "#fff",
+            fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            boxShadow: `0 4px 14px ${T.p}40`, transition: "all .15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 6px 20px ${T.p}50`; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = `0 4px 14px ${T.p}40`; }}
+        >
+          <Plus size={14} /> Nuevo
         </button>
       </div>
 
+      {/* ── Lista o empty state ───────────────────────────────────────────── */}
       {regularServices.length === 0 ? (
         <div style={{
-          textAlign: "center", padding: "32px 20px",
-          background: T.card, borderRadius: 14,
-          border: `1.5px dashed ${T.bdr}`, marginBottom: 16,
+          textAlign: "center", padding: "48px 24px",
+          background: T.card, borderRadius: 18,
+          border: `2px dashed ${T.bdr}`, marginBottom: 16,
         }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>💼</div>
-          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t, marginBottom: 6 }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%",
+            background: T.pA, border: `2px solid ${T.p}20`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 32, margin: "0 auto 16px",
+          }}>
+            💼
+          </div>
+          <div style={{ fontFamily: T.fH, fontSize: 22, fontWeight: 600, color: T.t, marginBottom: 8 }}>
             Sin servicios configurados
           </div>
-          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 16 }}>
+          <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl, marginBottom: 24 }}>
             Agrega tus servicios y tarifas para usarlos en toda la app.
           </div>
-          <button onClick={openNew} style={{
-            padding: "10px 22px", borderRadius: 100, border: "none",
-            background: T.p, color: "#fff",
-            fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer",
-          }}>
-            <Plus size={14} style={{ marginRight: 6 }} />Agregar primer servicio
+          <button
+            onClick={openNew}
+            style={{
+              padding: "12px 28px", borderRadius: 100, border: "none",
+              background: T.p, color: "#fff",
+              fontFamily: T.fB, fontSize: 13.5, fontWeight: 700, cursor: "pointer",
+              boxShadow: `0 6px 20px ${T.p}40`,
+              display: "inline-flex", alignItems: "center", gap: 8,
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+            onMouseLeave={e => e.currentTarget.style.transform = "none"}
+          >
+            <Plus size={14} /> Agregar primer servicio
           </button>
         </div>
       ) : (
-        regularServices.map(svc => <ServiceCard key={svc.id} svc={svc} />)
+        regularServices.map(svc => (
+          <ServiceCard
+            key={svc.id}
+            svc={svc}
+            activeCurrencies={activeCurrencies}
+            onEdit={openEdit}
+            onDelete={handleDeleteRequest}
+          />
+        ))
       )}
 
       {/* ── Paquetes de sesiones ──────────────────────────────────────────── */}
-      <div style={{ height: 1, background: T.bdrL, margin: "24px 0 20px" }} />
-      <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 4 }}>
-        📦 Paquetes de sesiones
+      <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "28px 0 20px" }}>
+        <div style={{ flex: 1, height: 1, background: T.bdrL }} />
+        <button
+          onClick={() => setPkgExpanded(e => !e)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "6px 14px", borderRadius: 99,
+            border: `1.5px solid ${T.bdr}`, background: T.card,
+            fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm,
+            cursor: "pointer", transition: "all .15s",
+          }}
+        >
+          📦 Paquetes de sesiones
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+            style={{ transform: pkgExpanded ? "rotate(180deg)" : "none", transition: "transform .2s" }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div style={{ flex: 1, height: 1, background: T.bdrL }} />
       </div>
-      <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 16 }}>
-        Precios preferenciales para múltiples sesiones. Se calculan automáticamente a partir del precio de la sesión individual.
-      </p>
 
-      {/* Filas de precios sugeridos */}
-      {[
-        { label: "Presencial 🏢", mod: "presencial", prices: pkgPrices, setPrices: setPkgPrices, show: true },
-        { label: "Virtual 💻", mod: "virtual", prices: pkgPricesV, setPrices: setPkgPricesV, show: !!basePriceV },
-      ].filter(r => r.show).map(row => (
-        <div key={row.mod} style={{ marginBottom: 16 }}>
-          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>
-            {row.label}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCOUNTS.length}, 1fr)`, gap: 8, marginBottom: 8 }}>
-            {DISCOUNTS.map(d => (
-              <div key={d.sessions} style={{ background: T.card, borderRadius: 10, border: `1.5px solid ${T.bdr}`, padding: "10px 8px" }}>
-                <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", marginBottom: 6, textAlign: "center" }}>
-                  {d.sessions} ses.
-                </div>
-                <input type="number" value={row.prices[d.sessions] || ""}
-                  onChange={e => row.setPrices(p => ({ ...p, [d.sessions]: e.target.value }))}
-                  style={{ width: "100%", padding: "7px 8px", border: `1.5px solid ${T.bdr}`, borderRadius: 8, fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t, background: "var(--bg)", outline: "none", textAlign: "center", boxSizing: "border-box" }} />
-              </div>
-            ))}
-          </div>
-          <button onClick={() => savePkgRow(row.mod)}
-            style={{ width: "100%", padding: "9px", borderRadius: 9, border: `1.5px solid ${T.p}`, background: T.pA, fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p, cursor: "pointer" }}>
-            Guardar paquetes {row.label}
-          </button>
-        </div>
-      ))}
+      {pkgExpanded && (
+        <div>
+          <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, marginBottom: 20, lineHeight: 1.6 }}>
+            Precios preferenciales para múltiples sesiones. Se calculan automáticamente a partir del precio de la sesión individual.
+          </p>
 
-      {/* Lista de paquetes guardados */}
-      {packageServices.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>
-            Paquetes guardados
-          </div>
-          {packageServices.map(svc => (
-            <div key={svc.id} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "10px 14px", background: T.card, borderRadius: 10,
-              border: `1.5px solid ${T.bdr}`, marginBottom: 7,
-            }}>
-              <div>
-                <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>
-                  📦 {svc.name} — {svc.sessions} sesiones
-                </div>
-                <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 2 }}>
-                  {svc.modality === "ambas"
-                    ? `🏢 ${fmtCur(svc.price)} · 💻 ${fmtCur(svc.priceVirtual)}`
-                    : svc.modality === "virtual"
-                      ? `💻 ${fmtCur(svc.priceVirtual)}`
-                      : `🏢 ${fmtCur(svc.price)}`
-                  }
-                  {" · "}
-                  {activeCurrencies[0] || "MXN"}
-                </div>
+          {[
+            { label: "Presencial 🏢", mod: "presencial", prices: pkgPrices, setPrices: setPkgPrices, show: true },
+            { label: "Virtual 💻",    mod: "virtual",    prices: pkgPricesV, setPrices: setPkgPricesV, show: !!basePriceV },
+          ].filter(r => r.show).map(row => (
+            <div key={row.mod} style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 10 }}>
+                {row.label}
               </div>
-              <button onClick={() => delPkg(svc.id)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, padding: "4px 8px" }}>
-                <Trash2 size={14} />
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCOUNTS.length}, 1fr)`, gap: 10, marginBottom: 10 }}>
+                {DISCOUNTS.map(d => (
+                  <div key={d.sessions} style={{
+                    borderRadius: 16, border: `1.5px solid ${T.bdr}`,
+                    overflow: "hidden", background: T.card,
+                  }}>
+                    {/* Card header */}
+                    <div style={{
+                      padding: "10px 14px",
+                      background: `linear-gradient(135deg, ${T.p}15, ${T.p}05)`,
+                      borderBottom: `1px solid ${T.bdrL}`,
+                    }}>
+                      <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>
+                        {d.sessions} ses.
+                      </div>
+                      <span style={{
+                        display: "inline-flex", marginTop: 4,
+                        padding: "2px 8px", borderRadius: 99,
+                        background: T.pA,
+                        fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.p,
+                      }}>
+                        {d.label}
+                      </span>
+                    </div>
+                    {/* Input */}
+                    <div style={{ padding: "12px" }}>
+                      <div style={{ position: "relative" }}>
+                        <span style={{
+                          position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)",
+                          fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.tl, pointerEvents: "none",
+                        }}>$</span>
+                        <input
+                          type="number"
+                          value={row.prices[d.sessions] || ""}
+                          onChange={e => row.setPrices(p => ({ ...p, [d.sessions]: e.target.value }))}
+                          style={{
+                            width: "100%", padding: "9px 9px 9px 22px", boxSizing: "border-box",
+                            border: `1.5px solid ${T.bdr}`, borderRadius: 10,
+                            fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t,
+                            background: T.bg, outline: "none", textAlign: "right",
+                          }}
+                          onFocus={e => e.target.style.borderColor = T.p}
+                          onBlur={e => e.target.style.borderColor = T.bdr}
+                        />
+                      </div>
+                      {row.prices[d.sessions] && (
+                        <div style={{ fontFamily: T.fB, fontSize: 10.5, color: T.suc, marginTop: 5, textAlign: "right" }}>
+                          ≈ {fmtCur(Math.round(row.prices[d.sessions] / d.sessions))} / ses.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => handleSavePkg(row.mod)}
+                style={{
+                  width: "100%", padding: "10px",
+                  borderRadius: 12, cursor: "pointer", transition: "all .18s",
+                  border: pkgSaved[row.mod] ? "none" : `1.5px solid ${T.p}`,
+                  background: pkgSaved[row.mod] ? T.suc : T.pA,
+                  color: pkgSaved[row.mod] ? "#fff" : T.p,
+                  fontFamily: T.fB, fontSize: 12.5, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                {pkgSaved[row.mod] ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    ¡Guardado!
+                  </>
+                ) : (
+                  <>Guardar paquetes {row.label}</>
+                )}
               </button>
             </div>
           ))}
+
+          {/* Paquetes guardados */}
+          {packageServices.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>
+                Paquetes guardados
+              </div>
+              {packageServices.map(svc => (
+                <div key={svc.id} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "10px 14px", background: T.card, borderRadius: 12,
+                  border: `1.5px solid ${T.bdr}`, marginBottom: 7,
+                }}>
+                  <div>
+                    <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>
+                      📦 {svc.name} — {svc.sessions} sesiones
+                    </div>
+                    <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 2 }}>
+                      {svc.modality === "ambas"
+                        ? `🏢 ${fmtCur(svc.price)} · 💻 ${fmtCur(svc.priceVirtual)}`
+                        : svc.modality === "virtual"
+                          ? `💻 ${fmtCur(svc.priceVirtual)}`
+                          : `🏢 ${fmtCur(svc.price)}`
+                      }
+                      {" · "}{activeCurrencies[0] || "MXN"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => delPkg(svc.id)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, padding: "4px 8px", transition: "color .15s" }}
+                    onMouseEnter={e => e.currentTarget.style.color = T.err}
+                    onMouseLeave={e => e.currentTarget.style.color = T.tl}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ── Bottom sheet: formulario ──────────────────────────────────────── */}
+      {showForm && (
+        <ServiceFormSheet
+          editingId={editingId}
+          form={form}
+          fld={fld}
+          setPriceField={setPriceField}
+          activeCurrencies={activeCurrencies}
+          allCurrencies={allCurrencies}
+          formErrors={formErrors}
+          save={save}
+          cancelForm={cancelForm}
+        />
+      )}
+
+      {/* ── Bottom sheet: confirmación eliminar ───────────────────────────── */}
+      {deleteTarget && (
+        <DeleteServiceModal
+          svcName={deleteTarget.name}
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );
