@@ -92,15 +92,22 @@ const S = {
     position: "fixed", inset: 0, zIndex: 1100,
     background: "rgba(15,31,30,0.65)",
     display: "flex", alignItems: "flex-start", justifyContent: "center",
-    padding: "0 0 40px",
+    padding: "0 0 env(safe-area-inset-bottom, 24px)",
     backdropFilter: "blur(4px)",
     overflowY: "auto",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
     animation: "ob-fadeIn .25s ease",
+    // Ocupa toda la pantalla incluyendo zona safe-area
+    minHeight: "100dvh",
   },
   container: {
-    width: "100%", maxWidth: 480,
+    width: "100%",
+    maxWidth: "min(480px, 100vw)",
     display: "flex", flexDirection: "column",
-    paddingTop: 20,
+    paddingTop: "max(16px, env(safe-area-inset-top, 16px))",
+    paddingLeft: "env(safe-area-inset-left, 0px)",
+    paddingRight: "env(safe-area-inset-right, 0px)",
   },
   topbar: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -113,12 +120,13 @@ const S = {
   stepperRow:{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "0 24px 10px" },
   progressBar: { height: 3, background: T.bdrL, margin: "0 24px 14px", borderRadius: 99 },
   card: {
-    background: T.card, borderRadius: 20, margin: "0 16px",
-    padding: "24px 20px 20px",
+    background: T.card, borderRadius: 20,
+    margin: "0 clamp(8px, 4vw, 16px)",
+    padding: "clamp(16px, 5vw, 28px) clamp(14px, 5vw, 24px) clamp(14px, 4vw, 20px)",
     boxShadow: "0 4px 24px rgba(26,43,40,0.10), 0 1px 4px rgba(26,43,40,0.06)",
     animation: "ob-slideUp .3s ease",
   },
-  title:    { fontFamily: T.fH, fontSize: 24, fontWeight: 600, color: T.t, lineHeight: 1.2, marginBottom: 4 },
+  title:    { fontFamily: T.fH, fontSize: "clamp(18px, 5.5vw, 24px)", fontWeight: 600, color: T.t, lineHeight: 1.2, marginBottom: 4 },
   divider:  { width: 44, height: 3, background: T.p, borderRadius: 99, marginBottom: 18 },
   bodyText: { fontFamily: T.fB, fontSize: 14, color: T.tm, lineHeight: 1.6, marginBottom: 14 },
   label:    { display: "block", fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.tm, marginBottom: 6, marginTop: 14 },
@@ -410,6 +418,26 @@ export default function Onboarding({ onClose, onNavigate }) {
     }, 500);
   };
 
+  // Recopila todos los datos del formulario para pasarlos al cerrar
+  const collectData = () => ({
+    sources,
+    name,
+    phone:       `${countryCode.code} ${phone}`.trim(),
+    description,
+    specialties,
+    avatarUrl,
+    agendaType,
+    duration,
+    modality,
+    mapsLink,
+    activeDays,
+    schedule,
+    services:    addedServices,
+    currency,
+    showPrice,
+    payPolicy,
+  });
+
   const go = (dir) => {
     const next = step + dir;
     if (next < 0 || next >= TOTAL_STEPS) return;
@@ -448,7 +476,7 @@ export default function Onboarding({ onClose, onNavigate }) {
     <>
       <h2 style={S.title}>¿Cómo te enteraste de la plataforma?</h2>
       <div style={S.divider} />
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(clamp(130px, 40vw, 200px), 1fr))", gap:8 }}>
         {SOURCES.map(s => (
           <CheckboxItem key={s.id} icon={s.icon} label={s.label}
             selected={sources.includes(s.id)}
@@ -741,7 +769,7 @@ export default function Onboarding({ onClose, onNavigate }) {
         <p style={{ fontFamily:T.fB, fontSize:15, color:T.tm, lineHeight:1.7, marginBottom:28, maxWidth:320 }}>
           Tu perfil ya está configurado. A partir de ahora puedes gestionar tus pacientes, sesiones y finanzas desde un solo lugar.
         </p>
-        <button onClick={onClose} style={{ width:"100%", maxWidth:300, padding:"15px", borderRadius:100, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:15, fontWeight:700, cursor:"pointer", boxShadow:`0 6px 20px ${T.p}40` }}>
+        <button onClick={() => onClose(collectData())} style={{ width:"100%", maxWidth:300, padding:"15px", borderRadius:100, border:"none", background:T.p, color:"#fff", fontFamily:T.fB, fontSize:15, fontWeight:700, cursor:"pointer", boxShadow:`0 6px 20px ${T.p}40` }}>
           Ir a mi consulta →
         </button>
       </div>
@@ -764,7 +792,7 @@ export default function Onboarding({ onClose, onNavigate }) {
               <div style={S.logoIcon}>🧠</div>
               <span style={S.logoName}>PsychoCore</span>
             </div>
-            <button style={S.skipAll} onClick={onClose}>Omitir todo</button>
+            <button style={S.skipAll} onClick={() => onClose(null)}>Omitir todo</button>
           </div>
 
           <Stepper />
