@@ -441,7 +441,7 @@ export default function App() {
           <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
         </div>
 
-        <main style={{ flex:1, padding:isMobile?"20px 18px 32px":isWide?"40px 56px":"36px 40px", overflowY:"auto", minHeight:0 }}>
+        <main style={{ flex:1, padding:activeModule==="dashboard" ? 0 : isMobile?"20px 18px 32px":isWide?"40px 56px":"36px 40px", overflowY:"auto", minHeight:0 }}>
           <Suspense fallback={
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"60vh" }}>
               <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
