@@ -32,13 +32,12 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:.3} }
     @keyframes pc-bar { from{width:0} }
 
-    .d-root { font-family:'DM Sans',sans-serif; width:100%; height:100%; overflow-y:auto; padding-bottom:40px; box-sizing:border-box; }
+    .d-root { font-family:'DM Sans',sans-serif; width:100%; min-height:100%; overflow-y:auto; padding-bottom:40px; box-sizing:border-box; background:#FDFBF8; margin:0; }
 
     /* Header */
     .d-header {
       background:#FDFBF8;
       padding:24px 20px 22px; position:relative; overflow:hidden;
-      border-bottom:1px solid #EAE6E1;
     }
     .d-toprow  { display:flex; justify-content:flex-end; margin-bottom:16px; }
     .d-badge   {
@@ -60,7 +59,7 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:16px 20px; animation:fadeUp .45s .1s ease both; }
     .d-sc {
       display:flex; align-items:center; gap:10px;
-      background:#fff; border:none; outline:none; border-radius:13px;
+      background:#F5F2EE; border:none; outline:none; border-radius:13px;
       padding:12px 13px; cursor:pointer; text-align:left;
       transition:transform .15s, box-shadow .15s;
     }
@@ -667,8 +666,6 @@ export default function Dashboard({
         onNewSession={onNewSession}
         patients={patients}
       />
-
-      <div className="d-divider"/>
 
       {!hasPatients ? (
         /* Sin pacientes: guía de bienvenida */
