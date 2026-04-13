@@ -298,24 +298,26 @@ function Shortcuts({ onQuickNav, onNewSession, patients }) {
     { icon:"💳", label:"Registrar pago",  bg:"#F4F0FB", onClick:()=>onQuickNav("finance","add"), disabled:!has },
   ];
   return (
-    <div className="d-sec" style={{ paddingBottom:0 }}>
-      <div className="d-sec-hd">
-        <span className="d-sec-lbl">⚡ Accesos rápidos</span>
+    <>
+      <div style={{ padding:"0 20px", marginBottom:8 }}>
+        <div className="d-sec-hd" style={{ marginBottom:0 }}>
+          <span className="d-sec-lbl">⚡ Accesos rápidos</span>
+        </div>
       </div>
-    <div className="d-shortcuts" style={{ padding:"0 0 16px" }}>
-      {items.map(item => (
-        <button
-          key={item.label}
-          className="d-sc"
-          disabled={item.disabled}
-          onClick={item.onClick}
-        >
-          <div className="d-sc-ico" style={{ background:item.bg }}>{item.icon}</div>
-          <div className="d-sc-name">{item.label}</div>
-        </button>
-      ))}
-    </div>
-    </div>
+      <div className="d-shortcuts">
+        {items.map(item => (
+          <button
+            key={item.label}
+            className="d-sc"
+            disabled={item.disabled}
+            onClick={item.onClick}
+          >
+            <div className="d-sc-ico" style={{ background:item.bg }}>{item.icon}</div>
+            <div className="d-sc-name">{item.label}</div>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -811,10 +813,8 @@ export default function Dashboard({
       ) : (
         <>
           {/* RESUMEN */}
-          <div className="d-sec" style={{ paddingBottom:0, marginBottom:4 }}>
-            <div className="d-sec-hd">
-              <span className="d-sec-lbl">📊 Resumen</span>
-            </div>
+          <div style={{ padding:"0 20px", marginBottom:6, marginTop:4 }}>
+            <span className="d-sec-lbl">📊 Resumen</span>
           </div>
 
           {/* KPIs */}
