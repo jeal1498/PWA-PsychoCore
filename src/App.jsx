@@ -592,7 +592,7 @@ export default function App() {
       )}
 
       {/* ── Columna principal ─────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
 
         {showOnboarding && (
           <Onboarding
@@ -627,6 +627,7 @@ export default function App() {
           position: "relative",
           zIndex: 1000,
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          color: "#1E3535",
         }}>
 
           {/* Móvil: logo + nombre de app */}
