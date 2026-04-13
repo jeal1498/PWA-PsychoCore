@@ -475,12 +475,11 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
               <div style={{
                 position:"absolute", left:0, right:0,
                 top: timeCursorTop,
-                height:2, background:"#E05A5A",
+                height:2, background:"#C8860A",
                 zIndex:10, pointerEvents:"none",
                 display:"flex", alignItems:"center",
               }}>
-                {/* Punto de origen */}
-                <div style={{ width:8, height:8, borderRadius:"50%", background:"#E05A5A", flexShrink:0, marginLeft:6 }}/>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:"#C8860A", flexShrink:0, marginLeft:6 }}/>
               </div>
             )}
 
@@ -491,14 +490,14 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
               const st      = STATUS[appt.status] || STATUS.pendiente;
               const [h, m]  = (appt.time||"00:00").split(":");
 
-              const tagBg  = isNext ? "#7B1E1E" : active ? "#FDF3E0" : st.bg;
-              const tagClr = isNext ? "#F28B82" : active ? "#A06A00" : st.text;
+              const tagBg  = isNext ? "#7B4A00" : active ? "#FDF3E0" : st.bg;
+              const tagClr = isNext ? "#F5C97A" : active ? "#A06A00" : st.text;
               const tagLbl = isNext ? "Abrir"   : st.label;
 
-              // Fila prioritaria: fondo rojo muy visible
+              // Fila prioritaria: fondo ámbar
               const rowStyle = isCurr || isNext ? {
-                background:"rgba(224,90,90,.13)",
-                borderLeft:"3px solid #E05A5A",
+                background:"rgba(184,118,30,.10)",
+                borderLeft:"3px solid #C8860A",
               } : {};
 
               return (
@@ -509,7 +508,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
                   onClick={()=>(isNext||active) ? onStartSession?.(appt) : onNavigate("agenda")}
                 >
                   <div className="d-time">
-                    <div className="d-time-h" style={isNext||isCurr ? { color:"#F28B82", fontWeight:600 } : {}}>{h}</div>
+                    <div className="d-time-h" style={isNext||isCurr ? { color:"#C8860A", fontWeight:600 } : {}}>{h}</div>
                     <div className="d-time-m">{m}</div>
                   </div>
                   <div className="d-abody">
@@ -522,6 +521,40 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
                 </div>
               );
             })}
+
+            {/* ── Filas fantasma: slots disponibles ── */}
+            {(() => {
+              const visibleRows = bp === "mobile" ? 3 : 5;
+              const ghostCount  = Math.max(0, visibleRows - todayAppts.length);
+              return Array.from({ length: ghostCount }).map((_, i) => (
+                <div
+                  key={`ghost-${i}`}
+                  onClick={() => onNavigate("agenda")}
+                  style={{
+                    height: ROW_H,
+                    display:"flex", alignItems:"center",
+                    borderTop:"1px dashed var(--d-bdr)",
+                    padding:"0 14px",
+                    cursor:"pointer",
+                    transition:"background .12s",
+                    gap:10,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background="var(--d-hover)"}
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}
+                >
+                  <div style={{
+                    width:28, height:28, borderRadius:8, flexShrink:0,
+                    border:"1.5px dashed var(--d-bdr2)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <span style={{ fontSize:13, opacity:.4 }}>+</span>
+                  </div>
+                  <span style={{ fontSize:11, color:"var(--d-muted)", fontStyle:"italic" }}>
+                    Espacio disponible
+                  </span>
+                </div>
+              ));
+            })()}
           </div>
         )}
 
