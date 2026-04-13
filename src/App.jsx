@@ -185,30 +185,37 @@ export default function App() {
     if (data) {
       setProfile(prev => ({
         ...prev,
-        name:         data.name        || prev.name,
-        phone:        data.phone       || prev.phone,
-        description:  data.description || prev.description,
-        specialty:    Array.isArray(data.specialties) ? data.specialties.join(", ") : prev.specialty,
-        specialties:  data.specialties || prev.specialties,
-        avatarUrl:    data.avatarUrl   || prev.avatarUrl,
-        agendaType:   data.agendaType  || prev.agendaType,
-        duration:     data.duration    || prev.duration,
-        modality:     data.modality    || prev.modality,
-        mapsLink:     data.mapsLink    || prev.mapsLink,
-        activeDays:   data.activeDays  || prev.activeDays,
-        schedule:     data.schedule    || prev.schedule,
-        workingDays:  data.activeDays
-          ? Object.entries(data.activeDays)
-              .filter(([,v]) => v)
-              .map(([k]) => ({ L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 }[k]))
-              .filter(n => n !== undefined)
-          : prev.workingDays,
-        workingStart: data.schedule?.L?.[0]?.start || prev.workingStart,
-        workingEnd:   data.schedule?.L?.[0]?.end   || prev.workingEnd,
-        currency:     data.currency    || prev.currency,
-        showPrice:    data.showPrice   !== undefined ? data.showPrice : prev.showPrice,
-        payPolicy:    data.payPolicy   || prev.payPolicy,
-        sources:      data.sources     || prev.sources,
+        // Paso 1 — Perfil
+        name:         data.name         || prev.name,
+        phone:        data.phone        || prev.phone,
+        email:        data.email        || prev.email,
+        cedula:       data.cedula       || prev.cedula,
+        rfc:          data.rfc          || prev.rfc,
+        clinic:       data.clinic       || prev.clinic,
+        address:      data.address      || prev.address,
+        description:  data.description  || prev.description,
+        avatarUrl:    data.avatarUrl    || prev.avatarUrl,
+        specialty:    data.specialty    || (Array.isArray(data.specialties) ? data.specialties[0] : "") || prev.specialty,
+        specialties:  data.specialties  || prev.specialties,
+        initials:     data.initials     || prev.initials,
+        // Paso 2 — Sesiones
+        agendaType:   data.agendaType   || prev.agendaType,
+        duration:     data.duration     || prev.duration,
+        durationMin:  data.durationMin  ?? prev.durationMin,
+        modality:     data.modality     || prev.modality,
+        mapsLink:     data.mapsLink     || prev.mapsLink,
+        // Paso 3 — Disponibilidad
+        activeDays:   data.activeDays   || prev.activeDays,
+        schedule:     data.schedule     || prev.schedule,
+        workingDays:  data.workingDays  || prev.workingDays,
+        workingStart: data.workingStart || prev.workingStart,
+        workingEnd:   data.workingEnd   || prev.workingEnd,
+        // Paso 4 — Tarifas
+        currency:     data.currency     || prev.currency,
+        currencies:   data.currencies   || prev.currencies,
+        showPrice:    data.showPrice    !== undefined ? data.showPrice : prev.showPrice,
+        payPolicy:    data.payPolicy    || prev.payPolicy,
+        sources:      data.sources      || prev.sources,
       }));
       if (data.services && data.services.length > 0) {
         setServices(data.services);
@@ -346,7 +353,7 @@ export default function App() {
         profile={profile}
       />;
       case "tasks":       return <Tasks patients={patients} sessions={sessions} onNavigate={navTo} profile={profile}/>;
-      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults}/>;
+      case "stats":       return <Stats patients={patients} appointments={appointments} sessions={sessions} payments={payments} services={services} riskAssessments={riskAssessments} scaleResults={scaleResults} profile={profile}/>;
       case "risk":        return <RiskAssessment riskAssessments={riskAssessments} setRiskAssessments={setRiskAssessments} patients={patients} profile={profile}/>;
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;

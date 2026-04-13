@@ -32,7 +32,15 @@ export const fmtDate = (d) =>
     day: "numeric", month: "short", year: "numeric",
   });
 
-export const fmtCur = (n) => `$${Number(n).toLocaleString("es-MX")}`;
+export const fmtCur = (n, currency = "MXN") => {
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency", currency, minimumFractionDigits: 2,
+    }).format(Number(n));
+  } catch {
+    return `$${Number(n).toLocaleString("es-MX")}`;
+  }
+};
 
 export const moodColor = (m) =>
   ({ bueno: T.suc, moderado: T.war, bajo: T.err })[m] || T.tm;
