@@ -103,7 +103,7 @@ if (typeof document !== "undefined" && !window.__pcd__) {
 
     /* KPI strip */
     .d-kpis    { display:grid; gap:8px; padding:0 20px; margin-bottom:20px; animation:fadeUp .45s .08s ease both; }
-    .d-kpi     { background:var(--d-kpi-bg); border:none; border-radius:10px; padding:11px 13px; display:flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; }
+    .d-kpi     { background:var(--d-kpi-bg); border:1px solid var(--d-bdr); border-radius:10px; padding:11px 13px; display:flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; }
     .d-kpi:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.1); }
     .d-kpi-ico { border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
     .d-kpi-val { font-family:'Lora',serif; color:var(--d-txt); line-height:1; }
@@ -434,7 +434,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
   }, [apptsMins, nowMins, ROW_H]);
 
   const isMob = !bp || bp === "mobile";
-  const maxH  = isMob ? ROW_H * 3.4 : ROW_H * 5.5;
+  const maxH  = bp === "mobile" ? ROW_H * 3 : ROW_H * 5;
 
   return (
     <div className="d-sec" style={{ animationDelay:".14s" }}>
@@ -813,8 +813,9 @@ export default function Dashboard({
       ) : (
         <>
           {/* RESUMEN */}
-          <div style={{ padding:"0 20px", marginBottom:6, marginTop:4 }}>
+          <div style={{ padding:"0 20px", marginBottom:6, marginTop:4, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <span className="d-sec-lbl">📊 Resumen</span>
+            <button className="d-sec-btn" onClick={()=>onNavigate("stats")}>Estadísticas →</button>
           </div>
 
           {/* KPIs */}
