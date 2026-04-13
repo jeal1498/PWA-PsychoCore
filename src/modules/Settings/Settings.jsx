@@ -26,7 +26,7 @@ import {
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
 function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
-  const { form, fld, save, saved } = useProfileTab({ profile, setProfile, googleUser });
+  const { form, fld, save, saved, avatarPreview, handleAvatarChange } = useProfileTab({ profile, setProfile, googleUser });
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -35,16 +35,24 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
       </p>
 
       <Card style={{ padding: 28 }}>
-        {/* Avatar preview */}
+        {/* Avatar editable */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, paddingBottom: 24, borderBottom: `1px solid ${T.bdrL}` }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", background: T.p, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ fontFamily: T.fH, fontSize: 26, color: NAV_TEXT, fontWeight: 600 }}>
-              {form.name ? form.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "PS"}
-            </span>
-          </div>
+          <label htmlFor="settings-avatar-input" style={{ cursor: "pointer", flexShrink: 0 }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: T.p, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: `2.5px solid ${T.p}`, position: "relative" }}>
+              {avatarPreview
+                ? <img src={avatarPreview} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <span style={{ fontFamily: T.fH, fontSize: 26, color: NAV_TEXT, fontWeight: 600 }}>
+                    {form.name ? form.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "PS"}
+                  </span>
+              }
+              <div style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: "50%", background: T.card, border: `1.5px solid ${T.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>✏️</div>
+            </div>
+            <input id="settings-avatar-input" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
+          </label>
           <div>
             <div style={{ fontFamily: T.fH, fontSize: 20, color: T.t, fontWeight: 500 }}>{form.name || "Tu nombre"}</div>
             <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{form.specialty || "Especialidad"}</div>
+            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 2 }}>Toca la foto para cambiarla</div>
           </div>
         </div>
 
@@ -61,6 +69,21 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
         </div>
         <Input label="Correo electrónico" value={form.email} onChange={fld("email")} placeholder="ana@consultorio.com" />
         <Input label="Nombre del consultorio" value={form.clinic} onChange={fld("clinic")} placeholder="Consultorio Integral" />
+        <Input label="Dirección del consultorio" value={form.address || ""} onChange={fld("address")} placeholder="Calle, número, colonia, ciudad" />
+
+        {/* Descripción profesional */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+            Descripción profesional
+          </label>
+          <textarea
+            value={form.description || ""}
+            onChange={e => fld("description")(e.target.value)}
+            placeholder="Cuéntale a tus pacientes sobre ti y tu enfoque terapéutico…"
+            rows={3}
+            style={{ width: "100%", padding: "10px 13px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: "var(--bg)", outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }}
+          />
+        </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24, gap: 10, alignItems: "center" }}>
           {saved && (
@@ -508,8 +531,10 @@ function HelpTab() {
 
 // ── Tab: Horario ──────────────────────────────────────────────────────────────
 function ScheduleTab({ profile, setProfile }) {
-  const { form, toggleDay, setStart, setEnd, save, saved, isValid } =
-    useScheduleTab({ profile, setProfile });
+  const {
+    form, toggleDay, setStart, setEnd, save, doSave, saved, isValid,
+    hasGranularSchedule, showGranularWarn, setShowGranularWarn,
+  } = useScheduleTab({ profile, setProfile });
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -517,6 +542,16 @@ function ScheduleTab({ profile, setProfile }) {
         Define los días y horarios en que atiendes pacientes. La Agenda respetará esta configuración
         y no permitirá agendar citas fuera de estos bloques.
       </p>
+
+      {hasGranularSchedule && (
+        <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 10, background: T.warA || "rgba(184,144,10,0.08)", border: "1px solid rgba(184,144,10,0.25)", marginBottom: 20 }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+          <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, lineHeight: 1.6, margin: 0 }}>
+            Tienes un <strong style={{ color: T.t }}>horario personalizado por día</strong> configurado desde el onboarding.
+            Guardar aquí aplicará un bloque de horario único para todos los días seleccionados y reemplazará esa configuración.
+          </p>
+        </div>
+      )}
 
       <Card style={{ padding: 28, marginBottom: 20 }}>
         {/* Días hábiles */}
@@ -586,6 +621,32 @@ function ScheduleTab({ profile, setProfile }) {
           {saved ? "✓ Guardado" : "Guardar horario"}
         </Btn>
       </div>
+
+      {/* Modal de confirmación para sobrescribir horario granular */}
+      {showGranularWarn && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: T.bg, borderRadius: 18, padding: 28, maxWidth: 400, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontFamily: T.fB, fontSize: 16, fontWeight: 700, color: T.t, marginBottom: 10, textAlign: "center" }}>
+              ¿Reemplazar horario personalizado?
+            </div>
+            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.65, marginBottom: 20, textAlign: "center" }}>
+              Tienes horarios distintos configurados por día. Al guardar se aplicará un bloque único
+              para todos los días seleccionados y se perderá la configuración anterior.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowGranularWarn(false)}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={doSave}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                Sí, reemplazar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,20 +22,41 @@ export function useProfileTab({ profile, setProfile, googleUser }) {
 
   const [form, setForm] = useState(() => ({
     ...profile,
-    name:  profile?.name  || googleName,
-    email: profile?.email || googleEmail,
+    name:        profile?.name        || googleName,
+    email:       profile?.email       || googleEmail,
+    description: profile?.description || "",
+    avatarUrl:   profile?.avatarUrl   || null,
   }));
-  const [saved, setSaved] = useState(false);
+  const [saved,           setSaved]           = useState(false);
+  const [avatarPreview,   setAvatarPreview]   = useState(profile?.avatarUrl || null);
 
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAvatarPreview(ev.target.result);
+      setForm(f => ({ ...f, avatarUrl: ev.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const save = () => {
-    setProfile({ ...form, initials: getInitials(form.name) });
+    setProfile({
+      ...form,
+      initials: getInitials(form.name),
+      specialty: form.specialty ||
+        (Array.isArray(form.specialties) && form.specialties.length > 0
+          ? form.specialties[0]
+          : ""),
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
-  return { form, fld, save, saved };
+  return { form, fld, save, saved, avatarPreview, handleAvatarChange };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +68,18 @@ export function useScheduleTab({ profile, setProfile }) {
     workingStart: profile?.workingStart ?? "09:00",
     workingEnd:   profile?.workingEnd   ?? "19:00",
   }));
-  const [saved, setSaved] = useState(false);
+  const [saved,            setSaved]            = useState(false);
+  const [showGranularWarn, setShowGranularWarn] = useState(false);
+
+  // Detecta si el perfil tiene horario granular (por día) configurado desde el onboarding
+  const hasGranularSchedule = (() => {
+    const s = profile?.schedule;
+    if (!s) return false;
+    const intervals = Object.values(s).flat();
+    // Hay horario granular si algún día tiene intervalos distintos entre sí
+    const unique = new Set(intervals.map(iv => `${iv.start}-${iv.end}`));
+    return unique.size > 1;
+  })();
 
   const toggleDay = (d) => {
     setForm(f => {
@@ -61,16 +93,44 @@ export function useScheduleTab({ profile, setProfile }) {
   const setStart = (v) => setForm(f => ({ ...f, workingStart: v }));
   const setEnd   = (v) => setForm(f => ({ ...f, workingEnd: v }));
 
-  const save = () => {
-    setProfile(p => ({ ...p, ...form }));
+  const doSave = () => {
+    const DAY_NUM_TO_KEY = { 1:"L", 2:"M", 3:"Mi", 4:"J", 5:"V", 6:"S", 0:"D" };
+    // Reconstruir activeDays y schedule globales a partir de workingDays/workingStart/workingEnd
+    const newActiveDays = { L:false, M:false, Mi:false, J:false, V:false, S:false, D:false };
+    const newSchedule   = {};
+    form.workingDays.forEach(d => {
+      const k = DAY_NUM_TO_KEY[d];
+      if (k) {
+        newActiveDays[k] = true;
+        newSchedule[k]   = [{ start: form.workingStart, end: form.workingEnd }];
+      }
+    });
+    setProfile(p => ({
+      ...p,
+      ...form,
+      activeDays: newActiveDays,
+      schedule:   { ...p.schedule, ...newSchedule },
+    }));
     setSaved(true);
+    setShowGranularWarn(false);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const save = () => {
+    if (hasGranularSchedule) {
+      setShowGranularWarn(true);
+    } else {
+      doSave();
+    }
   };
 
   const isValid =
     form.workingDays.length > 0 && form.workingStart < form.workingEnd;
 
-  return { form, toggleDay, setStart, setEnd, save, saved, isValid };
+  return {
+    form, toggleDay, setStart, setEnd, save, doSave, saved, isValid,
+    hasGranularSchedule, showGranularWarn, setShowGranularWarn,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
