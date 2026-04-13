@@ -237,6 +237,14 @@ export function useFinance({
     : ["Sesión individual","Evaluación neuropsicológica","Primera consulta (90 min)","Pareja / Familia","Taller / Grupo","Otro"]
         .map(c => ({ value:c, label:c, svc:null }));
 
+  // Helper: obtiene el precio del catálogo centralizado con fallback a campos legacy
+  const getSvcPrice = (svc, mod) => {
+    const currency = profile?.currency || "MXN";
+    const fromCatalog = svc?.prices?.[currency]?.[mod];
+    if (fromCatalog != null) return fromCatalog;
+    return mod === "virtual" ? (svc?.priceVirtual ?? 0) : (svc?.price ?? 0);
+  };
+
   const handleConceptChange = (val) => {
     if (!services.length || val === "__otro__") {
       setForm(f => ({ ...f, concept:val==="__otro__"?"Otro":val, serviceId:"", modality:"", amount:"" }));
@@ -249,7 +257,7 @@ export function useFinance({
       setForm(f => ({ ...f, concept:opt.label, serviceId:svc.id, modality:"", amount:"" }));
       setShowModalityPicker(true);
     } else {
-      const price = svc.modality === "virtual" ? svc.priceVirtual : svc.price;
+      const price = getSvcPrice(svc, svc.modality === "virtual" ? "virtual" : "presencial");
       setForm(f => ({ ...f, concept:opt.label, serviceId:svc.id, modality:svc.modality, amount:String(price||"") }));
     }
   };
@@ -257,7 +265,7 @@ export function useFinance({
   const applyModality = (mod) => {
     const svc = services.find(s => s.id === form.serviceId);
     if (!svc) return;
-    const price = mod === "virtual" ? svc.priceVirtual : svc.price;
+    const price = getSvcPrice(svc, mod);
     setForm(f => ({ ...f, modality:mod, amount:String(price||"") }));
     setShowModalityPicker(false);
   };
@@ -413,7 +421,12 @@ export function useFinance({
       const pt  = patients.find(p => p.id===appt.patientId);
       const svc = services.find(s => s.id===(pt?.defaultServiceId||appt.serviceId)) || services[0];
       if (!svc) return 0;
-      return Number(svc.modality==="virtual"?(svc.priceVirtual||svc.price):svc.price)||0;
+      const currency = profile?.currency || "MXN";
+      const mod = appt.modality === "virtual" ? "virtual" : "presencial";
+      // Leer del catálogo centralizado primero, fallback a campos legacy
+      const fromCatalog = svc.prices?.[currency]?.[mod];
+      if (fromCatalog != null) return Number(fromCatalog) || 0;
+      return Number(svc.modality==="virtual" ? (svc.priceVirtual||svc.price) : svc.price) || 0;
     }
     const f7   = future.filter(a => a.date>=today && a.date<=d7);
     const f15  = future.filter(a => a.date>=today && a.date<=d15);
