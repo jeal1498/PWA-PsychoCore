@@ -372,6 +372,11 @@ export default function Onboarding({ onClose, onNavigate }) {
   const [description,    setDescription]    = useState("");
   const [specialties,    setSpecialties]    = useState([]);
   const [otherSpecialty, setOtherSpecialty] = useState("");
+  const [cedula,         setCedula]         = useState("");
+  const [rfc,            setRfc]            = useState("");
+  const [email,          setEmail]          = useState("");
+  const [consultorio,    setConsultorio]    = useState("");
+  const [specOpen,       setSpecOpen]       = useState(false);
 
   // Paso 2 — Sesiones
   const [agendaType, setAgendaType] = useState("publica");
@@ -477,6 +482,9 @@ export default function Onboarding({ onClose, onNavigate }) {
       if (!phone.trim()) e.phone = "El teléfono es obligatorio";
       if (specialties.length === 0) e.specialties = "Selecciona al menos una especialidad";
     }
+    if (step === 3) {
+      if (savedSvcs4.length === 0) e.services = "Agrega y guarda al menos un servicio";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -566,64 +574,129 @@ export default function Onboarding({ onClose, onNavigate }) {
       <h2 style={S.title}>Tu perfil</h2>
       <div style={S.divider} />
 
+      {/* Leyenda informativa */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: T.pA, borderRadius: 10, padding: "10px 13px", marginBottom: 16 }}>
+        <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>💡</span>
+        <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.6, margin: 0 }}>
+          Los campos marcados con <span style={{ color: "#e05555" }}>*</span> son obligatorios. El resto puedes completarlo después en <strong>Ajustes</strong>.
+        </p>
+      </div>
+
+      {/* Avatar */}
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
-        <div
-          onClick={handleAvatarClick}
-          style={{
-            width: 76, height: 76, borderRadius: "50%",
-            background: avatarUrl ? "transparent" : T.p,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: T.fH, fontSize: name.trim() ? 26 : 34, fontWeight: 600, color: "#fff",
-            position: "relative", cursor: "pointer", overflow: "hidden",
-            border: `2.5px solid ${T.p}`,
-          }}
-        >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 18 }}>
+        <div onClick={handleAvatarClick} style={{
+          width: 76, height: 76, borderRadius: "50%",
+          background: avatarUrl ? "transparent" : T.p,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: T.fH, fontSize: name.trim() ? 26 : 34, fontWeight: 600, color: "#fff",
+          position: "relative", cursor: "pointer", overflow: "hidden",
+          border: `2.5px solid ${T.p}`,
+        }}>
           {avatarUrl
             ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : initials
           }
-          <div style={{
-            position: "absolute", bottom: 0, right: 0,
-            width: 24, height: 24, borderRadius: "50%",
-            background: T.card, border: `2px solid ${T.bdr}`,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11,
-          }}>✏️</div>
+          <div style={{ position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: "50%", background: T.card, border: `2px solid ${T.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✏️</div>
         </div>
         <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 5 }}>Toca para subir tu foto</p>
       </div>
 
-      <span style={S.label}>Nombre completo</span>
-      <input style={{ ...S.input, borderColor: errors.name ? "#e05555" : undefined }} type="text" placeholder="Tu nombre" value={name} onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: undefined })); }} />
+      {/* ── Sección: Datos personales ── */}
+      <p style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Datos personales</p>
+
+      <span style={S.label}>Nombre completo <span style={{ color: "#e05555" }}>*</span></span>
+      <input style={{ ...S.input, borderColor: errors.name ? "#e05555" : undefined }} type="text" placeholder="Dr. / Dra. Nombre Apellido" value={name} onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: undefined })); }} />
       {errors.name && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.name}</p>}
 
-      <span style={S.label}>Celular</span>
+      <span style={S.label}>Celular <span style={{ color: "#e05555" }}>*</span></span>
       <div style={{ display: "flex", gap: 8 }}>
         <CountryPicker value={countryCode} onChange={setCountryCode} />
         <input style={{ ...S.input, flex: 1, borderColor: errors.phone ? "#e05555" : undefined }} type="tel" placeholder="10 dígitos" value={phone} onChange={e => { setPhone(e.target.value); setErrors(p => ({ ...p, phone: undefined })); }} />
       </div>
       {errors.phone && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.phone}</p>}
 
-      <span style={S.label}>Descripción</span>
-      <textarea style={S.textarea} placeholder="Cuéntale a tus pacientes sobre ti…" value={description} onChange={e => setDescription(e.target.value)} />
+      <span style={S.label}>Correo electrónico</span>
+      <input style={S.input} type="email" placeholder="tu@correo.com" value={email} onChange={e => setEmail(e.target.value)} />
 
-      <span style={{ ...S.label, marginTop: 16 }}>Especialidades</span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 2 }}>
-        {SPECIALTIES.map(s => (
-          <Chip key={s} label={s} selected={specialties.includes(s)} onToggle={() => toggleChip(specialties, setSpecialties, s)} />
-        ))}
+      {/* ── Sección: Datos profesionales ── */}
+      <div style={{ height: 1, background: T.bdrL, margin: "18px 0 14px" }} />
+      <p style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Datos profesionales</p>
+
+      {/* Especialidad — lista colapsable */}
+      <span style={S.label}>Especialidad <span style={{ color: "#e05555" }}>*</span></span>
+      <div style={{ position: "relative" }}>
+        <div
+          onClick={() => setSpecOpen(o => !o)}
+          style={{
+            ...S.input, cursor: "pointer", userSelect: "none",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderColor: errors.specialties ? "#e05555" : specOpen ? T.p : undefined,
+            color: specialties.length > 0 ? T.t : T.tl,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>
+            {specialties.length > 0
+              ? specialties.filter(s => s !== "Otro").join(", ") + (specialties.includes("Otro") && otherSpecialty ? `, ${otherSpecialty}` : specialties.includes("Otro") ? ", Otro" : "")
+              : "Selecciona tu especialidad"}
+          </span>
+          <span style={{ fontSize: 11, color: T.tl, transition: "transform .2s", display: "inline-block", transform: specOpen ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0, marginLeft: 8 }}>▾</span>
+        </div>
+        {specOpen && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+            background: T.card, border: `1.5px solid ${T.p}`,
+            borderRadius: 12, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,.14)",
+            maxHeight: 260, overflowY: "auto",
+          }}>
+            {SPECIALTIES.filter(s => s !== "Otro").map((s, idx, arr) => (
+              <div key={s} onClick={() => { toggleChip(specialties, setSpecialties, s); setErrors(p => ({ ...p, specialties: undefined })); }}
+                style={{
+                  padding: "11px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  borderBottom: idx < arr.length - 1 ? `1px solid ${T.bdrL}` : "none",
+                  cursor: "pointer", background: specialties.includes(s) ? T.pA : "transparent",
+                  fontFamily: T.fB, fontSize: 13, color: specialties.includes(s) ? T.p : T.t,
+                  fontWeight: specialties.includes(s) ? 700 : 400,
+                }}>
+                {s}
+                {specialties.includes(s) && <span style={{ color: T.p, fontSize: 14 }}>✓</span>}
+              </div>
+            ))}
+            {/* Opción "Otro" al final */}
+            <div onClick={() => { toggleChip(specialties, setSpecialties, "Otro"); setErrors(p => ({ ...p, specialties: undefined })); }}
+              style={{
+                padding: "11px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                cursor: "pointer", background: specialties.includes("Otro") ? T.pA : "transparent",
+                fontFamily: T.fB, fontSize: 13, color: specialties.includes("Otro") ? T.p : T.t,
+                fontWeight: specialties.includes("Otro") ? 700 : 400,
+                borderTop: `1px solid ${T.bdrL}`,
+              }}>
+              ✏️ Otra especialidad
+              {specialties.includes("Otro") && <span style={{ color: T.p, fontSize: 14 }}>✓</span>}
+            </div>
+          </div>
+        )}
       </div>
-      {errors.specialties && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 6 }}>{errors.specialties}</p>}
+      {errors.specialties && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.specialties}</p>}
       {specialties.includes("Otro") && (
-        <input
-          style={{ ...S.input, marginTop: 10 }}
-          type="text"
-          placeholder="Escribe tu especialidad…"
-          value={otherSpecialty}
-          onChange={e => setOtherSpecialty(e.target.value)}
-          autoFocus
-        />
+        <input style={{ ...S.input, marginTop: 8 }} type="text" placeholder="Escribe tu especialidad…" value={otherSpecialty} onChange={e => setOtherSpecialty(e.target.value)} />
       )}
+
+      <span style={S.label}>Cédula profesional</span>
+      <input style={S.input} type="text" placeholder="Ej. 1234567" value={cedula} onChange={e => setCedula(e.target.value)} />
+
+      <span style={S.label}>RFC</span>
+      <input style={S.input} type="text" placeholder="Ej. MELR850101AB2" value={rfc} onChange={e => setRfc(e.target.value.toUpperCase())} maxLength={13} />
+
+      {/* ── Sección: Consultorio ── */}
+      <div style={{ height: 1, background: T.bdrL, margin: "18px 0 14px" }} />
+      <p style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Consultorio</p>
+
+      <span style={S.label}>Nombre del consultorio</span>
+      <input style={S.input} type="text" placeholder="Ej. Consultorio Mente Sana" value={consultorio} onChange={e => setConsultorio(e.target.value)} />
+
+      <span style={S.label}>Descripción profesional</span>
+      <textarea style={S.textarea} placeholder="Cuéntale a tus pacientes sobre ti y tu enfoque…" value={description} onChange={e => setDescription(e.target.value)} />
 
       <Nav showBack={false} />
     </>,
@@ -883,7 +956,7 @@ export default function Onboarding({ onClose, onNavigate }) {
                     ))}
                   </div>
 
-                  <button onClick={() => { setSavedSvcs4(p => p.includes(ps.id) ? p : [...p, ps.id]); setEditingSvc4(null); }}
+                  <button onClick={() => { setSavedSvcs4(p => p.includes(ps.id) ? p : [...p, ps.id]); setEditingSvc4(null); setErrors(p2 => ({ ...p2, services: undefined })); }}
                     style={{ marginTop: 14, width: "100%", padding: "11px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 12px ${T.p}30` }}>
                     Guardar servicio ✓
                   </button>
@@ -893,6 +966,12 @@ export default function Onboarding({ onClose, onNavigate }) {
           );
         })}
       </div>
+
+      {errors.services && (
+        <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#fdf0f0", border: "1.5px solid #e05555" }}>
+          <p style={{ fontFamily: T.fB, fontSize: 12, color: "#e05555", margin: 0 }}>⚠️ {errors.services}</p>
+        </div>
+      )}
 
       <Nav />
     </>,
@@ -968,9 +1047,7 @@ export default function Onboarding({ onClose, onNavigate }) {
               <div style={S.logoIcon}>🧠</div>
               <span style={S.logoName}>PsychoCore</span>
             </div>
-            {!showWelcome && (
-              <button style={S.skipAll} onClick={() => onClose(null)}>Omitir</button>
-            )}
+            <div />
           </div>
 
           {/* ── Pantalla de bienvenida ──────────────────────────────────────── */}
