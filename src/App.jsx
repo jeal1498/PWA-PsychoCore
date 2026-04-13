@@ -179,8 +179,41 @@ export default function App() {
     return () => clearTimeout(t);
   }, [dataLoaded, user, patients.length]);
 
-  const handleOnboardingClose = () => {
+  // Recibe los datos del formulario de onboarding y los persiste en perfil y servicios
+  const handleOnboardingClose = (data) => {
     if (user) localStorage.setItem(`pc_onboarding_done_${user.id}`, "1");
+    if (data) {
+      setProfile(prev => ({
+        ...prev,
+        name:         data.name        || prev.name,
+        phone:        data.phone       || prev.phone,
+        description:  data.description || prev.description,
+        specialty:    Array.isArray(data.specialties) ? data.specialties.join(", ") : prev.specialty,
+        specialties:  data.specialties || prev.specialties,
+        avatarUrl:    data.avatarUrl   || prev.avatarUrl,
+        agendaType:   data.agendaType  || prev.agendaType,
+        duration:     data.duration    || prev.duration,
+        modality:     data.modality    || prev.modality,
+        mapsLink:     data.mapsLink    || prev.mapsLink,
+        activeDays:   data.activeDays  || prev.activeDays,
+        schedule:     data.schedule    || prev.schedule,
+        workingDays:  data.activeDays
+          ? Object.entries(data.activeDays)
+              .filter(([,v]) => v)
+              .map(([k]) => ({ L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 }[k]))
+              .filter(n => n !== undefined)
+          : prev.workingDays,
+        workingStart: data.schedule?.L?.[0]?.start || prev.workingStart,
+        workingEnd:   data.schedule?.L?.[0]?.end   || prev.workingEnd,
+        currency:     data.currency    || prev.currency,
+        showPrice:    data.showPrice   !== undefined ? data.showPrice : prev.showPrice,
+        payPolicy:    data.payPolicy   || prev.payPolicy,
+        sources:      data.sources     || prev.sources,
+      }));
+      if (data.services && data.services.length > 0) {
+        setServices(data.services);
+      }
+    }
     setShowOnboarding(false);
   };
 
@@ -406,7 +439,7 @@ export default function App() {
         {showOnboarding && (
           <Onboarding
             onClose={handleOnboardingClose}
-            onNavigate={(module) => { navTo(module); handleOnboardingClose(); }}
+            onNavigate={(module, data) => { handleOnboardingClose(data); navTo(module); }}
           />
         )}
 
