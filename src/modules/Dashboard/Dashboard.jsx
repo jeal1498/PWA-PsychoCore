@@ -115,7 +115,12 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-appt:first-child { border-top:none; }
     .d-appt:hover { background:var(--d-hover); }
     .d-active { background:#2A2010 !important; border-left:3px solid #C8860A; }
-    .d-next-up { background:rgba(94,207,160,.04) !important; border-left:3px solid #5ECFA0; cursor:pointer; }
+    .d-next-up { background:rgba(94,207,160,.06) !important; border-left:3px solid #5ECFA0; cursor:pointer; }
+
+    /* Scrollable agenda — sin scrollbar visible */
+    .d-agenda-scroll { overflow-y:auto; overflow-x:hidden; }
+    .d-agenda-scroll::-webkit-scrollbar { display:none; }
+    .d-agenda-scroll { -ms-overflow-style:none; scrollbar-width:none; }
     .d-time   { width:50px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px 4px; }
     .d-time-h { font-family:'Lora',serif; font-size:15px; color:var(--d-txt2); line-height:1; }
     .d-time-m { font-size:10px; color:var(--d-muted); font-weight:500; margin-top:1px; }
@@ -357,23 +362,25 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
 }
 
 // ── AGENDA ────────────────────────────────────────────────────────────────────
-function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavigate }) {
+function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavigate, bp }) {
   const completadas = todayAppts.filter(a => a.status==="completada").length;
 
-  // Cita pendiente más próxima a iniciar (la siguiente en tiempo desde ahora)
-  const now = new Date();
+  const now     = new Date();
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const nextPendingId = useMemo(() => {
     const pending = todayAppts
       .filter(a => a.status === "pendiente")
-      .map(a => {
-        const [h, m] = (a.time || "00:00").split(":").map(Number);
-        return { ...a, mins: h * 60 + m };
-      })
+      .map(a => { const [h,m] = (a.time||"00:00").split(":").map(Number); return { ...a, mins: h*60+m }; })
       .filter(a => a.mins >= nowMins)
-      .sort((a, b) => a.mins - b.mins);
+      .sort((a,b) => a.mins - b.mins);
     return pending[0]?.id ?? null;
   }, [todayAppts, nowMins]);
+
+  // Altura: muestra N filas completas + media fila para insinuar scroll
+  // Cada fila ~68px. Mobile: 3.4 filas → ~231px. Tablet/desktop: 5.5 → ~374px
+  const ROW_H  = 68;
+  const isMob  = !bp || bp === "mobile";
+  const maxH   = isMob ? ROW_H * 3.4 : ROW_H * 5.5;
 
   return (
     <div className="d-sec" style={{ animationDelay:".14s" }}>
@@ -386,23 +393,22 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         {todayAppts.length === 0 ? (
           <div className="d-empty">Sin citas para hoy ✓</div>
         ) : (
-          <div style={{ maxHeight: 220, overflowY:"auto", overflowX:"hidden" }}>
+          <div className="d-agenda-scroll" style={{ maxHeight: maxH }}>
             {todayAppts.map(appt => {
-              const isNext  = appt.id === nextPendingId;
-              const active  = appt.status === "en_curso";
-              const st      = STATUS[appt.status] || STATUS.pendiente;
-              const [h, m]  = (appt.time||"00:00").split(":");
+              const isNext = appt.id === nextPendingId;
+              const active = appt.status === "en_curso";
+              const st     = STATUS[appt.status] || STATUS.pendiente;
+              const [h, m] = (appt.time||"00:00").split(":");
 
-              // Colores del tag
-              const tagBg   = isNext ? "#1A3A28" : active ? "#FDF3E0" : st.bg;
-              const tagClr  = isNext ? "#5ECFA0" : active ? "#A06A00" : st.text;
-              const tagLbl  = isNext ? "Iniciar"  : st.label;
+              const tagBg  = isNext ? "#1A3A28" : active ? "#FDF3E0" : st.bg;
+              const tagClr = isNext ? "#5ECFA0" : active ? "#A06A00" : st.text;
+              const tagLbl = isNext ? "Abrir"   : st.label;
 
               return (
                 <div
                   key={appt.id}
                   className={`d-appt${active ? " d-active" : isNext ? " d-next-up" : ""}`}
-                  onClick={()=>(active || isNext) && onStartSession?.(appt)}
+                  onClick={()=>(isNext || active) ? onStartSession?.(appt) : onNavigate("agenda")}
                 >
                   <div className="d-time">
                     <div className="d-time-h" style={isNext ? { color:"#5ECFA0" } : {}}>{h}</div>
@@ -413,7 +419,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
                     <div className="d-atype">{appt.type || appt.service || ""}</div>
                   </div>
                   <div className="d-aright" style={{ justifyContent:"center" }}>
-                    <div className="d-stag" style={{ background:tagBg, color:tagClr, fontSize:isNext?10:9, padding: isNext?"4px 10px":"2px 7px" }}>{tagLbl}</div>
+                    <div className="d-stag" style={{ background:tagBg, color:tagClr, fontSize:isNext?10:9, padding:isNext?"4px 11px":"2px 7px", fontWeight:700 }}>{tagLbl}</div>
                   </div>
                 </div>
               );
@@ -692,6 +698,7 @@ export default function Dashboard({
         todayStr={todayStr}
         onStartSession={onStartSession}
         onNavigate={onNavigate}
+        bp={bp}
       />
 
       {/* ACCESOS DIRECTOS */}
