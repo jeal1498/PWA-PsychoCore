@@ -1,4 +1,4 @@
-// ── useSettings.js ───────────────────────────────────────────────────────────
+// ── useSettings.js ────────────────────────────────────────────────────────────
 // Lógica de estado y handlers para el módulo Settings.
 // Sin JSX. Sin imports de UI.
 
@@ -11,6 +11,9 @@ import {
   calcPkgPrices,
   parseCSVPatients,
   DISCOUNTS,
+  hhmmToMin,
+  minToHHMM,
+  ALL_CURRENCIES,
 } from "./settings.utils.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,8 +30,8 @@ export function useProfileTab({ profile, setProfile, googleUser }) {
     description: profile?.description || "",
     avatarUrl:   profile?.avatarUrl   || null,
   }));
-  const [saved,           setSaved]           = useState(false);
-  const [avatarPreview,   setAvatarPreview]   = useState(profile?.avatarUrl || null);
+  const [saved,         setSaved]         = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(profile?.avatarUrl || null);
 
   const fld = k => v => setForm(f => ({ ...f, [k]: v }));
 
@@ -71,12 +74,10 @@ export function useScheduleTab({ profile, setProfile }) {
   const [saved,            setSaved]            = useState(false);
   const [showGranularWarn, setShowGranularWarn] = useState(false);
 
-  // Detecta si el perfil tiene horario granular (por día) configurado desde el onboarding
   const hasGranularSchedule = (() => {
     const s = profile?.schedule;
     if (!s) return false;
     const intervals = Object.values(s).flat();
-    // Hay horario granular si algún día tiene intervalos distintos entre sí
     const unique = new Set(intervals.map(iv => `${iv.start}-${iv.end}`));
     return unique.size > 1;
   })();
@@ -95,7 +96,6 @@ export function useScheduleTab({ profile, setProfile }) {
 
   const doSave = () => {
     const DAY_NUM_TO_KEY = { 1:"L", 2:"M", 3:"Mi", 4:"J", 5:"V", 6:"S", 0:"D" };
-    // Reconstruir activeDays y schedule globales a partir de workingDays/workingStart/workingEnd
     const newActiveDays = { L:false, M:false, Mi:false, J:false, V:false, S:false, D:false };
     const newSchedule   = {};
     form.workingDays.forEach(d => {
@@ -134,123 +134,203 @@ export function useScheduleTab({ profile, setProfile }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// useServicesTab
+// BLANK SERVICE — forma vacía para el formulario de nuevo servicio
 // ─────────────────────────────────────────────────────────────────────────────
-export function useServicesTab({ services, setServices }) {
+export const BLANK_SERVICE = {
+  name: "",
+  type: "sesion",
+  modality: "ambas",
+  durationHH: "00",
+  durationMM: "50",
+  prices: {},   // { MXN: { presencial: "", virtual: "" }, USD: { ... } }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// useServicesTab — NUEVO catálogo centralizado
+// ─────────────────────────────────────────────────────────────────────────────
+export function useServicesTab({ profile, setProfile, services, setServices }) {
   const today = todayISO();
 
-  const sesionSvc  = services.find(s => s.type === "sesion");
+  // ── Divisas activas del psicólogo ─────────────────────────────────────────
+  const activeCurrencies = profile?.currencies?.length
+    ? profile.currencies
+    : (profile?.currency ? [profile.currency] : ["MXN"]);
+
+  const toggleCurrency = (code) => {
+    const current = [...activeCurrencies];
+    const next = current.includes(code)
+      ? current.length > 1 ? current.filter(c => c !== code) : current
+      : [...current, code];
+    setProfile(p => ({ ...p, currencies: next, currency: next[0] }));
+  };
+
+  // ── Formulario de nuevo/editar servicio ───────────────────────────────────
+  const [form,       setForm]       = useState(BLANK_SERVICE);
+  const [editingId,  setEditingId]  = useState(null);   // id del servicio en edición
+  const [showForm,   setShowForm]   = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+
+  // Sincronizar precios del form con divisas activas cuando cambian
+  useEffect(() => {
+    setForm(f => {
+      const newPrices = { ...f.prices };
+      activeCurrencies.forEach(cur => {
+        if (!newPrices[cur]) newPrices[cur] = { presencial: "", virtual: "" };
+      });
+      return { ...f, prices: newPrices };
+    });
+  }, [activeCurrencies.join(",")]); // eslint-disable-line
+
+  const fld = k => v => setForm(f => ({ ...f, [k]: v }));
+
+  const setPriceField = (cur, mod, val) => {
+    setForm(f => ({
+      ...f,
+      prices: {
+        ...f.prices,
+        [cur]: { ...(f.prices[cur] || {}), [mod]: val },
+      },
+    }));
+  };
+
+  const openNew = () => {
+    // Inicializar precios vacíos para cada divisa activa
+    const prices = {};
+    activeCurrencies.forEach(cur => { prices[cur] = { presencial: "", virtual: "" }; });
+    setForm({ ...BLANK_SERVICE, prices });
+    setEditingId(null);
+    setFormErrors({});
+    setShowForm(true);
+  };
+
+  const openEdit = (svc) => {
+    const { hh, mm } = minToHHMM(svc.durationMin || 50);
+    // Reconstruct prices ensuring all active currencies present
+    const prices = {};
+    activeCurrencies.forEach(cur => {
+      prices[cur] = {
+        presencial: svc.prices?.[cur]?.presencial ?? "",
+        virtual:    svc.prices?.[cur]?.virtual    ?? "",
+      };
+    });
+    setForm({
+      name:        svc.name,
+      type:        svc.type,
+      modality:    svc.modality,
+      durationHH:  hh,
+      durationMM:  mm,
+      prices,
+    });
+    setEditingId(svc.id);
+    setFormErrors({});
+    setShowForm(true);
+  };
+
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormErrors({});
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = "El nombre es obligatorio";
+    const totalMin = hhmmToMin(form.durationHH, form.durationMM);
+    if (totalMin === 0) e.duration = "La duración debe ser mayor a 0";
+    // At least one price in at least one currency
+    const hasAnyPrice = activeCurrencies.some(cur =>
+      (form.modality === "virtual"    ? false : Number(form.prices[cur]?.presencial) > 0) ||
+      (form.modality === "presencial" ? false : Number(form.prices[cur]?.virtual)    > 0) ||
+      Number(form.prices[cur]?.presencial) > 0 ||
+      Number(form.prices[cur]?.virtual)    > 0
+    );
+    if (!hasAnyPrice) e.prices = "Ingresa al menos un precio";
+    setFormErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const save = () => {
+    if (!validate()) return;
+    const durationMin = hhmmToMin(form.durationHH, form.durationMM);
+    // Clean prices: only keep modality-relevant ones and parse to numbers
+    const cleanPrices = {};
+    activeCurrencies.forEach(cur => {
+      const entry = {};
+      if (form.modality !== "virtual"    && form.prices[cur]?.presencial !== "") {
+        entry.presencial = Number(form.prices[cur]?.presencial) || 0;
+      }
+      if (form.modality !== "presencial" && form.prices[cur]?.virtual    !== "") {
+        entry.virtual    = Number(form.prices[cur]?.virtual)    || 0;
+      }
+      if (Object.keys(entry).length) cleanPrices[cur] = entry;
+    });
+
+    if (editingId) {
+      setServices(prev => prev.map(s => {
+        if (s.id !== editingId) return s;
+        return {
+          ...s,
+          name:        form.name.trim(),
+          type:        form.type,
+          modality:    form.modality,
+          durationHH:  form.durationHH,
+          durationMM:  form.durationMM,
+          durationMin,
+          prices:      cleanPrices,
+          // Keep legacy price fields for backwards compat with Finance/Agenda
+          price:        cleanPrices[activeCurrencies[0]]?.presencial ?? s.price ?? 0,
+          priceVirtual: cleanPrices[activeCurrencies[0]]?.virtual    ?? s.priceVirtual ?? null,
+          priceHistory: [
+            ...(s.priceHistory || []),
+            { prices: cleanPrices, from: today },
+          ],
+        };
+      }));
+    } else {
+      const primaryCur = activeCurrencies[0];
+      const newSvc = {
+        id:          "svc" + uid(),
+        name:        form.name.trim(),
+        type:        form.type,
+        modality:    form.modality,
+        durationHH:  form.durationHH,
+        durationMM:  form.durationMM,
+        durationMin,
+        prices:      cleanPrices,
+        sessions:    null,
+        // Legacy compat fields
+        price:        cleanPrices[primaryCur]?.presencial ?? 0,
+        priceVirtual: cleanPrices[primaryCur]?.virtual    ?? null,
+        priceHistory: [{ prices: cleanPrices, from: today }],
+      };
+      setServices(prev => [...prev, newSvc]);
+    }
+    cancelForm();
+  };
+
+  const del = (id) => setServices(prev => prev.filter(s => s.id !== id));
+
+  // ── Servicios sin paquetes ────────────────────────────────────────────────
+  const regularServices = services.filter(s => s.type !== "paquete");
+
+  // ── Paquetes ──────────────────────────────────────────────────────────────
+  const packageServices = services.filter(s => s.type === "paquete");
+
+  // Sesión base para calcular sugeridos de paquetes
+  const sesionSvc  = regularServices.find(s => s.type === "sesion");
   const basePrice  = sesionSvc?.price        || 900;
   const basePriceV = sesionSvc?.priceVirtual || null;
 
-  const BLANK_FORM = {
-    name: "Sesión de psicoterapia individual de 50 minutos",
-    price: "", priceVirtual: "",
-    type: "sesion", sessions: "", modality: "presencial",
-  };
+  const [pkgPrices,  setPkgPrices]  = useState(() => calcPkgPrices(basePrice, basePriceV).row);
+  const [pkgPricesV, setPkgPricesV] = useState(() => calcPkgPrices(basePrice, basePriceV).rowV);
 
-  const [form,        setForm]        = useState(BLANK_FORM);
-  const [pkgPrices,   setPkgPrices]   = useState(() => calcPkgPrices(basePrice, basePriceV).row);
-  const [pkgPricesV,  setPkgPricesV]  = useState(() => calcPkgPrices(basePrice, basePriceV).rowV);
-  const [editingPrice, setEditingPrice] = useState(null); // { svcId, newPrice, newPriceVirtual, from }
-
-  // Auto-actualizar precios de paquetes cuando cambia la sesión individual
   useEffect(() => {
     const fresh = calcPkgPrices(basePrice, basePriceV);
     setPkgPrices(fresh.row);
     setPkgPricesV(fresh.rowV);
   }, [basePrice, basePriceV]);
 
-  const fld = k => v => setForm(f => ({ ...f, [k]: v }));
-
-  const canAdd =
-    (form.type === "paquete" || form.name.trim()) &&
-    (form.price || form.priceVirtual);
-
-  // Agregar o fusionar servicio
-  const add = (overrides = {}) => {
-    const f = { ...form, ...overrides };
-    if (f.type !== "paquete" && !f.name.trim()) return;
-    if (!f.price && !f.priceVirtual) return;
-    const now = today;
-    setServices(prev => {
-      const dupIdx = prev.findIndex(
-        s => s.type === f.type && s.name.trim() === f.name.trim()
-      );
-      if (dupIdx !== -1) {
-        const existing = prev[dupIdx];
-        const merged = {
-          ...existing,
-          modality: "ambas",
-          price:        f.price        ? Number(f.price)        : existing.price,
-          priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
-          priceHistory: [
-            ...(existing.priceHistory || []),
-            {
-              price:        f.price        ? Number(f.price)        : existing.price,
-              priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : existing.priceVirtual,
-              from: now,
-            },
-          ],
-        };
-        const updated = [...prev];
-        updated[dupIdx] = merged;
-        return updated;
-      }
-      const effectivePrice = f.price || f.priceVirtual;
-      return [
-        ...prev,
-        {
-          id: "svc" + uid(),
-          name: f.name.trim(),
-          type: f.type,
-          modality:
-            f.price && f.priceVirtual ? "ambas"
-              : f.priceVirtual ? "virtual"
-              : "presencial",
-          sessions:     f.type === "paquete" ? Number(f.sessions) : null,
-          price:        Number(f.price) || 0,
-          priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-          priceHistory: [{
-            price:        Number(effectivePrice),
-            priceVirtual: f.priceVirtual ? Number(f.priceVirtual) : null,
-            from: now,
-          }],
-        },
-      ];
-    });
-    setForm(BLANK_FORM);
-  };
-
-  const del = id => setServices(prev => prev.filter(s => s.id !== id));
-
-  const applyPriceEdit = () => {
-    if (!editingPrice) return;
-    const { svcId, newPrice, newPriceVirtual, from } = editingPrice;
-    setServices(prev =>
-      prev.map(s => {
-        if (s.id !== svcId) return s;
-        return {
-          ...s,
-          price:        newPrice        !== undefined ? Number(newPrice)        : s.price,
-          priceVirtual: newPriceVirtual !== undefined ? Number(newPriceVirtual) : s.priceVirtual,
-          priceHistory: [
-            ...(s.priceHistory || []),
-            {
-              price:        newPrice        !== undefined ? Number(newPrice)        : s.price,
-              priceVirtual: newPriceVirtual !== undefined ? Number(newPriceVirtual) : s.priceVirtual,
-              from,
-            },
-          ],
-        };
-      })
-    );
-    setEditingPrice(null);
-  };
-
-  // Guarda los paquetes sugeridos de una modalidad
   const savePkgRow = (modality) => {
-    const now = today;
     setServices(prev => {
       let updated = [...prev];
       DISCOUNTS.forEach(d => {
@@ -262,17 +342,26 @@ export function useServicesTab({ services, setServices }) {
         const mergedP  = modality === "presencial" ? priceP : (existing?.price        || 0);
         const mergedV  = modality === "virtual"    ? priceV : (existing?.priceVirtual || null);
         const mergedMod = mergedP && mergedV ? "ambas" : mergedV ? "virtual" : "presencial";
+        const primaryCur = activeCurrencies[0] || "MXN";
+        const cleanPrices = {};
+        if (mergedP) cleanPrices[primaryCur] = { ...(cleanPrices[primaryCur] || {}), presencial: mergedP };
+        if (mergedV) cleanPrices[primaryCur] = { ...(cleanPrices[primaryCur] || {}), virtual: mergedV };
+        const { hh, mm } = minToHHMM(50);
         const entry = {
-          id: existing?.id || "svc" + uid(),
-          name: d.label,
-          type: "paquete",
-          modality: mergedMod,
-          sessions: d.sessions,
+          id:          existing?.id || "svc" + uid(),
+          name:        d.label,
+          type:        "paquete",
+          modality:    mergedMod,
+          sessions:    d.sessions,
+          durationHH:  hh,
+          durationMM:  mm,
+          durationMin: 50,
+          prices:      cleanPrices,
           price:        mergedP,
           priceVirtual: mergedV,
           priceHistory: existing
-            ? [...(existing.priceHistory || []), { price: mergedP, priceVirtual: mergedV, from: now }]
-            : [{ price: mergedP, priceVirtual: mergedV, from: now }],
+            ? [...(existing.priceHistory || []), { prices: cleanPrices, from: today }]
+            : [{ prices: cleanPrices, from: today }],
         };
         if (dupIdx >= 0) updated[dupIdx] = entry;
         else updated = [...updated, entry];
@@ -281,6 +370,8 @@ export function useServicesTab({ services, setServices }) {
     });
   };
 
+  const delPkg = (id) => setServices(prev => prev.filter(s => s.id !== id));
+
   const resetPkgPrices = () => {
     const fresh = calcPkgPrices(basePrice, basePriceV);
     setPkgPrices(fresh.row);
@@ -288,15 +379,25 @@ export function useServicesTab({ services, setServices }) {
   };
 
   return {
-    form, fld, setForm,
-    canAdd, add, del,
+    // Currencies
+    activeCurrencies,
+    allCurrencies: ALL_CURRENCIES,
+    toggleCurrency,
+    // Service form
+    form, fld, setPriceField,
+    showForm, formErrors,
+    editingId,
+    openNew, openEdit, cancelForm, save,
+    // Lists
+    regularServices,
+    packageServices,
+    del, delPkg,
+    // Packages
     pkgPrices, setPkgPrices,
     pkgPricesV, setPkgPricesV,
-    editingPrice, setEditingPrice, applyPriceEdit,
     savePkgRow, resetPkgPrices,
     basePrice, basePriceV,
     today,
-    BLANK_FORM,
   };
 }
 
@@ -317,7 +418,6 @@ export function useDataTab({ allData, onRestore, patients }) {
     setTimeout(() => setMsg(null), 4000);
   };
 
-  // ── Exportar JSON ────────────────────────────────────────────────────────
   const exportJSON = () => {
     const blob = new Blob(
       [JSON.stringify(
@@ -335,7 +435,6 @@ export function useDataTab({ allData, onRestore, patients }) {
     flash("Backup descargado correctamente");
   };
 
-  // ── Exportar CSV ─────────────────────────────────────────────────────────
   const exportCSV = () => {
     if (!patients?.length) { flash("No hay pacientes para exportar", false); return; }
     const headers = [
@@ -343,17 +442,10 @@ export function useDataTab({ allData, onRestore, patients }) {
       "CIE-11", "Motivo de consulta", "Estatus", "Tipo", "Notas", "Fecha de registro",
     ];
     const rows = patients.map(p => [
-      p.name || "",
-      p.age   || "",
-      p.phone || "",
-      p.email || "",
-      p.diagnosis || "",
-      p.cie11Code  || "",
-      (p.reason || "").replace(/,/g, ";"),
-      p.status || "activo",
-      p.type   || "individual",
-      (p.notes || "").replace(/,/g, ";"),
-      p.createdAt || "",
+      p.name || "", p.age || "", p.phone || "", p.email || "", p.diagnosis || "",
+      p.cie11Code || "", (p.reason || "").replace(/,/g, ";"),
+      p.status || "activo", p.type || "individual",
+      (p.notes || "").replace(/,/g, ";"), p.createdAt || "",
     ]);
     const csv  = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -366,7 +458,6 @@ export function useDataTab({ allData, onRestore, patients }) {
     flash(`${patients.length} pacientes exportados como CSV`);
   };
 
-  // ── Importar JSON ────────────────────────────────────────────────────────
   const importJSON = () => {
     const input    = document.createElement("input");
     input.type     = "file";
@@ -397,21 +488,17 @@ export function useDataTab({ allData, onRestore, patients }) {
     input.click();
   };
 
-  // ── Eliminar cuenta ──────────────────────────────────────────────────────
   const deleteAccount = async () => {
     if (deleteInput !== "ELIMINAR") return;
     setDeleting(true);
-
     const clearLocal = () => {
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith("pc_") || k.startsWith("sb-")) localStorage.removeItem(k);
       });
     };
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
-
       const report = {
         pacientes:    allData?.patients?.length        || 0,
         citas:        allData?.appointments?.length    || 0,
@@ -424,7 +511,6 @@ export function useDataTab({ allData, onRestore, patients }) {
         medicamentos: allData?.medications?.length     || 0,
         servicios:    allData?.services?.length        || 0,
       };
-
       if (uid) {
         const tables = [
           "pc_patients", "pc_appointments", "pc_sessions", "pc_payments",
@@ -436,12 +522,10 @@ export function useDataTab({ allData, onRestore, patients }) {
         );
         await supabase.auth.signOut();
       }
-
       clearLocal();
       setDeleting(false);
       setShowDelete(false);
       setDeleteReport(report);
-
     } catch {
       clearLocal();
       window.location.href = window.location.origin;
@@ -510,7 +594,7 @@ export function useAppearanceTab({ setPatients }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// useSettings (hook raíz — gestiona solo el tab activo)
+// useSettings (hook raíz)
 // ─────────────────────────────────────────────────────────────────────────────
 export function useSettings({ initialTab = "profile" } = {}) {
   const [tab, setTab] = useState(initialTab || "profile");

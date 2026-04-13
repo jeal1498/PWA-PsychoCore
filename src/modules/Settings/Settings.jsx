@@ -20,8 +20,8 @@ import {
 
 import {
   NAV_TEXT, WA,
-  DAY_LABELS, SERVICE_TYPES, DISCOUNTS, SUGGESTED_SERVICES, FAQ_ITEMS,
-  fmtCur,
+  DAY_LABELS, SERVICE_TYPES, DISCOUNTS, FAQ_ITEMS,
+  ALL_CURRENCIES, fmtCur, fmtDuration,
 } from "./settings.utils.js";
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
@@ -652,343 +652,422 @@ function ScheduleTab({ profile, setProfile }) {
 }
 
 // ── Tab: Servicios ────────────────────────────────────────────────────────────
-function ServicesTab({ services, setServices }) {
+function ServicesTab({ profile, setProfile, services, setServices }) {
   const {
-    form, fld, setForm,
-    canAdd, add, del,
+    activeCurrencies, allCurrencies, toggleCurrency,
+    form, fld, setPriceField,
+    showForm, formErrors, editingId,
+    openNew, openEdit, cancelForm, save,
+    regularServices, packageServices, del, delPkg,
     pkgPrices, setPkgPrices,
     pkgPricesV, setPkgPricesV,
-    editingPrice, setEditingPrice, applyPriceEdit,
     savePkgRow, resetPkgPrices,
     basePrice, basePriceV,
-    today,
-    BLANK_FORM,
-  } = useServicesTab({ services, setServices });
+  } = useServicesTab({ profile, setProfile, services, setServices });
 
-  // Panel de edición de precio (reutilizable, definido aquí porque usa JSX)
-  const EditPanel = ({ svc }) => (
-    <div style={{ margin: "8px 0 4px", padding: "14px", background: T.cardAlt, borderRadius: 10, border: `1.5px solid ${T.bdr}` }}>
-      <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tm, marginBottom: 12 }}>
-        Actualizar precio — {svc.name}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: svc.modality === "ambas" ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 12 }}>
-        {(svc.modality === "presencial" || svc.modality === "ambas") && (
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 4 }}>🏢 Presencial</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-              <input type="number" value={editingPrice.newPrice}
-                onChange={e => setEditingPrice(ep => ({ ...ep, newPrice: e.target.value }))}
-                style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.bdr}`, borderRadius: 8, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none" }} />
+  const MM_OPTIONS = ["00", "15", "30", "45"];
+
+  // ── Helpers de estilo ─────────────────────────────────────────────────────
+  const inputStyle = {
+    width: "100%", padding: "10px 12px",
+    border: `1.5px solid ${T.bdr}`, borderRadius: 10,
+    fontFamily: T.fB, fontSize: 13, color: T.t,
+    background: T.card, outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle = {
+    display: "block", fontSize: 11, fontWeight: 700,
+    color: T.tm, marginBottom: 5, marginTop: 14,
+    textTransform: "uppercase", letterSpacing: "0.05em",
+  };
+  const errStyle = { fontSize: 11, color: "#e05555", marginTop: 4, fontFamily: T.fB };
+
+  // ── Tarjeta de servicio ───────────────────────────────────────────────────
+  const ServiceCard = ({ svc }) => {
+    const primaryCur = activeCurrencies[0] || "MXN";
+    const prices = svc.prices?.[primaryCur] || {};
+    const hasP = svc.modality !== "virtual"    && prices.presencial != null;
+    const hasV = svc.modality !== "presencial" && prices.virtual    != null;
+
+    return (
+      <div style={{
+        background: T.card, borderRadius: 14,
+        border: `1.5px solid ${T.bdr}`,
+        padding: "14px 16px", marginBottom: 10,
+        transition: "box-shadow .15s",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22 }}>{SERVICE_TYPES[svc.type]?.icon || "⚡"}</span>
+            <div>
+              <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>{svc.name}</div>
+              <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 1 }}>
+                {SERVICE_TYPES[svc.type]?.label}
+                {" · "}
+                {svc.modality === "ambas" ? "Presencial y virtual" : svc.modality === "virtual" ? "Virtual" : "Presencial"}
+              </div>
             </div>
           </div>
-        )}
-        {(svc.modality === "virtual" || svc.modality === "ambas") && (
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.p, marginBottom: 4 }}>💻 Virtual</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>$</span>
-              <input type="number" value={editingPrice.newPriceVirtual || ""}
-                onChange={e => setEditingPrice(ep => ({ ...ep, newPriceVirtual: e.target.value }))}
-                style={{ flex: 1, padding: "8px 10px", border: `1.5px solid ${T.p}40`, borderRadius: 8, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.pA, outline: "none" }} />
-            </div>
+          {/* Duración */}
+          <div style={{
+            background: T.pA, borderRadius: 8,
+            padding: "4px 10px", flexShrink: 0,
+          }}>
+            <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p }}>
+              ⏱ {fmtDuration(svc.durationMin)}
+            </span>
           </div>
-        )}
-      </div>
-      {/* Vigencia */}
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.tm, marginBottom: 6 }}>
-          ¿A partir de cuándo aplica?
-        </label>
-        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-          {[
-            { label: "Hoy", val: today },
-            { label: "Próximo mes", val: (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); d.setDate(1); return d.toISOString().slice(0, 10); })() },
-          ].map(opt => (
-            <button key={opt.label} onClick={() => setEditingPrice(ep => ({ ...ep, from: opt.val }))}
-              style={{ padding: "5px 12px", borderRadius: 9999, fontFamily: T.fB, fontSize: 11, border: `1.5px solid ${editingPrice.from === opt.val ? T.p : T.bdr}`, background: editingPrice.from === opt.val ? T.pA : "transparent", color: editingPrice.from === opt.val ? T.p : T.tm, cursor: "pointer" }}>
-              {opt.label}
-            </button>
-          ))}
         </div>
-        <input type="date" value={editingPrice.from}
-          onChange={e => setEditingPrice(ep => ({ ...ep, from: e.target.value }))}
-          style={{ width: "100%", padding: "8px 12px", border: `1.5px solid ${T.bdr}`, borderRadius: 9, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <button onClick={() => setEditingPrice(null)}
-          style={{ padding: "9px", borderRadius: 9, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 12, color: T.tm, cursor: "pointer" }}>
-          Cancelar
-        </button>
-        <button onClick={applyPriceEdit}
-          style={{ padding: "9px", borderRadius: 9, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-          Guardar
-        </button>
-      </div>
-    </div>
-  );
 
-  // PkgRow — fila de paquetes sugeridos
-  const PkgRow = ({ label, icon, modality, prices, setPrices }) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
-        {icon} {label}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 8 }}>
-        {DISCOUNTS.map((d, i) => {
-          const disc     = d.sessions === 4 ? "10%" : d.sessions === 8 ? "15%" : "20%";
-          const isCenter = i === 1;
-          return (
-            <div key={d.sessions}
-              style={{ padding: "10px 6px", borderRadius: 10, textAlign: "center", border: `2px solid ${isCenter ? T.p : T.bdr}`, background: isCenter ? T.pA : T.card, boxShadow: isCenter ? `0 0 0 1px ${T.p}40` : "none" }}>
-              <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: isCenter ? T.p : T.t, marginBottom: 4 }}>{d.label}</div>
-              <div style={{ fontFamily: T.fB, fontSize: 10, color: T.tl, lineHeight: 1.5, marginBottom: 8 }}>
-                <div>{d.sessions} sesiones</div>
-                <div>{disc} dto</div>
+        {/* Precios */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+          {activeCurrencies.map(cur => {
+            const p = svc.prices?.[cur];
+            if (!p) return null;
+            return (
+              <div key={cur} style={{
+                background: T.bdrL, borderRadius: 8, padding: "4px 10px",
+                fontFamily: T.fB, fontSize: 12,
+              }}>
+                <span style={{ fontWeight: 700, color: T.t }}>{cur}</span>
+                {p.presencial != null && (
+                  <span style={{ color: T.tm, marginLeft: 6 }}>🏢 {fmtCur(p.presencial)}</span>
+                )}
+                {p.virtual != null && (
+                  <span style={{ color: T.tm, marginLeft: 6 }}>💻 {fmtCur(p.virtual)}</span>
+                )}
               </div>
-              <input
-                type="number"
-                value={prices[d.sessions] ?? ""}
-                onChange={e => setPrices(prev => ({ ...prev, [d.sessions]: e.target.value }))}
-                style={{ width: "100%", padding: "6px 4px", borderRadius: 8, border: `1.5px solid ${isCenter ? T.p : T.bdr}`, fontFamily: T.fH, fontSize: 14, fontWeight: 600, color: T.suc, background: isCenter ? T.pA : T.card, outline: "none", textAlign: "center", boxSizing: "border-box" }} />
+            );
+          })}
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => openEdit(svc)}
+            style={{ flex: 1, padding: "8px", borderRadius: 9, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            ✏️ Editar
+          </button>
+          <button onClick={() => del(svc.id)}
+            style={{ padding: "8px 14px", borderRadius: 9, border: `1.5px solid #e0555530`, background: "transparent", fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: "#e05555", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+            <Trash2 size={13} /> Eliminar
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Modal / formulario de servicio ────────────────────────────────────────
+  const ServiceForm = () => (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 400,
+      background: "rgba(0,0,0,0.45)",
+      display: "flex", alignItems: "flex-end", justifyContent: "center",
+      padding: "0",
+    }} onClick={cancelForm}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: "100%", maxWidth: 540,
+        background: "var(--bg)", borderRadius: "20px 20px 0 0",
+        padding: "24px 20px 32px",
+        maxHeight: "90dvh", overflowY: "auto",
+        boxShadow: "0 -8px 40px rgba(0,0,0,.18)",
+      }}>
+        {/* Handle */}
+        <div style={{ width: 40, height: 4, borderRadius: 99, background: T.bdr, margin: "0 auto 20px" }} />
+
+        <h3 style={{ fontFamily: T.fH, fontSize: 18, fontWeight: 700, color: T.t, marginBottom: 4 }}>
+          {editingId ? "Editar servicio" : "Nuevo servicio"}
+        </h3>
+        <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 20 }}>
+          Este servicio estará disponible en Agenda, Finanzas y Sesiones.
+        </p>
+
+        {/* Nombre */}
+        <label style={labelStyle}>Nombre del servicio *</label>
+        <input style={{ ...inputStyle, borderColor: formErrors.name ? "#e05555" : T.bdr }}
+          type="text" placeholder="Ej. Sesión de psicoterapia individual"
+          value={form.name} onChange={e => fld("name")(e.target.value)} />
+        {formErrors.name && <p style={errStyle}>{formErrors.name}</p>}
+
+        {/* Tipo */}
+        <label style={labelStyle}>Tipo</label>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+          {Object.entries(SERVICE_TYPES).map(([k, v]) => {
+            const active = form.type === k;
+            return (
+              <button key={k} onClick={() => fld("type")(k)} style={{
+                padding: "9px 6px", borderRadius: 10,
+                border: `1.5px solid ${active ? T.p : T.bdr}`,
+                background: active ? T.pA : "transparent",
+                fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 400,
+                color: active ? T.p : T.tm, cursor: "pointer", transition: "all .13s",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              }}>
+                <span style={{ fontSize: 18 }}>{v.icon}</span>
+                <span>{v.short}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Modalidad */}
+        <label style={labelStyle}>Modalidad</label>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[
+            { v: "ambas",      ic: "🔄", lb: "Ambas" },
+            { v: "presencial", ic: "🏢", lb: "Presencial" },
+            { v: "virtual",    ic: "💻", lb: "Virtual" },
+          ].map(({ v, ic, lb }) => {
+            const active = form.modality === v;
+            return (
+              <button key={v} onClick={() => fld("modality")(v)} style={{
+                flex: 1, padding: "9px 4px", borderRadius: 10,
+                border: `1.5px solid ${active ? T.p : T.bdr}`,
+                background: active ? T.pA : "transparent",
+                fontFamily: T.fB, fontSize: 12, fontWeight: active ? 700 : 400,
+                color: active ? T.p : T.tm, cursor: "pointer", transition: "all .13s",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              }}>
+                <span style={{ fontSize: 16 }}>{ic}</span>
+                <span>{lb}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Duración HH:MM */}
+        <label style={labelStyle}>Duración *</label>
+        {formErrors.duration && <p style={{ ...errStyle, marginTop: 0, marginBottom: 4 }}>{formErrors.duration}</p>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 4, display: "block" }}>Horas</label>
+            <input type="number" min="0" max="23"
+              value={form.durationHH}
+              onChange={e => fld("durationHH")(String(e.target.value).padStart(2,"0"))}
+              style={{ ...inputStyle, textAlign: "center", fontWeight: 700, fontSize: 18, borderColor: formErrors.duration ? "#e05555" : T.bdr }} />
+          </div>
+          <span style={{ fontFamily: T.fH, fontSize: 24, fontWeight: 700, color: T.tm, marginTop: 16 }}>:</span>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 4, display: "block" }}>Minutos</label>
+            <select value={form.durationMM} onChange={e => fld("durationMM")(e.target.value)}
+              style={{ ...inputStyle, textAlign: "center", fontWeight: 700, fontSize: 18, borderColor: formErrors.duration ? "#e05555" : T.bdr }}>
+              {MM_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+        <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 5 }}>
+          Formato 24h — ej. 01:30 = 1 hora 30 min
+        </p>
+
+        {/* Precios por divisa */}
+        <label style={{ ...labelStyle, marginTop: 18 }}>Tarifas *</label>
+        {formErrors.prices && <p style={{ ...errStyle, marginBottom: 8 }}>{formErrors.prices}</p>}
+        {activeCurrencies.map(cur => (
+          <div key={cur} style={{
+            border: `1.5px solid ${T.bdr}`, borderRadius: 12,
+            marginBottom: 10, overflow: "hidden",
+          }}>
+            <div style={{
+              padding: "8px 14px", background: T.pA,
+              fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p,
+              textTransform: "uppercase", letterSpacing: "0.06em",
+            }}>
+              {ALL_CURRENCIES.find(c => c.code === cur)?.flag} {cur}
             </div>
-          );
-        })}
-      </div>
-      <button onClick={() => savePkgRow(modality)}
-        style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .15s" }}>
-        Guardar paquetes {label}
-      </button>
-    </div>
-  );
-
-  const nonPkg = services.filter(s => s.type !== "paquete");
-  const pkgs   = services.filter(s => s.type === "paquete").sort((a, b) => a.sessions - b.sessions);
-
-  return (
-    <div style={{ maxWidth: 560 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
-        Define tus servicios y tarifas. Se usarán al registrar pagos y agendar citas.
-      </p>
-
-      {/* Lista de servicios individuales */}
-      {nonPkg.length > 0 && (
-        <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
-          {nonPkg.map((svc) => (
-            <div key={svc.id}>
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
-                    {SERVICE_TYPES[svc.type]?.icon || "⚡"}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 2 }}>
-                      {SERVICE_TYPES[svc.type]?.label}
-                    </div>
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, lineHeight: 1.4, marginBottom: 6 }}>
-                      {svc.name}
-                    </div>
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t }}>
-                      {svc.modality === "presencial" && <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>}
-                      {svc.modality === "virtual"    && <span>Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>}
-                      {svc.modality === "ambas"      && <span>Presencial: <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong>{"    "}Virtual: <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>}
-                    </div>
-                  </div>
+            <div style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: form.modality === "ambas" ? "1fr 1fr" : "1fr", gap: 10 }}>
+              {form.modality !== "virtual" && (
+                <div>
+                  <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginBottom: 4, display: "block" }}>🏢 Presencial</label>
+                  <input type="number" min="0" placeholder="0.00"
+                    value={form.prices[cur]?.presencial ?? ""}
+                    onChange={e => setPriceField(cur, "presencial", e.target.value)}
+                    style={{ ...inputStyle, fontWeight: 700 }} />
                 </div>
-                {editingPrice?.svcId === svc.id && <EditPanel svc={svc} />}
-              </div>
-              {editingPrice?.svcId !== svc.id && (
-                <div style={{ borderTop: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", background: T.cardAlt }}>
-                  <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "9px 4px", background: "none", border: "none", borderRight: `1px solid ${T.bdrL}`, cursor: "pointer", fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.tm, transition: "background .13s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
-                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                    ✏️ Editar precio
-                  </button>
-                  <button onClick={() => del(svc.id)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "9px 4px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 11, fontWeight: 500, color: T.err, transition: "background .13s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.bdrL}
-                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
-                    <Trash2 size={12} /> Eliminar
-                  </button>
+              )}
+              {form.modality !== "presencial" && (
+                <div>
+                  <label style={{ fontFamily: T.fB, fontSize: 11, color: T.tm, marginBottom: 4, display: "block" }}>💻 Virtual</label>
+                  <input type="number" min="0" placeholder="0.00"
+                    value={form.prices[cur]?.virtual ?? ""}
+                    onChange={e => setPriceField(cur, "virtual", e.target.value)}
+                    style={{ ...inputStyle, fontWeight: 700 }} />
                 </div>
               )}
             </div>
-          ))}
-        </Card>
-      )}
-
-      {/* Paquetes — card unificada */}
-      {pkgs.length > 0 && (
-        <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.bdrL}`, display: "flex", alignItems: "center", gap: 10, background: T.cardAlt }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: T.pA, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>
-              📦
-            </div>
-            <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>Paquetes de sesiones</div>
           </div>
-          {pkgs.map((svc, i) => (
-            <div key={svc.id}>
-              <div style={{ padding: "12px 16px", borderBottom: i < pkgs.length - 1 || editingPrice?.svcId === svc.id ? `1px solid ${T.bdrL}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>{svc.name}</span>
-                      <span style={{ fontFamily: T.fB, fontSize: 11, color: T.tl }}>{svc.sessions} ses</span>
-                    </div>
-                    <div style={{ fontFamily: T.fB, fontSize: 12, color: T.t, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      {(svc.modality === "presencial" || svc.modality === "ambas") && (
-                        <span>🏢 <strong style={{ color: T.suc }}>{fmtCur(svc.price)}</strong></span>
-                      )}
-                      {(svc.modality === "virtual" || svc.modality === "ambas") && (
-                        <span>💻 <strong style={{ color: T.p }}>{fmtCur(svc.priceVirtual)}</strong></span>
-                      )}
-                    </div>
-                  </div>
-                  {editingPrice?.svcId !== svc.id && (
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      <button onClick={() => setEditingPrice({ svcId: svc.id, newPrice: svc.price, newPriceVirtual: svc.priceVirtual, from: today })}
-                        style={{ padding: "5px 10px", borderRadius: 8, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 11, color: T.tm, cursor: "pointer" }}>
-                        ✏️
-                      </button>
-                      <button onClick={() => del(svc.id)}
-                        style={{ padding: "5px 10px", borderRadius: 8, border: `1.5px solid ${T.err}30`, background: T.errA, fontFamily: T.fB, fontSize: 11, color: T.err, cursor: "pointer" }}>
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {editingPrice?.svcId === svc.id && <EditPanel svc={svc} />}
-              </div>
-            </div>
-          ))}
-        </Card>
-      )}
+        ))}
 
-      {/* Sugerencias rápidas */}
-      <Card style={{ padding: 20, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-          <div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Sugerencias rápidas
-            </div>
-            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, marginTop: 4 }}>
-              Plantillas clínicas para crear servicios comunes sin empezar desde cero.
-            </div>
-          </div>
+        {/* Botones */}
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button onClick={cancelForm}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.tm, cursor: "pointer" }}>
+            Cancelar
+          </button>
+          <button onClick={save}
+            style={{ flex: 2, padding: "12px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${T.p}40` }}>
+            {editingId ? "Guardar cambios" : "Agregar servicio"}
+          </button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-          {SUGGESTED_SERVICES.map(s => (
-            <button key={s.label}
-              onClick={() => setForm({
-                ...BLANK_FORM,
-                name: s.label,
-                type: s.type,
-                price: String(basePrice),
-                priceVirtual: basePriceV ? String(basePriceV) : "",
-                modality: basePriceV ? "ambas" : "presencial",
-              })}
-              style={{ textAlign: "left", padding: "12px 14px", borderRadius: 12, border: `1.5px solid ${T.bdrL}`, background: T.card, cursor: "pointer", transition: "all .15s", display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: T.pA, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <span style={{ fontSize: 18 }}>{s.icon}</span>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t, lineHeight: 1.25 }}>{s.label}</div>
-                <div style={{ fontFamily: T.fB, fontSize: 11.5, color: T.tl, lineHeight: 1.45, marginTop: 3 }}>{s.desc}</div>
-              </div>
-            </button>
-          ))}
+      </div>
+    </div>
+  );
+
+  // ── Render principal ──────────────────────────────────────────────────────
+  return (
+    <div>
+      {showForm && <ServiceForm />}
+
+      {/* ── Divisas aceptadas ────────────────────────────────────────────── */}
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+          Divisas que aceptas
         </div>
+        <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 14 }}>
+          Los precios de cada servicio se ingresan en las divisas seleccionadas.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {allCurrencies.map(({ code, flag }) => {
+            const active = activeCurrencies.includes(code);
+            return (
+              <button key={code} onClick={() => toggleCurrency(code)} style={{
+                padding: "8px 14px", borderRadius: 100,
+                border: `1.5px solid ${active ? T.p : T.bdr}`,
+                background: active ? T.p : "transparent",
+                fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 400,
+                color: active ? "#fff" : T.tm, cursor: "pointer", transition: "all .18s",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <span>{flag}</span>
+                <span>{code}</span>
+                {active && <span style={{ fontSize: 10, opacity: 0.85 }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 10 }}>
+          Mínimo una divisa requerida.
+        </p>
       </Card>
 
-      {/* Formulario nuevo servicio */}
-      <Card style={{ padding: 20 }}>
-        <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.tm, marginBottom: 16 }}>
-          Nuevo servicio
-        </div>
-
-        {/* Tipo */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>Tipo</label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
-            {Object.entries(SERVICE_TYPES).map(([k, v]) => {
-              const on = form.type === k;
-              return (
-                <button key={k}
-                  onClick={() => setForm(f => ({
-                    ...f, type: k,
-                    name: (!f.name.trim() || Object.values(SERVICE_TYPES).some(t => t.desc === f.name))
-                      ? (SERVICE_TYPES[k]?.desc || "")
-                      : f.name,
-                  }))}
-                  style={{ padding: "9px 4px", borderRadius: 9, border: `1.5px solid ${on ? T.p : T.bdr}`, background: on ? T.pA : "transparent", fontFamily: T.fB, fontSize: 11, color: on ? T.p : T.tm, fontWeight: on ? 700 : 400, cursor: "pointer", textAlign: "center", transition: "all .13s", whiteSpace: "nowrap" }}>
-                  {v.icon} {v.short}
-                </button>
-              );
-            })}
+      {/* ── Catálogo de servicios ─────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t }}>Catálogo de servicios</div>
+          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginTop: 2 }}>
+            Define tus servicios. Se usarán en Agenda, Finanzas y Sesiones.
           </div>
         </div>
+        <button onClick={openNew} style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "9px 16px", borderRadius: 100, border: "none",
+          background: T.p, color: "#fff",
+          fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer",
+          boxShadow: `0 4px 14px ${T.p}40`, flexShrink: 0,
+        }}>
+          <Plus size={15} /> Nuevo
+        </button>
+      </div>
 
-        {/* Paquetes sugeridos */}
-        {form.type === "paquete" && (
-          <div style={{ marginBottom: 14, padding: "12px 14px", background: T.cardAlt, borderRadius: 10, border: `1px solid ${T.bdrL}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Paquetes sugeridos
+      {regularServices.length === 0 ? (
+        <div style={{
+          textAlign: "center", padding: "32px 20px",
+          background: T.card, borderRadius: 14,
+          border: `1.5px dashed ${T.bdr}`, marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>💼</div>
+          <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t, marginBottom: 6 }}>
+            Sin servicios configurados
+          </div>
+          <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 16 }}>
+            Agrega tus servicios y tarifas para usarlos en toda la app.
+          </div>
+          <button onClick={openNew} style={{
+            padding: "10px 22px", borderRadius: 100, border: "none",
+            background: T.p, color: "#fff",
+            fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer",
+          }}>
+            <Plus size={14} style={{ marginRight: 6 }} />Agregar primer servicio
+          </button>
+        </div>
+      ) : (
+        regularServices.map(svc => <ServiceCard key={svc.id} svc={svc} />)
+      )}
+
+      {/* ── Paquetes de sesiones ──────────────────────────────────────────── */}
+      <div style={{ height: 1, background: T.bdrL, margin: "24px 0 20px" }} />
+      <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, marginBottom: 4 }}>
+        📦 Paquetes de sesiones
+      </div>
+      <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginBottom: 16 }}>
+        Precios preferenciales para múltiples sesiones. Se calculan automáticamente a partir del precio de la sesión individual.
+      </p>
+
+      {/* Filas de precios sugeridos */}
+      {[
+        { label: "Presencial 🏢", mod: "presencial", prices: pkgPrices, setPrices: setPkgPrices, show: true },
+        { label: "Virtual 💻", mod: "virtual", prices: pkgPricesV, setPrices: setPkgPricesV, show: !!basePriceV },
+      ].filter(r => r.show).map(row => (
+        <div key={row.mod} style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>
+            {row.label}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCOUNTS.length}, 1fr)`, gap: 8, marginBottom: 8 }}>
+            {DISCOUNTS.map(d => (
+              <div key={d.sessions} style={{ background: T.card, borderRadius: 10, border: `1.5px solid ${T.bdr}`, padding: "10px 8px" }}>
+                <div style={{ fontFamily: T.fB, fontSize: 10, fontWeight: 700, color: T.tl, textTransform: "uppercase", marginBottom: 6, textAlign: "center" }}>
+                  {d.sessions} ses.
+                </div>
+                <input type="number" value={row.prices[d.sessions] || ""}
+                  onChange={e => row.setPrices(p => ({ ...p, [d.sessions]: e.target.value }))}
+                  style={{ width: "100%", padding: "7px 8px", border: `1.5px solid ${T.bdr}`, borderRadius: 8, fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t, background: "var(--bg)", outline: "none", textAlign: "center", boxSizing: "border-box" }} />
               </div>
-              <button onClick={resetPkgPrices}
-                style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 99, border: `1.5px solid ${T.bdr}`, background: "transparent", fontFamily: T.fB, fontSize: 11, color: T.tm, cursor: "pointer" }}>
-                ↺ Reset
+            ))}
+          </div>
+          <button onClick={() => savePkgRow(row.mod)}
+            style={{ width: "100%", padding: "9px", borderRadius: 9, border: `1.5px solid ${T.p}`, background: T.pA, fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p, cursor: "pointer" }}>
+            Guardar paquetes {row.label}
+          </button>
+        </div>
+      ))}
+
+      {/* Lista de paquetes guardados */}
+      {packageServices.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 8 }}>
+            Paquetes guardados
+          </div>
+          {packageServices.map(svc => (
+            <div key={svc.id} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 14px", background: T.card, borderRadius: 10,
+              border: `1.5px solid ${T.bdr}`, marginBottom: 7,
+            }}>
+              <div>
+                <div style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 600, color: T.t }}>
+                  📦 {svc.name} — {svc.sessions} sesiones
+                </div>
+                <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 2 }}>
+                  {svc.modality === "ambas"
+                    ? `🏢 ${fmtCur(svc.price)} · 💻 ${fmtCur(svc.priceVirtual)}`
+                    : svc.modality === "virtual"
+                      ? `💻 ${fmtCur(svc.priceVirtual)}`
+                      : `🏢 ${fmtCur(svc.price)}`
+                  }
+                  {" · "}
+                  {activeCurrencies[0] || "MXN"}
+                </div>
+              </div>
+              <button onClick={() => delPkg(svc.id)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: T.tl, padding: "4px 8px" }}>
+                <Trash2 size={14} />
               </button>
             </div>
-            <PkgRow label="Presencial" icon="🏢" modality="presencial" prices={pkgPrices}  setPrices={setPkgPrices} />
-            {pkgPricesV && (
-              <PkgRow label="Virtual" icon="💻" modality="virtual" prices={pkgPricesV} setPrices={setPkgPricesV} />
-            )}
-          </div>
-        )}
-
-        {/* Descripción — solo para tipos que no son paquete */}
-        {form.type !== "paquete" && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Descripción del servicio</label>
-            <textarea value={form.name} onChange={e => fld("name")(e.target.value)}
-              rows={2}
-              placeholder="Ej: Sesión de psicoterapia individual de 50 min..."
-              style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box", resize: "none", lineHeight: 1.5 }} />
-          </div>
-        )}
-
-        {/* Precios — ocultos para paquetes */}
-        {form.type !== "paquete" && (
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>🏢 Presencial</label>
-                <input type="number" value={form.price} onChange={e => fld("price")(e.target.value)}
-                  placeholder="900"
-                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>💻 Virtual</label>
-                <input type="number" value={form.priceVirtual} onChange={e => fld("priceVirtual")(e.target.value)}
-                  placeholder="900"
-                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 13, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {form.type !== "paquete" && (
-          <button onClick={() => add()} disabled={!canAdd}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "11px", borderRadius: 10, border: "none", background: canAdd ? T.p : T.bdrL, color: canAdd ? "#fff" : T.tl, fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, cursor: canAdd ? "pointer" : "not-allowed", transition: "all .15s" }}>
-            <Plus size={15} /> Agregar servicio
-          </button>
-        )}
-      </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ── Main Settings ─────────────────────────────────────────────────────────────
 export default function Settings({
@@ -1018,7 +1097,7 @@ export default function Settings({
 
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
       {tab === "horario"    && <ScheduleTab   profile={profile} setProfile={setProfile} />}
-      {tab === "services"   && <ServicesTab   services={services} setServices={setServices} />}
+      {tab === "services"   && <ServicesTab   profile={profile} setProfile={setProfile} services={services} setServices={setServices} />}
       {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
       {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}
       {tab === "help"       && <HelpTab />}
