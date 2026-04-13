@@ -418,7 +418,8 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         return null;
       }
       if (nowMins >= curr.mins && nowMins < next.mins) {
-        const progress = (nowMins - curr.mins) / (next.mins - curr.mins);
+        // Usar 60 min como duración estándar de la cita, no el intervalo hasta la siguiente
+        const progress = Math.min((nowMins - curr.mins) / 60, 1);
         return i * ROW_H + progress * ROW_H;
       }
     }
