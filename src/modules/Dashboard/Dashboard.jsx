@@ -370,8 +370,8 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         {todayAppts.length === 0 ? (
           <div className="d-empty">Sin citas para hoy ✓</div>
         ) : (
-          <>
-            {todayAppts.slice(0, 3).map(appt => {
+          <div style={{ maxHeight: 220, overflowY:"auto", overflowX:"hidden" }}>
+            {todayAppts.map(appt => {
               const st     = STATUS[appt.status] || STATUS.pendiente;
               const [h, m] = (appt.time||"00:00").split(":");
               const active = appt.status === "en_curso";
@@ -400,16 +400,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
                 </div>
               );
             })}
-            {todayAppts.length > 3 && (
-              <div
-                className="d-empty"
-                style={{ cursor:"pointer", color:"var(--d-accent)", fontWeight:600 }}
-                onClick={()=>onNavigate("agenda")}
-              >
-                +{todayAppts.length - 3} citas más →
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {/* Siguiente cita */}
