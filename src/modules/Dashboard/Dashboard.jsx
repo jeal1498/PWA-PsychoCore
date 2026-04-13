@@ -298,7 +298,11 @@ function Shortcuts({ onQuickNav, onNewSession, patients }) {
     { icon:"💳", label:"Registrar pago",  bg:"#F4F0FB", onClick:()=>onQuickNav("finance","add"), disabled:!has },
   ];
   return (
-    <div className="d-shortcuts">
+    <div className="d-sec" style={{ paddingBottom:0 }}>
+      <div className="d-sec-hd">
+        <span className="d-sec-lbl">⚡ Accesos rápidos</span>
+      </div>
+    <div className="d-shortcuts" style={{ padding:"0 0 16px" }}>
       {items.map(item => (
         <button
           key={item.label}
@@ -310,6 +314,7 @@ function Shortcuts({ onQuickNav, onNewSession, patients }) {
           <div className="d-sc-name">{item.label}</div>
         </button>
       ))}
+    </div>
     </div>
   );
 }
@@ -438,7 +443,28 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
 
       <div className="d-agenda">
         {todayAppts.length === 0 ? (
-          <div className="d-empty">Sin citas para hoy ✓</div>
+          <div
+            onClick={() => onNavigate("agenda")}
+            style={{
+              display:"flex", alignItems:"center", gap:12,
+              padding:"16px 18px", cursor:"pointer",
+              transition:"background .12s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background="var(--d-hover)"}
+            onMouseLeave={e => e.currentTarget.style.background="transparent"}
+          >
+            <div style={{
+              width:36, height:36, borderRadius:10, flexShrink:0,
+              background:"#EDF2FB", display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:17,
+            }}>📅</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:600, color:"var(--d-txt2)" }}>Sin citas para hoy</div>
+              <div style={{ fontSize:11, color:"var(--d-accent)", fontWeight:600, marginTop:2 }}>
+                Agendar nueva cita →
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="d-agenda-scroll" style={{ maxHeight: maxH, position:"relative" }}>
 
@@ -784,6 +810,13 @@ export default function Dashboard({
 
       ) : (
         <>
+          {/* RESUMEN */}
+          <div className="d-sec" style={{ paddingBottom:0, marginBottom:4 }}>
+            <div className="d-sec-hd">
+              <span className="d-sec-lbl">📊 Resumen</span>
+            </div>
+          </div>
+
           {/* KPIs */}
           <KpiStrip
             patients={patients}
