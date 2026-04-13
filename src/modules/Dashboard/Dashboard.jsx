@@ -115,7 +115,6 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-appt:first-child { border-top:none; }
     .d-appt:hover { background:var(--d-hover); }
     .d-active { background:#2A2010 !important; border-left:3px solid #C8860A; }
-    .d-next-up { background:rgba(94,207,160,.06) !important; border-left:3px solid #5ECFA0; cursor:pointer; }
 
     /* Scrollable agenda — sin scrollbar visible */
     .d-agenda-scroll { overflow-y:auto; overflow-x:hidden; }
@@ -365,22 +364,69 @@ function KpiStrip({ patients, sessions, todayAppts, urgentCount, payments, bp })
 function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavigate, bp }) {
   const completadas = todayAppts.filter(a => a.status==="completada").length;
 
-  const now     = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const [nowMins, setNowMins] = useState(() => {
+    const n = new Date(); return n.getHours() * 60 + n.getMinutes();
+  });
+  // Actualizar el cursor cada minuto
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = new Date(); setNowMins(n.getHours() * 60 + n.getMinutes());
+    }, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Convertir citas a minutos para cálculos
+  const apptsMins = useMemo(() =>
+    todayAppts.map(a => {
+      const [h,m] = (a.time||"00:00").split(":").map(Number);
+      return { ...a, mins: h*60+m };
+    }), [todayAppts]);
+
+  // Cita activa ahora mismo: la última que ya empezó y no está completada/cancelada
+  const currentApptId = useMemo(() => {
+    const active = apptsMins
+      .filter(a => a.mins <= nowMins && a.status !== "completada" && a.status !== "cancelada_paciente" && a.status !== "cancelada_psicologa")
+      .sort((a,b) => b.mins - a.mins);
+    return active[0]?.id ?? null;
+  }, [apptsMins, nowMins]);
+
+  // Siguiente cita pendiente (para marcar "Abrir")
   const nextPendingId = useMemo(() => {
-    const pending = todayAppts
-      .filter(a => a.status === "pendiente")
-      .map(a => { const [h,m] = (a.time||"00:00").split(":").map(Number); return { ...a, mins: h*60+m }; })
-      .filter(a => a.mins >= nowMins)
+    // Si hay una en curso, esa es la prioritaria
+    if (currentApptId) return currentApptId;
+    const pending = apptsMins
+      .filter(a => a.mins > nowMins && a.status === "pendiente")
       .sort((a,b) => a.mins - b.mins);
     return pending[0]?.id ?? null;
-  }, [todayAppts, nowMins]);
+  }, [apptsMins, nowMins, currentApptId]);
 
-  // Altura: muestra N filas completas + media fila para insinuar scroll
-  // Cada fila ~68px. Mobile: 3.4 filas → ~231px. Tablet/desktop: 5.5 → ~374px
-  const ROW_H  = 68;
-  const isMob  = !bp || bp === "mobile";
-  const maxH   = isMob ? ROW_H * 3.4 : ROW_H * 5.5;
+  // Calcular posición del cursor de tiempo dentro de la lista
+  // Busca entre qué dos citas cae nowMins y calcula el % dentro de esa fila
+  const ROW_H = 68;
+  const timeCursorTop = useMemo(() => {
+    if (!apptsMins.length) return null;
+    const sorted = [...apptsMins].sort((a,b) => a.mins - b.mins);
+    // Si antes de la primera cita o después de la última, no mostrar
+    if (nowMins < sorted[0].mins - 60 || nowMins > sorted[sorted.length-1].mins + 90) return null;
+    for (let i = 0; i < sorted.length; i++) {
+      const curr = sorted[i];
+      const next = sorted[i+1];
+      if (!next) {
+        // Después de la última cita: posicionar al final de esa fila
+        if (nowMins >= curr.mins && nowMins <= curr.mins + 90)
+          return i * ROW_H + ROW_H * Math.min((nowMins - curr.mins) / 60, 1);
+        return null;
+      }
+      if (nowMins >= curr.mins && nowMins < next.mins) {
+        const progress = (nowMins - curr.mins) / (next.mins - curr.mins);
+        return i * ROW_H + progress * ROW_H;
+      }
+    }
+    return null;
+  }, [apptsMins, nowMins, ROW_H]);
+
+  const isMob = !bp || bp === "mobile";
+  const maxH  = isMob ? ROW_H * 3.4 : ROW_H * 5.5;
 
   return (
     <div className="d-sec" style={{ animationDelay:".14s" }}>
@@ -393,29 +439,52 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         {todayAppts.length === 0 ? (
           <div className="d-empty">Sin citas para hoy ✓</div>
         ) : (
-          <div className="d-agenda-scroll" style={{ maxHeight: maxH }}>
-            {todayAppts.map(appt => {
-              const isNext = appt.id === nextPendingId;
-              const active = appt.status === "en_curso";
-              const st     = STATUS[appt.status] || STATUS.pendiente;
-              const [h, m] = (appt.time||"00:00").split(":");
+          <div className="d-agenda-scroll" style={{ maxHeight: maxH, position:"relative" }}>
 
-              const tagBg  = isNext ? "#1A3A28" : active ? "#FDF3E0" : st.bg;
-              const tagClr = isNext ? "#5ECFA0" : active ? "#A06A00" : st.text;
+            {/* ── Cursor de tiempo ── */}
+            {timeCursorTop !== null && (
+              <div style={{
+                position:"absolute", left:0, right:0,
+                top: timeCursorTop,
+                height:2, background:"#E05A5A",
+                zIndex:10, pointerEvents:"none",
+                display:"flex", alignItems:"center",
+              }}>
+                {/* Punto de origen */}
+                <div style={{ width:8, height:8, borderRadius:"50%", background:"#E05A5A", flexShrink:0, marginLeft:6 }}/>
+              </div>
+            )}
+
+            {todayAppts.map(appt => {
+              const isNext  = appt.id === nextPendingId;
+              const active  = appt.status === "en_curso";
+              const isCurr  = appt.id === currentApptId;
+              const st      = STATUS[appt.status] || STATUS.pendiente;
+              const [h, m]  = (appt.time||"00:00").split(":");
+
+              const tagBg  = isNext ? "#7B1E1E" : active ? "#FDF3E0" : st.bg;
+              const tagClr = isNext ? "#F28B82" : active ? "#A06A00" : st.text;
               const tagLbl = isNext ? "Abrir"   : st.label;
+
+              // Fila prioritaria: fondo rojo muy visible
+              const rowStyle = isCurr || isNext ? {
+                background:"rgba(224,90,90,.13)",
+                borderLeft:"3px solid #E05A5A",
+              } : {};
 
               return (
                 <div
                   key={appt.id}
-                  className={`d-appt${active ? " d-active" : isNext ? " d-next-up" : ""}`}
-                  onClick={()=>(isNext || active) ? onStartSession?.(appt) : onNavigate("agenda")}
+                  className={`d-appt${active ? " d-active" : ""}`}
+                  style={{ ...rowStyle, cursor: isNext||active ? "pointer" : "default" }}
+                  onClick={()=>(isNext||active) ? onStartSession?.(appt) : onNavigate("agenda")}
                 >
                   <div className="d-time">
-                    <div className="d-time-h" style={isNext ? { color:"#5ECFA0" } : {}}>{h}</div>
+                    <div className="d-time-h" style={isNext||isCurr ? { color:"#F28B82", fontWeight:600 } : {}}>{h}</div>
                     <div className="d-time-m">{m}</div>
                   </div>
                   <div className="d-abody">
-                    <div className="d-aname">{appt.patientName || appt.patient || "Paciente"}</div>
+                    <div className="d-aname" style={isNext||isCurr ? { color:"var(--d-txt)" } : {}}>{appt.patientName || appt.patient || "Paciente"}</div>
                     <div className="d-atype">{appt.type || appt.service || ""}</div>
                   </div>
                   <div className="d-aright" style={{ justifyContent:"center" }}>
