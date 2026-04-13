@@ -67,14 +67,20 @@ export function whatsappCancel(appt, patient, profile) {
 // ── Construir slots de tiempo según horario del perfil ───────────────────────
 // dayKey opcional: "L","M","Mi","J","V","S","D"
 // Si el perfil tiene schedule granular por día, lo usa; si no, cae al rango global.
+// El intervalo entre slots respeta profile.durationMin (configurado en onboarding).
 export function buildTimeSlots(profile, dayKey = null) {
+  // Usar la duración de sesión configurada en onboarding como intervalo.
+  // durationMin se guarda en el perfil durante el onboarding (30, 45, 60, 90, 120).
+  // Fallback a 30 min si aún no está configurado.
+  const step = (profile?.durationMin && profile.durationMin > 0) ? profile.durationMin : 30;
+
   const fallbackSlots = (start, end) => {
     const [sh, sm] = (start || "08:00").split(":").map(Number);
     const [eh, em] = (end   || "20:00").split(":").map(Number);
     const startMin = sh * 60 + sm;
     const endMin   = eh * 60 + em;
     const slots = [];
-    for (let m = startMin; m < endMin; m += 30)
+    for (let m = startMin; m < endMin; m += step)
       slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
     return slots.length > 0 ? slots : buildTimeSlots(profile, null);
   };
@@ -86,7 +92,7 @@ export function buildTimeSlots(profile, dayKey = null) {
     for (const iv of intervals) {
       const [sh, sm] = iv.start.split(":").map(Number);
       const [eh, em] = iv.end.split(":").map(Number);
-      for (let m = sh * 60 + sm; m < eh * 60 + em; m += 30)
+      for (let m = sh * 60 + sm; m < eh * 60 + em; m += step)
         allSlots.add(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
     }
     const sorted = [...allSlots].sort();
@@ -98,7 +104,7 @@ export function buildTimeSlots(profile, dayKey = null) {
   const end   = profile?.workingEnd;
   if (!start || !end || start >= end) {
     const slots = [];
-    for (let m = 8 * 60; m < 20 * 60; m += 30)
+    for (let m = 8 * 60; m < 20 * 60; m += step)
       slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
     return slots;
   }

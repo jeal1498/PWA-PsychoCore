@@ -140,7 +140,7 @@ export function useAgenda({
       return buildTimeSlots(profile, dayKey);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profile?.workingStart, profile?.workingEnd, profile?.schedule, selectedDay]
+    [profile?.workingStart, profile?.workingEnd, profile?.schedule, profile?.durationMin, selectedDay]
   );
 
   const apptsByDay = useMemo(() => {
