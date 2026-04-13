@@ -1,10 +1,10 @@
-﻿// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // src/App.jsx — FASE 1 refactorizado
 // Responsabilidad: Auth, UI shell, navegación y tema.
 // El estado de datos (pacientes, sesiones, etc.) vive en AppStateContext.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useRef, useEffect, lazy, Suspense } from "react";
-import { Menu, Brain } from "lucide-react";
+import { Brain } from "lucide-react";
 import { T } from "./theme.js";
 import { useIsMobile }      from "./hooks/useIsMobile.js";
 import { useIsWide }        from "./hooks/useIsWide.js";
@@ -13,13 +13,13 @@ import { useAppState }      from "./context/AppStateContext.jsx";
 import { supabase, signOut, getOrCreatePsychologist, hasActiveAccess, trialDaysLeft } from "./lib/supabase.js";
 import { emit } from "./lib/eventBus.js";
 
-import LockScreen       from "./components/LockScreen.jsx";
-import Onboarding       from "./components/Onboarding.jsx";
+import LockScreen        from "./components/LockScreen.jsx";
+import Onboarding        from "./components/Onboarding.jsx";
 import PatientPortalComp from "./modules/PatientPortalSecure.jsx";
-import Sidebar          from "./components/Sidebar.jsx";
-import GlobalSearch     from "./components/GlobalSearch.jsx";
-import NotificationBell from "./components/NotificationBell.jsx";
-import SyncToast       from "./components/SyncToast.jsx";
+import Sidebar           from "./components/Sidebar.jsx";
+import GlobalSearch      from "./components/GlobalSearch.jsx";
+import NotificationBell  from "./components/NotificationBell.jsx";
+import SyncToast         from "./components/SyncToast.jsx";
 
 // Lazy loading — cada módulo se descarga solo cuando el usuario lo abre por primera vez
 const Dashboard     = lazy(() => import("./modules/Dashboard/Dashboard.jsx"));
@@ -34,6 +34,156 @@ const Scales        = lazy(() => import("./modules/Scales/Scales.jsx"));
 const TreatmentPlan = lazy(() => import("./modules/TreatmentPlan/TreatmentPlan.jsx"));
 const Reports       = lazy(() => import("./modules/Reports/Reports.jsx"));
 const Tasks         = lazy(() => import("./modules/Tasks/Tasks.jsx"));
+
+// ── Paleta del nuevo topbar ───────────────────────────────────────────────────
+// Hereda T.* pero el header pasa a fondo blanco en todos los breakpoints.
+const NAV_ACCENT = "#4AADA0";
+
+// Mapa módulo → label legible para el breadcrumb del topbar
+const MODULE_LABELS = {
+  dashboard:  "Inicio",
+  agenda:     "Agenda",
+  sessions:   "Sesiones",
+  patients:   "Pacientes",
+  risk:       "Evaluación de riesgo",
+  treatment:  "Plan de tratamiento",
+  scales:     "Escalas",
+  tasks:      "Tareas",
+  finance:    "Finanzas",
+  reports:    "Informes",
+  stats:      "Estadísticas",
+  settings:   "Configuración",
+};
+
+// Formato de fecha corta: "Lun 13 abr"
+function formatShortDate() {
+  const d = new Date();
+  return d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })
+    .replace(/^\w/, c => c.toUpperCase());
+}
+
+// ── Drawer "Más" para móvil ───────────────────────────────────────────────────
+// Muestra los módulos que no caben en la bottom nav (herramientas + gestión).
+import { NAV_GROUPS } from "./components/Sidebar.jsx";
+const BOTTOM_NAV_IDS = ["dashboard", "agenda", "sessions", "patients"];
+
+function MoreDrawer({ active, onNav, onClose, profile, googleUser, onSignOut, riskAlert }) {
+  const googleName  = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
+  const displayName = profile?.name || googleName || "Psicólogo/a";
+  const displaySpec = profile?.specialty || "Psicología clínica";
+  const initials    = profile?.initials
+    || (displayName !== "Psicólogo/a" ? displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "PS");
+  const avatarUrl   = profile?.avatarUrl || null;
+
+  const secondaryGroups = NAV_GROUPS.filter(g => g.id !== "clinical");
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, zIndex: 299,
+          background: "rgba(0,0,0,0.45)",
+          animation: "fadeIn .2s ease",
+        }}
+      />
+      {/* Sheet */}
+      <div style={{
+        position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 300,
+        background: "#141C1B",
+        borderRadius: "20px 20px 0 0",
+        padding: "12px 16px 40px",
+        animation: "slideUp .25s cubic-bezier(.4,0,.2,1)",
+        boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
+      }}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 20px" }} />
+
+        {/* Perfil */}
+        <button
+          onClick={() => { onNav("settings"); onClose(); }}
+          style={{
+            display: "flex", alignItems: "center", gap: 12,
+            width: "100%", padding: "12px 14px", borderRadius: 14,
+            border: "none", cursor: "pointer",
+            background: active === "settings" ? "rgba(74,173,160,0.13)" : "rgba(255,255,255,0.05)",
+            marginBottom: 16,
+          }}
+        >
+          <div style={{
+            width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+            background: `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <span style={{ fontFamily: T.fH, fontSize: 14, color: "#fff", fontWeight: 600 }}>{initials}</span>
+            }
+          </div>
+          <div style={{ flex: 1, textAlign: "left" }}>
+            <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: "#fff" }}>{displayName}</div>
+            <div style={{ fontFamily: T.fB, fontSize: 11.5, color: "rgba(255,255,255,0.4)" }}>{displaySpec}</div>
+          </div>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: T.fB }}>Configuración →</span>
+        </button>
+
+        {/* Grupos secundarios */}
+        {secondaryGroups.map(group => (
+          <div key={group.id} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", padding: "0 4px 8px" }}>
+              {group.label}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {group.items.map(({ id, icon: Icon, label, alert }) => {
+                const isActive = active === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { onNav(id); onClose(); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "12px 14px", borderRadius: 12,
+                      border: "none", cursor: "pointer", fontFamily: T.fB,
+                      fontSize: 13.5, fontWeight: isActive ? 600 : 400,
+                      background: isActive ? "rgba(74,173,160,0.15)" : "rgba(255,255,255,0.06)",
+                      color: isActive ? NAV_ACCENT : "rgba(255,255,255,0.65)",
+                      position: "relative",
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={1.8} />
+                    {label}
+                    {alert && riskAlert && (
+                      <span style={{ position: "absolute", top: 8, right: 8, width: 7, height: 7, borderRadius: "50%", background: "#D95858" }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Cerrar sesión */}
+        <button
+          onClick={() => { onClose(); onSignOut(); }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            width: "100%", padding: "12px", borderRadius: 12, marginTop: 4,
+            border: "none", cursor: "pointer", fontFamily: T.fB,
+            fontSize: 13.5, color: "rgba(255,255,255,0.35)",
+            background: "transparent",
+          }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+      <style>{`
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
+      `}</style>
+    </>
+  );
+}
 
 export default function App() {
   // ── Estado de contexto ───────────────────────────────────────────────────
@@ -66,7 +216,10 @@ export default function App() {
   const [activeModule,  setActiveModule]  = useState(
     () => localStorage.getItem("pc_last_module") || "dashboard"
   );
+  // sidebarOpen ya no controla el drawer móvil (se eliminó),
+  // pero lo mantenemos por si algún módulo hijo lo referencia.
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
   const [settingsTab,   setSettingsTab]   = useState("profile");
@@ -88,16 +241,9 @@ export default function App() {
     const patientName = data.patientName || data.name || "";
     setActivePatientContext(prev => {
       if (prev?.patientId === patientId && prev?.patientName === patientName) return prev;
-      return {
-        patientId,
-        patientName,
-        source: data.source || "ui",
-        updatedAt: new Date().toISOString(),
-      };
+      return { patientId, patientName, source: data.source || "ui", updatedAt: new Date().toISOString() };
     });
   };
-
-
 
   // ── Supabase Auth ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -179,13 +325,11 @@ export default function App() {
     return () => clearTimeout(t);
   }, [dataLoaded, user, patients.length]);
 
-  // Recibe los datos del formulario de onboarding y los persiste en perfil y servicios
   const handleOnboardingClose = (data) => {
     if (user) localStorage.setItem(`pc_onboarding_done_${user.id}`, "1");
     if (data) {
       setProfile(prev => ({
         ...prev,
-        // Paso 1 — Perfil
         name:         data.name         || prev.name,
         phone:        data.phone        || prev.phone,
         email:        data.email        || prev.email,
@@ -198,28 +342,23 @@ export default function App() {
         specialty:    data.specialty    || (Array.isArray(data.specialties) ? data.specialties[0] : "") || prev.specialty,
         specialties:  data.specialties  || prev.specialties,
         initials:     data.initials     || prev.initials,
-        // Paso 2 — Sesiones
         agendaType:   data.agendaType   || prev.agendaType,
         duration:     data.duration     || prev.duration,
         durationMin:  data.durationMin  ?? prev.durationMin,
         modality:     data.modality     || prev.modality,
         mapsLink:     data.mapsLink     || prev.mapsLink,
-        // Paso 3 — Disponibilidad
         activeDays:   data.activeDays   || prev.activeDays,
         schedule:     data.schedule     || prev.schedule,
         workingDays:  data.workingDays  || prev.workingDays,
         workingStart: data.workingStart || prev.workingStart,
         workingEnd:   data.workingEnd   || prev.workingEnd,
-        // Paso 4 — Tarifas
         currency:     data.currency     || prev.currency,
         currencies:   data.currencies   || prev.currencies,
         showPrice:    data.showPrice    !== undefined ? data.showPrice : prev.showPrice,
         payPolicy:    data.payPolicy    || prev.payPolicy,
         sources:      data.sources      || prev.sources,
       }));
-      if (data.services && data.services.length > 0) {
-        setServices(data.services);
-      }
+      if (data.services && data.services.length > 0) setServices(data.services);
     }
     setShowOnboarding(false);
   };
@@ -232,17 +371,17 @@ export default function App() {
     setActiveModule(mod);
     setOpenAction(null);
     setSessionPrefill(null);
+    setMoreOpen(false);
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
-  // FIX D3: quickNav ahora acepta un payload opcional para pasar datos extra al módulo destino
-  // Uso desde Dashboard: quickNav("finance", null, null, { openCobroId: payment.id })
   const quickNav = (mod, action, tab, payload) => {
     setActiveModule(mod);
     setOpenAction({ module: mod, action, ts: Date.now(), payload: payload || null });
     if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
     if (payload) syncActivePatientContext(payload);
+    setMoreOpen(false);
     window.history.pushState({ module: mod }, "", window.location.pathname);
   };
 
@@ -277,26 +416,16 @@ export default function App() {
   // ── Atajos de teclado globales ────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      // Guard: no actuar si el foco está en un input/textarea/select
       if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target?.tagName)) return;
       if (!(e.ctrlKey || e.metaKey)) return;
-
-      if (e.key === "s" && activeModule === "sessions") {
-        e.preventDefault();
-        emit.sessionSave();
-      }
-      if (e.key === "n") {
-        e.preventDefault();
-        handleNewSession();
-      }
+      if (e.key === "s" && activeModule === "sessions") { e.preventDefault(); emit.sessionSave(); }
+      if (e.key === "n") { e.preventDefault(); handleNewSession(); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [activeModule]);
 
   // ── Handlers de sesión ───────────────────────────────────────────────────
-
-  // FIX D6: guard — validar que appt y appt.patientId existan antes de setear prefill
   const handleStartSession = (appt) => {
     if (!appt?.patientId) return;
     setSessionPrefill({
@@ -320,7 +449,7 @@ export default function App() {
     setOpenAction(null);
   };
 
-  const handleLock = async () => { await signOut(); setSidebarOpen(false); };
+  const handleLock = async () => { await signOut(); setSidebarOpen(false); setMoreOpen(false); };
 
   // ── Alerta de riesgo para sidebar ────────────────────────────────────────
   const riskAlert = riskAssessments.some(a => {
@@ -344,7 +473,6 @@ export default function App() {
                                 navTo(module);
                               }}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill} onNavigate={navTo}/>;
-      // FIX D3: pasa openCobroId desde openAction.payload al módulo Finance
       case "finance":     return <Finance
         {...mp}
         key={openAction?.module==="finance"  ? openAction.ts : "f"}
@@ -413,7 +541,7 @@ export default function App() {
             <div style={{ fontFamily:T.fH, fontSize:56, fontWeight:300, color:"#fff", lineHeight:1 }}><sup style={{ fontSize:22, opacity:.6 }}>$</sup>299<span style={{ fontSize:20, opacity:.4 }}>/mes</span></div>
             <div style={{ fontSize:13, color:"rgba(255,255,255,.4)", margin:"6px 0 20px" }}>MXN · Cancela cuando quieras</div>
             <a href="mailto:soporte@psychocore.app?subject=Suscripción PsychoCore"
-              style={{ display:"block", width:"100%", padding:"15px", borderRadius:100, background:"#fff", color:"#1E3535", fontFamily:T.fB, fontSize:15, fontWeight:700, textDecoration:"none", textAlign:"center", transition:"all .2s" }}>
+              style={{ display:"block", width:"100%", padding:"15px", borderRadius:100, background:"#fff", color:"#1E3535", fontFamily:T.fB, fontSize:15, fontWeight:700, textDecoration:"none", textAlign:"center" }}>
               Suscribirme ahora →
             </a>
           </div>
@@ -436,12 +564,35 @@ export default function App() {
   );
 
   // ── Render principal ─────────────────────────────────────────────────────
-  return (
-    <div style={{ display:"flex", height:"100vh", background:T.bg, fontFamily:T.fB }}>
-      {!isMobile && <Sidebar active={activeModule} setActive={navTo} open profile={profile} googleUser={user} onClose={() => {}} riskAlert={riskAlert} onSignOut={handleLock}/>}
-      {isMobile  && <Sidebar active={activeModule} setActive={navTo} open={sidebarOpen} onClose={() => setSidebarOpen(false)} profile={profile} googleUser={user} riskAlert={riskAlert} onSignOut={handleLock}/>}
+  // En móvil la Sidebar exporta solo la BottomNav; el layout es columna.
+  // En tablet/desktop la Sidebar ocupa la izquierda; el layout es fila.
+  const pageLabel = MODULE_LABELS[activeModule] || activeModule;
 
-      <div style={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, minHeight:0 }}>
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      height: "100vh",
+      background: T.bg,
+      fontFamily: T.fB,
+    }}>
+
+      {/* ── Sidebar (desktop/tablet lateral | móvil se monta al final como bottom nav) */}
+      {!isMobile && (
+        <Sidebar
+          active={activeModule}
+          setActive={navTo}
+          open
+          profile={profile}
+          googleUser={user}
+          onClose={() => {}}
+          riskAlert={riskAlert}
+          onSignOut={handleLock}
+        />
+      )}
+
+      {/* ── Columna principal ─────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
 
         {showOnboarding && (
           <Onboarding
@@ -450,6 +601,7 @@ export default function App() {
           />
         )}
 
+        {/* Banner de trial */}
         {psychologist?.subscription_status === "trial" && trialDaysLeft(psychologist) <= 7 && trialDaysLeft(psychologist) > 0 && (
           <div style={{ background: trialDaysLeft(psychologist) <= 3 ? "#B85050" : "#B8900A", padding:"9px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexShrink:0 }}>
             <span style={{ fontFamily:T.fB, fontSize:13, color:"#fff" }}>
@@ -462,26 +614,89 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ background:T.nav, padding:"0 18px", height:56, display:"flex", alignItems:"center", gap:12, flexShrink:0, position:"relative", zIndex:1000 }}>
+        {/* ── TOPBAR ─────────────────────────────────────────────────────── */}
+        <header style={{
+          height: isMobile ? 52 : 58,
+          background: "#ffffff",
+          borderBottom: "1px solid rgba(0,0,0,0.07)",
+          display: "flex",
+          alignItems: "center",
+          padding: isMobile ? "0 14px" : "0 22px",
+          gap: 12,
+          flexShrink: 0,
+          position: "relative",
+          zIndex: 1000,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}>
+
+          {/* Móvil: logo + nombre de app */}
           {isMobile && (
-            <button onClick={() => setSidebarOpen(true)} style={{ background:"rgba(255,255,255,0.08)", border:"none", borderRadius:9, width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#fff", flexShrink:0 }}>
-              <Menu size={20}/>
-            </button>
-          )}
-          {isMobile && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
-              <div style={{ width:26, height:26, borderRadius:7, background:T.p, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Brain size={13} color="#fff" strokeWidth={1.5}/>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                background: `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: `0 2px 6px rgba(74,173,160,0.35)`,
+              }}>
+                <Brain size={14} color="#fff" strokeWidth={1.5} />
               </div>
-              <span style={{ fontFamily:T.fH, fontSize:16, fontWeight:600, color:"#fff" }}>PsychoCore</span>
+              <span style={{ fontFamily: T.fH, fontSize: 17, color: T.t, fontWeight: 400 }}>PsychoCore</span>
             </div>
           )}
-          {!isMobile && <div style={{ flex:1 }}/>}
-          <GlobalSearch patients={patients} appointments={appointments} sessions={sessions} payments={payments} onNavigate={handleGlobalNav}/>
-          <NotificationBell notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>
-        </div>
 
-        <main style={{ flex:1, padding:activeModule==="dashboard" ? 0 : isMobile?"20px 18px 32px":isWide?"40px 56px":"36px 40px", overflowY:"auto", minHeight:0 }}>
+          {/* Desktop/Tablet: título del módulo activo + fecha */}
+          {!isMobile && (
+            <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontFamily: T.fH, fontSize: 21, color: T.t, fontWeight: 400, lineHeight: 1 }}>
+                {pageLabel}
+              </span>
+              <span style={{ fontSize: 12, color: T.tl, fontWeight: 400 }}>
+                {formatShortDate()}
+              </span>
+            </div>
+          )}
+
+          {/* Búsqueda — pill en desktop, icono en móvil */}
+          {!isMobile ? (
+            <GlobalSearch
+              patients={patients}
+              appointments={appointments}
+              sessions={sessions}
+              payments={payments}
+              onNavigate={handleGlobalNav}
+            />
+          ) : (
+            // Wrapper para GlobalSearch en móvil: solo muestra el trigger icon
+            <GlobalSearch
+              patients={patients}
+              appointments={appointments}
+              sessions={sessions}
+              payments={payments}
+              onNavigate={handleGlobalNav}
+            />
+          )}
+
+          {/* Notificaciones */}
+          <NotificationBell
+            notifications={notifications}
+            dismiss={dismiss}
+            dismissAll={dismissAll}
+          />
+        </header>
+
+        {/* ── CONTENIDO ─────────────────────────────────────────────────── */}
+        <main style={{
+          flex: 1,
+          padding: activeModule === "dashboard"
+            ? 0
+            : isMobile
+              ? "20px 16px 28px"
+              : isWide
+                ? "40px 56px"
+                : "36px 40px",
+          overflowY: "auto",
+          minHeight: 0,
+        }}>
           <Suspense fallback={
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"60vh" }}>
               <div style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${T.bdrL}`, borderTopColor:T.p, animation:"spin 0.8s linear infinite" }}/>
@@ -491,9 +706,37 @@ export default function App() {
             {renderModule()}
           </Suspense>
         </main>
+
+        {/* ── BOTTOM NAV (solo móvil) ────────────────────────────────────── */}
+        {isMobile && (
+          <Sidebar
+            active={activeModule}
+            setActive={navTo}
+            open={false}
+            profile={profile}
+            googleUser={user}
+            onClose={() => {}}
+            riskAlert={riskAlert}
+            onSignOut={handleLock}
+            onOpenMore={() => setMoreOpen(true)}
+          />
+        )}
       </div>
+
+      {/* ── Drawer "Más" en móvil ─────────────────────────────────────────── */}
+      {isMobile && moreOpen && (
+        <MoreDrawer
+          active={activeModule}
+          onNav={navTo}
+          onClose={() => setMoreOpen(false)}
+          profile={profile}
+          googleUser={user}
+          onSignOut={handleLock}
+          riskAlert={riskAlert}
+        />
+      )}
+
       <SyncToast />
     </div>
   );
 }
-
