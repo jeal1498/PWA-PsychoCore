@@ -81,11 +81,15 @@ export default function Sidebar({ active, setActive, open, onClose, profile, goo
   // Fallback chain: perfil guardado → nombre Google OAuth → placeholder
   const googleName = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
   const displayName = profile?.name || googleName || "Psicólogo/a";
-  const displaySpec = profile?.specialty || "Psicólogo Clínico";
+  const displaySpec = profile?.specialty ||
+    (Array.isArray(profile?.specialties) && profile.specialties.length > 0
+      ? profile.specialties[0]
+      : "Psicólogo Clínico");
   const initials = profile?.initials
     || (displayName && displayName !== "Psicólogo/a"
         ? displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
         : "PS");
+  const avatarUrl = profile?.avatarUrl || null;
 
   const sidebarStyle = isMobile
     ? { position:"fixed", top:0, left:0, bottom:0, zIndex:200, width:260, background:T.nav, display:"flex", flexDirection:"column", transform:open?"translateX(0)":"translateX(-100%)", transition:"transform .28s cubic-bezier(.4,0,.2,1)", boxShadow:open?"4px 0 32px rgba(0,0,0,0.25)":"none" }
@@ -148,8 +152,11 @@ export default function Sidebar({ active, setActive, open, onClose, profile, goo
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", background:active==="settings"?"rgba(255,255,255,0.08)":"transparent", transition:"all .15s", marginBottom:2 }}
             onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.08)"}
             onMouseLeave={e => e.currentTarget.style.background=active==="settings"?"rgba(255,255,255,0.08)":"transparent"}>
-            <div style={{ width:32, height:32, borderRadius:"50%", background:T.p, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <span style={{ fontFamily:T.fH, fontSize:13, color:"#fff", fontWeight:600 }}>{initials}</span>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:T.p, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, overflow:"hidden" }}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt="avatar" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                : <span style={{ fontFamily:T.fH, fontSize:13, color:"#fff", fontWeight:600 }}>{initials}</span>
+              }
             </div>
             <div style={{ flex:1, textAlign:"left", overflow:"hidden" }}>
               <div style={{ fontFamily:T.fB, fontSize:13, fontWeight:500, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{displayName}</div>

@@ -467,31 +467,104 @@ export default function Onboarding({ onClose, onNavigate }) {
     reader.readAsDataURL(file);
   };
 
-  const collectData = () => ({
-    name,
-    phone: `${countryCode.code} ${phone}`.trim(),
-    description,
-    specialties: specialties.includes("Otro") && otherSpecialty.trim()
-      ? [...specialties.filter(s => s !== "Otro"), otherSpecialty.trim()]
-      : specialties,
-    avatarUrl,
-    agendaType,
-    duration,
-    modality,
-    mapsLink,
-    activeDays,
-    schedule,
-    services: addedServices,
-    currency,
-    showPrice,
-    payPolicy,
-    workingDays: Object.entries(activeDays)
+  // Convierte la duración legible ("1 hora", "45 min"…) a minutos numéricos
+  const durationToMin = (d) => {
+    if (!d) return 50;
+    if (d === "30 min")    return 30;
+    if (d === "45 min")    return 45;
+    if (d === "1 hora")    return 60;
+    if (d === "1.5 horas") return 90;
+    if (d === "2 horas")   return 120;
+    return 50;
+  };
+
+  // Transforma services4 (formato onboarding) al formato que usa el resto de la app
+  const buildServices = () => {
+    const now = new Date().toISOString().split("T")[0];
+    const DAY_KEY = { L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 };
+    return savedSvcs4.map(psId => {
+      const ps  = PRESET_SERVICES.find(p => p.id === psId);
+      const svc = services4.find(s => s.id === psId);
+      const label = (psId === "ps_otro" && svc?.customLabel)
+        ? svc.customLabel
+        : ps?.label || "Servicio";
+      const primaryCur = currencies[0] || "MXN";
+      const priceP = Number(svc?.prices?.pp?.[primaryCur]) || 0;
+      const priceV = Number(svc?.prices?.pv?.[primaryCur]) || 0;
+      const hasP = priceP > 0;
+      const hasV = priceV > 0;
+      const svcModality = (hasP && hasV) ? "ambas" : hasV ? "virtual" : "presencial";
+      return {
+        id:           `svc_${psId}_${Date.now()}`,
+        name:         label,
+        type:         "sesion",
+        modality:     svcModality,
+        sessions:     null,
+        price:        priceP,
+        priceVirtual: hasV ? priceV : null,
+        priceHistory: [{ price: priceP, priceVirtual: hasV ? priceV : null, from: now }],
+        // Precios por divisa para referencia
+        pricesByCurrency: svc?.prices || {},
+      };
+    });
+    void DAY_KEY;
+  };
+
+  // Calcula workingStart/workingEnd como el rango más amplio entre todos los días activos
+  const calcWorkingRange = () => {
+    const activeSchedules = Object.entries(activeDays)
       .filter(([, v]) => v)
-      .map(([k]) => ({ L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 }[k]))
-      .filter(n => n !== undefined),
-    workingStart: schedule.L?.[0]?.start || "09:00",
-    workingEnd:   schedule.L?.[0]?.end   || "17:00",
-  });
+      .flatMap(([k]) => schedule[k] || []);
+    if (activeSchedules.length === 0) return { workingStart: "09:00", workingEnd: "17:00" };
+    const starts = activeSchedules.map(iv => iv.start).sort();
+    const ends   = activeSchedules.map(iv => iv.end).sort();
+    return { workingStart: starts[0], workingEnd: ends[ends.length - 1] };
+  };
+
+  const collectData = () => {
+    const { workingStart, workingEnd } = calcWorkingRange();
+    const resolvedSpecialties = specialties.includes("Otro") && otherSpecialty.trim()
+      ? [...specialties.filter(s => s !== "Otro"), otherSpecialty.trim()]
+      : specialties;
+    return {
+      // Paso 1 — Perfil
+      name,
+      phone:       `${countryCode.code} ${phone}`.trim(),
+      email,
+      cedula,
+      rfc,
+      clinic:      consultorio,
+      description,
+      avatarUrl,
+      specialty:   resolvedSpecialties[0] || "",
+      specialties: resolvedSpecialties,
+      initials:    name.trim()
+        ? name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join("")
+        : "",
+      // Paso 2 — Sesiones
+      agendaType,
+      duration,
+      durationMin: durationToMin(duration),
+      modality,
+      mapsLink,
+      address:     addressText,
+      // Paso 3 — Disponibilidad
+      activeDays,
+      schedule,
+      workingDays: Object.entries(activeDays)
+        .filter(([, v]) => v)
+        .map(([k]) => ({ L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 }[k]))
+        .filter(n => n !== undefined),
+      workingStart,
+      workingEnd,
+      // Paso 4 — Tarifas
+      services:   buildServices(),
+      currency:   currencies[0] || "MXN",
+      currencies,
+      showPrice,
+      payPolicy,
+    };
+  };
 
   const validate = () => {
     const e = {};
