@@ -95,7 +95,7 @@ export function useSessions({
 
   // ── Form ──────────────────────────────────────────────────────────────────
   const blankForm = {
-    patientId:"", date:fmt(todayDate), serviceId:"", duration:50,
+    patientId:"", date:fmt(todayDate), serviceId:"", duration: profile?.durationMin ?? 50,
     mood:"moderado", progress:"bueno",
     noteFormat: localStorage.getItem("pc_last_note_format") || "libre",
     notes:"", structured:null, tags:"",
