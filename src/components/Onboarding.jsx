@@ -478,36 +478,66 @@ export default function Onboarding({ onClose, onNavigate }) {
     return 50;
   };
 
-  // Transforma services4 (formato onboarding) al formato que usa el resto de la app
+  // Transforma services4 (formato onboarding) al nuevo esquema canónico del catálogo.
+  // La duración global del paso 2 se aplica a todos los servicios como valor inicial;
+  // el psicólogo puede ajustarla individualmente desde Ajustes > Servicios.
   const buildServices = () => {
     const now = new Date().toISOString().split("T")[0];
-    const DAY_KEY = { L:1, M:2, Mi:3, J:4, V:5, S:6, D:0 };
+    const globalDurationMin = durationToMin(duration);
+    const hh = String(Math.floor(globalDurationMin / 60)).padStart(2, "0");
+    const mm = String(globalDurationMin % 60).padStart(2, "0");
+
     return savedSvcs4.map(psId => {
       const ps  = PRESET_SERVICES.find(p => p.id === psId);
       const svc = services4.find(s => s.id === psId);
       const label = (psId === "ps_otro" && svc?.customLabel)
         ? svc.customLabel
         : ps?.label || "Servicio";
+
+      // Determinar tipo canónico según el preset
+      const typeMap = {
+        ps_ind: "sesion", ps_inf: "sesion", ps_par: "pareja",
+        ps_fam: "sesion", ps_eval: "evaluacion", ps_ori: "sesion",
+        ps_grupo: "grupo", ps_otro: "otro",
+      };
+      const svcType = typeMap[psId] || "sesion";
+
+      // Construir precios en el nuevo esquema { [currency]: { presencial?, virtual? } }
+      const prices = {};
+      currencies.forEach(cur => {
+        const priceP = Number(svc?.prices?.pp?.[cur]);
+        const priceV = Number(svc?.prices?.pv?.[cur]);
+        const entry = {};
+        if (priceP > 0) entry.presencial = priceP;
+        if (priceV > 0) entry.virtual    = priceV;
+        if (Object.keys(entry).length) prices[cur] = entry;
+      });
+
+      // Campos legacy para compatibilidad con código que aún los lee
       const primaryCur = currencies[0] || "MXN";
-      const priceP = Number(svc?.prices?.pp?.[primaryCur]) || 0;
-      const priceV = Number(svc?.prices?.pv?.[primaryCur]) || 0;
-      const hasP = priceP > 0;
-      const hasV = priceV > 0;
+      const priceP = prices[primaryCur]?.presencial ?? 0;
+      const priceV = prices[primaryCur]?.virtual    ?? null;
+      const hasP   = priceP > 0;
+      const hasV   = (priceV ?? 0) > 0;
       const svcModality = (hasP && hasV) ? "ambas" : hasV ? "virtual" : "presencial";
+
       return {
         id:           `svc_${psId}_${Date.now()}`,
         name:         label,
-        type:         "sesion",
+        type:         svcType,
         modality:     svcModality,
         sessions:     null,
+        // Nuevo esquema canónico
+        durationHH:   hh,
+        durationMM:   mm,
+        durationMin:  globalDurationMin,
+        prices,
+        // Legacy compat
         price:        priceP,
         priceVirtual: hasV ? priceV : null,
-        priceHistory: [{ price: priceP, priceVirtual: hasV ? priceV : null, from: now }],
-        // Precios por divisa para referencia
-        pricesByCurrency: svc?.prices || {},
+        priceHistory: [{ prices, from: now }],
       };
     });
-    void DAY_KEY;
   };
 
   // Calcula workingStart/workingEnd como el rango más amplio entre todos los días activos
