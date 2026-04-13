@@ -379,10 +379,28 @@ export default function Onboarding({ onClose, onNavigate }) {
   const [specOpen,       setSpecOpen]       = useState(false);
 
   // Paso 2 — Sesiones
-  const [agendaType, setAgendaType] = useState("publica");
-  const [duration,   setDuration]   = useState("1 hora");
-  const [modality,   setModality]   = useState("ambas");
-  const [mapsLink,   setMapsLink]   = useState("");
+  const [agendaType,   setAgendaType]   = useState("publica");
+  const [duration,     setDuration]     = useState("1 hora");
+  const [modality,     setModality]     = useState("ambas");
+  const [mapsLink,     setMapsLink]     = useState("");
+  const [addressText,  setAddressText]  = useState("");
+
+  // Extrae nombre del lugar desde URL larga de Google Maps
+  const extractAddressFromUrl = (url) => {
+    try {
+      // Formato: /maps/place/NOMBRE/@lat,lng o /maps/place/NOMBRE/data=...
+      const placeMatch = url.match(/\/maps\/place\/([^/@?]+)/);
+      if (placeMatch) {
+        return decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+      }
+      // Formato: ?q=NOMBRE o &q=NOMBRE
+      const qMatch = url.match(/[?&]q=([^&]+)/);
+      if (qMatch) {
+        return decodeURIComponent(qMatch[1].replace(/\+/g, " "));
+      }
+    } catch (_) {}
+    return "";
+  };
 
   // Paso 3 — Disponibilidad
   const [activeDays, setActiveDays] = useState({ L:true, M:false, Mi:false, J:false, V:true, S:false, D:false });
@@ -481,6 +499,11 @@ export default function Onboarding({ onClose, onNavigate }) {
       if (!name.trim()) e.name = "El nombre es obligatorio";
       if (!phone.trim()) e.phone = "El teléfono es obligatorio";
       if (specialties.length === 0) e.specialties = "Selecciona al menos una especialidad";
+    }
+    if (step === 1) {
+      if ((modality === "presencial" || modality === "ambas") && !mapsLink.trim() && !addressText.trim()) {
+        e.address = "La dirección del consultorio es obligatoria para modalidad presencial";
+      }
     }
     if (step === 3) {
       if (savedSvcs4.length === 0) e.services = "Agrega y guarda al menos un servicio";
@@ -728,19 +751,45 @@ export default function Onboarding({ onClose, onNavigate }) {
 
       {(modality === "presencial" || modality === "ambas") && (
         <>
-          <span style={S.label}>Dirección del consultorio</span>
+          <span style={S.label}>
+            Dirección del consultorio <span style={{ color: "#e05555" }}>*</span>
+          </span>
+
+          {/* Campo dirección escrita */}
           <input
-            style={S.input} type="url"
-            placeholder="Pega aquí el link de Google Maps"
-            value={mapsLink} onChange={e => setMapsLink(e.target.value)}
+            style={{ ...S.input, borderColor: errors.address ? "#e05555" : undefined }}
+            type="text"
+            placeholder="Calle, número, colonia, ciudad"
+            value={addressText}
+            onChange={e => { setAddressText(e.target.value); setErrors(p => ({ ...p, address: undefined })); }}
           />
-          {mapsLink && (
-            <a href={mapsLink} target="_blank" rel="noopener noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 6, fontFamily: T.fB, fontSize: 12, color: T.p, textDecoration: "none" }}>
-              🗺️ Ver en Google Maps →
-            </a>
-          )}
-          <p style={S.hint}>Agrega tu dirección y tu link de Google Maps.</p>
+
+          {/* Campo link Google Maps */}
+          <input
+            style={{ ...S.input, marginTop: 8, borderColor: errors.address && !mapsLink ? "#e05555" : undefined }}
+            type="url"
+            placeholder="Link de Google Maps (opcional)"
+            value={mapsLink}
+            onChange={e => {
+              const url = e.target.value;
+              setMapsLink(url);
+              setErrors(p => ({ ...p, address: undefined }));
+              const extracted = extractAddressFromUrl(url);
+              if (extracted && !addressText.trim()) setAddressText(extracted);
+            }}
+          />
+          {mapsLink && (() => {
+            const extracted = extractAddressFromUrl(mapsLink);
+            return extracted ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "7px 10px", background: T.pA, borderRadius: 8 }}>
+                <span style={{ fontSize: 13 }}>📍</span>
+                <span style={{ fontFamily: T.fB, fontSize: 12, color: T.p, fontWeight: 600 }}>{extracted}</span>
+              </div>
+            ) : null;
+          })()}
+
+          {errors.address && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.address}</p>}
+          <p style={S.hint}>Escribe la dirección y pega el link de Google Maps para que tus pacientes puedan ubicarte.</p>
         </>
       )}
 
@@ -979,38 +1028,46 @@ export default function Onboarding({ onClose, onNavigate }) {
     // ── Paso 5: Listo ──────────────────────────────────────────────────────────
     <>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 0 12px" }}>
-        <span style={{ fontSize: 56, marginBottom: 16 }}>🎉</span>
-        <h2 style={{ fontFamily: T.fH, fontSize: "clamp(24px, 6vw, 30px)", fontWeight: 600, color: T.t, marginBottom: 10, lineHeight: 1.2 }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: "50%", margin: "0 auto 18px",
+          background: `linear-gradient(135deg, ${T.p}, ${T.pL})`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 36, boxShadow: `0 8px 28px ${T.p}40`,
+        }}>🎉</div>
+        <h2 style={{ fontFamily: T.fH, fontSize: "clamp(24px, 6vw, 30px)", fontWeight: 600, color: T.t, marginBottom: 8, lineHeight: 1.2 }}>
           ¡Todo listo{name ? `, ${name.trim().split(" ")[0]}` : ""}!
         </h2>
         <p style={{ fontFamily: T.fB, fontSize: 14, color: T.tm, lineHeight: 1.7, marginBottom: 24, maxWidth: 300 }}>
           Tu perfil está configurado. Ya puedes gestionar tus pacientes, sesiones y finanzas desde un solo lugar.
         </p>
 
-        {(name || specialties.length > 0 || addedServices.length > 0) && (
-          <div style={{
-            width: "100%", maxWidth: 320,
-            background: T.pA, borderRadius: 16,
-            padding: "16px 18px", marginBottom: 24, textAlign: "left",
-          }}>
-            {name && <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, marginBottom: 6 }}>👤 <strong style={{ color: T.t }}>{name}</strong></div>}
-            {specialties.length > 0 && (
-              <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 6 }}>
-                🧠 {[...specialties.filter(s => s !== "Otro"), ...(specialties.includes("Otro") && otherSpecialty ? [otherSpecialty] : [])].join(", ")}
-              </div>
-            )}
-            {modality && (
-              <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 6 }}>
-                📅 {duration} · {modality === "ambas" ? "Presencial y virtual" : modality === "virtual" ? "Solo virtual" : "Solo presencial"}
-              </div>
-            )}
-            {addedServices.length > 0 && (
-              <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
-                💼 {addedServices.length} servicio{addedServices.length !== 1 ? "s" : ""} configurado{addedServices.length !== 1 ? "s" : ""}
-              </div>
-            )}
-          </div>
-        )}
+        <div style={{ width: "100%", background: T.pA, borderRadius: 16, padding: "16px 18px", marginBottom: 28, textAlign: "left" }}>
+          {name && <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, marginBottom: 7, display: "flex", gap: 8 }}>
+            <span>👤</span><strong style={{ color: T.t }}>{name}</strong>
+          </div>}
+          {specialties.length > 0 && (
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 7, display: "flex", gap: 8 }}>
+              <span>🧠</span>
+              <span>{[...specialties.filter(s => s !== "Otro"), ...(specialties.includes("Otro") && otherSpecialty ? [otherSpecialty] : [])].join(", ")}</span>
+            </div>
+          )}
+          {modality && (
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 7, display: "flex", gap: 8 }}>
+              <span>📅</span>
+              <span>{duration} · {modality === "ambas" ? "Presencial y virtual" : modality === "virtual" ? "Solo virtual" : "Solo presencial"}</span>
+            </div>
+          )}
+          {addressText && (
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, marginBottom: 7, display: "flex", gap: 8 }}>
+              <span>📍</span><span>{addressText}</span>
+            </div>
+          )}
+          {savedSvcs4.length > 0 && (
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm, display: "flex", gap: 8 }}>
+              <span>💼</span><span>{savedSvcs4.length} servicio{savedSvcs4.length !== 1 ? "s" : ""} configurado{savedSvcs4.length !== 1 ? "s" : ""}</span>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => onClose(collectData())}
