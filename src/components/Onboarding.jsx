@@ -359,7 +359,9 @@ function ServiceCard({ svc, currency, onRemove, onUpdatePrice }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Onboarding({ onClose, onNavigate }) {
+  const [showWelcome, setShowWelcome] = useState(true);
   const [step, setStep] = useState(0);
+  const [errors, setErrors] = useState({});
   const fileInputRef = useRef(null);
 
   // Paso 1 — Perfil + Especialidad
@@ -396,6 +398,11 @@ export default function Onboarding({ onClose, onNavigate }) {
   const [currency,          setCurrency]          = useState("MXN");
   const [showPrice,         setShowPrice]         = useState(true);
   const [payPolicy,         setPayPolicy]         = useState(DEFAULT_POLICY);
+  // Paso 4 nuevo (chips de divisa + tabla por modalidad)
+  const [currencies,   setCurrencies]   = useState(["MXN"]);
+  const [services4,    setServices4]    = useState([]);
+  const [editingSvc4,  setEditingSvc4]  = useState(null);
+  const [savedSvcs4,   setSavedSvcs4]  = useState([]);
 
   const initials = name.trim()
     ? name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join("")
@@ -463,9 +470,22 @@ export default function Onboarding({ onClose, onNavigate }) {
     workingEnd:   schedule.L?.[0]?.end   || "17:00",
   });
 
+  const validate = () => {
+    const e = {};
+    if (step === 0) {
+      if (!name.trim()) e.name = "El nombre es obligatorio";
+      if (!phone.trim()) e.phone = "El teléfono es obligatorio";
+      if (specialties.length === 0) e.specialties = "Selecciona al menos una especialidad";
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
   const go = (dir) => {
+    if (dir > 0 && !validate()) return;
     const next = step + dir;
     if (next < 0 || next >= TOTAL_STEPS) return;
+    setErrors({});
     setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -574,13 +594,15 @@ export default function Onboarding({ onClose, onNavigate }) {
       </div>
 
       <span style={S.label}>Nombre completo</span>
-      <input style={S.input} type="text" placeholder="Tu nombre" value={name} onChange={e => setName(e.target.value)} />
+      <input style={{ ...S.input, borderColor: errors.name ? "#e05555" : undefined }} type="text" placeholder="Tu nombre" value={name} onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: undefined })); }} />
+      {errors.name && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.name}</p>}
 
       <span style={S.label}>Celular</span>
       <div style={{ display: "flex", gap: 8 }}>
         <CountryPicker value={countryCode} onChange={setCountryCode} />
-        <input style={{ ...S.input, flex: 1 }} type="tel" placeholder="10 dígitos" value={phone} onChange={e => setPhone(e.target.value)} />
+        <input style={{ ...S.input, flex: 1, borderColor: errors.phone ? "#e05555" : undefined }} type="tel" placeholder="10 dígitos" value={phone} onChange={e => { setPhone(e.target.value); setErrors(p => ({ ...p, phone: undefined })); }} />
       </div>
+      {errors.phone && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 4 }}>{errors.phone}</p>}
 
       <span style={S.label}>Descripción</span>
       <textarea style={S.textarea} placeholder="Cuéntale a tus pacientes sobre ti…" value={description} onChange={e => setDescription(e.target.value)} />
@@ -591,6 +613,7 @@ export default function Onboarding({ onClose, onNavigate }) {
           <Chip key={s} label={s} selected={specialties.includes(s)} onToggle={() => toggleChip(specialties, setSpecialties, s)} />
         ))}
       </div>
+      {errors.specialties && <p style={{ fontFamily: T.fB, fontSize: 11, color: "#e05555", marginTop: 6 }}>{errors.specialties}</p>}
       {specialties.includes("Otro") && (
         <input
           style={{ ...S.input, marginTop: 10 }}
@@ -726,88 +749,150 @@ export default function Onboarding({ onClose, onNavigate }) {
       <Nav />
     </>,
 
-    // ── Paso 4: Tarifas ────────────────────────────────────────────────────────
+    // ── Paso 4: Tarifas (versión con chips de divisa + tabla por modalidad) ──────
     <>
       <h2 style={S.title}>Tarifas y servicios</h2>
       <div style={S.divider} />
 
-      <span style={S.label}>Divisa</span>
-      <select style={S.select} value={currency} onChange={e => setCurrency(e.target.value)}>
-        {["MXN", "USD", "EUR", "COP", "ARS", "CLP"].map(c => <option key={c}>{c}</option>)}
-      </select>
-
-      <span style={{ ...S.label, marginTop: 16 }}>Servicios ofrecidos</span>
-      <p style={{ ...S.hint, marginTop: 0, marginBottom: 9 }}>Selecciona un servicio y agrégalo con su tarifa.</p>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <select style={{ ...S.select, flex: 1 }} value={selectedPreset} onChange={e => setSelectedPreset(e.target.value)}>
-          <option value="">— Selecciona —</option>
-          {PRESET_SERVICES.filter(ps => !addedServices.find(a => a.label === ps.label && ps.id !== "ps_otro")).map(ps => (
-            <option key={ps.id} value={ps.id}>{ps.label}</option>
-          ))}
-        </select>
-        <button
-          onClick={handleAddService}
-          disabled={!selectedPreset}
-          style={{
-            padding: "11px 16px", borderRadius: 10, border: "none",
-            background: selectedPreset ? T.p : T.bdrL,
-            color: selectedPreset ? "#fff" : T.tl,
-            fontFamily: T.fB, fontSize: 13, fontWeight: 700,
-            cursor: selectedPreset ? "pointer" : "default",
-            flexShrink: 0, transition: "all .15s",
-          }}
-        >
-          + Agregar
-        </button>
+      {/* ── Divisas ─────────────────────────────────────────────────────────── */}
+      <span style={S.label}>Divisas que aceptas</span>
+      <p style={{ ...S.hint, marginTop: 0, marginBottom: 10 }}>Selecciona todas las monedas con las que trabajas.</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 4 }}>
+        {[
+          { code: "MXN", flag: "🇲🇽" }, { code: "USD", flag: "🇺🇸" },
+          { code: "EUR", flag: "🇪🇺" }, { code: "COP", flag: "🇨🇴" },
+          { code: "ARS", flag: "🇦🇷" }, { code: "CLP", flag: "🇨🇱" },
+          { code: "PEN", flag: "🇵🇪" }, { code: "GBP", flag: "🇬🇧" },
+        ].map(({ code, flag }) => {
+          const active = currencies.includes(code);
+          return (
+            <button key={code} onClick={() =>
+              setCurrencies(p => p.includes(code)
+                ? p.length > 1 ? p.filter(c => c !== code) : p
+                : [...p, code]
+              )
+            } style={{
+              padding: "7px 12px", borderRadius: 100,
+              border: `1.5px solid ${active ? T.p : T.bdr}`,
+              background: active ? T.p : "transparent",
+              fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 400,
+              color: active ? "#fff" : T.tm, cursor: "pointer", transition: "all .18s",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <span>{flag}</span><span>{code}</span>
+              {active && <span style={{ fontSize: 10, opacity: 0.8 }}>✓</span>}
+            </button>
+          );
+        })}
       </div>
+      <p style={{ ...S.hint, marginBottom: 2 }}>Mínimo una divisa requerida.</p>
 
-      {selectedPreset === "ps_otro" && (
-        <input
-          style={{ ...S.input, marginTop: 9 }} type="text"
-          placeholder="Nombre del servicio…"
-          value={customServiceName} onChange={e => setCustomServiceName(e.target.value)}
-          autoFocus
-        />
-      )}
+      <div style={{ height: 1, background: T.bdrL, margin: "16px 0" }} />
 
-      {addedServices.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          {addedServices.map(svc => (
-            <ServiceCard
-              key={svc.id} svc={svc} currency={currency}
-              onRemove={() => setAddedServices(prev => prev.filter(s => s.id !== svc.id))}
-              onUpdatePrice={(field, val) => setAddedServices(prev => prev.map(s => s.id === svc.id ? { ...s, [field]: val } : s))}
-            />
-          ))}
-        </div>
-      )}
+      {/* ── Servicios ───────────────────────────────────────────────────────── */}
+      <span style={S.label}>Servicios y tarifas</span>
+      <p style={{ ...S.hint, marginTop: 0, marginBottom: 12 }}>
+        Ingresa el precio de los servicios que ofreces. Deja en blanco los que no apliquen.
+      </p>
 
-      {addedServices.length === 0 && (
-        <div style={{ marginTop: 10, padding: 14, borderRadius: 12, border: `1.5px dashed ${T.bdr}`, textAlign: "center" }}>
-          <p style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, margin: 0 }}>Agrega al menos un servicio con su tarifa.</p>
-        </div>
-      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {PRESET_SERVICES.map(ps => {
+          const svcData = services4.find(s => s.id === ps.id);
+          const isEditing = editingSvc4 === ps.id;
+          const isSaved = savedSvcs4.includes(ps.id);
+          const modalityKeys = [
+            { key: "pp", icon: "📍", label: "Presencial" },
+            { key: "pv", icon: "📹", label: "Virtual" },
+          ].filter(m =>
+            modality === "ambas" ||
+            (modality === "presencial" && m.key === "pp") ||
+            (modality === "virtual" && m.key === "pv")
+          );
+          const colCount = modalityKeys.length;
 
-      <div onClick={() => setShowPrice(p => !p)}
-        style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, cursor: "pointer" }}>
-        <div style={{
-          width: 19, height: 19, borderRadius: 5, flexShrink: 0,
-          border: `2px solid ${showPrice ? T.p : T.bdr}`,
-          background: showPrice ? T.p : "transparent",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, color: "#fff", transition: "all .15s",
-        }}>
-          {showPrice ? "✓" : ""}
-        </div>
-        <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.4 }}>
-          Mostrar precio al paciente al agendar
-        </span>
+          return (
+            <div key={ps.id} style={{
+              borderRadius: 14,
+              border: `1.5px solid ${isSaved ? T.p : T.bdr}`,
+              background: isSaved ? T.pA : T.card,
+              overflow: "hidden", transition: "all .2s",
+            }}>
+              {/* Cabecera */}
+              <div onClick={() => setEditingSvc4(isEditing ? null : ps.id)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 15px", cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: isSaved ? T.p : T.bdr, transition: "background .2s" }} />
+                  <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: isSaved ? 700 : 500, color: isSaved ? T.p : T.t }}>{ps.id === "ps_otro" && svcData?.customLabel ? svcData.customLabel : ps.label}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {isSaved && (
+                    <span style={{ fontFamily: T.fB, fontSize: 11, color: T.pL }}>
+                      {currencies.map(c => svcData?.prices?.pp?.[c] || svcData?.prices?.pv?.[c] ? `${c} ✓` : null).filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 12, color: T.tl, display: "inline-block", transition: "transform .2s", transform: isEditing ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                </div>
+              </div>
+
+              {/* Panel expandible */}
+              {isEditing && (
+                <div style={{ padding: "0 15px 15px", borderTop: `1px solid ${T.bdrL}` }}>
+                  {ps.id === "ps_otro" && (
+                    <>
+                      <span style={{ ...S.label, marginTop: 12 }}>Nombre del servicio</span>
+                      <input style={S.input}
+                        value={svcData?.customLabel || ""}
+                        onChange={e => setServices4(p => {
+                          const ex = p.find(s => s.id === ps.id);
+                          if (ex) return p.map(s => s.id === ps.id ? { ...s, customLabel: e.target.value } : s);
+                          return [...p, { id: ps.id, customLabel: e.target.value, prices: { pp: {}, pv: {} } }];
+                        })}
+                        placeholder="Ej. Evaluación neuropsicológica"
+                      />
+                    </>
+                  )}
+
+                  {/* Tabla: encabezados */}
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: `48px ${Array(colCount).fill("1fr").join(" ")}`, gap: 8, marginBottom: 6 }}>
+                      <div />
+                      {modalityKeys.map(m => (
+                        <div key={m.key} style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          {m.icon} {m.label}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Filas por divisa */}
+                    {currencies.map(cur => (
+                      <div key={cur} style={{ display: "grid", gridTemplateColumns: `48px ${Array(colCount).fill("1fr").join(" ")}`, gap: 8, marginBottom: 8, alignItems: "center" }}>
+                        <span style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tl }}>{cur}</span>
+                        {modalityKeys.map(m => (
+                          <input key={m.key} type="number" placeholder="0.00" min="0"
+                            value={svcData?.prices?.[m.key]?.[cur] || ""}
+                            onChange={e => setServices4(p => {
+                              const ex = p.find(s => s.id === ps.id);
+                              const updated = { prices: { pp: {}, pv: {}, ...(ex?.prices || {}) } };
+                              updated.prices[m.key] = { ...(ex?.prices?.[m.key] || {}), [cur]: e.target.value };
+                              if (ex) return p.map(s => s.id === ps.id ? { ...s, ...updated } : s);
+                              return [...p, { id: ps.id, ...updated }];
+                            })}
+                            style={{ width: "100%", padding: "8px 10px", border: `1.5px solid ${T.bdr}`, borderRadius: 8, fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: T.t, background: "var(--bg)", outline: "none", textAlign: "right", boxSizing: "border-box" }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button onClick={() => { setSavedSvcs4(p => p.includes(ps.id) ? p : [...p, ps.id]); setEditingSvc4(null); }}
+                    style={{ marginTop: 14, width: "100%", padding: "11px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 12px ${T.p}30` }}>
+                    Guardar servicio ✓
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-
-      <span style={{ ...S.label, marginTop: 14 }}>Política de pago</span>
-      <textarea style={{ ...S.textarea, minHeight: 100 }} value={payPolicy} onChange={e => setPayPolicy(e.target.value)} />
-      <p style={S.hint}>Puedes personalizar este texto según tus condiciones.</p>
 
       <Nav />
     </>,
@@ -870,28 +955,83 @@ export default function Onboarding({ onClose, onNavigate }) {
       <style>{`
         @keyframes ob-fadeIn  { from { opacity: 0 } to { opacity: 1 } }
         @keyframes ob-slideUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: translateY(0) } }
+        .ob-scroll::-webkit-scrollbar { display: none; }
+        .ob-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      <div style={S.overlay}>
+      <div className="ob-scroll" style={S.overlay}>
         <div style={S.container}>
 
+          {/* ── Logo siempre visible ────────────────────────────────────────── */}
           <div style={S.topbar}>
             <div style={S.logoWrap}>
               <div style={S.logoIcon}>🧠</div>
               <span style={S.logoName}>PsychoCore</span>
             </div>
-            <button style={S.skipAll} onClick={() => onClose(null)}>Omitir</button>
+            {!showWelcome && (
+              <button style={S.skipAll} onClick={() => onClose(null)}>Omitir</button>
+            )}
           </div>
 
-          <Stepper />
+          {/* ── Pantalla de bienvenida ──────────────────────────────────────── */}
+          {showWelcome ? (
+            <div style={{ ...S.card, marginTop: 16, animation: "ob-slideUp .3s ease" }}>
+              <div style={{ textAlign: "center", padding: "12px 0 20px" }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", margin: "0 auto 18px",
+                  background: `linear-gradient(135deg, ${T.p}, ${T.pL})`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 34, boxShadow: `0 8px 28px ${T.p}40`,
+                }}>🧠</div>
+                <h2 style={{ fontFamily: T.fH, fontSize: "clamp(22px, 6vw, 28px)", fontWeight: 700, color: T.t, marginBottom: 8, lineHeight: 1.2 }}>
+                  ¡Bienvenido a PsychoCore!
+                </h2>
+                <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.7, marginBottom: 24, maxWidth: 300, margin: "0 auto 24px" }}>
+                  Tu consulta, organizada desde el primer día.
+                </p>
 
-          <div style={S.progressBar}>
-            <div style={{ height: "100%", background: T.p, borderRadius: 99, width: `${progress}%`, transition: "width .4s ease" }} />
-          </div>
+                <div style={{ background: T.pA, borderRadius: 14, padding: "16px 18px", marginBottom: 24, textAlign: "left" }}>
+                  <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.7, marginBottom: 12 }}>
+                    Antes de comenzar, vamos a configurar tu perfil profesional. Solo toma unos minutos y te ayudará a gestionar tus pacientes, sesiones y finanzas desde un solo lugar.
+                  </p>
+                  <p style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.p, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>Lo que configuraremos juntos:</p>
+                  {[
+                    { icon: "👤", text: "Tu perfil y especialidades" },
+                    { icon: "📅", text: "Horarios y modalidad de atención" },
+                    { icon: "💼", text: "Tarifas y servicios" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7, fontFamily: T.fB, fontSize: 13, color: T.tm }}>
+                      <span style={{ fontSize: 16 }}>{item.icon}</span>
+                      <span>{item.text}</span>
+                    </div>
+                  ))}
+                </div>
 
-          <div style={S.card} key={step}>
-            {steps[step]}
-          </div>
+                <button
+                  onClick={() => setShowWelcome(false)}
+                  style={{
+                    width: "100%", padding: "14px", borderRadius: 100, border: "none",
+                    background: T.p, color: "#fff",
+                    fontFamily: T.fB, fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", boxShadow: `0 6px 20px ${T.p}40`,
+                  }}
+                >
+                  ¡Empecemos! →
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ── Flujo de pasos ─────────────────────────────────────────────── */
+            <>
+              <Stepper />
+              <div style={S.progressBar}>
+                <div style={{ height: "100%", background: T.p, borderRadius: 99, width: `${progress}%`, transition: "width .4s ease" }} />
+              </div>
+              <div style={S.card} key={step}>
+                {steps[step]}
+              </div>
+            </>
+          )}
 
         </div>
       </div>
