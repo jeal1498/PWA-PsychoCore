@@ -399,7 +399,7 @@ export default function Onboarding({ onClose, onNavigate }) {
 
   const initials = name.trim()
     ? name.trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join("")
-    : "?";
+    : "👤";
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const toggleChip = (arr, setArr, val) =>
@@ -473,32 +473,55 @@ export default function Onboarding({ onClose, onNavigate }) {
   const progress = (step / (TOTAL_STEPS - 1)) * 100;
 
   // ── Stepper ───────────────────────────────────────────────────────────────────
+  const STEPS_META = [
+    { label: "Perfil" }, { label: "Sesiones" }, { label: "Horario" },
+    { label: "Tarifas" }, { label: "Listo" },
+  ];
   const Stepper = () => (
-    <div style={S.stepperRow}>
-      {Array.from({ length: TOTAL_STEPS }, (_, i) => {
-        const done = i < step, active = i === step;
-        return (
-          <div
-            key={i}
-            onClick={() => { if (i <= step) setStep(i); }}
-            style={{
-              width: "clamp(28px, 8vw, 36px)",
-              height: "clamp(28px, 8vw, 36px)",
-              borderRadius: "50%", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "clamp(11px, 3vw, 13px)", fontWeight: 700,
-              cursor: i <= step ? "pointer" : "default",
-              border: `2.5px solid ${done || active ? T.p : T.bdr}`,
-              background: done ? T.p : T.card,
-              color: done ? "#fff" : active ? T.p : T.tl,
-              boxShadow: active ? `0 0 0 3px ${T.pA}` : "none",
-              transition: "all .2s",
-            }}
-          >
-            {done ? "✓" : i + 1}
-          </div>
-        );
-      })}
+    <div style={{ position: "relative", margin: "0 20px 16px" }}>
+      {/* Línea base */}
+      <div style={{
+        position: "absolute", top: 17,
+        left: "calc(100% / 10)", right: "calc(100% / 10)",
+        height: 2, background: T.bdrL, zIndex: 0,
+      }} />
+      {/* Línea de progreso */}
+      <div style={{
+        position: "absolute", top: 17,
+        left: "calc(100% / 10)",
+        width: `calc((100% - 100% / 5) * ${step / (TOTAL_STEPS - 1)})`,
+        height: 2, background: T.p, zIndex: 0,
+        transition: "width .35s ease",
+      }} />
+      {/* Círculos y labels */}
+      <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
+        {STEPS_META.map((s, i) => {
+          const done = i < step, active = i === step;
+          return (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div
+                onClick={() => { if (i <= step) setStep(i); }}
+                style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: done ? T.p : active ? T.p : T.card,
+                  border: `2px solid ${done || active ? T.p : T.bdr}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, color: done || active ? "#fff" : T.tl,
+                  fontWeight: 700, fontFamily: T.fB, transition: "all .25s",
+                  boxShadow: active ? `0 0 0 4px ${T.pA}` : "none",
+                  cursor: i <= step ? "pointer" : "default",
+                }}>
+                {done ? "✓" : i + 1}
+              </div>
+              <span style={{
+                fontFamily: T.fB, fontSize: 10, fontWeight: 600,
+                color: active ? T.p : done ? T.pL : T.tl,
+                letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap",
+              }}>{s.label}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -531,7 +554,7 @@ export default function Onboarding({ onClose, onNavigate }) {
             width: 76, height: 76, borderRadius: "50%",
             background: avatarUrl ? "transparent" : T.p,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: T.fH, fontSize: 26, fontWeight: 600, color: "#fff",
+            fontFamily: T.fH, fontSize: name.trim() ? 26 : 34, fontWeight: 600, color: "#fff",
             position: "relative", cursor: "pointer", overflow: "hidden",
             border: `2.5px solid ${T.p}`,
           }}
@@ -609,7 +632,7 @@ export default function Onboarding({ onClose, onNavigate }) {
 
       {(modality === "presencial" || modality === "ambas") && (
         <>
-          <span style={S.label}>Link de Google Maps del consultorio</span>
+          <span style={S.label}>Dirección del consultorio</span>
           <input
             style={S.input} type="url"
             placeholder="Pega aquí el link de Google Maps"
@@ -621,7 +644,7 @@ export default function Onboarding({ onClose, onNavigate }) {
               🗺️ Ver en Google Maps →
             </a>
           )}
-          <p style={S.hint}>Abre Google Maps, busca tu consultorio, toca "Compartir" y copia el link.</p>
+          <p style={S.hint}>Agrega tu dirección y tu link de Google Maps.</p>
         </>
       )}
 
@@ -634,8 +657,21 @@ export default function Onboarding({ onClose, onNavigate }) {
       <div style={S.divider} />
       <p style={S.bodyText}>Activa los días y configura tus horarios.</p>
 
+      {/* Días — fila centrada */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 14 }}>
+        {DAYS_CONFIG.map(({ key, label }) => (
+          <button key={key} onClick={() => toggleDay(key)} style={{
+            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+            border: `1.5px solid ${activeDays[key] ? T.p : T.bdr}`,
+            background: activeDays[key] ? T.p : "transparent",
+            fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+            color: activeDays[key] ? "#fff" : T.tl, cursor: "pointer", transition: "all .15s",
+          }}>{label.slice(0, 2)}</button>
+        ))}
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-        {DAYS_CONFIG.map(({ key, label }) => {
+        {DAYS_CONFIG.filter(({ key }) => activeDays[key]).map(({ key, label }) => {
           const isActive = activeDays[key];
           const intervals = schedule[key] || [];
           return (
