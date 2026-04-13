@@ -53,22 +53,22 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     }
     /* ── CSS Variables: dark ── */
     [data-theme="dark"] {
-      --d-bg:        #141210;
-      --d-bg2:       #1E1B18;
-      --d-bg3:       #252220;
-      --d-surface:   #1E1B18;
-      --d-bdr:       #2E2A26;
-      --d-bdr2:      #352F28;
-      --d-txt:       #F0EDE8;
-      --d-txt2:      #D6D0C8;
-      --d-muted:     #6B6560;
+      --d-bg:        #111614;
+      --d-bg2:       #1C2120;
+      --d-bg3:       #222927;
+      --d-surface:   #1C2120;
+      --d-bdr:       #2A3330;
+      --d-bdr2:      #2F3A37;
+      --d-txt:       #EAE6E0;
+      --d-txt2:      #C8C2BA;
+      --d-muted:     #5A6B67;
       --d-accent:    #7DBFA0;
-      --d-hover:     #252220;
-      --d-kpi-bg:    #1E1B18;
-      --d-next-bg:   linear-gradient(90deg,#252220,#1E1B18);
-      --d-next-hover:#2A2622;
-      --d-next-bdr:  #2E2A26;
-      --d-scroll:    #2E2A26;
+      --d-hover:     #222927;
+      --d-kpi-bg:    #1C2120;
+      --d-next-bg:   linear-gradient(90deg,#1C2120,#222927);
+      --d-next-hover:#263330;
+      --d-next-bdr:  #2A3330;
+      --d-scroll:    #2A3330;
     }
 
     .d-root { font-family:'DM Sans',sans-serif; width:100%; min-height:100%; overflow-y:auto; padding-bottom:40px; box-sizing:border-box; background:var(--d-bg); margin:0; }
@@ -675,6 +675,15 @@ export default function Dashboard({
         patients={patients}
       />
 
+      {/* AGENDA — siempre visible, justo tras los shortcuts */}
+      <AgendaSection
+        todayAppts={todayAppts}
+        nextAppt={nextAppt}
+        todayStr={todayStr}
+        onStartSession={onStartSession}
+        onNavigate={onNavigate}
+      />
+
       {!hasPatients ? (
         /* Sin pacientes: guía de bienvenida */
         <WelcomeGuide onNavigate={onNavigate}/>
@@ -689,15 +698,6 @@ export default function Dashboard({
             urgentCount={urgentCount}
             payments={payments}
             bp={bp}
-          />
-
-          {/* AGENDA */}
-          <AgendaSection
-            todayAppts={todayAppts}
-            nextAppt={nextAppt}
-            todayStr={todayStr}
-            onStartSession={onStartSession}
-            onNavigate={onNavigate}
           />
 
           {/* MES EN NÚMEROS */}
