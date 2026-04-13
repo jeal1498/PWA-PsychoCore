@@ -301,6 +301,14 @@ export default function ConsentBlock({ patient, onUpdate, profile }) {
   const cfg      = CONSENT_STATUS_CONFIG[status];
   const [mode, setMode] = useState("view"); // "view" | "sign" | "edit"
 
+  // Si el perfil tiene una política de pago personalizada, usarla como base para honorarios
+  const effectiveSections = {
+    ...DEFAULT_CONSENT_SECTIONS,
+    ...(profile?.payPolicy
+      ? { honorarios: profile.payPolicy }
+      : {}),
+  };
+
   // firma temporal (antes de confirmar)
   const [sigDataUrl, setSigDataUrl] = useState(null);
   const [signedBy,   setSignedBy]   = useState("patient");
@@ -325,14 +333,14 @@ export default function ConsentBlock({ patient, onUpdate, profile }) {
       guardianName:    signedBy === "guardian" ? guardian : "",
       version:         (consent.version || 0) + 1,
       signatureDataUrl: sigDataUrl,
-      sections:        { ...DEFAULT_CONSENT_SECTIONS, ...sections },
+      sections:        { ...effectiveSections, ...sections },
     };
     onUpdate(newConsent);
     setMode("view");
   };
 
   const saveSections = () => {
-    onUpdate({ ...consent, sections: { ...DEFAULT_CONSENT_SECTIONS, ...sections } });
+    onUpdate({ ...consent, sections: { ...effectiveSections, ...sections } });
     setMode("view");
   };
 
@@ -418,7 +426,7 @@ export default function ConsentBlock({ patient, onUpdate, profile }) {
             <strong style={{ color: T.war }}>Nota:</strong> Editar el texto no requiere nueva firma, pero si realizas cambios sustanciales se recomienda obtener una nueva firma del paciente.
           </div>
           <ConsentSectionAccordion
-            sections={{ ...DEFAULT_CONSENT_SECTIONS, ...(consent.sections || {}), ...sections }}
+            sections={{ ...effectiveSections, ...(consent.sections || {}), ...sections }}
             onEdit={(key, val) => setSections(prev => ({ ...prev, [key]: val }))}
             readOnly={false}
           />
@@ -450,7 +458,7 @@ export default function ConsentBlock({ patient, onUpdate, profile }) {
           El paciente debe revisar las siguientes secciones antes de firmar:
         </div>
         <ConsentSectionAccordion
-          sections={{ ...DEFAULT_CONSENT_SECTIONS, ...(consent.sections || {}), ...sections }}
+          sections={{ ...effectiveSections, ...(consent.sections || {}), ...sections }}
           onEdit={(key, val) => setSections(prev => ({ ...prev, [key]: val }))}
           readOnly={false}
         />
