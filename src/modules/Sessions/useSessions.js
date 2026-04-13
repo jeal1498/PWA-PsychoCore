@@ -16,7 +16,7 @@ import {
 } from "./sessions.utils.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SERVICE CONSTANTS (usadas solo en lógica de negocio)
+// SERVICE CONSTANTS — fallbacks cuando el servicio no tiene durationMin
 // ─────────────────────────────────────────────────────────────────────────────
 export const SERVICE_DURATION_BY_TYPE = {
   sesion: 50, evaluacion: 90, pareja: 60, grupo: 90, paquete: 50, otro: 50,
@@ -178,10 +178,16 @@ export function useSessions({
     if (!serviceId) return null;
     const svc = services.find(s => s.id === serviceId);
     if (!svc) return null;
+    // durationMin del catálogo tiene prioridad sobre el campo legacy "duration"
+    const durationMin =
+      Number(svc.durationMin) ||
+      Number(svc.duration)    ||
+      SERVICE_DURATION_BY_TYPE[svc.type] ||
+      50;
     return {
       ...svc,
-      label: svc.name || SERVICE_TYPE_LABEL[svc.type] || svc.type,
-      duration: Number(svc.duration) || SERVICE_DURATION_BY_TYPE[svc.type] || 50,
+      label:    svc.name || SERVICE_TYPE_LABEL[svc.type] || svc.type,
+      duration: durationMin,
     };
   }
 
@@ -219,7 +225,7 @@ export function useSessions({
     setShowQuickServiceForm(false);
     setServiceLocked(false);
     setQuickService({ name:"", type:"sesion", modality:"presencial", price:"", priceVirtual:"" });
-    setForm(f => ({ ...f, serviceId: newService.id, duration: SERVICE_DURATION_BY_TYPE[newService.type] || 50 }));
+    setForm(f => ({ ...f, serviceId: newService.id, duration: Number(newService.durationMin) || SERVICE_DURATION_BY_TYPE[newService.type] || 50 }));
   }
 
   // ── Cobro helpers ─────────────────────────────────────────────────────────
@@ -227,11 +233,18 @@ export function useSessions({
     const svc = services.find(s => s.id === serviceId);
     if (!svc) { setCobroForm(f => ({ ...f, serviceId, modality:"", amount:"", concept:"" })); return; }
     const label = svc.name || SERVICE_TYPE_LABEL[svc.type] || svc.type;
+    // Leer precio del catálogo centralizado; fallback a campos legacy
+    const currency = profile?.currency || "MXN";
+    const getPrice = (mod) => {
+      const fromCatalog = svc.prices?.[currency]?.[mod];
+      if (fromCatalog != null) return fromCatalog;
+      return mod === "virtual" ? svc.priceVirtual : svc.price;
+    };
     if (svc.modality === "ambas") {
       setCobroForm(f => ({ ...f, serviceId, concept: label, modality:"", amount:"" }));
       setShowCobroModality(true);
     } else {
-      const price = svc.modality === "virtual" ? svc.priceVirtual : svc.price;
+      const price = getPrice(svc.modality === "virtual" ? "virtual" : "presencial");
       setCobroForm(f => ({ ...f, serviceId, concept: label, modality: svc.modality, amount: String(price || "") }));
       setShowCobroModality(false);
     }
@@ -240,7 +253,8 @@ export function useSessions({
   function applyCobroModality(mod) {
     const svc = services.find(s => s.id === cobroForm.serviceId);
     if (!svc) return;
-    const price = mod === "virtual" ? svc.priceVirtual : svc.price;
+    const currency = profile?.currency || "MXN";
+    const price = svc.prices?.[currency]?.[mod] ?? (mod === "virtual" ? svc.priceVirtual : svc.price);
     setCobroForm(f => ({ ...f, modality: mod, amount: String(price || "") }));
     setShowCobroModality(false);
   }
