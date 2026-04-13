@@ -297,7 +297,7 @@ function BottomNav({ active, onNav, riskAlert }) {
       justifyContent: "space-around", padding: "0 6px",
       flexShrink: 0,
       boxShadow: "0 -4px 16px rgba(0,0,0,0.06)",
-      position: "sticky", bottom: 0, zIndex: 100,
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
     }}>
       {bottomItems.map(({ id, icon: Icon, label }) => {
         const isActive = active === id;
