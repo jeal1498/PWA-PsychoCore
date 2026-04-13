@@ -45,7 +45,8 @@ export default function NotificationBell({ notifications, dismiss, dismissAll })
       {/* Dropdown */}
       {open && (
         <div style={{
-          position: "absolute", top: "calc(100% + 8px)", right: 0,
+          position: "fixed", top: 60, right: isMobile ? 14 : "auto",
+          left: isMobile ? 14 : "auto",
           width: isMobile ? "calc(100vw - 28px)" : 320,
           background: T.card, borderRadius: 16,
           boxShadow: T.shM, border: `1px solid ${T.bdrL}`, zIndex: 400,
