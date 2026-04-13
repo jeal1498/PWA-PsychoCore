@@ -79,19 +79,19 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-greet { font-family:'Lora',serif; font-size:23px; font-weight:400; color:var(--d-txt); line-height:1.25; animation:fadeUp .45s .06s ease both; }
     .d-greet em { font-style:italic; color:var(--d-accent); }
 
-    /* Shortcuts grid */
-    .d-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:16px 20px; animation:fadeUp .45s .1s ease both; }
+    /* Shortcuts grid — 4 cols, icono arriba */
+    .d-shortcuts { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:12px 16px 16px; animation:fadeUp .45s .1s ease both; }
     .d-sc {
-      display:flex; align-items:center; gap:10px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
       background:var(--d-bg2); border:none; outline:none; border-radius:13px;
-      padding:12px 13px; cursor:pointer; text-align:left;
+      padding:14px 6px 12px; cursor:pointer; text-align:center;
       transition:transform .15s, box-shadow .15s;
     }
     .d-sc:hover  { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,0,0,.12); }
     .d-sc:active { transform:scale(.97); }
     .d-sc:disabled { opacity:.45; cursor:default; }
-    .d-sc-ico  { width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
-    .d-sc-name { font-size:11px; font-weight:600; color:var(--d-txt2); line-height:1.3; }
+    .d-sc-ico  { width:36px; height:36px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; }
+    .d-sc-name { font-size:10px; font-weight:600; color:var(--d-txt2); line-height:1.3; }
     .d-sc-sub  { font-size:10px; color:var(--d-muted); margin-top:1px; }
 
     /* Sections */
@@ -283,14 +283,14 @@ function Header({ profile, googleUser, todayAppts, urgentCount }) {
   );
 }
 
-// ── SHORTCUTS 2×2 ─────────────────────────────────────────────────────────────
+// ── SHORTCUTS 2×2 → 4 columnas verticales ────────────────────────────────────
 function Shortcuts({ onQuickNav, onNewSession, patients }) {
   const has = patients.length > 0;
   const items = [
-    { icon:"👤", label:"Nuevo paciente", sub:"Registrar",   bg:"#EAF4EE", onClick:()=>onQuickNav("patients","add") },
-    { icon:"📅", label:"Agendar cita",   sub:"Calendario",  bg:"#EDF2FB", onClick:()=>onQuickNav("agenda","add") },
-    { icon:"▶",  label:"Iniciar sesión", sub:"En curso",    bg:"#FDF3E0", onClick:onNewSession,                    disabled:!has },
-    { icon:"💳", label:"Registrar pago", sub:"Finanzas",    bg:"#F4F0FB", onClick:()=>onQuickNav("finance","add"), disabled:!has },
+    { icon:"👤", label:"Nuevo paciente",  bg:"#EAF4EE", onClick:()=>onQuickNav("patients","add") },
+    { icon:"📅", label:"Agendar cita",    bg:"#EDF2FB", onClick:()=>onQuickNav("agenda","add") },
+    { icon:"▶",  label:"Iniciar sesión",  bg:"#FDF3E0", onClick:onNewSession,                    disabled:!has },
+    { icon:"💳", label:"Registrar pago",  bg:"#F4F0FB", onClick:()=>onQuickNav("finance","add"), disabled:!has },
   ];
   return (
     <div className="d-shortcuts">
@@ -302,10 +302,7 @@ function Shortcuts({ onQuickNav, onNewSession, patients }) {
           onClick={item.onClick}
         >
           <div className="d-sc-ico" style={{ background:item.bg }}>{item.icon}</div>
-          <div>
-            <div className="d-sc-name">{item.label}</div>
-            <div className="d-sc-sub">{item.sub}</div>
-          </div>
+          <div className="d-sc-name">{item.label}</div>
         </button>
       ))}
     </div>
@@ -373,35 +370,46 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
         {todayAppts.length === 0 ? (
           <div className="d-empty">Sin citas para hoy ✓</div>
         ) : (
-          todayAppts.map(appt => {
-            const st     = STATUS[appt.status] || STATUS.pendiente;
-            const [h, m] = (appt.time||"00:00").split(":");
-            const active = appt.status === "en_curso";
-            const avBg   = active ? "#FDF3E0" : "#EAF4EE";
-            const avClr  = active ? "#A06A00" : "#3D6B5A";
-            return (
-              <div
-                key={appt.id}
-                className={`d-appt${active ? " d-active" : ""}`}
-                onClick={()=>active && onStartSession?.(appt)}
-              >
-                <div className="d-time">
-                  <div className="d-time-h">{h}</div>
-                  <div className="d-time-m">{m}</div>
-                </div>
-                <div className="d-abody">
-                  <div className="d-aname">{appt.patientName || appt.patient || "Paciente"}</div>
-                  <div className="d-atype">{appt.type || appt.service || ""}</div>
-                </div>
-                <div className="d-aright">
-                  <div className="d-av" style={{ background:avBg, color:avClr, border:`1.5px solid ${avClr}22` }}>
-                    {initials(appt.patientName || appt.patient || "")}
+          <>
+            {todayAppts.slice(0, 3).map(appt => {
+              const st     = STATUS[appt.status] || STATUS.pendiente;
+              const [h, m] = (appt.time||"00:00").split(":");
+              const active = appt.status === "en_curso";
+              const avBg   = active ? "#FDF3E0" : "#EAF4EE";
+              const avClr  = active ? "#A06A00" : "#3D6B5A";
+              return (
+                <div
+                  key={appt.id}
+                  className={`d-appt${active ? " d-active" : ""}`}
+                  onClick={()=>active && onStartSession?.(appt)}
+                >
+                  <div className="d-time">
+                    <div className="d-time-h">{h}</div>
+                    <div className="d-time-m">{m}</div>
                   </div>
-                  <div className="d-stag" style={{ background:st.bg, color:st.text }}>{st.label}</div>
+                  <div className="d-abody">
+                    <div className="d-aname">{appt.patientName || appt.patient || "Paciente"}</div>
+                    <div className="d-atype">{appt.type || appt.service || ""}</div>
+                  </div>
+                  <div className="d-aright">
+                    <div className="d-av" style={{ background:avBg, color:avClr, border:`1.5px solid ${avClr}22` }}>
+                      {initials(appt.patientName || appt.patient || "")}
+                    </div>
+                    <div className="d-stag" style={{ background:st.bg, color:st.text }}>{st.label}</div>
+                  </div>
                 </div>
+              );
+            })}
+            {todayAppts.length > 3 && (
+              <div
+                className="d-empty"
+                style={{ cursor:"pointer", color:"var(--d-accent)", fontWeight:600 }}
+                onClick={()=>onNavigate("agenda")}
+              >
+                +{todayAppts.length - 3} citas más →
               </div>
-            );
-          })
+            )}
+          </>
         )}
 
         {/* Siguiente cita */}
@@ -668,20 +676,20 @@ export default function Dashboard({
         urgentCount={urgentCount}
       />
 
-      {/* ACCESOS DIRECTOS */}
-      <Shortcuts
-        onQuickNav={onQuickNav}
-        onNewSession={onNewSession}
-        patients={patients}
-      />
-
-      {/* AGENDA — siempre visible, justo tras los shortcuts */}
+      {/* AGENDA — primer lugar */}
       <AgendaSection
         todayAppts={todayAppts}
         nextAppt={nextAppt}
         todayStr={todayStr}
         onStartSession={onStartSession}
         onNavigate={onNavigate}
+      />
+
+      {/* ACCESOS DIRECTOS */}
+      <Shortcuts
+        onQuickNav={onQuickNav}
+        onNewSession={onNewSession}
+        patients={patients}
       />
 
       {!hasPatients ? (
