@@ -56,10 +56,10 @@ export function PageView({
 
   if (!open) return null;
 
-  // En móvil respeta el topbar del app (no el sidebar, que es un drawer)
+  // En móvil el header está oculto, así que top = 0
   // En desktop respeta sidebar + topbar
   const left   = isMobile ? 0 : SIDEBAR_W;
-  const top    = TOPBAR_H; // siempre 56px, móvil y desktop
+  const top    = isMobile ? 0 : TOPBAR_H;
   const zIndex = isMobile ? 900 : 100;
 
   return (
