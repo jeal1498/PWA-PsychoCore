@@ -222,7 +222,7 @@ export default function App() {
   const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
-  const [settingsTab,   setSettingsTab]   = useState("profile");
+  const [settingsTab,   setSettingsTab]   = useState("__index__");
 
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
   const [systemDark, setSystemDark] = useState(
@@ -462,7 +462,7 @@ export default function App() {
   // ── Render de módulos ────────────────────────────────────────────────────
   const renderModule = () => {
     switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
+      case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onStartSession={handleStartSession} onPrimerContacto={() => quickNav("patients", "add")} onNavigate={(module, data, tab) => {
                                 if (module === "settings") {
@@ -510,7 +510,7 @@ export default function App() {
           }}
         />
       );
-      default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={navTo} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
+      default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
     }
   };
 
