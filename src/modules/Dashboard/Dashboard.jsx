@@ -268,15 +268,86 @@ function useBreakpoint() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── HEADER ────────────────────────────────────────────────────────────────────
-function Header({ profile, googleUser, todayAppts, urgentCount }) {
+function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSignOut }) {
   const name = resolveDisplayName(profile, googleUser);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const subtitle = todayAppts.length > 0
     ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount>0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
     : getDailyPhrase();
 
+  // Iniciales para el avatar
+  const fullName = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "U";
+  const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
+
+  const menuItems = [
+    { label: "Perfil",        icon: "👤", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
+    { label: "Servicios",     icon: "🛎️", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
+    { label: "Ajustes",       icon: "⚙️", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
+    { label: "Suscripción",   icon: "💳", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
+    { label: "Soporte",       icon: "💬", action: () => { window.open("mailto:soporte@psychocore.app"); setMenuOpen(false); } },
+  ];
+
   return (
-    <div className="d-header">
+    <div className="d-header" style={{ position: "relative" }}>
+      {/* Círculo de usuario — esquina superior derecha */}
+      <button
+        onClick={() => setMenuOpen(v => !v)}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          width: 36, height: 36, borderRadius: "50%",
+          background: "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
+          border: "none", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Lora', serif", fontSize: 13, fontWeight: 600, color: "#fff",
+          boxShadow: "0 2px 8px rgba(74,173,160,0.35)",
+          zIndex: 10,
+        }}
+      >
+        {initials}
+      </button>
+
+      {/* Dropdown menu */}
+      {menuOpen && (
+        <>
+          {/* Overlay para cerrar */}
+          <div
+            onClick={() => setMenuOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 20 }}
+          />
+          <div style={{
+            position: "absolute", top: 62, right: 20, zIndex: 30,
+            background: "#fff", borderRadius: 14,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
+            border: "1px solid rgba(0,0,0,0.07)",
+            minWidth: 200, overflow: "hidden",
+            animation: "fadeUp .18s ease both",
+          }}>
+            {/* Nombre completo */}
+            <div style={{
+              padding: "14px 16px 10px",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 12,
+              color: "var(--d-muted)", borderBottom: "1px solid rgba(0,0,0,0.06)",
+            }}>
+              {fullName}
+            </div>
+            {/* Items */}
+            {menuItems.map(item => (
+              <MenuRow key={item.label} icon={item.icon} label={item.label} onClick={item.action} />
+            ))}
+            {/* Cerrar sesión */}
+            <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+              <MenuRow
+                icon="🚪"
+                label="Cerrar Sesión"
+                onClick={() => { setMenuOpen(false); onSignOut?.(); }}
+                danger
+              />
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="d-date">{todayFormatted()}</div>
       <div className="d-greet">
         {greeting()},&nbsp;<em>{name}</em>
@@ -285,6 +356,29 @@ function Header({ profile, googleUser, todayAppts, urgentCount }) {
         {subtitle}
       </div>
     </div>
+  );
+}
+
+function MenuRow({ icon, label, onClick, danger }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        width: "100%", padding: "11px 16px",
+        background: hov ? (danger ? "#FFF5F5" : "rgba(0,0,0,0.03)") : "transparent",
+        border: "none", cursor: "pointer", textAlign: "left",
+        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+        color: danger ? "#C0392B" : "var(--d-txt)",
+        transition: "background .12s",
+      }}
+    >
+      <span style={{ fontSize: 15 }}>{icon}</span>
+      {label}
+    </button>
   );
 }
 
@@ -802,6 +896,7 @@ export default function Dashboard({
   onQuickNav,
   onStartSession,
   onNewSession,
+  onSignOut,
 }) {
   const bp = useBreakpoint();
 
@@ -821,6 +916,8 @@ export default function Dashboard({
         googleUser={googleUser}
         todayAppts={todayAppts}
         urgentCount={urgentCount}
+        onNavigate={onNavigate}
+        onSignOut={onSignOut}
       />
 
       {/* AGENDA — primer lugar */}
