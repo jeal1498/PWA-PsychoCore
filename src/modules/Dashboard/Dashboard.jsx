@@ -74,7 +74,7 @@ if (typeof document !== "undefined" && !window.__pcd__) {
     .d-root { font-family:'DM Sans',sans-serif; width:100%; min-height:100%; overflow-y:auto; padding-bottom:40px; box-sizing:border-box; background:var(--d-bg); margin:0; }
 
     /* Header */
-    .d-header { background:var(--d-bg); padding:24px 20px 22px; position:relative; overflow:hidden; }
+    .d-header { background:var(--d-bg); padding:24px 20px 22px; position:relative; }
     .d-date  { font-size:10px; color:var(--d-muted); letter-spacing:.07em; text-transform:uppercase; margin-bottom:5px; }
     .d-greet { font-family:'Lora',serif; font-size:23px; font-weight:400; color:var(--d-txt); line-height:1.25; animation:fadeUp .45s .06s ease both; }
     .d-greet em { font-style:italic; color:var(--d-accent); }
@@ -271,12 +271,13 @@ function useBreakpoint() {
 function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSignOut }) {
   const name = resolveDisplayName(profile, googleUser);
   const [menuOpen, setMenuOpen] = useState(false);
+  const btnRef = useState(null);
+  const [btnRect, setBtnRect] = useState(null);
 
   const subtitle = todayAppts.length > 0
     ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount>0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
     : getDailyPhrase();
 
-  // Iniciales para el avatar
   const fullName = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "U";
   const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
 
@@ -288,11 +289,17 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
     { label: "Soporte",       icon: "💬", action: () => { window.open("mailto:soporte@psychocore.app"); setMenuOpen(false); } },
   ];
 
+  const handleToggle = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setBtnRect(rect);
+    setMenuOpen(v => !v);
+  };
+
   return (
-    <div className="d-header" style={{ position: "relative" }}>
+    <div className="d-header">
       {/* Círculo de usuario — esquina superior derecha */}
       <button
-        onClick={() => setMenuOpen(v => !v)}
+        onClick={handleToggle}
         style={{
           position: "absolute", top: 20, right: 20,
           width: 36, height: 36, borderRadius: "50%",
@@ -307,23 +314,26 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
         {initials}
       </button>
 
-      {/* Dropdown menu */}
-      {menuOpen && (
+      {/* Dropdown — position: fixed para escapar de overflow:hidden */}
+      {menuOpen && btnRect && (
         <>
-          {/* Overlay para cerrar */}
           <div
             onClick={() => setMenuOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 20 }}
+            style={{ position: "fixed", inset: 0, zIndex: 900 }}
           />
           <div style={{
-            position: "absolute", top: 62, right: 20, zIndex: 30,
-            background: "#fff", borderRadius: 14,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
+            position: "fixed",
+            top: btnRect.bottom + 8,
+            right: window.innerWidth - btnRect.right,
+            zIndex: 901,
+            background: "#fff",
+            borderRadius: 14,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.16)",
             border: "1px solid rgba(0,0,0,0.07)",
-            minWidth: 200, overflow: "hidden",
+            minWidth: 210,
+            overflow: "hidden",
             animation: "fadeUp .18s ease both",
           }}>
-            {/* Nombre completo */}
             <div style={{
               padding: "14px 16px 10px",
               fontFamily: "'DM Sans', sans-serif", fontSize: 12,
@@ -331,11 +341,9 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
             }}>
               {fullName}
             </div>
-            {/* Items */}
             {menuItems.map(item => (
               <MenuRow key={item.label} icon={item.icon} label={item.label} onClick={item.action} />
             ))}
-            {/* Cerrar sesión */}
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
               <MenuRow
                 icon="🚪"
