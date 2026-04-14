@@ -49,8 +49,8 @@ export function resolveDisplayName(profile, googleUser) {
   const googleName = googleUser?.user_metadata?.full_name
     || googleUser?.user_metadata?.name
     || null;
-  if (profile?.name) return `Psic. ${profile.name.split(" ")[0]}`;
-  if (googleName)    return `Psic. ${googleName.split(" ")[0]}`;
+  if (profile?.name) return profile.name.split(" ")[0];
+  if (googleName)    return googleName.split(" ")[0];
   return "Psicólogo/a";
 }
 

@@ -445,11 +445,12 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
 
       <div className="d-agenda" style={{ minHeight: agendaH }}>
         {todayAppts.length === 0 ? (
-          <div
+        <div
             onClick={() => onNavigate("agenda")}
             style={{
-              display:"flex", alignItems:"center", gap:12,
-              padding:"16px 18px", cursor:"pointer",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              gap:10, padding:"32px 18px", cursor:"pointer",
+              minHeight: agendaH,
               transition:"background .12s",
             }}
             onMouseEnter={e => e.currentTarget.style.background="var(--d-hover)"}
@@ -460,7 +461,7 @@ function AgendaSection({ todayAppts, nextAppt, todayStr, onStartSession, onNavig
               background:"#EDF2FB", display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:17,
             }}>📅</div>
-            <div>
+            <div style={{ textAlign:"center" }}>
               <div style={{ fontSize:13, fontWeight:600, color:"var(--d-txt2)" }}>Sin citas para hoy</div>
               <div style={{ fontSize:11, color:"var(--d-accent)", fontWeight:600, marginTop:2 }}>
                 Agendar nueva cita →
