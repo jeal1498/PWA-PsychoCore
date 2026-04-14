@@ -282,17 +282,24 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
   const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
 
   const menuItems = [
-    { label: "Perfil",        icon: "👤", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
-    { label: "Servicios",     icon: "🛎️", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
-    { label: "Ajustes",       icon: "⚙️", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
-    { label: "Suscripción",   icon: "💳", action: () => { onNavigate?.("settings"); setMenuOpen(false); } },
-    { label: "Soporte",       icon: "💬", action: () => { window.open("mailto:soporte@psychocore.app"); setMenuOpen(false); } },
+    { label: "Perfil",      icon: "👤", tab: "profile"    },
+    { label: "Servicios",   icon: "🛎️", tab: "services"   },
+    { label: "Ajustes",     icon: "⚙️", tab: "appearance" },
+    { label: "Suscripción", icon: "💳", tab: "data"       },
+    { label: "Soporte",     icon: "💬", tab: "help"       },
   ];
+
+  const avatarUrl = profile?.avatarUrl || googleUser?.user_metadata?.avatar_url || null;
 
   const handleToggle = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setBtnRect(rect);
     setMenuOpen(v => !v);
+  };
+
+  const goToTab = (tab) => {
+    onNavigate?.("settings", tab);
+    setMenuOpen(false);
   };
 
   return (
@@ -303,15 +310,18 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
         style={{
           position: "absolute", top: 20, right: 20,
           width: 36, height: 36, borderRadius: "50%",
-          background: "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
-          border: "none", cursor: "pointer",
+          background: avatarUrl ? "transparent" : "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
+          border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: "'Lora', serif", fontSize: 13, fontWeight: 600, color: "#fff",
           boxShadow: "0 2px 8px rgba(74,173,160,0.35)",
           zIndex: 10,
         }}
       >
-        {initials}
+        {avatarUrl
+          ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : initials
+        }
       </button>
 
       {/* Dropdown — position: fixed para escapar de overflow:hidden */}
@@ -342,7 +352,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
               {fullName}
             </div>
             {menuItems.map(item => (
-              <MenuRow key={item.label} icon={item.icon} label={item.label} onClick={item.action} />
+              <MenuRow key={item.label} icon={item.icon} label={item.label} onClick={() => goToTab(item.tab)} />
             ))}
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
               <MenuRow
