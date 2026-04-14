@@ -65,7 +65,7 @@ export const NAV_GROUPS = [
 export const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
 // Módulos visibles en bottom nav (móvil)
-const BOTTOM_NAV_IDS = ["dashboard", "agenda", "sessions", "patients"];
+const BOTTOM_NAV_IDS = ["agenda", "sessions", "dashboard", "patients"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Subcomponente: botón de cerrar sesión (hover state aislado)
