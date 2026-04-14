@@ -285,7 +285,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
     { label: "Perfil",      icon: "👤", tab: "profile"    },
     { label: "Servicios",   icon: "🛎️", tab: "services"   },
     { label: "Ajustes",     icon: "⚙️", tab: "appearance" },
-    { label: "Suscripción", icon: "💳", tab: "data"       },
+    { label: "Suscripción", icon: "💳", tab: "suscripcion" },
     { label: "Soporte",     icon: "💬", tab: "help"       },
   ];
 
