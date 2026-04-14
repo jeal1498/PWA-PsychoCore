@@ -15,6 +15,7 @@ import {
 import { RISK_CONFIG } from "../RiskAssessment/riskAssessment.utils.js";
 import { consentStatus } from "../Consent.jsx";
 import { useDashboard } from "./useDashboard.js";
+import NotificationBell from "../../components/NotificationBell.jsx";
 import {
   greeting, todayFormatted, daysBetween, resolveDisplayName,
   computeAbsentPatients, computeRiskItems, computeSidebarSummary,
@@ -268,7 +269,7 @@ function useBreakpoint() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── HEADER ────────────────────────────────────────────────────────────────────
-function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSignOut }) {
+function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSignOut, notifications, dismiss, dismissAll }) {
   const name = resolveDisplayName(profile, googleUser);
   const [menuOpen, setMenuOpen] = useState(false);
   const btnRef = useState(null);
@@ -304,25 +305,32 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
 
   return (
     <div className="d-header">
-      {/* Círculo de usuario — esquina superior derecha */}
-      <button
-        onClick={handleToggle}
-        style={{
-          position: "absolute", top: 20, right: 20,
-          width: 36, height: 36, borderRadius: "50%",
-          background: avatarUrl ? "transparent" : "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
-          border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "'Lora', serif", fontSize: 13, fontWeight: 600, color: "#fff",
-          boxShadow: "0 2px 8px rgba(74,173,160,0.35)",
-          zIndex: 10,
-        }}
-      >
-        {avatarUrl
-          ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : initials
-        }
-      </button>
+      {/* Controles superiores — esquina derecha */}
+      <div style={{ position: "absolute", top: 18, right: 16, display: "flex", alignItems: "center", gap: 6, zIndex: 10 }}>
+        {/* Campanita de notificaciones */}
+        <NotificationBell
+          notifications={notifications || []}
+          dismiss={dismiss}
+          dismissAll={dismissAll}
+        />
+        {/* Círculo de usuario */}
+        <button
+          onClick={handleToggle}
+          style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: avatarUrl ? "transparent" : "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
+            border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'Lora', serif", fontSize: 13, fontWeight: 600, color: "#fff",
+            boxShadow: "0 2px 8px rgba(74,173,160,0.35)",
+          }}
+        >
+          {avatarUrl
+            ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : initials
+          }
+        </button>
+      </div>
 
       {/* Dropdown — position: fixed para escapar de overflow:hidden */}
       {menuOpen && btnRect && (
@@ -915,6 +923,9 @@ export default function Dashboard({
   onStartSession,
   onNewSession,
   onSignOut,
+  notifications   = [],
+  dismiss,
+  dismissAll,
 }) {
   const bp = useBreakpoint();
 
@@ -936,6 +947,9 @@ export default function Dashboard({
         urgentCount={urgentCount}
         onNavigate={onNavigate}
         onSignOut={onSignOut}
+        notifications={notifications}
+        dismiss={dismiss}
+        dismissAll={dismissAll}
       />
 
       {/* AGENDA — primer lugar */}
