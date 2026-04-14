@@ -830,6 +830,12 @@ function NameDropdown({ form, fld, inputBase, formErrors }) {
   const suggestions = NAME_SUGGESTIONS[form.type];
   const clr = SVC_COLORS[form.type] || SVC_COLORS.otro;
 
+  // Limpiar nombre al cambiar de tipo
+  useEffect(() => {
+    fld("name")("");
+    setShowDrop(false);
+  }, [form.type]); // eslint-disable-line
+
   return (
     <div style={{ position: "relative" }}>
       <input
@@ -1007,7 +1013,7 @@ function ServiceFormSheet({
                   const on  = form.type === k;
                   const clr = SVC_COLORS[k] || SVC_COLORS.otro;
                   return (
-                    <button key={k} onClick={() => { fld("type")(k); fld("name")(""); }} style={{
+                    <button key={k} onClick={() => fld("type")(k)} style={{
                       padding: "12px 6px", borderRadius: 14,
                       border: `2px solid ${on ? clr.color : T.bdr}`,
                       background: on ? clr.bg : "transparent",
@@ -1552,8 +1558,8 @@ function ServicesTab({ profile, setProfile, services, setServices }) {
           </p>
 
           {[
-            { label: "Presencial 🏢", mod: "presencial", prices: pkgPrices, setPrices: setPkgPrices, show: true },
-            { label: "Virtual 💻",    mod: "virtual",    prices: pkgPricesV, setPrices: setPkgPricesV, show: !!basePriceV },
+            { label: "Presencial 🏢", mod: "presencial", prices: pkgPrices  || {}, setPrices: setPkgPrices,  show: true },
+            { label: "Virtual 💻",    mod: "virtual",    prices: pkgPricesV || {}, setPrices: setPkgPricesV, show: !!basePriceV },
           ].filter(r => r.show).map(row => (
             <div key={row.mod} style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 10 }}>
