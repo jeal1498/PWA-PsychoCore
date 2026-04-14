@@ -100,34 +100,6 @@ function MoreDrawer({ active, onNav, onClose, profile, googleUser, onSignOut, ri
         {/* Handle */}
         <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 20px" }} />
 
-        {/* Perfil */}
-        <button
-          onClick={() => { onNav("settings"); onClose(); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 12,
-            width: "100%", padding: "12px 14px", borderRadius: 14,
-            border: "none", cursor: "pointer",
-            background: active === "settings" ? "rgba(74,173,160,0.13)" : "rgba(255,255,255,0.05)",
-            marginBottom: 16,
-          }}
-        >
-          <div style={{
-            width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
-            background: `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ fontFamily: T.fH, fontSize: 14, color: "#fff", fontWeight: 600 }}>{initials}</span>
-            }
-          </div>
-          <div style={{ flex: 1, textAlign: "left" }}>
-            <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 500, color: "#fff" }}>{displayName}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 11.5, color: "rgba(255,255,255,0.4)" }}>{displaySpec}</div>
-          </div>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: T.fB }}>Configuración →</span>
-        </button>
-
         {/* Grupos secundarios */}
         {secondaryGroups.map(group => (
           <div key={group.id} style={{ marginBottom: 16 }}>
@@ -462,7 +434,7 @@ export default function App() {
   // ── Render de módulos ────────────────────────────────────────────────────
   const renderModule = () => {
     switch (activeModule) {
-      case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
+      case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onStartSession={handleStartSession} onPrimerContacto={() => quickNav("patients", "add")} onNavigate={(module, data, tab) => {
                                 if (module === "settings") {
@@ -510,7 +482,7 @@ export default function App() {
           }}
         />
       );
-      default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock}/>;
+      default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
     }
   };
 
