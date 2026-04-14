@@ -43,7 +43,6 @@ const COUNTRY_CODES = [
 ];
 
 function PhoneField({ value, onChange }) {
-  // value puede venir como "+52 9986462" o solo "9986462" — lo parseamos
   const parseValue = (v) => {
     if (!v) return { country: COUNTRY_CODES[0], number: "" };
     const match = COUNTRY_CODES.find(c => v.startsWith(c.dial + " ") || v === c.dial);
@@ -56,18 +55,30 @@ function PhoneField({ value, onChange }) {
   const [number,  setNumber]  = useState(parsed.number);
   const [open,    setOpen]    = useState(false);
   const [focused, setFocused] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const btnRef  = useRef(null);
   const dropRef = useRef(null);
 
   // Cerrar dropdown al click fuera
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target) &&
+          btnRef.current  && !btnRef.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + window.scrollY + 6, left: r.left + window.scrollX, width: 220 });
+    }
+    setOpen(o => !o);
+  };
+
   const handleNumberChange = (raw) => {
-    // Solo dígitos
     const digits = raw.replace(/\D/g, "").slice(0, country.digits);
     setNumber(digits);
     onChange(digits ? country.dial + " " + digits : "");
@@ -100,10 +111,11 @@ function PhoneField({ value, onChange }) {
         position: "relative",
       }}>
         {/* Selector de país */}
-        <div ref={dropRef} style={{ position: "relative", flexShrink: 0 }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
           <button
+            ref={btnRef}
             type="button"
-            onClick={() => setOpen(o => !o)}
+            onClick={handleOpen}
             style={{
               height: "100%", padding: "11px 10px 11px 12px",
               border: "none", borderRight: `1.5px solid ${T.bdrL}`,
@@ -121,14 +133,15 @@ function PhoneField({ value, onChange }) {
             </svg>
           </button>
 
-          {/* Dropdown */}
+          {/* Dropdown — posición fija para escapar de overflow:hidden */}
           {open && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 6px)", left: 0,
+            <div ref={dropRef} style={{
+              position: "fixed",
+              top: dropPos.top, left: dropPos.left,
               background: T.card, border: `1.5px solid ${T.bdr}`,
-              borderRadius: 10, zIndex: 100,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-              minWidth: 200, maxHeight: 260, overflowY: "auto",
+              borderRadius: 10, zIndex: 9999,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.14)",
+              width: 220, maxHeight: 260, overflowY: "auto",
             }}>
               {COUNTRY_CODES.map(c => (
                 <button
