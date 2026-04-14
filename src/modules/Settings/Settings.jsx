@@ -91,12 +91,12 @@ function PhoneField({ value, onChange }) {
       </label>
       <div style={{
         display: "flex", alignItems: "stretch",
-        border: ,
+        border: `1.5px solid ${focused || open ? T.p : T.bdr}`,
         borderRadius: 10,
         overflow: "visible",
         background: T.card,
         transition: "border-color .18s",
-        boxShadow: (focused || open) ?  : "none",
+        boxShadow: (focused || open) ? `0 0 0 3px ${T.p}18` : "none",
         position: "relative",
       }}>
         {/* Selector de país */}
@@ -106,7 +106,7 @@ function PhoneField({ value, onChange }) {
             onClick={() => setOpen(o => !o)}
             style={{
               height: "100%", padding: "11px 10px 11px 12px",
-              border: "none", borderRight: ,
+              border: "none", borderRight: `1.5px solid ${T.bdrL}`,
               background: "transparent",
               display: "flex", alignItems: "center", gap: 6,
               cursor: "pointer", borderRadius: "0",
@@ -125,7 +125,7 @@ function PhoneField({ value, onChange }) {
           {open && (
             <div style={{
               position: "absolute", top: "calc(100% + 6px)", left: 0,
-              background: T.card, border: ,
+              background: T.card, border: `1.5px solid ${T.bdr}`,
               borderRadius: 10, zIndex: 100,
               boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
               minWidth: 200, maxHeight: 260, overflowY: "auto",
