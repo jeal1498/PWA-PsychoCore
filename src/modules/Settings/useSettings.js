@@ -63,73 +63,136 @@ export function useProfileTab({ profile, setProfile, googleUser }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// useScheduleTab
+// useScheduleTab  (modelo multi-slot por día, estilo Calendly)
 // ─────────────────────────────────────────────────────────────────────────────
+
+const DAY_NUM_TO_KEY = { 0:"D", 1:"L", 2:"M", 3:"Mi", 4:"J", 5:"V", 6:"S" };
+
+/** Convierte HH:MM a minutos */
+const _toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+/**
+ * Construye el estado inicial de la grilla a partir del profile.
+ * Prioriza profile.schedule (formato granular por día) cuando existe,
+ * y cae a workingStart/workingEnd global como fallback.
+ */
+function buildInitialDays(profile) {
+  const defaultSlot = {
+    start: profile?.workingStart ?? "09:00",
+    end:   profile?.workingEnd   ?? "19:00",
+  };
+  const defaultEnabled = profile?.workingDays ?? [1, 2, 3, 4, 5];
+  const sched = profile?.schedule ?? {};
+
+  return [0, 1, 2, 3, 4, 5, 6].map(dayId => {
+    const key     = DAY_NUM_TO_KEY[dayId];
+    const enabled = defaultEnabled.includes(dayId);
+    // Si hay slots granulares para este día, úsalos; si no, el default
+    const rawSlots = sched[key];
+    const slots = rawSlots?.length
+      ? rawSlots.map(s => ({ start: s.start, end: s.end }))
+      : [{ ...defaultSlot }];
+    return { dayId, enabled, slots };
+  });
+}
+
 export function useScheduleTab({ profile, setProfile }) {
-  const [form, setForm] = useState(() => ({
-    workingDays:  profile?.workingDays  ?? [1, 2, 3, 4, 5],
-    workingStart: profile?.workingStart ?? "09:00",
-    workingEnd:   profile?.workingEnd   ?? "19:00",
-  }));
-  const [saved,            setSaved]            = useState(false);
-  const [showGranularWarn, setShowGranularWarn] = useState(false);
+  const [days,  setDays]  = useState(() => buildInitialDays(profile));
+  const [saved, setSaved] = useState(false);
 
-  const hasGranularSchedule = (() => {
-    const s = profile?.schedule;
-    if (!s) return false;
-    const intervals = Object.values(s).flat();
-    const unique = new Set(intervals.map(iv => `${iv.start}-${iv.end}`));
-    return unique.size > 1;
-  })();
+  // ── Helpers de mutación ────────────────────────────────────────────────────
+  const updateDay = (dayId, patch) =>
+    setDays(prev => prev.map(d => d.dayId === dayId ? { ...d, ...patch } : d));
 
-  const toggleDay = (d) => {
-    setForm(f => {
-      const days = f.workingDays.includes(d)
-        ? f.workingDays.filter(x => x !== d)
-        : [...f.workingDays, d].sort((a, b) => a - b);
-      return { ...f, workingDays: days };
-    });
+  const toggleDay = (dayId) =>
+    updateDay(dayId, { enabled: !days.find(d => d.dayId === dayId)?.enabled });
+
+  const updateSlot = (dayId, slotIdx, slot) =>
+    setDays(prev => prev.map(d => {
+      if (d.dayId !== dayId) return d;
+      const slots = d.slots.map((s, i) => i === slotIdx ? slot : s);
+      return { ...d, slots };
+    }));
+
+  const addSlot = (dayId) =>
+    setDays(prev => prev.map(d => {
+      if (d.dayId !== dayId) return d;
+      const last    = d.slots[d.slots.length - 1];
+      const startM  = _toMin(last?.end ?? "09:00");
+      const endM    = Math.min(startM + 60, 23 * 60);
+      const fmt     = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+      return { ...d, slots: [...d.slots, { start: fmt(startM), end: fmt(endM) }] };
+    }));
+
+  const deleteSlot = (dayId, slotIdx) =>
+    setDays(prev => prev.map(d => {
+      if (d.dayId !== dayId || d.slots.length <= 1) return d;
+      return { ...d, slots: d.slots.filter((_, i) => i !== slotIdx) };
+    }));
+
+  const copyToAll = (dayId) => {
+    const source = days.find(d => d.dayId === dayId);
+    if (!source) return;
+    setDays(prev => prev.map(d =>
+      d.enabled && d.dayId !== dayId
+        ? { ...d, slots: source.slots.map(s => ({ ...s })) }
+        : d
+    ));
   };
 
-  const setStart = (v) => setForm(f => ({ ...f, workingStart: v }));
-  const setEnd   = (v) => setForm(f => ({ ...f, workingEnd: v }));
+  // ── Validación ─────────────────────────────────────────────────────────────
+  const hasErrors = days.some(d =>
+    d.enabled && d.slots.some(s => _toMin(s.end) <= _toMin(s.start))
+  );
+  const hasActiveDays = days.some(d => d.enabled);
+  const isValid = hasActiveDays && !hasErrors;
 
-  const doSave = () => {
-    const DAY_NUM_TO_KEY = { 1:"L", 2:"M", 3:"Mi", 4:"J", 5:"V", 6:"S", 0:"D" };
+  // ── Persistencia ───────────────────────────────────────────────────────────
+  const save = () => {
+    if (!isValid) return;
     const newActiveDays = { L:false, M:false, Mi:false, J:false, V:false, S:false, D:false };
     const newSchedule   = {};
-    form.workingDays.forEach(d => {
-      const k = DAY_NUM_TO_KEY[d];
-      if (k) {
-        newActiveDays[k] = true;
-        newSchedule[k]   = [{ start: form.workingStart, end: form.workingEnd }];
+
+    // workingDays / workingStart / workingEnd: compatibilidad con Agenda.jsx
+    const enabledIds = days.filter(d => d.enabled).map(d => d.dayId);
+    // Para workingStart/End usamos el primer slot del primer día activo como fallback
+    const firstActive = days.find(d => d.enabled);
+    const globalStart = firstActive?.slots[0]?.start ?? "09:00";
+    const globalEnd   = firstActive?.slots[firstActive.slots.length - 1]?.end ?? "19:00";
+
+    days.forEach(d => {
+      const k = DAY_NUM_TO_KEY[d.dayId];
+      if (!k) return;
+      newActiveDays[k] = d.enabled;
+      if (d.enabled) {
+        newSchedule[k] = d.slots.map(s => ({ start: s.start, end: s.end }));
       }
     });
+
     setProfile(p => ({
       ...p,
-      ...form,
-      activeDays: newActiveDays,
-      schedule:   { ...p.schedule, ...newSchedule },
+      workingDays:  enabledIds,
+      workingStart: globalStart,
+      workingEnd:   globalEnd,
+      activeDays:   newActiveDays,
+      schedule:     newSchedule,
     }));
     setSaved(true);
-    setShowGranularWarn(false);
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const save = () => {
-    if (hasGranularSchedule) {
-      setShowGranularWarn(true);
-    } else {
-      doSave();
-    }
-  };
-
-  const isValid =
-    form.workingDays.length > 0 && form.workingStart < form.workingEnd;
+  // Stats para el resumen del header
+  const totalMin = days.filter(d => d.enabled).reduce((acc, d) =>
+    acc + d.slots.reduce((a, s) => {
+      const diff = _toMin(s.end) - _toMin(s.start);
+      return a + (diff > 0 ? diff : 0);
+    }, 0), 0);
+  const activeDayCount = days.filter(d => d.enabled).length;
 
   return {
-    form, toggleDay, setStart, setEnd, save, doSave, saved, isValid,
-    hasGranularSchedule, showGranularWarn, setShowGranularWarn,
+    days, updateDay, toggleDay, updateSlot, addSlot, deleteSlot, copyToAll,
+    save, saved, isValid, hasErrors,
+    totalMin, activeDayCount,
   };
 }
 

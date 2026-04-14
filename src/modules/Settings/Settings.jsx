@@ -730,124 +730,371 @@ function HelpTab() {
   );
 }
 
-// ── Tab: Horario ──────────────────────────────────────────────────────────────
-function ScheduleTab({ profile, setProfile }) {
-  const {
-    form, toggleDay, setStart, setEnd, save, doSave, saved, isValid,
-    hasGranularSchedule, showGranularWarn, setShowGranularWarn,
-  } = useScheduleTab({ profile, setProfile });
+// ── Tab: Horario — diseño tipo Calendly ───────────────────────────────────────
+
+const DAY_LABELS_FULL = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+
+// Opciones de tiempo cada 15 min (memoizadas una sola vez)
+const SCHEDULE_TIME_OPTIONS = (() => {
+  const opts = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const val    = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+      const suffix = h < 12 ? "am" : "pm";
+      const h12    = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const label  = `${h12}:${String(m).padStart(2,"0")} ${suffix}`;
+      opts.push({ val, label });
+    }
+  }
+  return opts;
+})();
+
+function schedToMin(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function fmtSchedTime(t) {
+  const o = SCHEDULE_TIME_OPTIONS.find(x => x.val === t);
+  return o ? o.label : t;
+}
+
+function fmtDur(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// ── TimeSelect: dropdown estilizado ──────────────────────────────────────────
+function ScheduleTimeSelect({ value, onChange, minExclusive, maxExclusive }) {
+  const [open, setOpen] = useState(false);
+
+  const filtered = SCHEDULE_TIME_OPTIONS.filter(o => {
+    const m = schedToMin(o.val);
+    if (minExclusive !== undefined && m <= schedToMin(minExclusive)) return false;
+    if (maxExclusive !== undefined && m >= schedToMin(maxExclusive)) return false;
+    return true;
+  });
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
-        Define los días y horarios en que atiendes pacientes. La Agenda respetará esta configuración
-        y no permitirá agendar citas fuera de estos bloques.
-      </p>
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          padding: "6px 10px", borderRadius: 7,
+          border: `1.5px solid ${open ? T.p : T.bdr}`,
+          background: open ? T.pA : T.card,
+          fontFamily: T.fB, fontSize: 13, fontWeight: 500,
+          color: T.t, cursor: "pointer", whiteSpace: "nowrap",
+          display: "flex", alignItems: "center", gap: 5,
+          transition: "border-color .15s, background .15s",
+          minWidth: 92,
+        }}
+      >
+        {fmtSchedTime(value)}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+          stroke={T.tl} strokeWidth="2.5" strokeLinecap="round"
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", flexShrink: 0 }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
 
-      {hasGranularSchedule && (
-        <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 10, background: T.warA || "rgba(184,144,10,0.08)", border: "1px solid rgba(184,144,10,0.25)", marginBottom: 20 }}>
-          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
-          <p style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm, lineHeight: 1.6, margin: 0 }}>
-            Tienes un <strong style={{ color: T.t }}>horario personalizado por día</strong> configurado desde el onboarding.
-            Guardar aquí aplicará un bloque de horario único para todos los días seleccionados y reemplazará esa configuración.
-          </p>
-        </div>
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", left: 0,
+            background: T.card, border: `1.5px solid ${T.bdr}`,
+            borderRadius: 10, zIndex: 1000,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
+            maxHeight: 220, overflowY: "auto", minWidth: 110,
+          }}>
+            {filtered.map(o => (
+              <button
+                key={o.val}
+                onClick={() => { onChange(o.val); setOpen(false); }}
+                style={{
+                  width: "100%", padding: "7px 12px", border: "none",
+                  background: o.val === value ? T.pA : "transparent",
+                  fontFamily: T.fB, fontSize: 13,
+                  color: o.val === value ? T.p : T.t,
+                  fontWeight: o.val === value ? 600 : 400,
+                  cursor: "pointer", textAlign: "left", transition: "background .1s",
+                }}
+                onMouseEnter={e => { if (o.val !== value) e.currentTarget.style.background = T.cardAlt; }}
+                onMouseLeave={e => { if (o.val !== value) e.currentTarget.style.background = "transparent"; }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
+    </div>
+  );
+}
 
-      <Card style={{ padding: 28, marginBottom: 20 }}>
-        {/* Días hábiles */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
-            Días de atención
-          </label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {DAY_LABELS.map((lbl, idx) => {
-              const active = form.workingDays.includes(idx);
-              return (
-                <button key={idx} onClick={() => toggleDay(idx)}
-                  style={{ width: 52, height: 52, borderRadius: 12, cursor: "pointer", fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 400, border: `1.5px solid ${active ? T.p : T.bdr}`, background: active ? T.pA : "transparent", color: active ? T.p : T.tm, transition: "all .13s" }}>
-                  {lbl}
-                </button>
-              );
-            })}
-          </div>
-          {form.workingDays.length === 0 && (
-            <div style={{ marginTop: 8, fontFamily: T.fB, fontSize: 12, color: T.err }}>
-              Selecciona al menos un día de atención.
-            </div>
-          )}
-        </div>
+// ── SlotRow: una franja horaria (start → end + delete) ────────────────────────
+function ScheduleSlotRow({ slot, onChange, onDelete, canDelete, prevEnd }) {
+  const duration = schedToMin(slot.end) - schedToMin(slot.start);
+  const isValid  = duration > 0;
 
-        {/* Bloques horarios */}
-        <div>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
-            Horario de atención
-          </label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Entrada</label>
-              <input type="time" value={form.workingStart}
-                onChange={e => setStart(e.target.value)}
-                style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.tm, marginBottom: 6 }}>Salida</label>
-              <input type="time" value={form.workingEnd}
-                onChange={e => setEnd(e.target.value)}
-                style={{ width: "100%", padding: "10px 14px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: T.card, outline: "none", boxSizing: "border-box" }} />
-            </div>
-          </div>
-          {form.workingStart >= form.workingEnd && (
-            <div style={{ marginTop: 8, fontFamily: T.fB, fontSize: 12, color: T.err }}>
-              La hora de entrada debe ser anterior a la de salida.
-            </div>
-          )}
-        </div>
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <ScheduleTimeSelect
+        value={slot.start}
+        onChange={v => onChange({ ...slot, start: v })}
+        maxExclusive={slot.end}
+        minExclusive={prevEnd}
+      />
+      <span style={{ fontSize: 12, color: T.tl }}>–</span>
+      <ScheduleTimeSelect
+        value={slot.end}
+        onChange={v => onChange({ ...slot, end: v })}
+        minExclusive={slot.start}
+      />
+      {isValid ? (
+        <span style={{
+          fontSize: 11, color: T.tm,
+          background: T.cardAlt, padding: "3px 7px", borderRadius: 5, whiteSpace: "nowrap",
+        }}>
+          {fmtDur(duration)}
+        </span>
+      ) : (
+        <span style={{ fontSize: 11, color: T.err }}>Inválido</span>
+      )}
+      {canDelete && (
+        <button
+          onClick={onDelete}
+          title="Eliminar bloque"
+          style={{
+            width: 26, height: 26, borderRadius: 6,
+            border: `1.5px solid ${T.bdr}`, background: "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", color: T.tl, flexShrink: 0, transition: "border-color .15s, color .15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = T.err; e.currentTarget.style.color = T.err; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = T.bdr; e.currentTarget.style.color = T.tl; }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
 
-        {/* Preview */}
-        <div style={{ marginTop: 24, padding: "12px 16px", background: T.cardAlt, borderRadius: 10, border: `1px solid ${T.bdrL}` }}>
-          <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
-            Resumen
-          </div>
-          <div style={{ fontFamily: T.fB, fontSize: 13.5, color: T.t }}>
-            {form.workingDays.length > 0
-              ? `${form.workingDays.map(d => DAY_LABELS[d]).join(", ")} · ${form.workingStart} – ${form.workingEnd}`
-              : "Sin días seleccionados"}
-          </div>
-        </div>
-      </Card>
+// ── Toggle switch ─────────────────────────────────────────────────────────────
+function ScheduleToggle({ value, onChange }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      style={{
+        width: 36, height: 20, borderRadius: 99,
+        border: "none", cursor: "pointer", padding: 2,
+        background: value ? T.p : T.bdrL,
+        transition: "background .2s", position: "relative", flexShrink: 0,
+      }}
+    >
+      <div style={{
+        width: 16, height: 16, borderRadius: "50%", background: T.card,
+        position: "absolute", top: 2, left: value ? 18 : 2,
+        transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+      }} />
+    </button>
+  );
+}
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <Btn onClick={save} disabled={!isValid}>
-          {saved ? "✓ Guardado" : "Guardar horario"}
-        </Btn>
+// ── DayRow: fila completa de un día ───────────────────────────────────────────
+function ScheduleDayRow({ day, onToggle, onUpdateSlot, onAddSlot, onDeleteSlot, onCopyToAll, isLast }) {
+  const totalMin = day.enabled
+    ? day.slots.reduce((acc, s) => {
+        const d = schedToMin(s.end) - schedToMin(s.start);
+        return acc + (d > 0 ? d : 0);
+      }, 0)
+    : 0;
+
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "120px 1fr",
+      borderBottom: isLast ? "none" : `1px solid ${T.bdrL}`,
+      padding: "14px 0", alignItems: "flex-start", gap: 0,
+    }}>
+      {/* Columna izquierda */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 5 }}>
+        <ScheduleToggle value={day.enabled} onChange={onToggle} />
+        <span style={{
+          fontFamily: T.fB, fontSize: 13.5,
+          fontWeight: day.enabled ? 600 : 400,
+          color: day.enabled ? T.t : T.tl,
+          transition: "color .2s",
+        }}>
+          {DAY_LABELS_FULL[day.dayId]}
+        </span>
       </div>
 
-      {/* Modal de confirmación para sobrescribir horario granular */}
-      {showGranularWarn && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: T.bg, borderRadius: 18, padding: 28, maxWidth: 400, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontFamily: T.fB, fontSize: 16, fontWeight: 700, color: T.t, marginBottom: 10, textAlign: "center" }}>
-              ¿Reemplazar horario personalizado?
-            </div>
-            <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, lineHeight: 1.65, marginBottom: 20, textAlign: "center" }}>
-              Tienes horarios distintos configurados por día. Al guardar se aplicará un bloque único
-              para todos los días seleccionados y se perderá la configuración anterior.
-            </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowGranularWarn(false)}
-                style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1.5px solid ${T.bdr}`, background: "transparent", color: T.tm, fontFamily: T.fB, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                Cancelar
+      {/* Columna derecha */}
+      <div>
+        {!day.enabled ? (
+          <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tl, fontStyle: "italic", paddingTop: 6, display: "block" }}>
+            No disponible
+          </span>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {day.slots.map((slot, i) => (
+              <ScheduleSlotRow
+                key={i}
+                slot={slot}
+                prevEnd={i > 0 ? day.slots[i - 1].end : undefined}
+                onChange={s => onUpdateSlot(i, s)}
+                onDelete={() => onDeleteSlot(i)}
+                canDelete={day.slots.length > 1}
+              />
+            ))}
+
+            {/* Acciones de fila */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <button
+                onClick={onAddSlot}
+                style={{
+                  padding: "4px 10px", borderRadius: 6,
+                  border: `1.5px solid ${T.bdr}`, background: "transparent",
+                  fontFamily: T.fB, fontSize: 12, color: T.p, fontWeight: 600,
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+                  transition: "border-color .15s, background .15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = T.p; e.currentTarget.style.background = T.pA; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = T.bdr; e.currentTarget.style.background = "transparent"; }}
+              >
+                <Plus size={11} />
+                Agregar bloque
               </button>
-              <button onClick={doSave}
-                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "none", background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                Sí, reemplazar
+
+              <span style={{ color: T.bdrL, fontSize: 14, margin: "0 2px", userSelect: "none" }}>|</span>
+
+              <button
+                onClick={onCopyToAll}
+                style={{
+                  padding: "4px 10px", borderRadius: 6,
+                  border: "none", background: "transparent",
+                  fontFamily: T.fB, fontSize: 12, color: T.tm, fontWeight: 500,
+                  cursor: "pointer", transition: "color .15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = T.p}
+                onMouseLeave={e => e.currentTarget.style.color = T.tm}
+              >
+                Copiar a todos
               </button>
+
+              {totalMin > 0 && (
+                <span style={{
+                  marginLeft: "auto", fontSize: 11, color: T.tm,
+                  background: T.cardAlt, padding: "2px 7px", borderRadius: 5,
+                }}>
+                  {fmtDur(totalMin)} / día
+                </span>
+              )}
             </div>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── ScheduleTab principal ─────────────────────────────────────────────────────
+function ScheduleTab({ profile, setProfile }) {
+  const {
+    days, toggleDay, updateSlot, addSlot, deleteSlot, copyToAll,
+    save, saved, isValid, hasErrors,
+    totalMin, activeDayCount,
+  } = useScheduleTab({ profile, setProfile });
+
+  const totalH = Math.floor(totalMin / 60), totalM = totalMin % 60;
+  const totalStr = totalM > 0 ? `${totalH}h ${totalM}m` : `${totalH}h`;
+
+  return (
+    <div style={{ maxWidth: 580 }}>
+      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
+        Define los días y horarios en que atiendes pacientes. Puedes agregar múltiples bloques por día,
+        por ejemplo mañana y tarde. La Agenda respetará esta configuración al agendar citas.
+      </p>
+
+      {/* Card principal */}
+      <div style={{
+        background: T.card, border: `1px solid ${T.bdr}`,
+        borderRadius: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+        overflow: "hidden", marginBottom: 16,
+      }}>
+        {/* Header de la card */}
+        <div style={{
+          padding: "13px 20px", borderBottom: `1px solid ${T.bdr}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <span style={{ fontFamily: T.fB, fontSize: 13, fontWeight: 700, color: T.t }}>
+            Horarios semanales
+          </span>
+          {activeDayCount > 0 && (
+            <span style={{
+              fontFamily: T.fB, fontSize: 12, color: T.tm,
+              background: T.cardAlt, padding: "3px 10px", borderRadius: 6,
+            }}>
+              {activeDayCount} día{activeDayCount !== 1 ? "s" : ""} · {totalStr} / semana
+            </span>
+          )}
+        </div>
+
+        {/* Filas de días */}
+        <div style={{ padding: "0 20px" }}>
+          {days.map((day, i) => (
+            <ScheduleDayRow
+              key={day.dayId}
+              day={day}
+              isLast={i === days.length - 1}
+              onToggle={() => toggleDay(day.dayId)}
+              onUpdateSlot={(slotIdx, slot) => updateSlot(day.dayId, slotIdx, slot)}
+              onAddSlot={() => addSlot(day.dayId)}
+              onDeleteSlot={(slotIdx) => deleteSlot(day.dayId, slotIdx)}
+              onCopyToAll={() => copyToAll(day.dayId)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Error global */}
+      {hasErrors && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 14px", borderRadius: 10, marginBottom: 14,
+          background: T.errA, border: `1px solid ${T.err}30`,
+          fontFamily: T.fB, fontSize: 12.5, color: T.err,
+        }}>
+          <AlertCircle size={14} />
+          Hay bloques con hora de salida anterior a la de entrada. Corrígelos antes de guardar.
         </div>
       )}
+
+      {!days.some(d => d.enabled) && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 14px", borderRadius: 10, marginBottom: 14,
+          background: T.errA, border: `1px solid ${T.err}30`,
+          fontFamily: T.fB, fontSize: 12.5, color: T.err,
+        }}>
+          <AlertCircle size={14} />
+          Selecciona al menos un día de atención.
+        </div>
+      )}
+
+      {/* Botón guardar */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Btn onClick={save} disabled={!isValid}>
+          {saved ? <><Check size={14} /> Guardado</> : "Guardar horario"}
+        </Btn>
+      </div>
     </div>
   );
 }
