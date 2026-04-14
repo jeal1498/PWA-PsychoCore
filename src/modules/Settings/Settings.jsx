@@ -24,6 +24,169 @@ import {
   ALL_CURRENCIES, fmtCur, fmtDuration,
 } from "./settings.utils.js";
 
+// ── PhoneField: selector de país + input con validación ──────────────────────
+const COUNTRY_CODES = [
+  { code: "MX", dial: "+52",  flag: "🇲🇽", digits: 10, placeholder: "55 1234 5678"   },
+  { code: "US", dial: "+1",   flag: "🇺🇸", digits: 10, placeholder: "212 555 0100"  },
+  { code: "CA", dial: "+1",   flag: "🇨🇦", digits: 10, placeholder: "416 555 0100"  },
+  { code: "ES", dial: "+34",  flag: "🇪🇸", digits: 9,  placeholder: "612 345 678"   },
+  { code: "AR", dial: "+54",  flag: "🇦🇷", digits: 10, placeholder: "11 1234 5678"  },
+  { code: "CO", dial: "+57",  flag: "🇨🇴", digits: 10, placeholder: "300 123 4567"  },
+  { code: "CL", dial: "+56",  flag: "🇨🇱", digits: 9,  placeholder: "9 1234 5678"   },
+  { code: "PE", dial: "+51",  flag: "🇵🇪", digits: 9,  placeholder: "987 654 321"   },
+  { code: "VE", dial: "+58",  flag: "🇻🇪", digits: 10, placeholder: "412 123 4567"  },
+  { code: "GT", dial: "+502", flag: "🇬🇹", digits: 8,  placeholder: "5123 4567"     },
+  { code: "BR", dial: "+55",  flag: "🇧🇷", digits: 11, placeholder: "11 91234 5678" },
+  { code: "FR", dial: "+33",  flag: "🇫🇷", digits: 9,  placeholder: "6 12 34 56 78" },
+  { code: "DE", dial: "+49",  flag: "🇩🇪", digits: 11, placeholder: "151 12345678"  },
+  { code: "GB", dial: "+44",  flag: "🇬🇧", digits: 10, placeholder: "7911 123456"   },
+];
+
+function PhoneField({ value, onChange }) {
+  // value puede venir como "+52 9986462" o solo "9986462" — lo parseamos
+  const parseValue = (v) => {
+    if (!v) return { country: COUNTRY_CODES[0], number: "" };
+    const match = COUNTRY_CODES.find(c => v.startsWith(c.dial + " ") || v === c.dial);
+    if (match) return { country: match, number: v.slice(match.dial.length + 1) };
+    return { country: COUNTRY_CODES[0], number: v };
+  };
+
+  const parsed = parseValue(value);
+  const [country, setCountry] = useState(parsed.country);
+  const [number,  setNumber]  = useState(parsed.number);
+  const [open,    setOpen]    = useState(false);
+  const [focused, setFocused] = useState(false);
+  const dropRef = useRef(null);
+
+  // Cerrar dropdown al click fuera
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleNumberChange = (raw) => {
+    // Solo dígitos
+    const digits = raw.replace(/\D/g, "").slice(0, country.digits);
+    setNumber(digits);
+    onChange(digits ? country.dial + " " + digits : "");
+  };
+
+  const handleCountrySelect = (c) => {
+    setCountry(c);
+    setOpen(false);
+    const trimmed = number.slice(0, c.digits);
+    setNumber(trimmed);
+    onChange(trimmed ? c.dial + " " + trimmed : "");
+  };
+
+  const remaining = country.digits - number.length;
+  const isComplete = number.length === country.digits;
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+        Teléfono
+      </label>
+      <div style={{
+        display: "flex", alignItems: "stretch",
+        border: ,
+        borderRadius: 10,
+        overflow: "visible",
+        background: T.card,
+        transition: "border-color .18s",
+        boxShadow: (focused || open) ?  : "none",
+        position: "relative",
+      }}>
+        {/* Selector de país */}
+        <div ref={dropRef} style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            style={{
+              height: "100%", padding: "11px 10px 11px 12px",
+              border: "none", borderRight: ,
+              background: "transparent",
+              display: "flex", alignItems: "center", gap: 6,
+              cursor: "pointer", borderRadius: "0",
+              fontFamily: T.fB, fontSize: 13, color: T.t, fontWeight: 600,
+              minWidth: 80,
+            }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{country.flag}</span>
+            <span>{country.dial}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.tl} strokeWidth="2.5" strokeLinecap="round" style={{ transition: "transform .15s", transform: open ? "rotate(180deg)" : "rotate(0)" }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {/* Dropdown */}
+          {open && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0,
+              background: T.card, border: ,
+              borderRadius: 10, zIndex: 100,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+              minWidth: 200, maxHeight: 260, overflowY: "auto",
+            }}>
+              {COUNTRY_CODES.map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => handleCountrySelect(c)}
+                  style={{
+                    width: "100%", padding: "10px 14px",
+                    border: "none", background: c.code === country.code ? T.pA : "transparent",
+                    display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+                    fontFamily: T.fB, fontSize: 13, color: T.t, textAlign: "left",
+                    transition: "background .12s",
+                  }}
+                  onMouseEnter={e => { if (c.code !== country.code) e.currentTarget.style.background = T.bg; }}
+                  onMouseLeave={e => { if (c.code !== country.code) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span style={{ fontSize: 18 }}>{c.flag}</span>
+                  <span style={{ flex: 1 }}>{c.code}</span>
+                  <span style={{ color: T.tm }}>{c.dial}</span>
+                  <span style={{ color: T.tl, fontSize: 11 }}>{c.digits} dígitos</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Input numérico */}
+        <input
+          type="tel"
+          inputMode="numeric"
+          value={number}
+          onChange={e => handleNumberChange(e.target.value)}
+          placeholder={country.placeholder}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            flex: 1, padding: "11px 12px",
+            border: "none", outline: "none",
+            fontFamily: T.fB, fontSize: 14, color: T.t,
+            background: "transparent",
+            minWidth: 0,
+          }}
+        />
+
+        {/* Indicador de dígitos */}
+        <div style={{
+          padding: "0 12px", display: "flex", alignItems: "center",
+          fontFamily: T.fB, fontSize: 11, fontWeight: 600,
+          color: isComplete ? T.suc : number.length > 0 ? T.war : T.tl,
+          flexShrink: 0,
+        }}>
+          {isComplete ? "✓" : number.length > 0 ?  : }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
 
 // Subcomponente: sección con encabezado integrado dentro de la card
@@ -127,10 +290,8 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
 
         <Input label="Nombre completo" value={form.name} onChange={fld("name")} placeholder="Dra. Ana López" />
         <Input label="Especialidad" value={form.specialty} onChange={fld("specialty")} placeholder="Psicóloga Clínica" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          <Input label="Cédula profesional" value={form.cedula} onChange={fld("cedula")} placeholder="XXXXXXX" style={{ marginBottom: 0 }} />
-          <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-000-0000" style={{ marginBottom: 0 }} />
-        </div>
+        <Input label="Cédula profesional" value={form.cedula} onChange={fld("cedula")} placeholder="XXXXXXX" />
+        <PhoneField value={form.phone} onChange={fld("phone")} />
       </ProfileSection>
 
       {/* ── Contacto y fiscal ────────────────────────────────────────── */}
