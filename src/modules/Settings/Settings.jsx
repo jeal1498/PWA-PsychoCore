@@ -817,6 +817,92 @@ function ServiceCard({ svc, activeCurrencies, onEdit, onDelete }) {
   );
 }
 
+// ── NameDropdown ─────────────────────────────────────────────────────────────
+const NAME_SUGGESTIONS = {
+  sesion:     ["Individual", "Seguimiento", "Otro…"],
+  evaluacion: ["TDAH Infantil", "TDAH Adultos", "TEA Infantil", "TEA Adultos", "Evaluación Neuropsicológica", "Otro…"],
+  pareja:     ["Terapia de Pareja", "Crisis de Pareja", "Comunicación y Conflicto", "Otro…"],
+  grupo:      ["Grupo Terapéutico", "Grupo de Duelo", "Habilidades Sociales", "Otro…"],
+};
+
+function NameDropdown({ form, fld, inputBase, formErrors }) {
+  const [showDrop, setShowDrop] = useState(false);
+  const suggestions = NAME_SUGGESTIONS[form.type];
+  const clr = SVC_COLORS[form.type] || SVC_COLORS.otro;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        id="svc-name-input"
+        style={{ ...inputBase, borderColor: formErrors.name ? T.err : T.bdr }}
+        type="text"
+        placeholder={
+          form.type === "otro"
+            ? "Describe el servicio…"
+            : suggestions
+              ? "Selecciona o escribe un nombre…"
+              : "Ej. Sesión de psicoterapia individual"
+        }
+        value={form.name}
+        onChange={e => fld("name")(e.target.value)}
+        onFocus={e => {
+          e.target.style.borderColor = T.p;
+          if (suggestions) setShowDrop(true);
+        }}
+        onBlur={e => {
+          e.target.style.borderColor = formErrors.name ? T.err : T.bdr;
+          setTimeout(() => setShowDrop(false), 150);
+        }}
+        autoComplete="off"
+      />
+      {suggestions && showDrop && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+          background: T.card, borderRadius: 14,
+          border: `1.5px solid ${T.p}40`,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.13)",
+          zIndex: 50, overflow: "hidden",
+        }}>
+          {suggestions.map((s, i) => {
+            const isOtro = s === "Otro…";
+            const isSelected = !isOtro && form.name === s;
+            return (
+              <button
+                key={s}
+                onMouseDown={e => {
+                  e.preventDefault();
+                  if (isOtro) {
+                    fld("name")("");
+                    setShowDrop(false);
+                    setTimeout(() => document.getElementById("svc-name-input")?.focus(), 50);
+                  } else {
+                    fld("name")(s);
+                    setShowDrop(false);
+                  }
+                }}
+                style={{
+                  width: "100%", padding: "13px 16px",
+                  border: "none",
+                  borderTop: i > 0 ? `1px solid ${T.bdrL}` : "none",
+                  background: isSelected ? clr.bg : "transparent",
+                  color: isOtro ? T.p : isSelected ? clr.color : T.t,
+                  fontFamily: T.fB, fontSize: 14,
+                  fontWeight: isSelected ? 700 : 400,
+                  textAlign: "left", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 10,
+                }}
+              >
+                {isSelected && <span style={{ fontSize: 12, color: clr.color }}>✓</span>}
+                {isOtro ? "✏️  Escribir nombre personalizado…" : s}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── ServiceForm rediseñado (bottom sheet 2 pasos) ────────────────────────────
 function ServiceFormSheet({
   editingId, form, fld, setPriceField,
@@ -915,19 +1001,6 @@ function ServiceFormSheet({
           {/* ── Step 1 ── */}
           {step === 1 && (
             <div>
-              {/* Sugerencias de nombre por tipo de servicio */}
-              {(() => {
-                const NAME_SUGGESTIONS = {
-                  sesion:     ["Individual", "Seguimiento", "Otros"],
-                  evaluacion: ["TDAH Infantil", "TDAH Adultos", "TEA Infantil", "TEA Adultos", "Evaluación Neuropsicológica", "Otros"],
-                  pareja:     ["Terapia de Pareja", "Crisis de Pareja", "Comunicación y Conflicto", "Otros"],
-                  grupo:      ["Grupo Terapéutico", "Grupo de Duelo", "Habilidades Sociales", "Otros"],
-                };
-                const suggestions = NAME_SUGGESTIONS[form.type];
-                if (!suggestions) return null;
-                return null; // rendered below after type selector
-              })()}
-
               <label style={labelStyle}>Tipo de servicio</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
                 {Object.entries(SERVICE_TYPES).map(([k, v]) => {
@@ -952,58 +1025,9 @@ function ServiceFormSheet({
               </div>
 
               <label style={labelStyle}>Nombre del servicio *</label>
-              {/* Sugerencias de nombre (chips) */}
-              {(() => {
-                const NAME_SUGGESTIONS = {
-                  sesion:     ["Individual", "Seguimiento", "Otros"],
-                  evaluacion: ["TDAH Infantil", "TDAH Adultos", "TEA Infantil", "TEA Adultos", "Evaluación Neuropsicológica", "Otros"],
-                  pareja:     ["Terapia de Pareja", "Crisis de Pareja", "Comunicación y Conflicto", "Otros"],
-                  grupo:      ["Grupo Terapéutico", "Grupo de Duelo", "Habilidades Sociales", "Otros"],
-                };
-                const suggestions = NAME_SUGGESTIONS[form.type];
-                if (!suggestions) return null;
-                return (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                    {suggestions.map(s => {
-                      const isOtros = s === "Otros";
-                      const isSelected = !isOtros && form.name === s;
-                      const clr = SVC_COLORS[form.type] || SVC_COLORS.otro;
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => {
-                            if (isOtros) {
-                              fld("name")("");
-                              setTimeout(() => document.getElementById("svc-name-input")?.focus(), 50);
-                            } else {
-                              fld("name")(s);
-                            }
-                          }}
-                          style={{
-                            padding: "7px 14px", borderRadius: 99,
-                            border: `1.5px solid ${isSelected ? clr.color : T.bdr}`,
-                            background: isSelected ? clr.bg : "transparent",
-                            color: isSelected ? clr.color : isOtros ? T.p : T.tm,
-                            fontFamily: T.fB, fontSize: 12.5, fontWeight: isSelected ? 700 : 500,
-                            cursor: "pointer", transition: "all .13s",
-                          }}
-                        >
-                          {isOtros ? "✏️ Otro…" : s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-              <input
-                id="svc-name-input"
-                style={{ ...inputBase, borderColor: formErrors.name ? T.err : T.bdr }}
-                type="text"
-                placeholder={form.type === "otro" ? "Describe el servicio…" : "O escribe un nombre personalizado"}
-                value={form.name}
-                onChange={e => fld("name")(e.target.value)}
-                onFocus={e => e.target.style.borderColor = T.p}
-                onBlur={e => e.target.style.borderColor = formErrors.name ? T.err : T.bdr}
+              <NameDropdown
+                form={form} fld={fld}
+                inputBase={inputBase} formErrors={formErrors}
               />
               {formErrors.name && (
                 <p style={{ fontFamily: T.fB, fontSize: 11, color: T.err, marginTop: 5 }}>{formErrors.name}</p>
