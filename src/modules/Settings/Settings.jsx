@@ -232,9 +232,6 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
 
   return (
     <div style={{ maxWidth: 560 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 22, lineHeight: 1.6 }}>
-        Tu perfil aparece en la barra lateral y se incluye en los reportes exportados.
-      </p>
 
       {/* ── Datos personales ─────────────────────────────────────────── */}
       <ProfileSection title="Datos personales">
@@ -600,45 +597,6 @@ function AppearanceTab({ darkMode, setDarkMode, patients, setPatients }) {
             );
           })}
         </div>
-      </Card>
-
-      {/* CSV import */}
-      <Card style={{ padding: 24 }}>
-        <h3 style={{ fontFamily: T.fH, fontSize: 20, color: T.t, margin: "0 0 8px" }}>Importar desde CSV</h3>
-        <p style={{ fontFamily: T.fB, fontSize: 13, color: T.tm, marginBottom: 16, lineHeight: 1.65 }}>
-          Migra pacientes desde otra herramienta. Columnas reconocidas: <strong>nombre</strong>, email, teléfono, fecha_nacimiento, diagnóstico, notas.
-        </p>
-
-        {/* Ejemplo de CSV */}
-        <div style={{ background: T.cardAlt, borderRadius: 10, padding: 14, marginBottom: 20 }}>
-          <div style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Ejemplo de CSV</div>
-          <table style={{ borderCollapse: "collapse", fontFamily: T.fB, fontSize: 12, width: "100%", tableLayout: "fixed" }}>
-            <thead>
-              <tr>{["nombre", "email", "teléfono"].map(h => (
-                <td key={h} style={{ padding: "6px 10px", background: T.p, color: NAV_TEXT, fontWeight: 600 }}>{h}</td>
-              ))}</tr>
-            </thead>
-            <tbody>
-              <tr>{["Ana López", "ana@mail.com", "998-000-0001"].map((v, i) => (
-                <td key={i} style={{ padding: "6px 10px", color: T.tm, borderBottom: `1px solid ${T.bdrL}`, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v}</td>
-              ))}</tr>
-            </tbody>
-          </table>
-          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 8 }}>
-            + fecha_nacimiento, diagnóstico, notas (opcionales)
-          </div>
-        </div>
-
-        {csvMsg && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: csvMsg.ok ? T.sucA : T.errA, marginBottom: 16, fontFamily: T.fB, fontSize: 13, color: csvMsg.ok ? T.suc : T.err }}>
-            {csvMsg.ok ? "✓" : "✕"} {csvMsg.text}
-          </div>
-        )}
-
-        <Btn onClick={handleCSV}>Seleccionar archivo CSV</Btn>
-        <p style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 10 }}>
-          Los pacientes importados se agregan sin reemplazar los existentes. Puedes editar cada uno después de la importación.
-        </p>
       </Card>
     </div>
   );
@@ -1848,61 +1806,6 @@ function ServicesTab({ profile, setProfile, services, setServices }) {
 
   return (
     <div>
-      {/* ── Divisas ──────────────────────────────────────────────────────── */}
-      <div style={{
-        background: T.card, borderRadius: 18,
-        border: `1.5px solid ${T.bdr}`,
-        padding: "20px 20px 16px",
-        marginBottom: 20,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-          <div>
-            <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 700, color: T.t, marginBottom: 2 }}>
-              Divisas que aceptas
-            </div>
-            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>
-              Los precios se ingresan en las divisas activas
-            </div>
-          </div>
-          <span style={{
-            padding: "4px 10px", borderRadius: 99,
-            background: T.pA,
-            fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.p,
-          }}>
-            {activeCurrencies.length} activa{activeCurrencies.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {allCurrencies.map(({ code, flag }) => {
-            const active = activeCurrencies.includes(code);
-            return (
-              <button key={code} onClick={() => toggleCurrency(code)} style={{
-                padding: "8px 16px", borderRadius: 99,
-                border: `1.5px solid ${active ? T.p : T.bdr}`,
-                background: active ? T.p : "transparent",
-                fontFamily: T.fB, fontSize: 13, fontWeight: active ? 700 : 500,
-                color: active ? "#fff" : T.tm,
-                cursor: "pointer", transition: "all .18s",
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <span>{flag}</span>
-                <span>{code}</span>
-                {active && (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        {activeCurrencies.length === 0 && (
-          <p style={{ fontFamily: T.fB, fontSize: 11.5, color: T.err, marginTop: 10, marginBottom: 0 }}>
-            Selecciona al menos una divisa.
-          </p>
-        )}
-      </div>
-
       {/* ── Catálogo header ───────────────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div>
@@ -2161,6 +2064,151 @@ function ServicesTab({ profile, setProfile, services, setServices }) {
 
 
 // ── Main Settings ─────────────────────────────────────────────────────────────
+// ── Tab: Suscripción ─────────────────────────────────────────────────────────
+function SuscripcionTab({ profile, googleUser, psychologist }) {
+  const fullName  = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "Usuario";
+  const initials  = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
+  const avatarUrl = profile?.avatarUrl || googleUser?.user_metadata?.avatar_url || null;
+
+  // Datos del plan desde psychologist
+  const plan         = psychologist?.subscription_plan  || "Premium AI";
+  const status       = psychologist?.subscription_status || "trial";
+  const memberSince  = psychologist?.created_at
+    ? new Date(psychologist.created_at).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+
+  // Simular datos de facturación basados en trial
+  const isTrialActive = status === "trial";
+  const trialStart    = psychologist?.trial_start ? new Date(psychologist.trial_start) : new Date();
+  const trialEnd      = psychologist?.trial_end   ? new Date(psychologist.trial_end)   : new Date(Date.now() + 15 * 86400000);
+  const totalDays     = Math.round((trialEnd - trialStart) / 86400000) || 15;
+  const elapsedDays   = Math.round((Date.now() - trialStart) / 86400000);
+  const daysSafe      = Math.max(0, Math.min(elapsedDays, totalDays));
+  const pct           = Math.round((daysSafe / totalDays) * 100);
+  const nextBilling   = trialEnd.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  const daysLeft      = Math.max(0, totalDays - daysSafe);
+
+  const InfoCard = ({ icon, label, children }) => (
+    <div style={{
+      background: T.card, borderRadius: 14,
+      border: `1px solid ${T.bdr}`,
+      padding: "16px 18px", marginBottom: 12,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: T.pA, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
+        }}>{icon}</div>
+        <span style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 480, padding: "0 0 40px" }}>
+      {/* Header card */}
+      <div style={{
+        background: T.card, borderRadius: 18,
+        border: `1px solid ${T.bdr}`,
+        padding: "24px 20px 20px",
+        marginBottom: 20,
+      }}>
+        {/* Ícono Mi Suscripción */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, paddingBottom: 18, borderBottom: `1px solid ${T.bdrL}` }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: "#EBF3FF",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+          }}>🧾</div>
+          <span style={{ fontFamily: T.fB, fontSize: 20, fontWeight: 700, color: T.t }}>Mi suscripción</span>
+        </div>
+
+        {/* Avatar + nombre */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+          <div style={{
+            width: 46, height: 46, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+            background: "#4AADA0",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: T.fH, fontSize: 16, fontWeight: 700, color: "#fff",
+          }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : initials}
+          </div>
+          <div>
+            <div style={{ fontFamily: T.fB, fontSize: 16, fontWeight: 700, color: T.t }}>{fullName}</div>
+            <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl }}>Miembro desde {memberSince}</div>
+          </div>
+        </div>
+
+        {/* Plan actual */}
+        <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tl, marginBottom: 6 }}>Plan actual:</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <span style={{ fontFamily: T.fB, fontSize: 20, fontWeight: 800, color: T.t }}>{plan}</span>
+          {isTrialActive && (
+            <span style={{
+              padding: "3px 10px", borderRadius: 99,
+              background: "#4AADA0", color: "#fff",
+              fontFamily: T.fB, fontSize: 11, fontWeight: 700,
+              letterSpacing: "0.04em",
+            }}>PRUEBA</span>
+          )}
+        </div>
+      </div>
+
+      {/* Costo */}
+      <InfoCard icon="💳" label="Costo">
+        <div style={{ fontFamily: T.fB, fontSize: 20, fontWeight: 800, color: T.t }}>$999 MXN</div>
+        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginTop: 2 }}>Facturación mensual</div>
+      </InfoCard>
+
+      {/* Próximo cobro */}
+      <InfoCard icon="📅" label="Próximo cobro">
+        <div style={{ fontFamily: T.fB, fontSize: 20, fontWeight: 800, color: T.t }}>{nextBilling}</div>
+        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tl, marginTop: 2 }}>En {daysLeft} días</div>
+      </InfoCard>
+
+      {/* Ciclo actual */}
+      <InfoCard icon="🕐" label="Ciclo actual">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontFamily: T.fB, fontSize: 15, fontWeight: 700, color: T.t }}>
+            Día {daysSafe} de {totalDays}
+          </span>
+          <span style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 700, color: "#4AADA0" }}>{pct}%</span>
+        </div>
+        <div style={{ height: 6, borderRadius: 99, background: T.bdrL, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: "#4AADA0", transition: "width .4s" }} />
+        </div>
+      </InfoCard>
+
+      {/* Ver historial */}
+      <button style={{
+        width: "100%", padding: "14px", borderRadius: 12, marginBottom: 12,
+        background: "#EBF3FF", border: "none", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: "#2E7BD1",
+        transition: "background .13s",
+      }}
+        onMouseEnter={e => e.currentTarget.style.background = "#D6E8FF"}
+        onMouseLeave={e => e.currentTarget.style.background = "#EBF3FF"}
+      >
+        🧾 Ver historial de pagos
+      </button>
+
+      {/* Cancelar */}
+      <button style={{
+        width: "100%", padding: "12px", borderRadius: 12,
+        background: "transparent", border: "none", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        fontFamily: T.fB, fontSize: 13, color: T.tl,
+      }}>
+        ✕ Cancelar subscripción
+      </button>
+    </div>
+  );
+}
+
 export default function Settings({
   profile, setProfile,
   darkMode, setDarkMode,
@@ -2173,12 +2221,12 @@ export default function Settings({
   const { tab, setTab, TABS } = useSettings({ initialTab });
 
   const TAB_META = [
-    { id: "profile",    label: "Perfil",      icon: "👤", desc: "Nombre, foto, especialidad y contacto" },
-    { id: "horario",    label: "Horarios",    icon: "🗓️", desc: "Días y bloques de atención" },
-    { id: "services",   label: "Servicios",   icon: "🛎️", desc: "Sesiones, paquetes y tarifas" },
-    { id: "appearance", label: "Apariencia",  icon: "🎨", desc: "Tema, idioma y preferencias visuales" },
-    { id: "data",       label: "Datos",       icon: "💾", desc: "Exportar, importar y cuenta" },
-    { id: "help",       label: "Ayuda",       icon: "💬", desc: "FAQ y soporte técnico" },
+    { id: "profile",      label: "Perfil",       icon: "👤", desc: "Nombre, foto, especialidad y contacto" },
+    { id: "horario",      label: "Horarios",     icon: "🗓️", desc: "Días y bloques de atención" },
+    { id: "services",     label: "Servicios",    icon: "🛎️", desc: "Sesiones, paquetes y tarifas" },
+    { id: "appearance",   label: "Apariencia",   icon: "🎨", desc: "Tema, idioma y preferencias visuales" },
+    { id: "suscripcion",  label: "Suscripción",  icon: "💳", desc: "Plan, facturación e historial de pagos" },
+    { id: "help",         label: "Ayuda",        icon: "💬", desc: "FAQ y soporte técnico" },
   ];
 
   // Vista índice (menú de tarjetas)
@@ -2199,28 +2247,13 @@ export default function Settings({
   const current = TAB_META.find(t => t.id === tab);
   return (
     <div>
-      {/* Back button */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px 0" }}>
-        <button
-          onClick={() => setTab("__index__")}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "none", border: "none", cursor: "pointer",
-            color: T.p, fontFamily: T.fB, fontSize: 13, fontWeight: 500, padding: "4px 0",
-          }}
-        >
-          ← Ajustes
-        </button>
-        <span style={{ color: T.bdr }}>·</span>
-        <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{current?.label}</span>
-      </div>
-
-      {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
-      {tab === "horario"    && <ScheduleTab   profile={profile} setProfile={setProfile} />}
-      {tab === "services"   && <ServicesTab   profile={profile} setProfile={setProfile} services={services} setServices={setServices} />}
-      {tab === "appearance" && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
-      {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}
-      {tab === "help"       && <HelpTab />}
+      {tab === "profile"      && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
+      {tab === "horario"      && <ScheduleTab   profile={profile} setProfile={setProfile} />}
+      {tab === "services"     && <ServicesTab   profile={profile} setProfile={setProfile} services={services} setServices={setServices} />}
+      {tab === "appearance"   && <AppearanceTab darkMode={darkMode} setDarkMode={setDarkMode} patients={patients} setPatients={setPatients} />}
+      {tab === "data"         && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}
+      {tab === "help"         && <HelpTab />}
+      {tab === "suscripcion"  && <SuscripcionTab profile={profile} googleUser={googleUser} psychologist={psychologist} />}
     </div>
   );
 }
