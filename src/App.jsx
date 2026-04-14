@@ -619,7 +619,7 @@ export default function App() {
           height: isMobile ? 52 : 58,
           background: "#ffffff",
           borderBottom: "1px solid rgba(0,0,0,0.07)",
-          display: "flex",
+          display: isMobile ? "none" : "flex",
           alignItems: "center",
           padding: isMobile ? "0 14px" : "0 22px",
           gap: 12,
