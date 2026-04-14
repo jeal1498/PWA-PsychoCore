@@ -284,7 +284,8 @@ function SidebarFooter({ profile, googleUser, active, onNav, onSignOut, onClose,
 // Subcomponente: Bottom Nav (solo móvil)
 // ─────────────────────────────────────────────────────────────────────────────
 function BottomNav({ active, onNav, riskAlert }) {
-  const bottomItems = NAV_ITEMS.filter(i => BOTTOM_NAV_IDS.includes(i.id));
+  // Preservar el orden definido en BOTTOM_NAV_IDS
+  const bottomItems = BOTTOM_NAV_IDS.map(id => NAV_ITEMS.find(i => i.id === id)).filter(Boolean);
   const hasMore = !BOTTOM_NAV_IDS.includes(active);  // el módulo activo no está en bottom nav
   const moreActive = hasMore;
 
