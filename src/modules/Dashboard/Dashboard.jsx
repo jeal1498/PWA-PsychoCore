@@ -305,19 +305,12 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
 
   return (
     <div className="d-header">
-      {/* Controles superiores — esquina derecha */}
-      <div style={{ position: "absolute", top: 18, right: 16, display: "flex", alignItems: "center", gap: 6, zIndex: 10 }}>
-        {/* Campanita de notificaciones */}
-        <NotificationBell
-          notifications={notifications || []}
-          dismiss={dismiss}
-          dismissAll={dismissAll}
-        />
-        {/* Círculo de usuario */}
+      {/* Círculo de usuario — izquierda, alineado con el texto */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
         <button
           onClick={handleToggle}
           style={{
-            width: 36, height: 36, borderRadius: "50%",
+            width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
             background: avatarUrl ? "transparent" : "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
             border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -330,6 +323,23 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
             : initials
           }
         </button>
+        <div style={{ flex: 1 }}>
+          <div className="d-date">{todayFormatted()}</div>
+          <div className="d-greet">
+            {greeting()},&nbsp;<em>{name}</em>
+          </div>
+          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"var(--d-muted)", marginTop:6, fontStyle: todayAppts.length===0 ? "italic" : "normal" }}>
+            {subtitle}
+          </div>
+        </div>
+        {/* Campanita — extremo derecho */}
+        <div style={{ flexShrink: 0, marginTop: 2 }}>
+          <NotificationBell
+            notifications={notifications || []}
+            dismiss={dismiss}
+            dismissAll={dismissAll}
+          />
+        </div>
       </div>
 
       {/* Dropdown — position: fixed para escapar de overflow:hidden */}
@@ -374,13 +384,6 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
         </>
       )}
 
-      <div className="d-date">{todayFormatted()}</div>
-      <div className="d-greet">
-        {greeting()},&nbsp;<em>{name}</em>
-      </div>
-      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"var(--d-muted)", marginTop:6, fontStyle: todayAppts.length===0 ? "italic" : "normal" }}>
-        {subtitle}
-      </div>
     </div>
   );
 }
