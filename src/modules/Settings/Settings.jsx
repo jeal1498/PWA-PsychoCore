@@ -180,7 +180,7 @@ function PhoneField({ value, onChange }) {
           color: isComplete ? T.suc : number.length > 0 ? T.war : T.tl,
           flexShrink: 0,
         }}>
-          {isComplete ? "✓" : number.length > 0 ?  : }
+          {isComplete ? "✓" : number.length > 0 ? `${remaining} más` : `${country.digits} díg.`}
         </div>
       </div>
     </div>
