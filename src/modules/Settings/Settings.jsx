@@ -26,29 +26,21 @@ import {
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
 
-// Subcomponente: sección con encabezado
-function ProfileSection({ title, icon, children }) {
+// Subcomponente: sección con encabezado integrado dentro de la card
+function ProfileSection({ title, children }) {
   return (
-    <Card style={{
-      padding: 0,
-      marginBottom: 14,
-      overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-    }}>
-      <div style={{
-        padding: "13px 24px",
-        borderBottom: `1px solid ${T.bdrL}`,
-        display: "flex", alignItems: "center", gap: 8,
-        background: T.bg,
-      }}>
-        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
-        <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: T.tl }}>
+    <Card style={{ padding: "22px 24px 6px", marginBottom: 14 }}>
+      {title && (
+        <div style={{
+          fontFamily: T.fB, fontSize: 12, fontWeight: 700,
+          color: T.tl, letterSpacing: "0.05em",
+          marginBottom: 18, paddingBottom: 12,
+          borderBottom: `1px solid ${T.bdrL}`,
+        }}>
           {title}
-        </span>
-      </div>
-      <div style={{ padding: "22px 24px 6px" }}>
-        {children}
-      </div>
+        </div>
+      )}
+      {children}
     </Card>
   );
 }
@@ -69,7 +61,7 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
       </p>
 
       {/* ── Datos personales ─────────────────────────────────────────── */}
-      <ProfileSection title="Datos personales" icon="👤">
+      <ProfileSection title="Datos personales">
         {/* Avatar */}
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 26, paddingBottom: 22, borderBottom: `1px solid ${T.bdrL}` }}>
           <div
@@ -142,7 +134,7 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
       </ProfileSection>
 
       {/* ── Contacto y fiscal ────────────────────────────────────────── */}
-      <ProfileSection title="Contacto y fiscal" icon="🧾">
+      <ProfileSection title="Contacto y fiscal">
         <div style={{ marginBottom: 16 }}>
           <Input label="RFC" value={form.rfc || ""} onChange={fld("rfc")} placeholder="LOAA800101XX0" style={{ marginBottom: 4 }} />
           <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, paddingLeft: 2 }}>Se incluye en los recibos de pago generados</div>
@@ -153,7 +145,7 @@ function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
       </ProfileSection>
 
       {/* ── Presentación profesional ─────────────────────────────────── */}
-      <ProfileSection title="Presentación profesional" icon="✍️">
+      <ProfileSection title="Presentación profesional">
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 8, lineHeight: 1.5 }}>
             Cuéntale a tus pacientes sobre ti y tu enfoque terapéutico
