@@ -2172,18 +2172,47 @@ export default function Settings({
 }) {
   const { tab, setTab, TABS } = useSettings({ initialTab });
 
-  return (
-    <div>
-      <PageHeader title="Ajustes" subtitle="Perfil, apariencia y datos" />
-      <div style={{ overflowX: "auto", marginBottom: 24, borderBottom: `1px solid ${T.bdr}`, scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        <div style={{ display: "flex", gap: 0, minWidth: "max-content" }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ padding: "10px 16px", border: "none", background: "none", cursor: "pointer", fontFamily: T.fB, fontSize: 13.5, fontWeight: tab === t.id ? 700 : 400, color: tab === t.id ? T.p : T.tm, whiteSpace: "nowrap", borderBottom: tab === t.id ? `2px solid ${T.p}` : "2px solid transparent", transition: "all .15s" }}>
-              {t.label}
-            </button>
+  const TAB_META = [
+    { id: "profile",    label: "Perfil",      icon: "👤", desc: "Nombre, foto, especialidad y contacto" },
+    { id: "horario",    label: "Horarios",    icon: "🗓️", desc: "Días y bloques de atención" },
+    { id: "services",   label: "Servicios",   icon: "🛎️", desc: "Sesiones, paquetes y tarifas" },
+    { id: "appearance", label: "Apariencia",  icon: "🎨", desc: "Tema, idioma y preferencias visuales" },
+    { id: "data",       label: "Datos",       icon: "💾", desc: "Exportar, importar y cuenta" },
+    { id: "help",       label: "Ayuda",       icon: "💬", desc: "FAQ y soporte técnico" },
+  ];
+
+  // Vista índice (menú de tarjetas)
+  if (!tab || tab === "__index__") {
+    return (
+      <div>
+        <PageHeader title="Ajustes" subtitle="Gestiona tu cuenta y preferencias" />
+        <div style={{ padding: "8px 16px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {TAB_META.map(t => (
+            <SettingsCard key={t.id} icon={t.icon} label={t.label} desc={t.desc} onClick={() => setTab(t.id)} />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Vista de sección específica
+  const current = TAB_META.find(t => t.id === tab);
+  return (
+    <div>
+      {/* Back button */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px 0" }}>
+        <button
+          onClick={() => setTab("__index__")}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "none", border: "none", cursor: "pointer",
+            color: T.p, fontFamily: T.fB, fontSize: 13, fontWeight: 500, padding: "4px 0",
+          }}
+        >
+          ← Ajustes
+        </button>
+        <span style={{ color: T.bdr }}>·</span>
+        <span style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{current?.label}</span>
       </div>
 
       {tab === "profile"    && <ProfileTab    profile={profile} setProfile={setProfile} googleUser={googleUser} psychologist={psychologist} />}
@@ -2193,5 +2222,39 @@ export default function Settings({
       {tab === "data"       && <DataTab       allData={allData} onRestore={onRestore} patients={patients} googleUser={googleUser} userId={googleUser?.id} />}
       {tab === "help"       && <HelpTab />}
     </div>
+  );
+}
+
+function SettingsCard({ icon, label, desc, onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 14,
+        background: hov ? T.bgAlt || "#f5f5f3" : T.card,
+        border: `1px solid ${T.bdr}`,
+        borderRadius: 14, padding: "14px 16px",
+        cursor: "pointer", textAlign: "left", width: "100%",
+        transition: "background .12s, box-shadow .12s",
+        boxShadow: hov ? "0 2px 8px rgba(0,0,0,0.07)" : "none",
+      }}
+    >
+      <div style={{
+        width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+        background: T.pA || "rgba(74,173,160,0.1)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 18,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.t, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>{desc}</div>
+      </div>
+      <span style={{ color: T.tm, fontSize: 16 }}>›</span>
+    </button>
   );
 }

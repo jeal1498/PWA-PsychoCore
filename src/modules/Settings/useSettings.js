@@ -659,8 +659,8 @@ export function useAppearanceTab({ setPatients }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // useSettings (hook raíz)
 // ─────────────────────────────────────────────────────────────────────────────
-export function useSettings({ initialTab = "profile" } = {}) {
-  const [tab, setTab] = useState(initialTab || "profile");
+export function useSettings({ initialTab = "__index__" } = {}) {
+  const [tab, setTab] = useState(initialTab || "__index__");
 
   const TABS = [
     { id: "profile",    label: "Perfil"     },
