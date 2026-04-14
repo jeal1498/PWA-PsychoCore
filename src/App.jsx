@@ -4,7 +4,7 @@
 // El estado de datos (pacientes, sesiones, etc.) vive en AppStateContext.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useRef, useEffect, lazy, Suspense } from "react";
-import { Brain } from "lucide-react";
+
 import { T } from "./theme.js";
 import { useIsMobile }      from "./hooks/useIsMobile.js";
 import { useIsWide }        from "./hooks/useIsWide.js";
@@ -591,7 +591,7 @@ export default function App() {
           height: isMobile ? 52 : 58,
           background: "#ffffff",
           borderBottom: "1px solid rgba(0,0,0,0.07)",
-          display: isMobile ? "none" : "flex",
+          display: "flex",
           alignItems: "center",
           padding: isMobile ? "0 14px" : "0 22px",
           gap: 12,
@@ -602,20 +602,34 @@ export default function App() {
           color: "#1E3535",
         }}>
 
-          {/* Móvil: logo + nombre de app */}
-          {isMobile && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                background: `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: `0 2px 6px rgba(74,173,160,0.35)`,
-              }}>
-                <Brain size={14} color="#fff" strokeWidth={1.5} />
-              </div>
-              <span style={{ fontFamily: T.fH, fontSize: 17, color: T.t, fontWeight: 400 }}>PsychoCore</span>
-            </div>
-          )}
+          {/* Móvil: avatar de perfil (izquierda) */}
+          {isMobile && (() => {
+            const fullName  = profile?.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "U";
+            const initials  = fullName.split(" ").slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "U";
+            const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url || null;
+            return (
+              <button
+                onClick={() => navTo("settings")}
+                style={{
+                  width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                  background: avatarUrl ? "transparent" : `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
+                  border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: T.fH, fontSize: 12, fontWeight: 600, color: "#fff",
+                  boxShadow: `0 2px 6px rgba(74,173,160,0.30)`,
+                  flex: "none",
+                }}
+              >
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : initials
+                }
+              </button>
+            );
+          })()}
+
+          {/* Móvil: spacer para empujar búsqueda y campana a la derecha */}
+          {isMobile && <div style={{ flex: 1 }} />}
 
           {/* Desktop/Tablet: título del módulo activo + fecha */}
           {!isMobile && (
