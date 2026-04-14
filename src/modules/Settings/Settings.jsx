@@ -1,5 +1,5 @@
 // ── Settings.jsx ─────────────────────────────────────────────────────────────
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Check, CheckCircle, AlertCircle, Download, Upload, FileJson,
   Users, RefreshCw, HelpCircle, MessageCircle, Mail,
@@ -25,135 +25,170 @@ import {
 } from "./settings.utils.js";
 
 // ── Tab: Perfil ───────────────────────────────────────────────────────────────
+
+// Subcomponente: sección con encabezado
+function ProfileSection({ title, icon, children }) {
+  return (
+    <Card style={{
+      padding: 0,
+      marginBottom: 14,
+      overflow: "hidden",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+    }}>
+      <div style={{
+        padding: "13px 24px",
+        borderBottom: `1px solid ${T.bdrL}`,
+        display: "flex", alignItems: "center", gap: 8,
+        background: T.bg,
+      }}>
+        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+        <span style={{ fontFamily: T.fB, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: T.tl }}>
+          {title}
+        </span>
+      </div>
+      <div style={{ padding: "22px 24px 6px" }}>
+        {children}
+      </div>
+    </Card>
+  );
+}
+
 function ProfileTab({ profile, setProfile, googleUser, psychologist }) {
   const { form, fld, save, saved, avatarPreview, handleAvatarChange } = useProfileTab({ profile, setProfile, googleUser });
+  const [avatarHover, setAvatarHover] = useState(false);
+  const avatarInputRef = useRef(null);
+
+  const initials = form.name
+    ? form.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+    : "PS";
 
   return (
     <div style={{ maxWidth: 560 }}>
-      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 24, lineHeight: 1.6 }}>
+      <p style={{ fontFamily: T.fB, fontSize: 13.5, color: T.tm, marginBottom: 22, lineHeight: 1.6 }}>
         Tu perfil aparece en la barra lateral y se incluye en los reportes exportados.
       </p>
 
-      <Card style={{ padding: 28 }}>
-        {/* Avatar editable */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, paddingBottom: 24, borderBottom: `1px solid ${T.bdrL}` }}>
-          <label htmlFor="settings-avatar-input" style={{ cursor: "pointer", flexShrink: 0 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: T.p, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: `2.5px solid ${T.p}`, position: "relative" }}>
+      {/* ── Datos personales ─────────────────────────────────────────── */}
+      <ProfileSection title="Datos personales" icon="👤">
+        {/* Avatar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 26, paddingBottom: 22, borderBottom: `1px solid ${T.bdrL}` }}>
+          <div
+            style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}
+            onMouseEnter={() => setAvatarHover(true)}
+            onMouseLeave={() => setAvatarHover(false)}
+            onClick={() => avatarInputRef.current?.click()}
+          >
+            <div style={{
+              width: 68, height: 68, borderRadius: "50%",
+              background: `linear-gradient(135deg, ${T.p} 0%, ${T.p}cc 100%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden",
+              border: `3px solid ${T.card}`,
+              boxShadow: `0 0 0 2px ${T.p}, 0 4px 14px ${T.p}33`,
+              transition: "transform .2s",
+              transform: avatarHover ? "scale(1.05)" : "scale(1)",
+            }}>
               {avatarPreview
                 ? <img src={avatarPreview} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontFamily: T.fH, fontSize: 26, color: NAV_TEXT, fontWeight: 600 }}>
-                    {form.name ? form.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "PS"}
-                  </span>
+                : <span style={{ fontFamily: T.fH, fontSize: 26, color: NAV_TEXT, fontWeight: 600 }}>{initials}</span>
               }
-              <div style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: "50%", background: T.card, border: `1.5px solid ${T.bdr}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>✏️</div>
             </div>
-            <input id="settings-avatar-input" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
-          </label>
-          <div>
-            <div style={{ fontFamily: T.fH, fontSize: 20, color: T.t, fontWeight: 500 }}>{form.name || "Tu nombre"}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.tm }}>{form.specialty || "Especialidad"}</div>
-            <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 2 }}>Toca la foto para cambiarla</div>
+            {/* overlay editar */}
+            <div style={{
+              position: "absolute", inset: 0, borderRadius: "50%",
+              background: "rgba(0,0,0,0.4)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              opacity: avatarHover ? 1 : 0,
+              transition: "opacity .2s",
+              pointerEvents: "none",
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </div>
+            <input ref={avatarInputRef} id="settings-avatar-input" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: T.fH, fontSize: 20, color: T.t, fontWeight: 500, lineHeight: 1.2, marginBottom: 3 }}>
+              {form.name || <span style={{ color: T.tl }}>Tu nombre</span>}
+            </div>
+            <div style={{ fontFamily: T.fB, fontSize: 13, color: T.p, fontWeight: 600, marginBottom: 5 }}>
+              {form.specialty || <span style={{ color: T.tl, fontWeight: 400 }}>Especialidad</span>}
+            </div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              style={{
+                padding: "3px 10px", borderRadius: 20,
+                border: `1px solid ${T.bdr}`,
+                background: "transparent",
+                fontFamily: T.fB, fontSize: 11, color: T.tm, cursor: "pointer",
+                transition: "border-color .15s, color .15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = T.p; e.currentTarget.style.color = T.p; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = T.bdr; e.currentTarget.style.color = T.tm; }}
+            >
+              Cambiar foto
+            </button>
           </div>
         </div>
 
-        {/* Campos */}
         <Input label="Nombre completo" value={form.name} onChange={fld("name")} placeholder="Dra. Ana López" />
         <Input label="Especialidad" value={form.specialty} onChange={fld("specialty")} placeholder="Psicóloga Clínica" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <Input label="Cédula profesional" value={form.cedula} onChange={fld("cedula")} placeholder="XXXXXXX" style={{ marginBottom: 0 }} />
           <Input label="Teléfono" value={form.phone} onChange={fld("phone")} placeholder="998-000-0000" style={{ marginBottom: 0 }} />
         </div>
+      </ProfileSection>
+
+      {/* ── Contacto y fiscal ────────────────────────────────────────── */}
+      <ProfileSection title="Contacto y fiscal" icon="🧾">
         <div style={{ marginBottom: 16 }}>
           <Input label="RFC" value={form.rfc || ""} onChange={fld("rfc")} placeholder="LOAA800101XX0" style={{ marginBottom: 4 }} />
-          <div style={{ fontFamily: "var(--fB, sans-serif)", fontSize: 11, color: T.tl, paddingLeft: 2 }}>Se incluye en los recibos de pago generados</div>
+          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, paddingLeft: 2 }}>Se incluye en los recibos de pago generados</div>
         </div>
         <Input label="Correo electrónico" value={form.email} onChange={fld("email")} placeholder="ana@consultorio.com" />
         <Input label="Nombre del consultorio" value={form.clinic} onChange={fld("clinic")} placeholder="Consultorio Integral" />
         <Input label="Dirección del consultorio" value={form.address || ""} onChange={fld("address")} placeholder="Calle, número, colonia, ciudad" />
+      </ProfileSection>
 
-        {/* Descripción profesional */}
+      {/* ── Presentación profesional ─────────────────────────────────── */}
+      <ProfileSection title="Presentación profesional" icon="✍️">
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontFamily: T.fB, fontSize: 11, fontWeight: 700, color: T.tm, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
-            Descripción profesional
-          </label>
+          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginBottom: 8, lineHeight: 1.5 }}>
+            Cuéntale a tus pacientes sobre ti y tu enfoque terapéutico
+          </div>
           <textarea
             value={form.description || ""}
             onChange={e => fld("description")(e.target.value)}
-            placeholder="Cuéntale a tus pacientes sobre ti y tu enfoque terapéutico…"
-            rows={3}
-            style={{ width: "100%", padding: "10px 13px", border: `1.5px solid ${T.bdr}`, borderRadius: 10, fontFamily: T.fB, fontSize: 14, color: T.t, background: "var(--bg)", outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }}
+            placeholder="Soy especialista en terapia cognitivo-conductual con enfoque en…"
+            rows={4}
+            style={{
+              width: "100%", padding: "11px 14px",
+              border: `1.5px solid ${T.bdr}`, borderRadius: 10,
+              fontFamily: T.fB, fontSize: 14, color: T.t,
+              background: T.bg, outline: "none",
+              resize: "vertical", lineHeight: 1.65, boxSizing: "border-box",
+              transition: "border-color .18s",
+            }}
+            onFocus={e => e.target.style.borderColor = T.p}
+            onBlur={e => e.target.style.borderColor = T.bdr}
           />
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24, gap: 10, alignItems: "center" }}>
-          {saved && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.suc, fontFamily: T.fB, fontSize: 13 }}>
-              <CheckCircle size={15} /> Guardado
-            </div>
-          )}
-          <Btn onClick={save}><Check size={15} /> Guardar perfil</Btn>
-        </div>
-      </Card>
-
-      {/* ── Estado de suscripción ─────────────────────────────────────── */}
-      {psychologist && (
-        <Card style={{ padding: 24, marginTop: 16 }}>
-          <div style={{ fontFamily: T.fB, fontSize: 12, fontWeight: 700, color: T.tl, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>
-            Estado de suscripción
+          <div style={{ fontFamily: T.fB, fontSize: 11, color: T.tl, marginTop: 5, textAlign: "right" }}>
+            {(form.description || "").length} caracteres
           </div>
-          {psychologist.subscription_status === "active" ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.sucA, borderRadius: 10, border: `1px solid ${T.suc}30` }}>
-              <CheckCircle size={18} color={T.suc} />
-              <div>
-                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.suc }}>Suscripción activa</div>
-                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>Acceso completo a todas las funcionalidades</div>
-              </div>
-            </div>
-          ) : trialDaysLeft(psychologist) > 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: trialDaysLeft(psychologist) <= 3 ? T.errA : T.warA || "rgba(184,144,10,0.08)", borderRadius: 10, border: `1px solid ${trialDaysLeft(psychologist) <= 3 ? T.err : T.war}30` }}>
-              <AlertCircle size={18} color={trialDaysLeft(psychologist) <= 3 ? T.err : T.war} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: trialDaysLeft(psychologist) <= 3 ? T.err : T.war }}>
-                  Período de prueba · {trialDaysLeft(psychologist)} día{trialDaysLeft(psychologist) !== 1 ? "s" : ""} restante{trialDaysLeft(psychologist) !== 1 ? "s" : ""}
-                </div>
-                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>
-                  Vence el {new Date(psychologist.trial_ends_at).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
-                </div>
-              </div>
-              <a href="mailto:soporte@psychocore.app?subject=Suscripción PsychoCore"
-                style={{ padding: "7px 14px", borderRadius: 100, background: T.p, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
-                Suscribirme →
-              </a>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.errA, borderRadius: 10, border: `1px solid ${T.err}30` }}>
-              <AlertCircle size={18} color={T.err} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: T.fB, fontSize: 14, fontWeight: 600, color: T.err }}>Prueba gratuita expirada</div>
-                <div style={{ fontFamily: T.fB, fontSize: 12, color: T.tm }}>Suscríbete para recuperar el acceso completo</div>
-              </div>
-              <a href="mailto:soporte@psychocore.app?subject=Suscripción PsychoCore"
-                style={{ padding: "7px 14px", borderRadius: 100, background: T.err, color: "#fff", fontFamily: T.fB, fontSize: 12, fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
-                Suscribirme →
-              </a>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* ── Soporte ──────────────────────────────────────────────────────── */}
-      <Card style={{ padding: 20, marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontFamily: T.fB, fontSize: 13.5, fontWeight: 600, color: T.t, marginBottom: 3 }}>¿Necesitas ayuda?</div>
-          <div style={{ fontFamily: T.fB, fontSize: 12.5, color: T.tm }}>Escríbenos por WhatsApp, respondemos en minutos.</div>
         </div>
-        <a href="https://wa.me/529831348558?text=Hola%2C%20necesito%20ayuda%20con%20PsychoCore"
-          target="_blank" rel="noreferrer"
-          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 100, background: WA, color: NAV_TEXT, textDecoration: "none", fontFamily: T.fB, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: "all .15s" }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill={NAV_TEXT}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-          Abrir WhatsApp
-        </a>
-      </Card>
+      </ProfileSection>
+
+      {/* ── Botón guardar ────────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 6, marginBottom: 8 }}>
+        {saved && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.suc, fontFamily: T.fB, fontSize: 13 }}>
+            <CheckCircle size={15} /> Guardado
+          </div>
+        )}
+        <Btn onClick={save}><Check size={15} /> Guardar perfil</Btn>
+      </div>
     </div>
   );
 }
