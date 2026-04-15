@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../../theme.js";
 import { fmt, fmtDate } from "../../utils.js";
-import { Card, Input, Select, Btn, Badge } from "../../components/ui/index.jsx";
+import { Card, Input, Select, Btn, Badge, PageHeader } from "../../components/ui/index.jsx";
 import { PageView } from "../../components/PageView.jsx";
 import DynamicSummary from "../../components/DynamicSummary.jsx";
 
@@ -210,7 +210,7 @@ function StatStrip({ appointments, todayStr, recurringCount, isMobile }) {
 // ── WeeklyView ───────────────────────────────────────────────────────────────
 function WeeklyView({ appointments, weekAnchor, setWeekAnchor, onOpenQuick, today, profile }) {
   const weekDays = useMemo(() => getWeekDays(weekAnchor), [weekAnchor]);
-  const todayStr = fmt(today);
+  const todayStr = today; // ya es string "YYYY-MM-DD"
 
   const apptMap = useMemo(() => {
     const map = {};
@@ -377,7 +377,7 @@ function TimelineCell({ hasAppts, onNewAppt, dayView, timeStr }) {
 
 // ── DayView ──────────────────────────────────────────────────────────────────
 function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuick, onOpenStatusModal, onConfirmDelete, onNewAppt, patients, profile, markReminderSent, today, onStartSession, isMobile }) {
-  const todayStr = fmt(today);
+  const todayStr = today; // ya es string "YYYY-MM-DD"
 
   const [nowMinutes, setNowMinutes] = useState(() => {
     const n = new Date();
@@ -408,7 +408,7 @@ function DayView({ appointments, selectedDayView, setSelectedDayView, onOpenQuic
 
   const prevDay  = () => { const d = new Date(selectedDayView + "T12:00:00"); d.setDate(d.getDate() - 1); setSelectedDayView(fmt(d)); };
   const nextDay  = () => { const d = new Date(selectedDayView + "T12:00:00"); d.setDate(d.getDate() + 1); setSelectedDayView(fmt(d)); };
-  const goToday  = () => setSelectedDayView(fmt(today));
+  const goToday  = () => setSelectedDayView(today);
 
   const isToday  = selectedDayView === todayStr;
   const dateObj  = new Date(selectedDayView + "T12:00:00");
@@ -684,10 +684,9 @@ export default function Agenda({
     profile, autoOpen, services, onNavigate, onStartSession,
   });
 
-  // ── TopBar ──────────────────────────────────────────────────────────────
-  const TopBar = () => (
-    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-      {/* Selector de vista */}
+  // ── ViewToggle ──────────────────────────────────────────────────────────
+  const ViewToggle = () => (
+    <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
       <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, gap:2 }}>
         {[
           { id:"month",  icon:LayoutGrid,   tip:"Mes"    },
@@ -708,19 +707,26 @@ export default function Agenda({
           </button>
         ))}
       </div>
-
       {onPrimerContacto && (
         <Btn variant="ghost" onClick={onPrimerContacto} title="Nuevo paciente con pre-cita">
           <Plus size={14}/> {!ag.isMobile && "Nuevo paciente"}
         </Btn>
       )}
+      <Btn onClick={() => ag.setShowAdd(true)}>
+        <Plus size={14}/> Nueva cita
+      </Btn>
     </div>
   );
 
   return (
     <div style={{ maxWidth: ag.isWide ? "none" : 960, paddingBottom:40 }}>
 
-      <TopBar/>
+      <PageHeader
+        title="Agenda"
+        subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${ag.recurringCount > 0 ? ` · ${ag.recurringCount} serie${ag.recurringCount!==1?"s":""} recurrente${ag.recurringCount!==1?"s":""}` : ""}`}
+        action={<ViewToggle/>}
+        isMobile={ag.isMobile}
+      />
 
       <StatStrip
         appointments={appointments}
