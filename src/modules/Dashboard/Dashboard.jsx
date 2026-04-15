@@ -282,13 +282,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
   const fullName = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "U";
   const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
 
-  const menuItems = [
-    { label: "Perfil",      icon: "👤", tab: "profile"    },
-    { label: "Servicios",   icon: "🛎️", tab: "services"   },
-    { label: "Ajustes",     icon: "⚙️", tab: "appearance" },
-    { label: "Suscripción", icon: "💳", tab: "suscripcion" },
-    { label: "Soporte",     icon: "💬", tab: "help"       },
-  ];
+  const menuItems = [];
 
   const avatarUrl = profile?.avatarUrl || googleUser?.user_metadata?.avatar_url || null;
 
@@ -332,14 +326,7 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
             {subtitle}
           </div>
         </div>
-        {/* Campanita — extremo derecho */}
-        <div style={{ flexShrink: 0, marginTop: 2 }}>
-          <NotificationBell
-            notifications={notifications || []}
-            dismiss={dismiss}
-            dismissAll={dismissAll}
-          />
-        </div>
+
       </div>
 
       {/* Dropdown — position: fixed para escapar de overflow:hidden */}
