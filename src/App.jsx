@@ -27,7 +27,6 @@ const Patients      = lazy(() => import("./modules/Patients/Patients.jsx"));
 const Agenda        = lazy(() => import("./modules/Agenda/Agenda.jsx"));
 const Sessions      = lazy(() => import("./modules/Sessions/Sessions.jsx"));
 const Finance       = lazy(() => import("./modules/Finance/Finance.jsx"));
-const Settings      = lazy(() => import("./modules/Settings/Settings.jsx"));
 const Stats         = lazy(() => import("./modules/Stats/Stats.jsx"));
 const RiskAssessment= lazy(() => import("./modules/RiskAssessment/RiskAssessment.jsx"));
 const Scales        = lazy(() => import("./modules/Scales/Scales.jsx"));
@@ -52,7 +51,6 @@ const MODULE_LABELS = {
   finance:    "Finanzas",
   reports:    "Informes",
   stats:      "Estadísticas",
-  settings:   "Configuración",
 };
 
 // Formato de fecha corta: "Lun 13 abr"
@@ -194,7 +192,6 @@ export default function App() {
   const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
-  const [settingsTab,   setSettingsTab]   = useState("__index__");
 
   const [darkPref, setDarkPref] = useState(() => localStorage.getItem("pc_dark_pref") || "auto");
   const [systemDark, setSystemDark] = useState(
@@ -350,7 +347,6 @@ export default function App() {
   const quickNav = (mod, action, tab, payload) => {
     setActiveModule(mod);
     setOpenAction({ module: mod, action, ts: Date.now(), payload: payload || null });
-    if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
     if (payload) syncActivePatientContext(payload);
     setMoreOpen(false);
@@ -437,12 +433,7 @@ export default function App() {
       case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onStartSession={handleStartSession} onPrimerContacto={() => quickNav("patients", "add")} onNavigate={(module, data, tab) => {
-                                if (module === "settings") {
-                                  if (tab) setSettingsTab(tab);
-                                  navTo("settings");
-                                  return;
-                                }
-                                navTo(module);
+                                  navTo(module);
                               }}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill} onNavigate={navTo}/>;
       case "finance":     return <Finance
@@ -458,30 +449,6 @@ export default function App() {
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
       case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
-      case "settings":    return (
-        <Settings profile={profile} setProfile={setProfile}
-          darkMode={darkPref} setDarkMode={setDarkPref}
-          setPatients={setPatients} patients={patients}
-          googleUser={user}
-          psychologist={psychologist}
-          allData={allData}
-          services={services} setServices={setServices}
-          initialTab={settingsTab}
-          onRestore={(data) => {
-            if (data.patients)        setPatients(data.patients);
-            if (data.appointments)    setAppointments(data.appointments);
-            if (data.sessions)        setSessions(data.sessions);
-            if (data.payments)        setPayments(data.payments);
-            if (data.profile)         setProfile(data.profile);
-            if (data.riskAssessments) setRiskAssessments(data.riskAssessments);
-            if (data.scaleResults)    setScaleResults(data.scaleResults);
-            if (data.treatmentPlans)  setTreatmentPlans(data.treatmentPlans);
-            if (data.interSessions)   setInterSessions(data.interSessions);
-            if (data.medications)     setMedications(data.medications);
-            if (data.services)        setServices(data.services);
-          }}
-        />
-      );
       default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
     }
   };
@@ -601,32 +568,6 @@ export default function App() {
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           color: "#1E3535",
         }}>
-
-          {/* Móvil: avatar de perfil (izquierda) */}
-          {isMobile && (() => {
-            const fullName  = profile?.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "U";
-            const initials  = fullName.split(" ").slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "U";
-            const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url || null;
-            return (
-              <button
-                onClick={() => navTo("settings")}
-                style={{
-                  width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                  background: avatarUrl ? "transparent" : `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
-                  border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: T.fH, fontSize: 12, fontWeight: 600, color: "#fff",
-                  boxShadow: `0 2px 6px rgba(74,173,160,0.30)`,
-                  flex: "none",
-                }}
-              >
-                {avatarUrl
-                  ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : initials
-                }
-              </button>
-            );
-          })()}
 
           {/* Móvil: spacer para empujar búsqueda y campana a la derecha */}
           {isMobile && <div style={{ flex: 1 }} />}
