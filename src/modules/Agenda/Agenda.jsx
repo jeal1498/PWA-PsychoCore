@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Calendar, ChevronLeft, ChevronRight, Trash2, Check, Plus, FileText,
   LayoutGrid, List, Clock, Repeat, MessageCircle, BookOpen, AlertTriangle,
-  CalendarDays, Play, ShieldAlert, CheckCircle2,
+  CalendarDays, Play, ShieldAlert, CheckCircle2, Settings,
 } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../../theme.js";
 import { fmt, fmtDate } from "../../utils.js";
@@ -715,6 +715,19 @@ export default function Agenda({
       <Btn onClick={() => ag.setShowAdd(true)}>
         <Plus size={14}/> Nueva cita
       </Btn>
+      <PrimaryHoverBtn
+        onClick={() => onNavigate && onNavigate("services")}
+        title="Ajustes de servicios"
+        style={{
+          marginLeft:"auto",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          width:36, height:36, borderRadius:10, border:"none", cursor:"pointer",
+          background:T.bdrL, color:T.tm,
+          flexShrink:0,
+        }}
+      >
+        <Settings size={15} strokeWidth={1.8}/>
+      </PrimaryHoverBtn>
     </div>
   );
 
@@ -722,8 +735,6 @@ export default function Agenda({
     <div style={{ maxWidth: ag.isWide ? "none" : 960, paddingBottom:40 }}>
 
       <PageHeader
-        title="Agenda"
-        subtitle={`${appointments.length} cita${appointments.length!==1?"s":""} registrada${appointments.length!==1?"s":""}${ag.recurringCount > 0 ? ` · ${ag.recurringCount} serie${ag.recurringCount!==1?"s":""} recurrente${ag.recurringCount!==1?"s":""}` : ""}`}
         action={<ViewToggle/>}
         isMobile={ag.isMobile}
       />
