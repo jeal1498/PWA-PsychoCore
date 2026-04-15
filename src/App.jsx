@@ -190,6 +190,7 @@ export default function App() {
   // pero lo mantenemos por si algún módulo hijo lo referencia.
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
+  const [profilePopOpen, setProfilePopOpen] = useState(false);  // popup avatar topbar móvil
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
 
@@ -568,6 +569,62 @@ export default function App() {
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           color: "#1E3535",
         }}>
+
+          {/* Móvil: avatar de perfil (izquierda) con mini-popup */}
+          {isMobile && (() => {
+            const fullName  = profile?.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "Usuario";
+            const initials  = fullName.split(" ").slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "U";
+            const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url || null;
+            return (
+              <>
+                <button
+                  onClick={() => setProfilePopOpen(v => !v)}
+                  style={{
+                    width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                    background: avatarUrl ? "transparent" : `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
+                    border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: T.fH, fontSize: 12, fontWeight: 600, color: "#fff",
+                    boxShadow: `0 2px 6px rgba(74,173,160,0.30)`,
+                    flex: "none",
+                  }}
+                >
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : initials
+                  }
+                </button>
+                {profilePopOpen && (
+                  <>
+                    <div onClick={() => setProfilePopOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1099 }} />
+                    <div style={{
+                      position: "fixed", top: 58, left: 14, zIndex: 1100,
+                      background: "#fff", borderRadius: 14,
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.16)",
+                      border: "1px solid rgba(0,0,0,0.07)",
+                      minWidth: 200, overflow: "hidden",
+                    }}>
+                      <div style={{ padding: "12px 16px 8px", fontFamily: T.fB, fontSize: 12, color: T.tl, borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: T.t }}>{fullName}</div>
+                        {profile?.specialty && <div style={{ marginTop: 2 }}>{profile.specialty}</div>}
+                      </div>
+                      <button
+                        onClick={() => { setProfilePopOpen(false); handleLock(); }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          width: "100%", padding: "11px 16px",
+                          background: "transparent", border: "none", cursor: "pointer",
+                          fontFamily: T.fB, fontSize: 13, color: "#C0392B", textAlign: "left",
+                        }}
+                      >
+                        🚪 Cerrar sesión
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {/* Móvil: spacer para empujar búsqueda y campana a la derecha */}
           {isMobile && <div style={{ flex: 1 }} />}
