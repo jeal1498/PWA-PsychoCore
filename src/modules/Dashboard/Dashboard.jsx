@@ -269,113 +269,26 @@ function useBreakpoint() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── HEADER ────────────────────────────────────────────────────────────────────
-function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSignOut, notifications, dismiss, dismissAll }) {
+function Header({ profile, googleUser, todayAppts, urgentCount }) {
   const name = resolveDisplayName(profile, googleUser);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const btnRef = useState(null);
-  const [btnRect, setBtnRect] = useState(null);
 
   const subtitle = todayAppts.length > 0
     ? `${todayAppts.length} cita${todayAppts.length>1?"s":""} hoy${urgentCount>0 ? ` · ${urgentCount} alerta${urgentCount>1?"s":""}` : " · Todo en orden"}`
     : getDailyPhrase();
 
-  const fullName = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "U";
-  const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
-
-  const menuItems = [
-    { label: "Perfil",      icon: "👤", tab: "profile"    },
-    { label: "Servicios",   icon: "🛎️", tab: "services"   },
-    { label: "Ajustes",     icon: "⚙️", tab: "appearance" },
-    { label: "Suscripción", icon: "💳", tab: "suscripcion" },
-    { label: "Soporte",     icon: "💬", tab: "help"       },
-  ];
-
-  const avatarUrl = profile?.avatarUrl || googleUser?.user_metadata?.avatar_url || null;
-
-  const handleToggle = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setBtnRect(rect);
-    setMenuOpen(v => !v);
-  };
-
-  const goToTab = (tab) => {
-    onNavigate?.("settings", tab);
-    setMenuOpen(false);
-  };
-
   return (
     <div className="d-header">
-      {/* Círculo de usuario — izquierda, alineado con el texto */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-        <button
-          onClick={handleToggle}
-          style={{
-            width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-            background: avatarUrl ? "transparent" : "linear-gradient(135deg, #4AADA0 0%, #2E8A7D 100%)",
-            border: "none", cursor: "pointer", padding: 0, overflow: "hidden",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "'Lora', serif", fontSize: 13, fontWeight: 600, color: "#fff",
-            boxShadow: "0 2px 8px rgba(74,173,160,0.35)",
-          }}
-        >
-          {avatarUrl
-            ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : initials
-          }
-        </button>
-        <div style={{ flex: 1 }}>
-          <div className="d-date">{todayFormatted()}</div>
-          <div className="d-greet">
-            {greeting()},&nbsp;<em>{name}</em>
-          </div>
-          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"var(--d-muted)", marginTop:6, fontStyle: todayAppts.length===0 ? "italic" : "normal" }}>
-            {subtitle}
-          </div>
+      {/* Saludo — sin avatar (el avatar vive en el topbar) */}
+      <div style={{ marginBottom: 14 }}>
+        <div className="d-date">{todayFormatted()}</div>
+        <div className="d-greet">
+          {greeting()},&nbsp;<em>{name}</em>
         </div>
-
+        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:"var(--d-muted)", marginTop:6, fontStyle: todayAppts.length===0 ? "italic" : "normal" }}>
+          {subtitle}
+        </div>
       </div>
 
-      {/* Dropdown — position: fixed para escapar de overflow:hidden */}
-      {menuOpen && btnRect && (
-        <>
-          <div
-            onClick={() => setMenuOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 900 }}
-          />
-          <div style={{
-            position: "fixed",
-            top: btnRect.bottom + 8,
-            right: window.innerWidth - btnRect.right,
-            zIndex: 901,
-            background: "#fff",
-            borderRadius: 14,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.16)",
-            border: "1px solid rgba(0,0,0,0.07)",
-            minWidth: 210,
-            overflow: "hidden",
-            animation: "fadeUp .18s ease both",
-          }}>
-            <div style={{
-              padding: "14px 16px 10px",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 12,
-              color: "var(--d-muted)", borderBottom: "1px solid rgba(0,0,0,0.06)",
-            }}>
-              {fullName}
-            </div>
-            {menuItems.map(item => (
-              <MenuRow key={item.label} icon={item.icon} label={item.label} onClick={() => goToTab(item.tab)} />
-            ))}
-            <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-              <MenuRow
-                icon="🚪"
-                label="Cerrar Sesión"
-                onClick={() => { setMenuOpen(false); onSignOut?.(); }}
-                danger
-              />
-            </div>
-          </div>
-        </>
-      )}
 
     </div>
   );
@@ -941,11 +854,6 @@ export default function Dashboard({
         googleUser={googleUser}
         todayAppts={todayAppts}
         urgentCount={urgentCount}
-        onNavigate={onNavigate}
-        onSignOut={onSignOut}
-        notifications={notifications}
-        dismiss={dismiss}
-        dismissAll={dismissAll}
       />
 
       {/* AGENDA — primer lugar */}
