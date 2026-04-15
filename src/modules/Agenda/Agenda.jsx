@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { T, MONTHS_ES, DAYS_ES } from "../../theme.js";
 import { fmt, fmtDate } from "../../utils.js";
-import { Card, Input, Select, Btn, Badge, PageHeader } from "../../components/ui/index.jsx";
+import { Card, Input, Select, Btn, Badge } from "../../components/ui/index.jsx";
 import { PageView } from "../../components/PageView.jsx";
 import DynamicSummary from "../../components/DynamicSummary.jsx";
 
@@ -684,9 +684,10 @@ export default function Agenda({
     profile, autoOpen, services, onNavigate, onStartSession,
   });
 
-  // ── ViewToggle ──────────────────────────────────────────────────────────
-  const ViewToggle = () => (
-    <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+  // ── TopBar ──────────────────────────────────────────────────────────────
+  const TopBar = () => (
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+      {/* Selector de vista */}
       <div style={{ display:"flex", background:T.bdrL, borderRadius:10, padding:3, gap:2 }}>
         {[
           { id:"month",  icon:LayoutGrid,   tip:"Mes"    },
@@ -707,16 +708,21 @@ export default function Agenda({
           </button>
         ))}
       </div>
+
       {onPrimerContacto && (
         <Btn variant="ghost" onClick={onPrimerContacto} title="Nuevo paciente con pre-cita">
           <Plus size={14}/> {!ag.isMobile && "Nuevo paciente"}
         </Btn>
       )}
+
+      {/* Botón Nueva cita */}
       <Btn onClick={() => ag.setShowAdd(true)}>
         <Plus size={14}/> Nueva cita
       </Btn>
+
+      {/* Engranaje — empujado al extremo derecho, misma altura */}
       <PrimaryHoverBtn
-        onClick={() => onNavigate && onNavigate("services")}
+        onClick={() => onNavigate && onNavigate("settings", null, "services")}
         title="Ajustes de servicios"
         style={{
           marginLeft:"auto",
@@ -734,10 +740,7 @@ export default function Agenda({
   return (
     <div style={{ maxWidth: ag.isWide ? "none" : 960, paddingBottom:40 }}>
 
-      <PageHeader
-        action={<ViewToggle/>}
-        isMobile={ag.isMobile}
-      />
+      <TopBar/>
 
       <StatStrip
         appointments={appointments}
