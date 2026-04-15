@@ -616,7 +616,7 @@ export default function App() {
 
         {/* ── TOPBAR ─────────────────────────────────────────────────────── */}
         <header style={{
-          height: isMobile ? 52 : 58,
+          height: isMobile ? 62 : 58,
           background: "#ffffff",
           borderBottom: "1px solid rgba(0,0,0,0.07)",
           display: "flex",
