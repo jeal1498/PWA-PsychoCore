@@ -282,7 +282,13 @@ function Header({ profile, googleUser, todayAppts, urgentCount, onNavigate, onSi
   const fullName = profile?.name || googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "U";
   const initials = fullName.split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "U";
 
-  const menuItems = [];
+  const menuItems = [
+    { label: "Perfil",      icon: "👤", tab: "profile"    },
+    { label: "Servicios",   icon: "🛎️", tab: "services"   },
+    { label: "Ajustes",     icon: "⚙️", tab: "appearance" },
+    { label: "Suscripción", icon: "💳", tab: "suscripcion" },
+    { label: "Soporte",     icon: "💬", tab: "help"       },
+  ];
 
   const avatarUrl = profile?.avatarUrl || googleUser?.user_metadata?.avatar_url || null;
 
