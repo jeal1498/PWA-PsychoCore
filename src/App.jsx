@@ -65,6 +65,14 @@ function formatShortDate() {
 import { NAV_GROUPS } from "./components/Sidebar.jsx";
 const BOTTOM_NAV_IDS = ["dashboard", "agenda", "sessions", "patients"];
 
+const PROFILE_MENU_ITEMS = [
+  { label: "Perfil",      icon: "👤", tab: "profile"     },
+  { label: "Servicios",   icon: "🛎️", tab: "services"    },
+  { label: "Ajustes",     icon: "⚙️", tab: "appearance"  },
+  { label: "Suscripción", icon: "💳", tab: "suscripcion" },
+  { label: "Soporte",     icon: "💬", tab: "help"        },
+];
+
 function MoreDrawer({ active, onNav, onClose, profile, googleUser, onSignOut, riskAlert }) {
   const googleName  = googleUser?.user_metadata?.full_name || googleUser?.user_metadata?.name || "";
   const displayName = profile?.name || googleName || "Psicólogo/a";
@@ -155,6 +163,30 @@ function MoreDrawer({ active, onNav, onClose, profile, googleUser, onSignOut, ri
   );
 }
 
+// ── Fila de menú del topbar avatar ───────────────────────────────────────────
+function TopbarMenuRow({ icon, label, onClick, danger }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        width: "100%", padding: "11px 16px",
+        background: hov ? (danger ? "#FFF5F5" : "rgba(0,0,0,0.03)") : "transparent",
+        border: "none", cursor: "pointer", textAlign: "left",
+        fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+        color: danger ? "#C0392B" : "#1E3535",
+        transition: "background .12s",
+      }}
+    >
+      <span style={{ fontSize: 15 }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
 export default function App() {
   // ── Estado de contexto ───────────────────────────────────────────────────
   const {
@@ -190,7 +222,8 @@ export default function App() {
   // pero lo mantenemos por si algún módulo hijo lo referencia.
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
-  const [profilePopOpen, setProfilePopOpen] = useState(false);  // popup avatar topbar móvil
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false); // dropdown avatar topbar móvil
+  const [profileBtnRect,  setProfileBtnRect]  = useState(null);
   const [sessionPrefill,setSessionPrefill]= useState(null);
   const [openAction,    setOpenAction]    = useState(null);
 
@@ -570,15 +603,20 @@ export default function App() {
           color: "#1E3535",
         }}>
 
-          {/* Móvil: avatar de perfil (izquierda) con mini-popup */}
+          {/* Móvil: avatar de perfil con dropdown completo */}
           {isMobile && (() => {
             const fullName  = profile?.name || user?.user_metadata?.full_name || user?.user_metadata?.name || "Usuario";
             const initials  = fullName.split(" ").slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "U";
             const avatarUrl = profile?.avatarUrl || user?.user_metadata?.avatar_url || null;
+            const handleToggle = (e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setProfileBtnRect(rect);
+              setProfileMenuOpen(v => !v);
+            };
             return (
               <>
                 <button
-                  onClick={() => setProfilePopOpen(v => !v)}
+                  onClick={handleToggle}
                   style={{
                     width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
                     background: avatarUrl ? "transparent" : `linear-gradient(135deg, ${NAV_ACCENT} 0%, #2E8A7D 100%)`,
@@ -594,32 +632,38 @@ export default function App() {
                     : initials
                   }
                 </button>
-                {profilePopOpen && (
+                {profileMenuOpen && profileBtnRect && (
                   <>
-                    <div onClick={() => setProfilePopOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1099 }} />
+                    <div onClick={() => setProfileMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1099 }} />
                     <div style={{
-                      position: "fixed", top: 58, left: 14, zIndex: 1100,
-                      background: "#fff", borderRadius: 14,
+                      position: "fixed",
+                      top: profileBtnRect.bottom + 8,
+                      left: profileBtnRect.left,
+                      zIndex: 1100,
+                      background: "#fff",
+                      borderRadius: 14,
                       boxShadow: "0 8px 32px rgba(0,0,0,0.16)",
                       border: "1px solid rgba(0,0,0,0.07)",
-                      minWidth: 200, overflow: "hidden",
+                      minWidth: 210,
+                      overflow: "hidden",
+                      animation: "topbarMenuFadeUp .18s ease both",
                     }}>
-                      <div style={{ padding: "12px 16px 8px", fontFamily: T.fB, fontSize: 12, color: T.tl, borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: T.t }}>{fullName}</div>
-                        {profile?.specialty && <div style={{ marginTop: 2 }}>{profile.specialty}</div>}
+                      <div style={{ padding: "14px 16px 10px", fontFamily: T.fB, fontSize: 12, color: T.tl, borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                        {fullName}
                       </div>
-                      <button
-                        onClick={() => { setProfilePopOpen(false); handleLock(); }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 10,
-                          width: "100%", padding: "11px 16px",
-                          background: "transparent", border: "none", cursor: "pointer",
-                          fontFamily: T.fB, fontSize: 13, color: "#C0392B", textAlign: "left",
-                        }}
-                      >
-                        🚪 Cerrar sesión
-                      </button>
+                      {PROFILE_MENU_ITEMS.map(item => (
+                        <TopbarMenuRow
+                          key={item.label}
+                          icon={item.icon}
+                          label={item.label}
+                          onClick={() => { setProfileMenuOpen(false); quickNav("settings", null, item.tab); }}
+                        />
+                      ))}
+                      <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                        <TopbarMenuRow icon="🚪" label="Cerrar Sesión" onClick={() => { setProfileMenuOpen(false); handleLock(); }} danger />
+                      </div>
                     </div>
+                    <style>{`@keyframes topbarMenuFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
                   </>
                 )}
               </>
