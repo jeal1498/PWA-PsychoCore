@@ -487,7 +487,7 @@ export default function App() {
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
       case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
       case "settings":    return (
-        <Settings profile={profile} setProfile={setProfile}
+        <Settings key={settingsTab} profile={profile} setProfile={setProfile}
           darkMode={darkPref} setDarkMode={setDarkPref}
           setPatients={setPatients} patients={patients}
           googleUser={user}
