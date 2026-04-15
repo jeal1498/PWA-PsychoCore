@@ -470,7 +470,7 @@ export default function App() {
       case "dashboard":   return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
       case "patients":    return <Patients  {...mp} key={openAction?.module==="patients" ? openAction.ts : "p"} autoOpen={openAction?.module==="patients" ? openAction.action : null} onQuickNav={patientsNavRef} profile={profile}/>;
       case "agenda":      return <Agenda    {...mp} key={openAction?.module==="agenda"   ? openAction.ts : "a"} autoOpen={openAction?.module==="agenda"   ? openAction.action : null} profile={profile} onStartSession={handleStartSession} onPrimerContacto={() => quickNav("patients", "add")} onNavigate={(module, data, tab) => {
-                                  navTo(module);
+                                  quickNav(module, null, tab);
                               }}/>;
       case "sessions":    return <Sessions  {...mp} key={JSON.stringify(sessionPrefill)} profile={profile} prefill={sessionPrefill} onNavigate={navTo}/>;
       case "finance":     return <Finance
