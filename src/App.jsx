@@ -27,6 +27,7 @@ const Patients      = lazy(() => import("./modules/Patients/Patients.jsx"));
 const Agenda        = lazy(() => import("./modules/Agenda/Agenda.jsx"));
 const Sessions      = lazy(() => import("./modules/Sessions/Sessions.jsx"));
 const Finance       = lazy(() => import("./modules/Finance/Finance.jsx"));
+const Settings      = lazy(() => import("./modules/Settings/Settings.jsx"));
 const Stats         = lazy(() => import("./modules/Stats/Stats.jsx"));
 const RiskAssessment= lazy(() => import("./modules/RiskAssessment/RiskAssessment.jsx"));
 const Scales        = lazy(() => import("./modules/Scales/Scales.jsx"));
@@ -222,6 +223,7 @@ export default function App() {
   // pero lo mantenemos por si algún módulo hijo lo referencia.
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [moreOpen,      setMoreOpen]      = useState(false);   // drawer "Más" en móvil
+  const [settingsTab,     setSettingsTab]     = useState("__index__");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false); // dropdown avatar topbar móvil
   const [profileBtnRect,  setProfileBtnRect]  = useState(null);
   const [sessionPrefill,setSessionPrefill]= useState(null);
@@ -381,6 +383,7 @@ export default function App() {
   const quickNav = (mod, action, tab, payload) => {
     setActiveModule(mod);
     setOpenAction({ module: mod, action, ts: Date.now(), payload: payload || null });
+    if (mod === "settings" && tab) setSettingsTab(tab);
     if (mod !== "sessions") setSessionPrefill(null);
     if (payload) syncActivePatientContext(payload);
     setMoreOpen(false);
@@ -483,6 +486,30 @@ export default function App() {
       case "scales":      return <Scales    scaleResults={scaleResults} setScaleResults={setScaleResults} patients={patients} profile={profile}/>;
       case "treatment":   return <TreatmentPlan treatmentPlans={treatmentPlans} setTreatmentPlans={setTreatmentPlans} patients={patients} sessions={sessions} profile={profile} scaleResults={scaleResults} setAppointments={setAppointments}/>;
       case "reports":     return <Reports patients={patients} sessions={sessions} scaleResults={scaleResults} treatmentPlans={treatmentPlans} riskAssessments={riskAssessments} profile={profile}/>;
+      case "settings":    return (
+        <Settings profile={profile} setProfile={setProfile}
+          darkMode={darkPref} setDarkMode={setDarkPref}
+          setPatients={setPatients} patients={patients}
+          googleUser={user}
+          psychologist={psychologist}
+          allData={allData}
+          services={services} setServices={setServices}
+          initialTab={settingsTab}
+          onRestore={(data) => {
+            if (data.patients)        setPatients(data.patients);
+            if (data.appointments)    setAppointments(data.appointments);
+            if (data.sessions)        setSessions(data.sessions);
+            if (data.payments)        setPayments(data.payments);
+            if (data.profile)         setProfile(data.profile);
+            if (data.riskAssessments) setRiskAssessments(data.riskAssessments);
+            if (data.scaleResults)    setScaleResults(data.scaleResults);
+            if (data.treatmentPlans)  setTreatmentPlans(data.treatmentPlans);
+            if (data.interSessions)   setInterSessions(data.interSessions);
+            if (data.medications)     setMedications(data.medications);
+            if (data.services)        setServices(data.services);
+          }}
+        />
+      );
       default: return <Dashboard {...mp} profile={profile} googleUser={user} onNavigate={(mod, tab) => quickNav(mod, null, tab)} onQuickNav={quickNav} onStartSession={handleStartSession} onNewSession={handleNewSession} onSignOut={handleLock} notifications={notifications} dismiss={dismiss} dismissAll={dismissAll}/>;
     }
   };
